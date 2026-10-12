@@ -5,6 +5,7 @@ Windows용 영어/한국어(두벌식) 자동 판별 입력기.
 ```
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
 dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
+fltpssm ghkdlxld                    →  리센느 화이팅
 ```
 ## 설치
 
@@ -13,7 +14,14 @@ dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 .\scripts\install.ps1 -Uninstall # 제거 (설정은 %APPDATA%\Typescript 에 남는다)
 ```
 
-설치 후 **Win+Space** 로 `Typescript (영어/한국어 자동)` 을 고른다. 이미 떠 있는 앱은 다시 열어야 새 입력기를 읽는다.
+설치 후 **Win+Space** 로 입력기를 고른다. 두 가지가 있다.
+
+| 입력기 | 하는 일 |
+| --- | --- |
+| `Typescript (자동완성)` | 영어/한국어 자동 판별 + Tab 자동완성 + 쓴 단어 학습 |
+| `Typescript` | 자동 판별만 (자동완성도, 단어 기록도 없다) |
+
+이미 떠 있는 앱은 다시 열어야 새 입력기를 읽는다. 아이콘은 `assets/icon.png` 를 바꾸고 `.\scripts\make-icon.ps1` 후 다시 설치하면 된다.
 
 ## 쓰는 법
 
@@ -26,7 +34,7 @@ dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 | Shift+Esc | 어느 앱에서나 읽기를 순환 |
 | 확정 직후 Esc | 방금 확정한 단어를 다음 읽기로 바꾼다. 같은 교정을 두 번 하면 학습한다 |
 | Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위 |
-| Tab | 쓰는 중인 단어를 자주 쓴 단어로 완성한다 (내가 친 단어 우선, 없으면 내장 사전). 완성될 단어는 단어 아래 작은 창에 `안녕하세요   Tab`처럼 미리 보인다. 완성할 게 없으면 단어만 확정하고 Tab은 앱으로 간다 |
+| Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성한다. 내가 친 단어가 먼저고, 없으면 내장 사전이다. 완성될 단어는 단어 아래의 작은 알약 모양 창에 `안녕하세요  Tab`으로 미리 보인다 (앱 테마에 맞춰 라이트/다크). 완성할 게 없으면 단어만 확정하고 Tab은 앱으로 간다 |
 | **한/영 키** | 이 텍스트 필드에서 Typescript를 끄고 켠다 (다른 칸으로 가면 다시 켜진다) |
 
 ## 설정 (`%APPDATA%\Typescript\`)
@@ -37,8 +45,10 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 ```json
 { "returnConfirmsOnly": true, "pauseKey": "hangul", "autocomplete": true }
 ```
-`autocomplete`: Tab 자동완성과 단어 기록(`user_history.json`, 2번 이상 친 단어만 제안). `false`면 둘 다 끈다.
+`autocomplete`: `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다.
 `pauseKey`: `"hangul"`(한/영 키) 또는 `"off"`.
+
+**단어 학습** — 자동완성 입력기에서 확정한 영어/한글 단어를 `user_history.json` 에 센다. **2번 이상 친 단어만** 제안한다 (한 번 친 비밀번호·오타는 나오지 않는다). 10단어마다, 그리고 입력칸을 옮길 때 파일에 쓰고 다시 읽으므로 다른 앱에서 배운 단어도 곧 제안된다. 숫자나 영한 섞인 토큰, 1글자는 기록하지 않는다.
 
 `apps.json` — 키는 **exe 파일 이름**(대소문자 무시). `"*"` 는 기본값이고, 앱 항목에는 다른 키만 적는다.
 ```json
@@ -52,6 +62,11 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 
 `lexicon.json` — 교정으로 배운 단어 (직접 고쳐도 된다).
 
+## 앱 호환
+
+- 앱이 키를 칠 때마다 조합(밑줄)을 끝내 버리는 경우(카카오톡 등)에도 단어가 이어진다. 그런 앱에서는 밑줄 없이 화면의 글자를 키마다 제자리에서 바꿔 쓴다.
+- 문제를 볼 때는 `%APPDATA%\Typescript\debug.on` 파일을 만들면 같은 폴더의 `debug.log` 에 이벤트 이름(포커스 이동, 조합 종료, 편집 거부)만 남는다. 친 글자는 기록하지 않는다. 확인이 끝나면 파일을 지운다.
+
 ## 개발
 
 ```powershell
@@ -62,3 +77,10 @@ cargo clippy --all-targets -- -D warnings
 ```
 
 `crates/core` 는 OS 의존성이 없다 (판별 엔진, 세션 상태 머신). `crates/tip` 가 TSF COM DLL이다. 모델 테이블은 `build.rs` 가 빌드 때 구워서 DLL에 넣는다 (앱마다 로드되므로 실행 시 계산하지 않는다).
+
+## 알려진 한계
+
+- TSF 동작은 앱마다 다르다. 확정 직후 Esc(되돌리기)는 캐럿 뒤 텍스트를 읽을 수 있는 앱에서만 되고, 읽지 못하면 Esc는 앱에 전달된다.
+- 한/영 키가 없는 키보드에서는 일시정지 키가 없다. 일시정지 상태를 보여 주는 표시도 아직 없다.
+- 자동완성 제안은 단어 아래 창으로만 보인다 (글자 안에 회색으로 붙이는 방식은 아님).
+- 데이터 라이선스는 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (`korean_vocabulary.txt` 는 CC BY-SA 4.0).
