@@ -3,12 +3,12 @@
 //! everything here ends up as read-only data inside the DLL, shared between processes.
 //!
 //! Outputs (OUT_DIR):
-//!   english_levels.txt      "word<TAB>level" lines, sorted, apostrophes stripped, filtered,
+//!   english_levels.txt      "word<TAB>level<TAB>frequency" lines, sorted, apostrophes stripped, filtered,
 //!                           COMMON_WORDS merged (what EnglishModel::new did at runtime)
 //!   trigrams.bin            27^3 trigram counts then 27^2 context counts, f32 little endian,
 //!                           trained on web2 + COMMON_WORDS
 //!   korean_words_sorted.txt "word<TAB>count" from korean_words.txt, sorted unique
-//!   korean_vocab_sorted.txt korean_vocabulary.txt, sorted unique
+//!   korean_vocab_sorted.txt "word<TAB>rank" from korean_vocabulary.txt, sorted unique
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -81,7 +81,19 @@ fn main() {
             *e = (*e).min(level);
         }
     }
-    let text: String = levels.iter().map(|(w, l)| format!("{w}\t{l}\n")).collect();
+    // Third column: how often the word is said (FrequencyWords subtitles, 0 = not in it); it
+    // orders autocomplete suggestions.
+    let mut frequency: BTreeMap<String, u64> = BTreeMap::new();
+    for line in read("english_frequency.txt").lines() {
+        let mut it = line.split_whitespace();
+        if let (Some(w), Some(n)) = (it.next(), it.next().and_then(|n| n.parse::<u64>().ok())) {
+            let w: String = w.chars().filter(|c| *c != '\'').collect();
+            let e = frequency.entry(w).or_default();
+            *e = (*e).max(n);
+        }
+    }
+    let text: String =
+        levels.iter().map(|(w, l)| format!("{w}\t{l}\t{}\n", frequency.get(w).copied().unwrap_or(0))).collect();
     fs::write(out.join("english_levels.txt"), text).unwrap();
 
     // Letter trigrams, trained on Webster's 2nd (public domain) plus the extra words.
@@ -116,7 +128,11 @@ fn main() {
     }
     let sorted: String = words.iter().map(|(w, n)| format!("{w}\t{n}\n")).collect();
     fs::write(out.join("korean_words_sorted.txt"), sorted).unwrap();
-    let vocab: BTreeSet<String> =
-        read("korean_vocabulary.txt").lines().map(str::trim).filter(|w| !w.is_empty()).map(String::from).collect();
-    fs::write(out.join("korean_vocab_sorted.txt"), vocab.iter().map(|w| format!("{w}\n")).collect::<String>()).unwrap();
+    // "word<TAB>rank": the file is in order of how often the words are said, 1 = most.
+    let mut vocab: BTreeMap<String, usize> = BTreeMap::new();
+    for (i, word) in read("korean_vocabulary.txt").lines().map(str::trim).filter(|w| !w.is_empty()).enumerate() {
+        vocab.entry(word.to_string()).or_insert(i + 1);
+    }
+    let ranked: String = vocab.iter().map(|(w, r)| format!("{w}\t{r}\n")).collect();
+    fs::write(out.join("korean_vocab_sorted.txt"), ranked).unwrap();
 }

@@ -7,11 +7,12 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
    https://github.com/aimdevlee/seamtype
    The MIT notice is reproduced at the top of LICENSE.
 
-2. Korean vocabulary list (korean_vocabulary.txt)
+2. Korean vocabulary list (korean_vocabulary.txt) and English word frequencies
+   (english_frequency.txt, the 50k list)
    Derived from hermitdave/FrequencyWords, CC BY-SA 4.0.
    https://github.com/hermitdave/FrequencyWords
    License: https://creativecommons.org/licenses/by-sa/4.0/
-   This file is NOT covered by the MIT license of this project; it stays under CC BY-SA 4.0
+   These files are NOT covered by the MIT license of this project; they stay under CC BY-SA 4.0
    (a modified copy must be shared under the same license).
 
 3. Korean sentence-derived syllable and word frequencies (korean_syllables.txt, korean_words.txt)

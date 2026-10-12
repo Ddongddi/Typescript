@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::Language;
 use crate::english::EnglishModel;
-use crate::korean::KoreanModel;
+use crate::korean::{continues, KoreanModel};
 use crate::support_dir;
 
 /// A word has to be typed this often before it is suggested: a one-off (a password typed
@@ -113,12 +113,13 @@ impl History {
     pub fn suggest(&self, prefix: &str) -> Option<String> {
         let s = self.lock();
         let own = s.store.words.get(prefix).copied().unwrap_or(0);
+        let head = &prefix[..prefix.len() - prefix.chars().next_back()?.len_utf8()];
         let (word, count) = s
             .store
             .words
-            .range(prefix.to_string()..)
-            .take_while(|(w, _)| w.starts_with(prefix))
-            .filter(|(w, _)| w.as_str() != prefix)
+            .range(head.to_string()..)
+            .take_while(|(w, _)| w.starts_with(head))
+            .filter(|(w, _)| w.as_str() != prefix && continues(prefix, w))
             .max_by_key(|(w, n)| (**n, std::cmp::Reverse(w.len())))?;
         (*count >= MIN_COUNT && *count > own).then(|| word.clone())
     }
@@ -154,6 +155,18 @@ mod tests {
         h.record("zebrafish");
         h.record("zebrastripe");
         assert_eq!(h.suggest("zebra").as_deref(), Some("zebrafish"));
+    }
+
+    #[test]
+    fn completes_a_syllable_that_is_still_being_typed() {
+        let h = History::new(None);
+        for _ in 0..2 {
+            h.record("안녕하세요");
+        }
+        for half in ["안녀", "안녕하", "안녕ㅎ", "안녕"] {
+            assert_eq!(h.suggest(half).as_deref(), Some("안녕하세요"), "{half}");
+        }
+        assert_eq!(h.suggest("안누"), None);
     }
 
     #[test]

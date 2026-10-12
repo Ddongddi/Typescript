@@ -1,5 +1,5 @@
 //! Character-trigram language model plus a word list with how common each word is, from
-//! SCOWL (word<TAB>level, 10 = most common … 60). Port of EnglishModel.swift.
+//! SCOWL (word<TAB>level<TAB>frequency, level 10 = most common … 60). Port of EnglishModel.swift.
 //!
 //! The original trains the letter trigrams on macOS's /usr/share/dict/words at runtime and
 //! builds its word map from the list. Here build.rs does both (trained on Webster's 2nd, public
@@ -114,19 +114,19 @@ impl EnglishModel {
         best
     }
 
-    /// The most common word that continues `prefix` (autocomplete); None under three letters or
-    /// when `prefix` is already an everyday word.
+    /// The word most often said that continues `prefix` (autocomplete); None under three
+    /// letters or when `prefix` is already an everyday word.
     pub fn complete(&self, prefix: &str) -> Option<String> {
         let prefix = prefix.to_lowercase();
         if prefix.chars().count() < 3 || self.is_common_word(&prefix) {
             return None;
         }
-        let level = |line: &str| line.split('\t').nth(1).and_then(|l| l.parse::<i32>().ok()).unwrap_or(i32::MAX);
+        let column = |line: &str, i: usize| line.split('\t').nth(i).and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
         let best = self
             .levels
             .with_prefix(&prefix)
-            .filter(|l| level(l) <= EXTRA_LEVEL && l.split('\t').next() != Some(prefix.as_str()))
-            .min_by_key(|l| (level(l), l.len()))?;
+            .filter(|l| column(l, 1) <= EXTRA_LEVEL as u64 && l.split('\t').next() != Some(prefix.as_str()))
+            .max_by_key(|l| (column(l, 2), std::cmp::Reverse(column(l, 1)), std::cmp::Reverse(l.len())))?;
         best.split('\t').next().map(String::from)
     }
 

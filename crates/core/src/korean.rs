@@ -48,6 +48,35 @@ pub struct KoreanModel {
     tiers: HashMap<char, f64>,
 }
 
+/// The initial consonants in syllable order, as the lone jamo a half-typed syllable shows.
+const INITIALS: &str = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+
+/// (initial, vowel, final) indices of a precomposed syllable.
+fn parts(c: char) -> Option<(usize, usize, usize)> {
+    let i = (c as usize).checked_sub('가' as usize).filter(|i| *i < 11172)?;
+    Some((i / 588, i % 588 / 28, i % 28))
+}
+
+/// Whether `full` can be what the half-typed `partial` is becoming: the same syllable, a
+/// syllable with the final consonant still to come (하 → 한), or a lone consonant (ㅎ → 하).
+fn fits(partial: char, full: char) -> bool {
+    if partial == full {
+        return true;
+    }
+    let Some(f) = parts(full) else { return false };
+    match parts(partial) {
+        Some(p) => p.0 == f.0 && p.1 == f.1 && (p.2 == 0 || p.2 == f.2),
+        None => INITIALS.chars().position(|c| c == partial) == Some(f.0),
+    }
+}
+
+/// Whether `word` continues `prefix`, whose last character may be half-typed Hangul.
+pub fn continues(prefix: &str, word: &str) -> bool {
+    let Some(last) = prefix.chars().next_back() else { return true };
+    let head = &prefix[..prefix.len() - last.len_utf8()];
+    word.strip_prefix(head).and_then(|rest| rest.chars().next()).is_some_and(|c| fits(last, c))
+}
+
 fn is_hangul_syllable(c: char) -> bool {
     ('가'..='힣').contains(&c)
 }
@@ -100,16 +129,23 @@ impl KoreanModel {
         WORDS.contains(hangul) || VOCABULARY.contains(hangul)
     }
 
-    /// The most frequent seen word that continues `prefix` (autocomplete); None under two
-    /// syllables, or when `prefix` is itself at least as frequent as anything longer.
+    /// The most commonly said word that continues `prefix` (autocomplete), where the syllable
+    /// being typed may still be unfinished (안녀 → 안녕하세요); None under two syllables.
     pub fn complete(&self, prefix: &str) -> Option<String> {
         if prefix.chars().count() < 2 {
             return None;
         }
-        let count = |line: &str| line.split('\t').nth(1).and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
-        let own = WORDS.get(prefix).map_or(0, count);
-        let best = WORDS.with_prefix(prefix).filter(|l| !l.starts_with(&format!("{prefix}\t"))).max_by_key(|l| count(l))?;
-        (count(best) > own).then(|| best.split('\t').next().unwrap_or(best).to_string())
+        let head = &prefix[..prefix.len() - prefix.chars().next_back()?.len_utf8()];
+        let column = |line: &str| line.split('\t').nth(1).and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
+        let word = |line: &'static str| line.split('\t').next().unwrap_or(line);
+        let candidates = |list: &'static SortedLines| {
+            list.with_prefix(head).filter(move |l| word(l) != prefix && continues(prefix, word(l)))
+        };
+        // Spoken-language ranking first (1 = most said), then the Tatoeba counts.
+        if let Some(best) = candidates(&VOCABULARY).min_by_key(|l| column(l)) {
+            return Some(word(best).to_string());
+        }
+        candidates(&WORDS).max_by_key(|l| column(l)).map(|l| word(l).to_string())
     }
 
     pub fn syllable_log_probability(&self, syllable: char) -> f64 {
