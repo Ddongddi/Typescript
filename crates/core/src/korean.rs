@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::hangul::{is_consonant, Composed, HangulComposer, Unit};
+use crate::mixed::is_suffix;
 use crate::sorted::SortedLines;
 use crate::syllables::{TIER1, TIER2, TIER3};
 
@@ -124,6 +125,18 @@ impl KoreanModel {
         WORDS.contains(hangul)
     }
 
+    /// A known word, or a vocabulary word (two syllables or more) with a particle/ending
+    /// straight after it (서버를, 월드에서).
+    pub fn is_known_word_or_inflected(&self, hangul: &str) -> bool {
+        if self.is_known_word(hangul) {
+            return true;
+        }
+        hangul.char_indices().skip(2).any(|(cut, _)| {
+            let (head, tail) = hangul.split_at(cut);
+            is_suffix(tail) && self.is_vocabulary_word(head)
+        })
+    }
+
     /// A word in the wider vocabulary (loanwords like 월드, 서버), for English + Korean splits.
     pub fn is_vocabulary_word(&self, hangul: &str) -> bool {
         WORDS.contains(hangul) || VOCABULARY.contains(hangul)
@@ -181,5 +194,18 @@ impl KoreanModel {
             };
         }
         Some(KoreanScore { average_log_probability: total / keys.chars().count() as f64, composition })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vocabulary_word_with_particle_counts_as_known() {
+        let m = KoreanModel::default();
+        assert!(m.is_known_word_or_inflected("서버를"));
+        assert!(!m.is_known_word_or_inflected("서버를를를"));
+        assert!(!m.is_known_word_or_inflected("솓솓"));
     }
 }

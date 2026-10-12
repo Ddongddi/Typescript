@@ -185,14 +185,7 @@ impl SplittingEngine {
     }
 
     fn is_korean_word_or_word_with_particle(&self, hangul: &str) -> bool {
-        if self.korean.is_vocabulary_word(hangul) {
-            return true;
-        }
-        let chars: Vec<char> = hangul.chars().collect();
-        (2..chars.len()).any(|cut| {
-            let (head, tail): (String, String) = (chars[..cut].iter().collect(), chars[cut..].iter().collect());
-            self.korean.is_vocabulary_word(&head) && SUFFIX_SET.contains(tail.as_str())
-        })
+        self.korean.is_known_word_or_inflected(hangul)
     }
 
     /// An English word with a whole Korean word typed straight after it, no space:

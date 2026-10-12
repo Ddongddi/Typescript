@@ -200,7 +200,7 @@ impl DecisionEngine for HeuristicEngine {
         let mut k = self.korean.score(keys, context.partial);
         let known_korean = k
             .as_ref()
-            .is_some_and(|s| s.composition.stray_jamo().is_empty() && self.korean.is_known_word(&s.composition.text()));
+            .is_some_and(|s| s.composition.stray_jamo().is_empty() && self.korean.is_known_word_or_inflected(&s.composition.text()));
         if let (Some(score), true) = (k.as_mut(), known_korean) {
             let floor = if score.composition.syllables().len() >= 2 {
                 self.korean_known_floor_long
