@@ -38,6 +38,16 @@ impl ITfEditSession_Impl for EditSession_Impl {
     }
 }
 
+/// Text the app took out of our composition. Some apps (KakaoTalk, for one) end a composition
+/// right after every edit; the word then goes on as plain text that each key replaces in place
+/// (no underline), instead of every key starting a new word.
+#[derive(Clone)]
+pub struct Orphan {
+    pub start: usize,
+    pub len: usize,
+    pub text: String,
+}
+
 pub struct TsfClient<'a> {
     pub ec: u32,
     pub context: &'a ITfContext,
@@ -127,15 +137,21 @@ impl TsfClient<'_> {
     fn set_marked(&self, text: &str) -> Result<()> {
         let chars = utf16(text);
         let mut slot = self.inner.composition.borrow_mut();
+        let orphan = self.inner.orphan.borrow().clone();
         if chars.is_empty() {
             if let Some(composition) = slot.take() {
                 let range = unsafe { composition.GetRange()? };
                 unsafe { range.SetText(self.ec, 0, &[])? };
                 unsafe { composition.EndComposition(self.ec)? };
+            } else if let Some(o) = orphan {
+                return self.replace_orphan(&o, "");
             }
             return Ok(());
         }
         if slot.is_none() {
+            if let Some(o) = orphan {
+                return self.replace_orphan(&o, text);
+            }
             let insert: ITfInsertAtSelection = self.context.cast()?;
             let at = unsafe { insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[])? };
             let composing: ITfContextComposition = self.context.cast()?;
@@ -167,9 +183,39 @@ impl TsfClient<'_> {
             unsafe { composition.EndComposition(self.ec)? };
             return end;
         }
+        let orphan = self.inner.orphan.borrow_mut().take();
+        if let Some(o) = orphan {
+            let result = self.replace_orphan(&o, text);
+            *self.inner.orphan.borrow_mut() = None; // committed: nothing left to replace
+            return result;
+        }
         let insert: ITfInsertAtSelection = self.context.cast()?;
         let range = unsafe { insert.InsertTextAtSelection(self.ec, TF_IAS_NO_DEFAULT_COMPOSITION, &chars)? };
         self.select_end(&range)
+    }
+
+    /// Replaces the orphaned text with `text` and keeps it as the (new) orphan.
+    fn replace_orphan(&self, orphan: &Orphan, text: &str) -> Result<()> {
+        let chars = utf16(text);
+        let range = self.selection()?;
+        let acp: ITfRangeACP = range.cast()?;
+        unsafe { acp.SetExtent(orphan.start as i32, orphan.len as i32)? };
+        unsafe { range.SetText(self.ec, 0, &chars)? };
+        self.select_end(&range)?;
+        *self.inner.orphan.borrow_mut() =
+            (!chars.is_empty()).then(|| Orphan { start: orphan.start, len: chars.len(), text: text.to_string() });
+        Ok(())
+    }
+
+    /// The orphaned text is still where we left it: the caret right after it and the text
+    /// unchanged (what the app won't tell us counts as unchanged). False after a click elsewhere.
+    pub fn orphan_valid(&self) -> bool {
+        let Some(o) = self.inner.orphan.borrow().clone() else { return true };
+        let caret = self.selected_range();
+        if caret.location != NOT_FOUND && (caret.length != 0 || caret.location != o.start + o.len) {
+            return false;
+        }
+        self.text_in(Range { location: o.start, length: o.len }).is_none_or(|t| t == o.text)
     }
 }
 
@@ -192,6 +238,8 @@ impl TextClient for TsfClient<'_> {
     fn marked_range(&self) -> Range {
         let slot = self.inner.composition.borrow();
         let found = slot.as_ref().and_then(|c| unsafe { c.GetRange().ok() }).and_then(|r| Self::extent(&r).ok());
+        // No composition, but text the app took out of one: that is the word's range.
+        let found = found.or_else(|| self.inner.orphan.borrow().as_ref().map(|o| (o.start as i32, o.len as i32)));
         match found {
             Some((start, len)) if start >= 0 && len >= 0 => Range { location: start as usize, length: len as usize },
             _ => Range { location: NOT_FOUND, length: 0 },

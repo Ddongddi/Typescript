@@ -18,7 +18,7 @@ use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState;
 use windows::Win32::UI::TextServices::*;
 
-use crate::client::{EditSession, TsfClient};
+use crate::client::{EditSession, Orphan, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
@@ -177,6 +177,10 @@ pub struct Inner {
     pub ghost: Ghost,
     /// The active profile is the one with Tab completion (the picker offers both).
     completion_profile: Cell<bool>,
+    /// Text left in the document when the app ended our composition (see `Orphan`).
+    pub orphan: RefCell<Option<Orphan>>,
+    /// The document manager that last got focus (a raw pointer, only ever compared).
+    last_focus: Cell<usize>,
     cookie: Cell<u32>,
     exe: String,
     stamps: Cell<Stamps>,
@@ -198,6 +202,8 @@ impl Inner {
             da_atom: Cell::new(0),
             ghost: Ghost::default(),
             completion_profile: Cell::new(true),
+            orphan: RefCell::new(None),
+            last_focus: Cell::new(0),
             cookie: Cell::new(0),
             exe,
             stamps: Cell::new(Stamps::read()),
@@ -227,6 +233,20 @@ impl Inner {
         self.completion_profile.replace(with_completion) != with_completion
     }
 
+    /// Appends an event to %APPDATA%\Typescript\debug.log, only while a file named debug.on sits
+    /// next to it. Event names only: never what was typed, nor which keys.
+    pub fn trace(&self, what: &str) {
+        use std::io::Write;
+        let Some(dir) = typescript_core::support_dir() else { return };
+        if !dir.join("debug.on").exists() {
+            return;
+        }
+        let ms = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_millis());
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("debug.log")) {
+            let _ = writeln!(file, "{ms} {} {what}", self.exe);
+        }
+    }
+
     fn is_pause_key(&self, vk: u32) -> bool {
         vk == VK_HANGUL && self.settings.borrow().pause_key == "hangul"
     }
@@ -253,7 +273,16 @@ impl Inner {
             return false;
         }
         let key = if pause { None } else { key_for(vk) };
-        run_edit(self, context, move |inner, client| {
+        let ran = Rc::new(Cell::new(false));
+        let ran_in = ran.clone();
+        let handled = run_edit(self, context, move |inner, client| {
+            ran_in.set(true);
+            // A click elsewhere left the orphaned text behind: it is final, a new word starts.
+            if inner.orphan.borrow().is_some() && !client.orphan_valid() {
+                inner.trace("orphan moved");
+                inner.session().commit_for_new_context(&mut NoopClient);
+                *inner.orphan.borrow_mut() = None;
+            }
             let mut session = inner.session();
             let handled = match key {
                 Some(key) => session.handle(key, client),
@@ -264,7 +293,11 @@ impl Inner {
             };
             client.show_hint(session.suggestion().as_deref());
             handled
-        })
+        });
+        if !ran.get() {
+            self.trace("edit session refused");
+        }
+        handled
     }
 
     /// The text field changed: what was being composed stays as shown, the sentence context
@@ -273,6 +306,9 @@ impl Inner {
         self.ghost.hide();
         if let Ok(mut composition) = self.composition.try_borrow_mut() {
             *composition = None;
+        }
+        if let Ok(mut orphan) = self.orphan.try_borrow_mut() {
+            *orphan = None;
         }
         let Ok(mut slot) = self.session.try_borrow_mut() else { return };
         if let Some(session) = slot.as_mut() {
@@ -409,8 +445,16 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
     fn OnUninitDocumentMgr(&self, _pdim: Ref<ITfDocumentMgr>) -> Result<()> {
         Ok(())
     }
-    fn OnSetFocus(&self, _focus: Ref<ITfDocumentMgr>, _previous: Ref<ITfDocumentMgr>) -> Result<()> {
+    fn OnSetFocus(&self, focus: Ref<ITfDocumentMgr>, _previous: Ref<ITfDocumentMgr>) -> Result<()> {
         guard(|| {
+            // Focus "moving" to the document that already has it is no text field change.
+            let raw = focus.ok().map_or(0, |d| d.as_raw() as usize);
+            if raw != 0 && self.inner.last_focus.replace(raw) == raw {
+                self.inner.trace("focus: same document");
+                return Ok(());
+            }
+            self.inner.last_focus.set(raw);
+            self.inner.trace("focus: new document");
             self.inner.focus_changed();
             Ok(())
         })
@@ -471,21 +515,40 @@ struct CompositionSink {
 }
 
 impl ITfCompositionSink_Impl for CompositionSink_Impl {
-    fn OnCompositionTerminated(&self, _ec: u32, _composition: Ref<ITfComposition>) -> Result<()> {
+    fn OnCompositionTerminated(&self, ec: u32, composition: Ref<ITfComposition>) -> Result<()> {
         guard(|| {
-            if let Some(inner) = self.inner.upgrade() {
-                inner.ghost.hide();
-                if let Ok(mut composition) = inner.composition.try_borrow_mut() {
-                    *composition = None;
-                }
-                // The text on screen stays as the app has it; only our state starts over.
-                if let Ok(mut slot) = inner.session.try_borrow_mut() {
-                    if let Some(session) = slot.as_mut() {
-                        session.commit_for_new_context(&mut NoopClient);
-                    }
-                }
+            let Some(inner) = self.inner.upgrade() else { return Ok(()) };
+            inner.ghost.hide();
+            if let Ok(mut slot) = inner.composition.try_borrow_mut() {
+                *slot = None;
+            }
+            // The text stays in the document as the app has it. Keep the word going: later keys
+            // replace that text in place. (A click elsewhere is noticed on the next key.)
+            let orphan = composition.ok().ok().and_then(|c| read_orphan(ec, c));
+            inner.trace(if orphan.is_some() { "composition ended by app: kept" } else { "composition ended by app" });
+            if let Ok(mut slot) = inner.orphan.try_borrow_mut() {
+                *slot = orphan;
             }
             Ok(())
         })
+    }
+}
+
+/// Where the composition's text is (and what it says), read while we still have the edit cookie.
+fn read_orphan(ec: u32, composition: &ITfComposition) -> Option<Orphan> {
+    // SAFETY: COM calls on live interfaces inside the callback that gave us `ec`.
+    unsafe {
+        let range = composition.GetRange().ok()?;
+        let acp: ITfRangeACP = range.cast().ok()?;
+        let (mut start, mut len) = (0i32, 0i32);
+        acp.GetExtent(&mut start, &mut len).ok()?;
+        if start < 0 || len <= 0 {
+            return None;
+        }
+        let mut buffer = vec![0u16; len as usize + 1];
+        let mut count = 0u32;
+        range.GetText(ec, 0, &mut buffer, &mut count).ok()?;
+        let text = String::from_utf16(&buffer[..count as usize]).ok()?;
+        Some(Orphan { start: start as usize, len: len as usize, text })
     }
 }
