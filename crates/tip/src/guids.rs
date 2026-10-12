@@ -5,15 +5,23 @@ use windows::core::GUID;
 
 /// COM class of the text input processor.
 pub const CLSID_TYPESCRIPT: GUID = GUID::from_u128(0xE231DAD4_326F_436F_B74C_D08F1D66D822);
-/// Its (only) language profile.
+/// Profile with Tab completion (the first profile ever registered: its GUID stays).
 pub const GUID_PROFILE: GUID = GUID::from_u128(0xD7B9871C_E74A_4B4F_9791_CBD1E9E074FE);
+/// Profile without Tab completion (and without counting the words typed).
+pub const GUID_PROFILE_PLAIN: GUID = GUID::from_u128(0xBFC1C2A9_657F_443A_B4DE_ACF8EACA9AEC);
 /// The display attribute (dotted underline) of the text being composed.
 pub const GUID_DISPLAY_ATTRIBUTE: GUID = GUID::from_u128(0x268841E3_D0E9_45B7_80EC_783286D96160);
 
 /// ko-KR: shows up under Korean in the language settings, and apps treat it like the
 /// system's Korean IME.
 pub const LANGID_KO_KR: u16 = 0x0412;
-pub const DESCRIPTION: &str = "Typescript (영어/한국어 자동)";
+pub const DESCRIPTION: &str = "Typescript";
+
+/// The profiles the input picker offers: (GUID, name, with Tab completion).
+pub const PROFILES: [(GUID, &str, bool); 2] = [
+    (GUID_PROFILE, "Typescript (자동완성)", true),
+    (GUID_PROFILE_PLAIN, "Typescript", false),
+];
 
 /// `{E231DAD4-326F-436F-B74C-D08F1D66D822}`, the registry spelling.
 pub fn guid_string(g: &GUID) -> String {

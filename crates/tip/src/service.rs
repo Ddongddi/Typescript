@@ -21,7 +21,7 @@ use windows::Win32::UI::TextServices::*;
 use crate::client::{EditSession, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
-use crate::guids::GUID_DISPLAY_ATTRIBUTE;
+use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
 
 const VK_HANGUL: u32 = 0x15;
 const VK_BACK: u32 = 0x08;
@@ -45,6 +45,22 @@ static HISTORY: OnceLock<Arc<History>> = OnceLock::new();
 /// One word history per process, like the engine: every text service in it counts into it.
 fn history() -> Arc<History> {
     HISTORY.get_or_init(|| Arc::new(History::new(History::default_store_path()))).clone()
+}
+
+/// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
+/// TSF won't say).
+fn active_profile_has_completion() -> Option<bool> {
+    // SAFETY: COM objects created and used on this thread; the struct is plain data.
+    unsafe {
+        let profiles: ITfInputProcessorProfileMgr =
+            CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER).ok()?;
+        let mut profile: TF_INPUTPROCESSORPROFILE = std::mem::zeroed();
+        profiles.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut profile).ok()?;
+        if profile.clsid != CLSID_TYPESCRIPT {
+            return None;
+        }
+        PROFILES.iter().find(|(guid, _, _)| *guid == profile.guidProfile).map(|(_, _, completion)| *completion)
+    }
 }
 
 fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
@@ -159,6 +175,8 @@ pub struct Inner {
     pub da_atom: Cell<u32>,
     /// The Tab-completion hint under the word being typed.
     pub ghost: Ghost,
+    /// The active profile is the one with Tab completion (the picker offers both).
+    completion_profile: Cell<bool>,
     cookie: Cell<u32>,
     exe: String,
     stamps: Cell<Stamps>,
@@ -179,6 +197,7 @@ impl Inner {
             comp_sink: RefCell::new(None),
             da_atom: Cell::new(0),
             ghost: Ghost::default(),
+            completion_profile: Cell::new(true),
             cookie: Cell::new(0),
             exe,
             stamps: Cell::new(Stamps::read()),
@@ -192,13 +211,20 @@ impl Inner {
             let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
             let settings = self.settings.borrow();
             let mut session = InputSession::new(engine(), policies, settings.return_confirms_only);
-            if settings.autocomplete {
+            if settings.autocomplete && self.completion_profile.get() {
                 session = session.with_history(history());
             }
             session.activate(Some(&self.exe));
             *slot = Some(session);
         }
         RefMut::map(slot, |s| s.as_mut().expect("just built"))
+    }
+
+    /// Reads which of our profiles the user picked. Returns whether it changed (the session is
+    /// then rebuilt with or without completion).
+    fn refresh_profile(&self) -> bool {
+        let Some(with_completion) = active_profile_has_completion() else { return false };
+        self.completion_profile.replace(with_completion) != with_completion
     }
 
     fn is_pause_key(&self, vk: u32) -> bool {
@@ -252,8 +278,11 @@ impl Inner {
         if let Some(session) = slot.as_mut() {
             session.commit_for_new_context(&mut NoopClient);
         }
+        let profile_changed = self.refresh_profile();
         let stamps = Stamps::read();
-        if stamps != self.stamps.get() {
+        if profile_changed {
+            *slot = None;
+        } else if stamps != self.stamps.get() {
             self.stamps.set(stamps);
             *self.settings.borrow_mut() = Settings::load(Settings::store_path().as_deref());
             engine().reload();
@@ -303,6 +332,7 @@ impl TextService_Impl {
         let inner = &self.inner;
         *inner.thread_mgr.borrow_mut() = Some(tm.clone());
         inner.client_id.set(tid);
+        inner.refresh_profile();
         let sink: ITfCompositionSink = CompositionSink { inner: Rc::downgrade(inner) }.into();
         *inner.comp_sink.borrow_mut() = Some(sink);
 

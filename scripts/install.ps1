@@ -19,6 +19,23 @@ $dll86 = Join-Path $dest 'typescript_tip_x86.dll'
 $regsvr64 = Join-Path $env:SystemRoot 'System32\regsvr32.exe'
 $regsvr86 = Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
 $log = Join-Path $env:TEMP 'typescript-install.log'
+# The picker entries (CLSID + profile GUID, see crates/tip/src/guids.rs): with and without Tab completion.
+$tips = @(
+    '0412:{E231DAD4-326F-436F-B74C-D08F1D66D822}{D7B9871C-E74A-4B4F-9791-CBD1E9E074FE}',
+    '0412:{E231DAD4-326F-436F-B74C-D08F1D66D822}{BFC1C2A9-657F-443A-B4DE-ACF8EACA9AEC}'
+)
+
+# Adds (or removes) the keyboards under Korean in the user's language list; existing ones stay.
+function Set-Keyboards([bool]$Present) {
+    $list = Get-WinUserLanguageList
+    $ko = $list | Where-Object { $_.LanguageTag -eq 'ko' }
+    if (-not $ko) { return }
+    foreach ($tip in $tips) {
+        if ($Present -and $ko.InputMethodTips -notcontains $tip) { $ko.InputMethodTips.Add($tip) }
+        if (-not $Present) { [void]$ko.InputMethodTips.Remove($tip) }
+    }
+    Set-WinUserLanguageList $list -Force -WarningAction SilentlyContinue
+}
 
 function Invoke-Regsvr([string]$exe, [string]$dll, [switch]$Unregister) {
     $arguments = if ($Unregister) { @('/u', '/s', "`"$dll`"") } else { @('/s', "`"$dll`"") }
@@ -99,12 +116,14 @@ if ($p.ExitCode -ne 0) {
 }
 
 if ($Uninstall) {
+    Set-Keyboards $false
     Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript.'
 } else {
     # Per user: switch the registered profile on.
     & rundll32.exe $dll64, EnableForUser
+    Set-Keyboards $true
     Write-Host 'Typescript installed.'
-    Write-Host '  Win+Space  -> choose "Typescript (영어/한국어 자동)"'
+    Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
     Write-Host '  Pause key  -> the Han/Eng key (VK_HANGUL), per text field. Settings: %APPDATA%\Typescript\settings.json'
     Write-Host '  Apps already running pick the new text service up when you reopen them.'
 }

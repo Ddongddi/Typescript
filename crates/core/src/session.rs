@@ -373,6 +373,7 @@ impl InputSession {
         self.commit(client);
         if let Some(h) = &self.history {
             h.flush();
+            h.reload();
         }
         self.previous_language = None;
     }

@@ -87,7 +87,7 @@ impl TsfClient<'_> {
     pub fn show_hint(&self, hint: Option<&str>) {
         let rect = hint.and_then(|_| self.word_rect());
         match (hint, rect) {
-            (Some(text), Some(rect)) => self.inner.ghost.show(&format!("{text}   Tab"), rect),
+            (Some(text), Some(rect)) => self.inner.ghost.show(text, rect),
             _ => self.inner.ghost.hide(),
         }
     }

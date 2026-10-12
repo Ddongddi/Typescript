@@ -74,24 +74,26 @@ pub fn register() -> Result<()> {
     unsafe {
         let profiles: ITfInputProcessorProfileMgr =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
-        let description: Vec<u16> = DESCRIPTION.encode_utf16().collect();
         // typescript.ico sits next to the DLL (install.ps1 puts it there); without it Windows
         // shows its default keyboard icon.
         let icon_path = std::path::Path::new(&path).with_file_name("typescript.ico");
         let icon: Vec<u16> =
             if icon_path.exists() { icon_path.to_string_lossy().encode_utf16().collect() } else { Vec::new() };
-        profiles.RegisterProfile(
-            &CLSID_TYPESCRIPT,
-            LANGID_KO_KR,
-            &GUID_PROFILE,
-            &description,
-            &icon,
-            0,
-            HKL::default(),
-            0,
-            true,
-            0,
-        )?;
+        for (guid, name, _) in PROFILES {
+            let description: Vec<u16> = name.encode_utf16().collect();
+            profiles.RegisterProfile(
+                &CLSID_TYPESCRIPT,
+                LANGID_KO_KR,
+                &guid,
+                &description,
+                &icon,
+                0,
+                HKL::default(),
+                0,
+                true,
+                0,
+            )?;
+        }
         let categories: ITfCategoryMgr = CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
         for category in CATEGORIES {
             categories.RegisterCategory(&CLSID_TYPESCRIPT, &category, &CLSID_TYPESCRIPT)?;
@@ -119,7 +121,9 @@ pub fn unregister() -> Result<()> {
         if let Ok(profiles) =
             CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)
         {
-            note(profiles.UnregisterProfile(&CLSID_TYPESCRIPT, LANGID_KO_KR, &GUID_PROFILE, 0));
+            for (guid, _, _) in PROFILES {
+                note(profiles.UnregisterProfile(&CLSID_TYPESCRIPT, LANGID_KO_KR, &guid, 0));
+            }
         }
         let class = wide(&format!(r"SOFTWARE\Classes\CLSID\{}", guid_string(&CLSID_TYPESCRIPT)));
         note(RegDeleteTreeW(HKEY_LOCAL_MACHINE, PCWSTR(class.as_ptr())).ok());
@@ -134,6 +138,9 @@ pub fn enable_for_user() -> Result<()> {
     unsafe {
         let profiles: ITfInputProcessorProfiles =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
-        profiles.EnableLanguageProfile(&CLSID_TYPESCRIPT, LANGID_KO_KR, &GUID_PROFILE, true)
+        for (guid, _, _) in PROFILES {
+            profiles.EnableLanguageProfile(&CLSID_TYPESCRIPT, LANGID_KO_KR, &guid, true)?;
+        }
+        Ok(())
     }
 }

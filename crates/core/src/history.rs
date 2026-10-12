@@ -108,6 +108,17 @@ impl History {
         }
     }
 
+    /// Picks up what other processes wrote since this one loaded the file (every application
+    /// runs its own copy of the text service). Words counted here but not yet written stay.
+    pub fn reload(&self) {
+        let mut s = self.lock();
+        let mut store = read(self.path.as_ref());
+        for (word, n) in &s.fresh {
+            *store.words.entry(word.clone()).or_default() += n;
+        }
+        s.store = store;
+    }
+
     /// The word typed most often that continues `prefix` (typed at least `MIN_COUNT` times,
     /// and more often than `prefix` itself).
     pub fn suggest(&self, prefix: &str) -> Option<String> {
@@ -179,6 +190,22 @@ mod tests {
             h.record("zebrafish");
         }
         assert_eq!(h.suggest("zebra"), None);
+    }
+
+    #[test]
+    fn reload_shows_words_another_process_learned() {
+        let path = temp("reload");
+        let notepad = History::new(Some(path.clone()));
+        let browser = History::new(Some(path.clone())); // already running when the words were typed
+        notepad.record("zebrafish");
+        notepad.record("zebrafish");
+        notepad.flush();
+        assert_eq!(browser.suggest("zebra"), None);
+        browser.record("zebrastripe"); // counted here, not yet written
+        browser.reload();
+        let _ = fs::remove_file(&path);
+        assert_eq!(browser.suggest("zebra").as_deref(), Some("zebrafish"));
+        assert_eq!(browser.lock().store.words.get("zebrastripe"), Some(&1));
     }
 
     #[test]
