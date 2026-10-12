@@ -19,46 +19,24 @@
 //! committed word the same way. The same correction made twice is learned for good.
 
 mod client;
+mod flip;
 mod key;
+mod preview;
 pub mod testing;
 mod word;
 
 pub use client::{NoopClient, Range, TextClient, NOT_FOUND};
+use flip::Committed;
 pub use key::Key;
+pub use preview::Trace;
 use word::WordState;
 
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
-use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::engine::{DecisionEngine, Language};
 use crate::decide::learning::LearningEngine;
-use crate::lang::english::EnglishModel;
-use crate::lang::hangul::HangulComposer;
-use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
 use crate::store::history::{self, History};
 use crate::store::policy::{AppPolicies, AppPolicy};
-
-struct Committed {
-    keys: String,
-    /// What the engine chose before any Esc.
-    decided: Language,
-    /// What it went in as (Esc after the commit changes `language`).
-    committed_as: Language,
-    language: Language,
-    /// Exactly what was inserted: the word plus its boundary character.
-    text: String,
-    boundary: String,
-    location: usize,
-}
-
-/// The last decision and what it was made from, for debugging.
-#[derive(Clone, Debug)]
-pub struct Trace {
-    pub keys: String,
-    pub previous: Option<Language>,
-    pub decision: Decision,
-    /// Still being typed (the preview) rather than committed.
-    pub partial: bool,
-}
 
 struct Word {
     keys: String,
@@ -66,11 +44,6 @@ struct Word {
     language: Language,
     decided: Language,
 }
-
-/// The preview only switches language mid-word when the new reading is at least this likely.
-const PREVIEW_FLIP_CONFIDENCE: f64 = 0.7;
-
-static KOREAN: LazyLock<KoreanModel> = LazyLock::new(KoreanModel::default);
 
 pub struct InputSession {
     engine: Arc<LearningEngine>,
@@ -183,11 +156,9 @@ impl InputSession {
         // Esc switches languages unless the app owns it; Shift+Esc always does.
         let switches = key == Key::Cycle || (key == Key::Escape && !self.policy.escape_to_app);
         if switches && self.word.is_empty() {
-            if let Some(p) = &pending {
-                if let Some(changed) = self.cycle(p, client) {
-                    self.last_commit = Some(changed);
-                    return true;
-                }
+            if let Some(changed) = pending.as_ref().and_then(|p| self.cycle(p, client)) {
+                self.last_commit = Some(changed);
+                return true;
             }
         }
         if let Some(p) = &pending {
@@ -195,110 +166,123 @@ impl InputSession {
         }
 
         match key {
-            Key::Letter(ch) => {
-                if self.word.is_empty() {
-                    self.last_recorded = None; // a new word
-                }
-                self.word.pinned = None;
-                self.word.keys.push(ch);
-                self.update_preview(client);
-                true
-            }
-            Key::Delete => {
-                if self.word.is_empty() {
-                    return false;
-                }
-                let shown = self.word.shown_language();
-                if self.word.forced.is_none() {
-                    self.word.pinned = shown;
-                }
-                if shown == Some(Language::Korean) {
-                    self.word.delete_jamo_or_syllable();
-                } else {
-                    self.word.keys.pop();
-                }
-                if self.word.is_empty() {
-                    self.word.forced = None;
-                    self.word.pinned = None;
-                    self.word.syllable_start = None;
-                }
-                self.update_preview(client);
-                true
-            }
-            Key::Escape | Key::Cycle => {
-                if self.word.is_empty() {
-                    return false;
-                }
-                if !switches {
-                    // The app's Esc: the word goes in as shown, then the app gets the key.
-                    self.commit(client);
-                    return false;
-                }
-                // Cycle from what the user sees.
-                let shown = match self.word.shown_language() {
-                    Some(l) => l,
-                    None => self.decide(true).language,
-                };
-                self.word.forced = Some(shown.next(&self.word.keys));
-                self.word.pinned = None;
-                self.update_preview(client);
-                true
-            }
-            Key::Printable(ch) => {
-                if self.word.is_empty() {
-                    return false;
-                }
-                let marked = client.marked_range();
-                let location = if marked.location != NOT_FOUND {
-                    marked.location
-                } else {
-                    client.selected_range().location
-                };
-                let word = self.finish_word();
-                // Only the word goes in; the app types the space or punctuation itself, as with
-                // the system's Korean input.
-                client.insert_text(&word.text, None);
-                self.last_commit = Some(Committed {
-                    keys: word.keys,
-                    decided: word.decided,
-                    committed_as: word.language,
-                    language: word.language,
-                    text: format!("{}{}", word.text, ch),
-                    boundary: ch.to_string(),
-                    location,
-                });
-                false
-            }
-            Key::Enter => {
-                if self.word.is_empty() {
-                    return false;
-                }
-                // Like a Japanese IME, Return on an underlined word only confirms it; the next
-                // Return is the app's. With the setting off the app gets this one too.
-                self.commit(client);
-                self.return_confirms_only
-            }
-            Key::Tab => {
-                let Some(word) = self.suggestion() else {
-                    self.commit(client);
-                    self.previous_language = None;
-                    return false;
-                };
-                let language = self.word.shown_language().unwrap_or(Language::English);
-                self.word.reset();
-                client.insert_text(&word, None);
-                if let Some(h) = &self.history {
-                    h.record(&word);
-                }
-                self.previous_language = Some(language.sentence_language());
-                true
-            }
-            Key::Other => {
-                self.commit(client);
-                self.previous_language = None;
-                false
-            }
+            Key::Letter(ch) => self.on_letter(ch, client),
+            Key::Delete => self.on_delete(client),
+            Key::Escape | Key::Cycle => self.on_cycle(switches, client),
+            Key::Printable(ch) => self.on_printable(ch, client),
+            Key::Enter => self.on_enter(client),
+            Key::Tab => self.on_tab(client),
+            Key::Other => self.on_other(client),
         }
+    }
+
+    fn on_letter(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
+        if self.word.is_empty() {
+            self.last_recorded = None; // a new word
+        }
+        self.word.pinned = None;
+        self.word.keys.push(ch);
+        self.update_preview(client);
+        true
+    }
+
+    fn on_delete(&mut self, client: &mut dyn TextClient) -> bool {
+        if self.word.is_empty() {
+            return false;
+        }
+        let shown = self.word.shown_language();
+        if self.word.forced.is_none() {
+            self.word.pinned = shown;
+        }
+        if shown == Some(Language::Korean) {
+            self.word.delete_jamo_or_syllable();
+        } else {
+            self.word.keys.pop();
+        }
+        if self.word.is_empty() {
+            self.word.reset();
+        }
+        self.update_preview(client);
+        true
+    }
+
+    /// Esc / Shift+Esc on a word being typed. `switches`: false where the app owns Esc.
+    fn on_cycle(&mut self, switches: bool, client: &mut dyn TextClient) -> bool {
+        if self.word.is_empty() {
+            return false;
+        }
+        if !switches {
+            // The app's Esc: the word goes in as shown, then the app gets the key.
+            self.commit(client);
+            return false;
+        }
+        // Cycle from what the user sees.
+        let shown = match self.word.shown_language() {
+            Some(l) => l,
+            None => self.decide(true).language,
+        };
+        self.word.forced = Some(shown.next(&self.word.keys));
+        self.word.pinned = None;
+        self.update_preview(client);
+        true
+    }
+
+    /// Space, digit or punctuation: the word goes in, the app types the key itself.
+    fn on_printable(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
+        if self.word.is_empty() {
+            return false;
+        }
+        let marked = client.marked_range();
+        let location = if marked.location != NOT_FOUND {
+            marked.location
+        } else {
+            client.selected_range().location
+        };
+        let word = self.finish_word();
+        // Only the word goes in; the app types the space or punctuation itself, as with
+        // the system's Korean input.
+        client.insert_text(&word.text, None);
+        self.last_commit = Some(Committed {
+            keys: word.keys,
+            decided: word.decided,
+            committed_as: word.language,
+            language: word.language,
+            text: format!("{}{}", word.text, ch),
+            boundary: ch.to_string(),
+            location,
+        });
+        false
+    }
+
+    fn on_enter(&mut self, client: &mut dyn TextClient) -> bool {
+        if self.word.is_empty() {
+            return false;
+        }
+        // Like a Japanese IME, Return on an underlined word only confirms it; the next
+        // Return is the app's. With the setting off the app gets this one too.
+        self.commit(client);
+        self.return_confirms_only
+    }
+
+    fn on_tab(&mut self, client: &mut dyn TextClient) -> bool {
+        let Some(word) = self.suggestion() else {
+            return self.on_other(client);
+        };
+        let language = self.word.shown_language().unwrap_or(Language::English);
+        self.word.reset();
+        client.insert_text(&word, None);
+        if let Some(h) = &self.history {
+            h.record(&word);
+        }
+        self.previous_language = Some(language.sentence_language());
+        true
+    }
+
+    /// Arrows, shortcuts…: what is typed goes in and the app handles the key.
+    fn on_other(&mut self, client: &mut dyn TextClient) -> bool {
+        self.commit(client);
+        self.previous_language = None;
+        false
     }
 
     /// Commits whatever is in progress as-is (focus change, shortcut, deactivation).
@@ -333,172 +317,6 @@ impl InputSession {
         history::suggest(Some(history), language, &prefix)
     }
 
-    fn decide(&mut self, partial: bool) -> Decision {
-        let ctx = DecisionContext {
-            previous_language: self.previous_language,
-            partial,
-        };
-        let d = self.engine.decide(&self.word.keys, &ctx);
-        let threshold = self.policy.conversion_threshold;
-        let kept = d.language != Language::English && d.confidence < threshold;
-        self.kept_english_by_strict =
-            kept && threshold >= AppPolicy::STRICT_THRESHOLD && char_count(&self.word.keys) <= 3;
-        let decision = if kept {
-            Decision {
-                language: Language::English,
-                confidence: 1.0 - d.confidence,
-                output: self.word.keys.clone(),
-                explanation: format!(
-                    "kept English ({:.2} < {:.2}); {}",
-                    d.confidence, threshold, d.explanation
-                ),
-                runner_up: d.runner_up,
-            }
-        } else {
-            d
-        };
-        self.last_trace = Some(Trace {
-            keys: self.word.keys.clone(),
-            previous: self.previous_language,
-            decision: decision.clone(),
-            partial,
-        });
-        decision
-    }
-
-    /// What Space/Return commits without Esc: the full-word decision, except that a hesitant
-    /// change away from the reading on screen doesn't win. The same rule as the preview, so
-    /// what you see is what you get.
-    fn committed_language(&mut self) -> Language {
-        let d = self.decide(false);
-        match self.word.engine_preview {
-            Some(shown) if shown != d.language && !self.is_weak_flip_allowed(&d, shown) => shown,
-            _ => d.language,
-        }
-    }
-
-    /// Whether `decision` may replace the reading on screen: when it's confident, when it's a
-    /// dictionary English word (which is what Space/Return will commit), or when a Strict app
-    /// kept a short token English.
-    fn is_weak_flip_allowed(&self, decision: &Decision, shown: Language) -> bool {
-        decision.confidence >= PREVIEW_FLIP_CONFIDENCE
-            || (decision.language == Language::English
-                && (self.kept_english_by_strict
-                    || EnglishModel::shared().is_known_word(&self.word.keys)))
-            || self.preview(shown).is_none()
-    }
-
-    fn update_preview(&mut self, client: &mut dyn TextClient) {
-        if self.word.is_empty() {
-            self.word.preview_language = None;
-            self.word.engine_preview = None;
-            client.set_marked_text("");
-        } else if let Some(forced) = self.word.override_language() {
-            self.word.preview_language = Some(forced);
-            let text = match forced {
-                Language::Korean => self.word.hangul().unwrap_or_else(|| self.word.keys.clone()),
-                other => self.engine.render(&self.word.keys, other),
-            };
-            client.set_marked_text(&text);
-        } else {
-            self.split_off_korean_before_other(client);
-            let decision = self.decide(true);
-            let mut language = decision.language;
-            // Hysteresis: a weak flip on one keystroke isn't shown, except into a dictionary
-            // English word, which is what Space/Return will commit.
-            if let Some(shown) = self.word.preview_language {
-                if shown != language
-                    && char_count(&self.word.keys) > 1
-                    && !self.is_weak_flip_allowed(&decision, shown)
-                {
-                    language = shown;
-                }
-            }
-            self.word.preview_language = Some(language);
-            self.word.engine_preview = Some(language);
-            let text = self
-                .preview(language)
-                .unwrap_or_else(|| self.word.keys.clone());
-            client.set_marked_text(&text);
-        }
-    }
-
-    /// Korean with English typed straight after it reads as broken Hangul: 오늘은 then
-    /// google에서 (dhsmfdmsgoogledptj). When the keys only make Hangul with stray jamo, but a
-    /// front of two or more ordinary syllables is followed by a known English word (or one with
-    /// a particle), the Korean goes in as typed and the rest carries on as its own word.
-    fn split_off_korean_before_other(&mut self, client: &mut dyn TextClient) {
-        let chars: Vec<char> = self.word.keys.chars().collect();
-        if chars.len() < 7 {
-            return;
-        }
-        if HangulComposer::compose(&self.word.keys).is_none_or(|c| !c.is_broken()) {
-            return;
-        }
-        // Only what reads as Korean on its own, judged without context.
-        let alone = self.engine.decide(
-            &self.word.keys,
-            &DecisionContext {
-                previous_language: None,
-                partial: true,
-            },
-        );
-        if alone.language != Language::Korean {
-            return;
-        }
-        for cut in 4..=(chars.len() - 3) {
-            let front: String = chars[..cut].iter().collect();
-            let back: String = chars[cut..].iter().collect();
-            let Some(korean) = HangulComposer::compose(&front) else {
-                continue;
-            };
-            if !korean.stray_jamo().is_empty()
-                || korean.syllables().len() < 2
-                || !korean
-                    .syllables()
-                    .iter()
-                    .all(|s| KOREAN.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP)
-                || !self.is_other_language_word(&back)
-            {
-                continue;
-            }
-            client.insert_text(&korean.text(), None);
-            self.word.keys = back;
-            self.word.syllable_start = None;
-            self.previous_language = Some(Language::Korean);
-            self.word.preview_language = None;
-            self.word.engine_preview = None;
-            return;
-        }
-    }
-
-    /// A known English word, or one with a Korean particle (google에서).
-    fn is_other_language_word(&self, keys: &str) -> bool {
-        let ctx = DecisionContext {
-            previous_language: Some(Language::Korean),
-            partial: true,
-        };
-        match self.engine.decide(keys, &ctx).language {
-            Language::English => {
-                char_count(keys) >= 3 && EnglishModel::shared().is_known_word(keys)
-            }
-            Language::Mixed => true,
-            Language::Korean => false,
-        }
-    }
-
-    /// The word so far rendered in `language`, or None when it has no such reading.
-    fn preview(&self, language: Language) -> Option<String> {
-        match language {
-            Language::English => Some(self.word.keys.clone()),
-            Language::Korean => self.word.hangul(),
-            Language::Mixed => {
-                let text = self.engine.render(&self.word.keys, Language::Mixed);
-                (text != self.word.keys).then_some(text)
-            }
-        }
-    }
-
     /// Decides the current word, learns an Esc override, and resets the buffer.
     fn finish_word(&mut self) -> Word {
         let engine_choice = self.committed_language();
@@ -531,65 +349,5 @@ impl InputSession {
         self.previous_language = Some(language.sentence_language());
         self.word.reset();
         word
-    }
-
-    fn record(&mut self, keys: &str, language: Language, engine_choice: Language) {
-        if self
-            .last_recorded
-            .as_ref()
-            .is_some_and(|(k, l)| k == keys && *l == language)
-        {
-            return;
-        }
-        self.last_recorded = Some((keys.to_string(), language));
-        self.engine.learn(keys, language, Some(engine_choice));
-    }
-
-    /// Replaces a just-committed word with its next rendering, but only if the caret still
-    /// sits right after it and the text there is what we inserted.
-    fn cycle(&mut self, commit: &Committed, client: &mut dyn TextClient) -> Option<Committed> {
-        let range = Range {
-            location: commit.location,
-            length: utf16_len(&commit.text),
-        };
-        let cursor = client.selected_range();
-        if cursor.location == NOT_FOUND
-            || cursor.length != 0
-            || cursor.location != range.end()
-            || client.text_in(range).as_deref() != Some(commit.text.as_str())
-        {
-            return None;
-        }
-        let language = commit.language.next(&commit.keys);
-        let text = format!(
-            "{}{}",
-            self.engine.render(&commit.keys, language),
-            commit.boundary
-        );
-        client.insert_text(&text, Some(range));
-        self.previous_language = Some(language.sentence_language());
-        Some(Committed {
-            keys: commit.keys.clone(),
-            decided: commit.decided,
-            committed_as: commit.committed_as,
-            language,
-            text,
-            boundary: commit.boundary.clone(),
-            location: commit.location,
-        })
-    }
-
-    fn close_flip_window(&mut self) {
-        if let Some(pending) = self.last_commit.take() {
-            self.finalize(&pending);
-        }
-    }
-
-    /// The undo window closed: learn where the word ended up (once, not every reading Esc
-    /// passed through on the way).
-    fn finalize(&mut self, commit: &Committed) {
-        if commit.language != commit.committed_as {
-            self.record(&commit.keys, commit.language, commit.decided);
-        }
     }
 }
