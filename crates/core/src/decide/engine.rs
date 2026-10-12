@@ -2,10 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::english::{EnglishModel, EXTRA_LEVEL};
-use crate::hangul::{DubeolsikLayout, HangulComposer};
-use crate::korean::KoreanModel;
-use crate::mixed::MixedWord;
+use crate::decide::mixed::MixedWord;
+use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
+use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
+use crate::lang::korean::KoreanModel;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -62,7 +62,11 @@ impl Language {
         };
         let clean_count = available.iter().filter(|l| clean(l)).count();
         let cycle: Vec<Language> = if clean_count >= 2 {
-            available.iter().copied().filter(|l| clean(l) || *l == self).collect()
+            available
+                .iter()
+                .copied()
+                .filter(|l| clean(l) || *l == self)
+                .collect()
         } else {
             available
         };
@@ -101,14 +105,18 @@ pub trait DecisionEngine: Send + Sync {
     fn render(&self, keys: &str, language: Language) -> String {
         match language {
             Language::English => keys.to_string(),
-            Language::Korean => HangulComposer::compose(keys).map(|c| c.text()).unwrap_or_else(|| keys.to_string()),
+            Language::Korean => HangulComposer::compose(keys)
+                .map(|c| c.text())
+                .unwrap_or_else(|| keys.to_string()),
             Language::Mixed => {
                 // The engine's own split (hello월드, github에); the particle split for engines without one.
                 let decision = self.decide(keys, &DecisionContext::default());
                 if decision.language == Language::Mixed {
                     decision.output
                 } else {
-                    MixedWord::split(keys).map(|m| m.text()).unwrap_or_else(|| keys.to_string())
+                    MixedWord::split(keys)
+                        .map(|m| m.text())
+                        .unwrap_or_else(|| keys.to_string())
                 }
             }
         }
@@ -164,7 +172,10 @@ impl Default for HeuristicEngine {
 impl DecisionEngine for HeuristicEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
         // Shift on a key that has no shifted jamo (e.g. "Hello", "API") is only ever English.
-        if keys.chars().any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c)) {
+        if keys
+            .chars()
+            .any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
+        {
             return Decision {
                 language: Language::English,
                 confidence: 0.99,
@@ -182,7 +193,13 @@ impl DecisionEngine for HeuristicEngine {
         if known {
             // Short dictionary words collide with real Korean (go=해, so=내, do=애),
             // so they get a weaker boost and leave room for context to decide.
-            let mut floor = if count >= 4 { -1.4 } else if count == 3 { -2.0 } else { -2.6 };
+            let mut floor = if count >= 4 {
+                -1.4
+            } else if count == 3 {
+                -2.0
+            } else {
+                -2.6
+            };
             // to, so, go, do: everyday English just above a one-syllable Korean word (새, 내,
             // 해, 애), so they stay English unless the previous word was Korean.
             if count == 2 && self.english.is_common_word(keys) {
@@ -198,9 +215,12 @@ impl DecisionEngine for HeuristicEngine {
         }
 
         let mut k = self.korean.score(keys, context.partial);
-        let known_korean = k
-            .as_ref()
-            .is_some_and(|s| s.composition.stray_jamo().is_empty() && self.korean.is_known_word_or_inflected(&s.composition.text()));
+        let known_korean = k.as_ref().is_some_and(|s| {
+            s.composition.stray_jamo().is_empty()
+                && self
+                    .korean
+                    .is_known_word_or_inflected(&s.composition.text())
+        });
         if let (Some(score), true) = (k.as_mut(), known_korean) {
             let floor = if score.composition.syllables().len() >= 2 {
                 self.korean_known_floor_long
@@ -212,7 +232,10 @@ impl DecisionEngine for HeuristicEngine {
 
         let mut scores: Vec<(Language, f64)> = vec![(Language::English, e)];
         if let Some(k) = &k {
-            scores.push((Language::Korean, k.average_log_probability + self.korean_offset));
+            scores.push((
+                Language::Korean,
+                k.average_log_probability + self.korean_offset,
+            ));
         }
         if let Some(previous) = context.previous_language.map(Language::sentence_language) {
             if let Some(i) = scores.iter().position(|s| s.0 == previous) {
@@ -221,7 +244,11 @@ impl DecisionEngine for HeuristicEngine {
                     Language::English => known,
                     _ => known_korean,
                 };
-                let other = if previous == Language::English { Language::Korean } else { Language::English };
+                let other = if previous == Language::English {
+                    Language::Korean
+                } else {
+                    Language::English
+                };
                 if !known_in(previous) && known_in(other) {
                     bias *= self.switch_bias_factor;
                 }
@@ -235,16 +262,26 @@ impl DecisionEngine for HeuristicEngine {
         let margin = best - runner_up.map_or(best - 5.0, |r| r.1);
         let confidence = 1.0 / (1.0 + (-margin * 2.0).exp());
         let output = match language {
-            Language::Korean => k.as_ref().map(|k| k.composition.text()).unwrap_or_else(|| keys.to_string()),
+            Language::Korean => k
+                .as_ref()
+                .map(|k| k.composition.text())
+                .unwrap_or_else(|| keys.to_string()),
             _ => keys.to_string(),
         };
-        let detail: Vec<String> =
-            scores.iter().map(|(l, s)| format!("{}={:.2}", &l.name()[..2], s)).collect();
+        let detail: Vec<String> = scores
+            .iter()
+            .map(|(l, s)| format!("{}={:.2}", &l.name()[..2], s))
+            .collect();
         Decision {
             language,
             confidence,
             output,
-            explanation: format!("{}{} margin={:+.2}", detail.join(" "), if known { " (dict)" } else { "" }, margin),
+            explanation: format!(
+                "{}{} margin={:+.2}",
+                detail.join(" "),
+                if known { " (dict)" } else { "" },
+                margin
+            ),
             runner_up: runner_up.map(|r| r.0),
         }
     }

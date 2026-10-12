@@ -11,7 +11,11 @@ use crate::guids::GUID_DISPLAY_ATTRIBUTE;
 
 fn attribute() -> TF_DISPLAYATTRIBUTE {
     // Colors stay TF_CT_NONE (the default): the app's own text and background.
-    TF_DISPLAYATTRIBUTE { lsStyle: TF_LS_DOT, bAttr: TF_ATTR_INPUT, ..Default::default() }
+    TF_DISPLAYATTRIBUTE {
+        lsStyle: TF_LS_DOT,
+        bAttr: TF_ATTR_INPUT,
+        ..Default::default()
+    }
 }
 
 pub fn info() -> ITfDisplayAttributeInfo {
@@ -19,7 +23,10 @@ pub fn info() -> ITfDisplayAttributeInfo {
 }
 
 pub fn enumerate() -> IEnumTfDisplayAttributeInfo {
-    EnumInfo { done: Cell::new(false) }.into()
+    EnumInfo {
+        done: Cell::new(false),
+    }
+    .into()
 }
 
 #[implement(ITfDisplayAttributeInfo)]
@@ -57,9 +64,17 @@ struct EnumInfo {
 
 impl IEnumTfDisplayAttributeInfo_Impl for EnumInfo_Impl {
     fn Clone(&self) -> Result<IEnumTfDisplayAttributeInfo> {
-        Ok(EnumInfo { done: Cell::new(self.done.get()) }.into())
+        Ok(EnumInfo {
+            done: Cell::new(self.done.get()),
+        }
+        .into())
     }
-    fn Next(&self, count: u32, out: *mut Option<ITfDisplayAttributeInfo>, fetched: *mut u32) -> Result<()> {
+    fn Next(
+        &self,
+        count: u32,
+        out: *mut Option<ITfDisplayAttributeInfo>,
+        fetched: *mut u32,
+    ) -> Result<()> {
         let mut got = 0u32;
         if count > 0 && !self.done.get() && !out.is_null() {
             // SAFETY: `out` has room for `count >= 1` entries by the IEnum contract.

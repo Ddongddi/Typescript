@@ -41,7 +41,12 @@ static PREVIOUS: Mutex<Option<(GUID, GUID, u16)>> = Mutex::new(None);
 /// The system IME is active because of a hand-over (so leaving the app should undo it).
 static HANDED_OVER: AtomicBool = AtomicBool::new(false);
 
-unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn window_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     if message == HAND_OVER {
         let _ = std::panic::catch_unwind(switch);
         let _ = DestroyWindow(hwnd);
@@ -55,10 +60,23 @@ fn profiles() -> Option<ITfInputProcessorProfileMgr> {
     unsafe { CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER).ok() }
 }
 
-fn activate(profiles: &ITfInputProcessorProfileMgr, langid: u16, clsid: &GUID, profile: &GUID, flags: u32) {
+fn activate(
+    profiles: &ITfInputProcessorProfileMgr,
+    langid: u16,
+    clsid: &GUID,
+    profile: &GUID,
+    flags: u32,
+) {
     // SAFETY: plain COM call with live pointers.
     let _ = unsafe {
-        profiles.ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, langid, clsid, profile, HKL::default(), flags)
+        profiles.ActivateProfile(
+            TF_PROFILETYPE_INPUTPROCESSOR,
+            langid,
+            clsid,
+            profile,
+            HKL::default(),
+            flags,
+        )
     };
 }
 
@@ -70,8 +88,13 @@ fn switch_profile() {
     // SAFETY: the struct is plain data, filled by the call.
     unsafe {
         let mut active: TF_INPUTPROCESSORPROFILE = std::mem::zeroed();
-        if profiles.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut active).is_ok() && active.clsid != SYSTEM_IME_CLSID {
-            *PREVIOUS.lock().unwrap_or_else(|e| e.into_inner()) = Some((active.clsid, active.guidProfile, active.langid));
+        if profiles
+            .GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut active)
+            .is_ok()
+            && active.clsid != SYSTEM_IME_CLSID
+        {
+            *PREVIOUS.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some((active.clsid, active.guidProfile, active.langid));
         }
     }
     activate(
@@ -129,11 +152,20 @@ unsafe extern "system" fn foreground_changed(
 
 fn restore() {
     let previous = PREVIOUS.lock().unwrap_or_else(|e| e.into_inner()).take();
-    let (clsid, profile, langid) =
-        previous.unwrap_or((crate::guids::CLSID_TYPESCRIPT, crate::guids::GUID_PROFILE, crate::guids::LANGID_TYPESCRIPT));
+    let (clsid, profile, langid) = previous.unwrap_or((
+        crate::guids::CLSID_TYPESCRIPT,
+        crate::guids::GUID_PROFILE,
+        crate::guids::LANGID_TYPESCRIPT,
+    ));
     HANDED_OVER.store(false, Ordering::SeqCst);
     if let Some(profiles) = profiles() {
-        activate(&profiles, langid, &clsid, &profile, TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
+        activate(
+            &profiles,
+            langid,
+            &clsid,
+            &profile,
+            TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE,
+        );
     }
 }
 
@@ -181,7 +213,9 @@ mod tests {
         unsafe {
             let profiles = profiles().expect("TSF profiles");
             let mut active: TF_INPUTPROCESSORPROFILE = std::mem::zeroed();
-            profiles.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut active).unwrap();
+            profiles
+                .GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut active)
+                .unwrap();
             active
         }
     }
@@ -213,12 +247,20 @@ mod tests {
         let before = active();
         switch_profile();
         pump();
-        assert_eq!(active().clsid, SYSTEM_IME_CLSID, "after switch: {:?}", active().guidProfile);
+        assert_eq!(
+            active().clsid,
+            SYSTEM_IME_CLSID,
+            "after switch: {:?}",
+            active().guidProfile
+        );
         restore();
         pump();
         let after = active();
         let _ = unsafe { manager.Deactivate() };
         let _ = client;
-        assert_eq!((after.clsid, after.guidProfile), (before.clsid, before.guidProfile));
+        assert_eq!(
+            (after.clsid, after.guidProfile),
+            (before.clsid, before.guidProfile)
+        );
     }
 }

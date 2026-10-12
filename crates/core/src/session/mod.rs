@@ -18,15 +18,17 @@
 //! Right after a word was committed with space/punctuation, Esc / Shift+Esc cycle that
 //! committed word the same way. The same correction made twice is learned for good.
 
+pub mod testing;
+
 use std::sync::{Arc, LazyLock};
 
-use crate::engine::{Decision, DecisionContext, DecisionEngine, Language};
-use crate::english::EnglishModel;
-use crate::hangul::{HangulComposer, Unit};
-use crate::history::{self, History};
-use crate::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
-use crate::learning::LearningEngine;
-use crate::policy::{AppPolicies, AppPolicy};
+use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::learning::LearningEngine;
+use crate::lang::english::EnglishModel;
+use crate::lang::hangul::{HangulComposer, Unit};
+use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
+use crate::store::history::{self, History};
+use crate::store::policy::{AppPolicies, AppPolicy};
 
 pub const NOT_FOUND: usize = usize::MAX;
 
@@ -61,10 +63,16 @@ impl TextClient for NoopClient {
     fn set_marked_text(&mut self, _: &str) {}
     fn insert_text(&mut self, _: &str, _: Option<Range>) {}
     fn selected_range(&self) -> Range {
-        Range { location: NOT_FOUND, length: 0 }
+        Range {
+            location: NOT_FOUND,
+            length: 0,
+        }
     }
     fn marked_range(&self) -> Range {
-        Range { location: NOT_FOUND, length: 0 }
+        Range {
+            location: NOT_FOUND,
+            length: 0,
+        }
     }
     fn text_in(&self, _: Range) -> Option<String> {
         None
@@ -159,7 +167,11 @@ fn utf16_len(s: &str) -> usize {
 }
 
 impl InputSession {
-    pub fn new(engine: Arc<LearningEngine>, policies: AppPolicies, return_confirms_only: bool) -> Self {
+    pub fn new(
+        engine: Arc<LearningEngine>,
+        policies: AppPolicies,
+        return_confirms_only: bool,
+    ) -> Self {
         Self {
             engine,
             policies,
@@ -308,8 +320,11 @@ impl InputSession {
                     return false;
                 }
                 let marked = client.marked_range();
-                let location =
-                    if marked.location != NOT_FOUND { marked.location } else { client.selected_range().location };
+                let location = if marked.location != NOT_FOUND {
+                    marked.location
+                } else {
+                    client.selected_range().location
+                };
                 let word = self.finish_word();
                 // Only the word goes in; the app types the space or punctuation itself, as with
                 // the system's Korean input.
@@ -395,7 +410,10 @@ impl InputSession {
     }
 
     fn decide(&mut self, partial: bool) -> Decision {
-        let ctx = DecisionContext { previous_language: self.previous_language, partial };
+        let ctx = DecisionContext {
+            previous_language: self.previous_language,
+            partial,
+        };
         let d = self.engine.decide(&self.keys, &ctx);
         let threshold = self.policy.conversion_threshold;
         let kept = d.language != Language::English && d.confidence < threshold;
@@ -406,7 +424,10 @@ impl InputSession {
                 language: Language::English,
                 confidence: 1.0 - d.confidence,
                 output: self.keys.clone(),
-                explanation: format!("kept English ({:.2} < {:.2}); {}", d.confidence, threshold, d.explanation),
+                explanation: format!(
+                    "kept English ({:.2} < {:.2}); {}",
+                    d.confidence, threshold, d.explanation
+                ),
                 runner_up: d.runner_up,
             }
         } else {
@@ -438,7 +459,8 @@ impl InputSession {
     fn is_weak_flip_allowed(&self, decision: &Decision, shown: Language) -> bool {
         decision.confidence >= PREVIEW_FLIP_CONFIDENCE
             || (decision.language == Language::English
-                && (self.kept_english_by_strict || EnglishModel::shared().is_known_word(&self.keys)))
+                && (self.kept_english_by_strict
+                    || EnglishModel::shared().is_known_word(&self.keys)))
             || self.preview(shown).is_none()
     }
 
@@ -461,7 +483,10 @@ impl InputSession {
             // Hysteresis: a weak flip on one keystroke isn't shown, except into a dictionary
             // English word, which is what Space/Return will commit.
             if let Some(shown) = self.preview_language {
-                if shown != language && char_count(&self.keys) > 1 && !self.is_weak_flip_allowed(&decision, shown) {
+                if shown != language
+                    && char_count(&self.keys) > 1
+                    && !self.is_weak_flip_allowed(&decision, shown)
+                {
                     language = shown;
                 }
             }
@@ -485,17 +510,28 @@ impl InputSession {
             return;
         }
         // Only what reads as Korean on its own, judged without context.
-        let alone = self.engine.decide(&self.keys, &DecisionContext { previous_language: None, partial: true });
+        let alone = self.engine.decide(
+            &self.keys,
+            &DecisionContext {
+                previous_language: None,
+                partial: true,
+            },
+        );
         if alone.language != Language::Korean {
             return;
         }
         for cut in 4..=(chars.len() - 3) {
             let front: String = chars[..cut].iter().collect();
             let back: String = chars[cut..].iter().collect();
-            let Some(korean) = HangulComposer::compose(&front) else { continue };
+            let Some(korean) = HangulComposer::compose(&front) else {
+                continue;
+            };
             if !korean.stray_jamo().is_empty()
                 || korean.syllables().len() < 2
-                || !korean.syllables().iter().all(|s| KOREAN.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP)
+                || !korean
+                    .syllables()
+                    .iter()
+                    .all(|s| KOREAN.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP)
                 || !self.is_other_language_word(&back)
             {
                 continue;
@@ -512,9 +548,14 @@ impl InputSession {
 
     /// A known English word, or one with a Korean particle (google에서).
     fn is_other_language_word(&self, keys: &str) -> bool {
-        let ctx = DecisionContext { previous_language: Some(Language::Korean), partial: true };
+        let ctx = DecisionContext {
+            previous_language: Some(Language::Korean),
+            partial: true,
+        };
         match self.engine.decide(keys, &ctx).language {
-            Language::English => char_count(keys) >= 3 && EnglishModel::shared().is_known_word(keys),
+            Language::English => {
+                char_count(keys) >= 3 && EnglishModel::shared().is_known_word(keys)
+            }
             Language::Mixed => true,
             Language::Korean => false,
         }
@@ -537,18 +578,29 @@ impl InputSession {
         let engine_choice = self.committed_language();
         let language = self.forced.or(self.pinned).unwrap_or(engine_choice);
         // A reading kept while deleting isn't a correction: report it as the engine's.
-        let decided = if self.forced.is_none() && self.pinned.is_some() { language } else { engine_choice };
+        let decided = if self.forced.is_none() && self.pinned.is_some() {
+            language
+        } else {
+            engine_choice
+        };
         if self.forced.is_some() {
             self.record(&self.keys.clone(), language, decided);
         }
         let text = match language {
-            Language::Korean => self.hangul().unwrap_or_else(|| self.engine.render(&self.keys, language)),
+            Language::Korean => self
+                .hangul()
+                .unwrap_or_else(|| self.engine.render(&self.keys, language)),
             other => self.engine.render(&self.keys, other),
         };
         if let Some(h) = &self.history {
             h.record(&text);
         }
-        let word = Word { keys: std::mem::take(&mut self.keys), text, language, decided };
+        let word = Word {
+            keys: std::mem::take(&mut self.keys),
+            text,
+            language,
+            decided,
+        };
         self.previous_language = Some(language.sentence_language());
         self.reset_word();
         word
@@ -573,7 +625,9 @@ impl InputSession {
             return;
         };
         let earlier = &composed.units[..composed.units.len().saturating_sub(1)];
-        let start = *self.syllable_start.get_or_insert_with(|| Self::cut(&chars, earlier));
+        let start = *self
+            .syllable_start
+            .get_or_insert_with(|| Self::cut(&chars, earlier));
         if start < chars.len() {
             self.keys.pop();
             return;
@@ -603,14 +657,21 @@ impl InputSession {
             Some(start) if start < chars.len() => {
                 let front: String = chars[..start].iter().collect();
                 let back: String = chars[start..].iter().collect();
-                Some(HangulComposer::compose(&front)?.text() + &HangulComposer::compose(&back)?.text())
+                Some(
+                    HangulComposer::compose(&front)?.text()
+                        + &HangulComposer::compose(&back)?.text(),
+                )
             }
             _ => HangulComposer::compose(&self.keys).map(|c| c.text()),
         }
     }
 
     fn record(&mut self, keys: &str, language: Language, engine_choice: Language) {
-        if self.last_recorded.as_ref().is_some_and(|(k, l)| k == keys && *l == language) {
+        if self
+            .last_recorded
+            .as_ref()
+            .is_some_and(|(k, l)| k == keys && *l == language)
+        {
             return;
         }
         self.last_recorded = Some((keys.to_string(), language));
@@ -620,7 +681,10 @@ impl InputSession {
     /// Replaces a just-committed word with its next rendering, but only if the caret still
     /// sits right after it and the text there is what we inserted.
     fn cycle(&mut self, commit: &Committed, client: &mut dyn TextClient) -> Option<Committed> {
-        let range = Range { location: commit.location, length: utf16_len(&commit.text) };
+        let range = Range {
+            location: commit.location,
+            length: utf16_len(&commit.text),
+        };
         let cursor = client.selected_range();
         if cursor.location == NOT_FOUND
             || cursor.length != 0
@@ -630,7 +694,11 @@ impl InputSession {
             return None;
         }
         let language = commit.language.next(&commit.keys);
-        let text = format!("{}{}", self.engine.render(&commit.keys, language), commit.boundary);
+        let text = format!(
+            "{}{}",
+            self.engine.render(&commit.keys, language),
+            commit.boundary
+        );
         client.insert_text(&text, Some(range));
         self.previous_language = Some(language.sentence_language());
         Some(Committed {

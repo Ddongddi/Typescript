@@ -48,10 +48,18 @@ const fn rgb(r: u32, g: u32, b: u32) -> COLORREF {
     COLORREF(r | (g << 8) | (b << 16))
 }
 
-const LIGHT: Palette =
-    Palette { background: rgb(252, 252, 253), border: rgb(222, 222, 228), text: rgb(24, 24, 27), muted: rgb(140, 140, 150) };
-const DARK: Palette =
-    Palette { background: rgb(32, 32, 36), border: rgb(58, 58, 64), text: rgb(244, 244, 246), muted: rgb(140, 140, 152) };
+const LIGHT: Palette = Palette {
+    background: rgb(252, 252, 253),
+    border: rgb(222, 222, 228),
+    text: rgb(24, 24, 27),
+    muted: rgb(140, 140, 150),
+};
+const DARK: Palette = Palette {
+    background: rgb(32, 32, 36),
+    border: rgb(58, 58, 64),
+    text: rgb(244, 244, 246),
+    muted: rgb(140, 140, 152),
+};
 
 /// The apps theme from Settings > Personalization > Colors (light when unreadable).
 fn palette() -> Palette {
@@ -149,7 +157,12 @@ fn layout(hdc: HDC, word: &[u16], scale: f32) -> Layout {
             width: key_left + key_width + px(PAD_X - 3, scale),
             height,
             word_height: word_size.cy,
-            key: RECT { left: key_left, top: key_top, right: key_left + key_width, bottom: key_top + key_height },
+            key: RECT {
+                left: key_left,
+                top: key_top,
+                right: key_left + key_width,
+                bottom: key_top + key_height,
+            },
         }
     }
 }
@@ -165,7 +178,12 @@ unsafe fn paint(hwnd: HWND) {
 
     // Background, then the hairline border (the window region already rounds the corners).
     let background = CreateSolidBrush(colors.background);
-    let area = RECT { left: 0, top: 0, right: l.width, bottom: l.height };
+    let area = RECT {
+        left: 0,
+        top: 0,
+        right: l.width,
+        bottom: l.height,
+    };
     FillRect(hdc, &area, background);
     let _ = DeleteObject(background.into());
     let border = CreatePen(PS_SOLID, 1, colors.border);
@@ -183,13 +201,26 @@ unsafe fn paint(hwnd: HWND) {
     // The key cap: an outlined pill with a muted "Tab".
     let cap_pen = CreatePen(PS_SOLID, 1, colors.border);
     SelectObject(hdc, cap_pen.into());
-    let _ = RoundRect(hdc, l.key.left, l.key.top, l.key.right, l.key.bottom, px(8, scale), px(8, scale));
+    let _ = RoundRect(
+        hdc,
+        l.key.left,
+        l.key.top,
+        l.key.right,
+        l.key.bottom,
+        px(8, scale),
+        px(8, scale),
+    );
     let key_font = font(KEY_SIZE, 600, scale);
     SelectObject(hdc, key_font.into());
     SetTextColor(hdc, colors.muted);
     let mut label: Vec<u16> = "Tab".encode_utf16().collect();
     let mut key = l.key;
-    DrawTextW(hdc, &mut label, &mut key, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    DrawTextW(
+        hdc,
+        &mut label,
+        &mut key,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
+    );
 
     SelectObject(hdc, old_font);
     SelectObject(hdc, old_pen);
@@ -201,7 +232,12 @@ unsafe fn paint(hwnd: HWND) {
     let _ = EndPaint(hwnd, &ps);
 }
 
-unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn window_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     match message {
         WM_PAINT => {
             paint(hwnd);
@@ -268,7 +304,18 @@ impl Ghost {
             WORD.with(|w| *w.borrow_mut() = chars);
             let radius = px(RADIUS, scale) * 2;
             // +1: the region excludes its right/bottom edge.
-            SetWindowRgn(hwnd, Some(CreateRoundRectRgn(0, 0, l.width + 1, l.height + 1, radius, radius)), true);
+            SetWindowRgn(
+                hwnd,
+                Some(CreateRoundRectRgn(
+                    0,
+                    0,
+                    l.width + 1,
+                    l.height + 1,
+                    radius,
+                    radius,
+                )),
+                true,
+            );
             let _ = SetWindowPos(
                 hwnd,
                 Some(HWND_TOPMOST),
@@ -306,7 +353,12 @@ mod tests {
     #[test]
     fn shows_paints_and_hides_the_hint_window() {
         let ghost = Ghost::default();
-        let anchor = RECT { left: 100, top: 100, right: 160, bottom: 120 };
+        let anchor = RECT {
+            left: 100,
+            top: 100,
+            right: 160,
+            bottom: 120,
+        };
         ghost.show("안녕하세요", anchor);
         let hwnd = ghost.hwnd.get();
         assert!(!hwnd.is_invalid());

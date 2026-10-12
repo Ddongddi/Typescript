@@ -4,24 +4,30 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use typescript_core::session::testing::FakeTextField;
 use typescript_core::session::NOT_FOUND;
+use typescript_core::store::policy::Override;
 use typescript_core::History;
-use typescript_core::testing::FakeTextField;
 use typescript_core::{
-    AppPolicies, AppPolicy, EnglishModel, HeuristicEngine, InputSession, Key, LearningEngine, SplittingEngine,
-    TextClient,
+    AppPolicies, AppPolicy, EnglishModel, HeuristicEngine, InputSession, Key, LearningEngine,
+    SplittingEngine, TextClient,
 };
-use typescript_core::policy::Override;
 
 fn engine(name: &str) -> Arc<LearningEngine> {
-    let path = std::env::temp_dir().join(format!("typescript-sess-{name}-{}.json", std::process::id()));
+    let path = std::env::temp_dir().join(format!(
+        "typescript-sess-{name}-{}.json",
+        std::process::id()
+    ));
     let _ = std::fs::remove_file(&path);
     let base = SplittingEngine::new(Box::new(HeuristicEngine::new()), EnglishModel::shared());
     Arc::new(LearningEngine::new(Box::new(base), Some(path)))
 }
 
 fn lexicon_path(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("typescript-sess-{name}-{}.json", std::process::id()))
+    std::env::temp_dir().join(format!(
+        "typescript-sess-{name}-{}.json",
+        std::process::id()
+    ))
 }
 
 struct Rig {
@@ -31,11 +37,17 @@ struct Rig {
 
 impl Rig {
     fn new(name: &str) -> Self {
-        Self { session: InputSession::new(engine(name), AppPolicies::default(), true), field: FakeTextField::new() }
+        Self {
+            session: InputSession::new(engine(name), AppPolicies::default(), true),
+            field: FakeTextField::new(),
+        }
     }
 
     fn with_policies(name: &str, policies: AppPolicies, app: &str) -> Self {
-        let mut rig = Self { session: InputSession::new(engine(name), policies, true), field: FakeTextField::new() };
+        let mut rig = Self {
+            session: InputSession::new(engine(name), policies, true),
+            field: FakeTextField::new(),
+        };
         rig.session.activate(Some(app));
         rig
     }
@@ -64,7 +76,11 @@ impl Rig {
                     self.key(Key::Delete);
                 }
                 c => {
-                    let k = if c.is_ascii_alphabetic() { Key::Letter(c) } else { Key::Printable(c) };
+                    let k = if c.is_ascii_alphabetic() {
+                        Key::Letter(c)
+                    } else {
+                        Key::Printable(c)
+                    };
                     if !self.key(k) {
                         self.field.insert_text(&c.to_string(), None);
                     }
@@ -96,7 +112,10 @@ fn esc_after_commit_flips_the_word_and_learns_it() {
     assert_eq!(r.text(), "hello ");
     assert!(r.key(Key::Escape));
     assert_eq!(r.text(), "ㅗ디ㅣㅐ ");
-    assert_eq!(r.field.selected_range().location, "ㅗ디ㅣㅐ ".encode_utf16().count());
+    assert_eq!(
+        r.field.selected_range().location,
+        "ㅗ디ㅣㅐ ".encode_utf16().count()
+    );
     // Esc again flips back.
     assert!(r.key(Key::Escape));
     assert_eq!(r.text(), "hello ");
@@ -325,11 +344,27 @@ fn another_text_field_resumes() {
 
 fn strict_policies() -> AppPolicies {
     AppPolicies::new([
-        ("test.strict".to_string(), Override { conversion_threshold: Some(0.9999), ..Default::default() }),
-        ("test.off".to_string(), Override { enabled: Some(false), ..Default::default() }),
+        (
+            "test.strict".to_string(),
+            Override {
+                conversion_threshold: Some(0.9999),
+                ..Default::default()
+            },
+        ),
+        (
+            "test.off".to_string(),
+            Override {
+                enabled: Some(false),
+                ..Default::default()
+            },
+        ),
         (
             "test.terminal".to_string(),
-            Override { conversion_threshold: Some(AppPolicy::STRICT_THRESHOLD), escape_to_app: Some(true), ..Default::default() },
+            Override {
+                conversion_threshold: Some(AppPolicy::STRICT_THRESHOLD),
+                escape_to_app: Some(true),
+                ..Default::default()
+            },
         ),
     ])
 }
@@ -375,7 +410,10 @@ fn correction_counts_once_with_the_final_choice() {
     r.key(Key::Escape); // hello → ㅗ디ㅣㅐ
     assert!(r.session.engine().pending().is_empty()); // window still open
     r.type_("x"); // any other key closes it
-    assert_eq!(r.session.engine().pending().get("hello"), Some(&typescript_core::Language::Korean));
+    assert_eq!(
+        r.session.engine().pending().get("hello"),
+        Some(&typescript_core::Language::Korean)
+    );
 }
 
 #[test]
@@ -396,7 +434,10 @@ fn esc_while_typing_is_learned_the_second_time() {
     r.type_("so⎋ ");
     assert_eq!(r.text(), "내 ");
     r.type_("x so⎋ ");
-    assert_eq!(r.session.engine().learned().get("so"), Some(&typescript_core::Language::Korean));
+    assert_eq!(
+        r.session.engine().learned().get("so"),
+        Some(&typescript_core::Language::Korean)
+    );
     r.type_("x so ");
     assert!(r.text().ends_with("내 "), "{}", r.text());
 }
@@ -443,9 +484,12 @@ fn escape_switches_in_other_apps() {
 
 #[test]
 fn acronyms_and_longer_endings() {
-    for (script, expected) in
-        [("UIrkxdmsrjs ", "UI같은건 "), ("UIdp ", "UI에 "), ("AIrk ", "AI가 "), ("githubrkxdmsep ", "github같은데 ")]
-    {
+    for (script, expected) in [
+        ("UIrkxdmsrjs ", "UI같은건 "),
+        ("UIdp ", "UI에 "),
+        ("AIrk ", "AI가 "),
+        ("githubrkxdmsep ", "github같은데 "),
+    ] {
         let mut r = Rig::with_policies("e2e5", strict_policies(), "test.terminal");
         r.type_(script);
         assert_eq!(r.text(), expected);
@@ -461,7 +505,12 @@ fn korean_with_english_and_particles() {
 
 #[test]
 fn punctuation_after_words() {
-    for (script, expected) in [("dho?", "왜?"), ("rjdi.", "거야."), ("hello.", "hello."), ("hello, world!", "hello, world!")] {
+    for (script, expected) in [
+        ("dho?", "왜?"),
+        ("rjdi.", "거야."),
+        ("hello.", "hello."),
+        ("hello, world!", "hello, world!"),
+    ] {
         let mut r = Rig::new("punct");
         r.type_(script);
         assert_eq!(r.text(), expected, "{script}");
@@ -473,7 +522,10 @@ fn lexicon_file_is_created_under_the_given_path() {
     let path = lexicon_path("persist");
     let _ = std::fs::remove_file(&path);
     let engine = Arc::new(LearningEngine::new(
-        Box::new(SplittingEngine::new(Box::new(HeuristicEngine::new()), EnglishModel::shared())),
+        Box::new(SplittingEngine::new(
+            Box::new(HeuristicEngine::new()),
+            EnglishModel::shared(),
+        )),
         Some(path.clone()),
     ));
     let mut session = InputSession::new(engine, AppPolicies::default(), true);
@@ -489,14 +541,14 @@ fn lexicon_file_is_created_under_the_given_path() {
     let _ = std::fs::remove_file(&path);
 }
 
-
 fn rig_with_history(name: &str, words: &[&str]) -> Rig {
     let history = Arc::new(History::new(None));
     for w in words {
         history.record(w);
     }
     let mut rig = Rig::new(name);
-    rig.session = InputSession::new(engine(name), AppPolicies::default(), true).with_history(history);
+    rig.session =
+        InputSession::new(engine(name), AppPolicies::default(), true).with_history(history);
     rig
 }
 

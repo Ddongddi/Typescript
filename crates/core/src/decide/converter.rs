@@ -1,7 +1,7 @@
 //! Converts a whole line of QWERTY text word by word, carrying language context across
 //! words exactly as the input method does while typing (TextConverter.swift).
 
-use crate::engine::{Decision, DecisionContext, DecisionEngine};
+use crate::decide::engine::{Decision, DecisionContext, DecisionEngine};
 
 pub struct Word {
     pub keys: String,
@@ -23,15 +23,24 @@ impl<'a> TextConverter<'a> {
         let mut token = String::new();
         let mut previous = None;
 
-        let flush = |token: &mut String, output: &mut String, words: &mut Vec<Word>, previous: &mut Option<_>| {
+        let flush = |token: &mut String,
+                     output: &mut String,
+                     words: &mut Vec<Word>,
+                     previous: &mut Option<_>| {
             if token.is_empty() {
                 return;
             }
-            let ctx = DecisionContext { previous_language: *previous, partial: false };
+            let ctx = DecisionContext {
+                previous_language: *previous,
+                partial: false,
+            };
             let decision = self.engine.decide(token, &ctx);
             output.push_str(&decision.output);
             *previous = Some(decision.language.sentence_language());
-            words.push(Word { keys: std::mem::take(token), decision });
+            words.push(Word {
+                keys: std::mem::take(token),
+                decision,
+            });
         };
 
         for ch in text.chars() {

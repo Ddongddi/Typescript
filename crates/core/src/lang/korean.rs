@@ -4,12 +4,12 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use crate::hangul::{is_consonant, Composed, HangulComposer, Unit};
-use crate::mixed::is_suffix;
-use crate::sorted::SortedLines;
-use crate::syllables::{TIER1, TIER2, TIER3};
+use crate::lang::hangul::{is_consonant, Composed, HangulComposer, Unit};
+use crate::lang::particles::is_ending;
+use crate::lang::sorted::SortedLines;
+use crate::lang::syllables::{TIER1, TIER2, TIER3};
 
-const KOREAN_SYLLABLES: &str = include_str!("../data/korean_syllables.txt");
+const KOREAN_SYLLABLES: &str = include_str!("../../data/korean_syllables.txt");
 // Sorted and deduplicated by build.rs, searched in place.
 const KOREAN_WORDS: &str = include_str!(concat!(env!("OUT_DIR"), "/korean_words_sorted.txt"));
 const KOREAN_VOCABULARY: &str = include_str!(concat!(env!("OUT_DIR"), "/korean_vocab_sorted.txt"));
@@ -54,7 +54,9 @@ const INITIALS: &str = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍ�
 
 /// (initial, vowel, final) indices of a precomposed syllable.
 fn parts(c: char) -> Option<(usize, usize, usize)> {
-    let i = (c as usize).checked_sub('가' as usize).filter(|i| *i < 11172)?;
+    let i = (c as usize)
+        .checked_sub('가' as usize)
+        .filter(|i| *i < 11172)?;
     Some((i / 588, i % 588 / 28, i % 28))
 }
 
@@ -73,9 +75,13 @@ fn fits(partial: char, full: char) -> bool {
 
 /// Whether `word` continues `prefix`, whose last character may be half-typed Hangul.
 pub fn continues(prefix: &str, word: &str) -> bool {
-    let Some(last) = prefix.chars().next_back() else { return true };
+    let Some(last) = prefix.chars().next_back() else {
+        return true;
+    };
     let head = &prefix[..prefix.len() - last.len_utf8()];
-    word.strip_prefix(head).and_then(|rest| rest.chars().next()).is_some_and(|c| fits(last, c))
+    word.strip_prefix(head)
+        .and_then(|rest| rest.chars().next())
+        .is_some_and(|c| fits(last, c))
 }
 
 fn is_hangul_syllable(c: char) -> bool {
@@ -93,7 +99,11 @@ impl KoreanModel {
         let mut map: HashMap<char, f64> = HashMap::new();
         if source != Source::Corpus {
             // later (more frequent) tiers overwrite earlier ones
-            for (syllables, logp) in [(TIER3, TIER3_LOGP), (TIER2, TIER2_LOGP), (TIER1, TIER1_LOGP)] {
+            for (syllables, logp) in [
+                (TIER3, TIER3_LOGP),
+                (TIER2, TIER2_LOGP),
+                (TIER1, TIER1_LOGP),
+            ] {
                 for s in syllables.chars().filter(|c| is_hangul_syllable(*c)) {
                     map.insert(s, logp);
                 }
@@ -133,7 +143,7 @@ impl KoreanModel {
         }
         hangul.char_indices().skip(2).any(|(cut, _)| {
             let (head, tail) = hangul.split_at(cut);
-            is_suffix(tail) && self.is_vocabulary_word(head)
+            is_ending(tail) && self.is_vocabulary_word(head)
         })
     }
 
@@ -149,20 +159,31 @@ impl KoreanModel {
             return None;
         }
         let head = &prefix[..prefix.len() - prefix.chars().next_back()?.len_utf8()];
-        let column = |line: &str| line.split('\t').nth(1).and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
+        let column = |line: &str| {
+            line.split('\t')
+                .nth(1)
+                .and_then(|n| n.parse::<u64>().ok())
+                .unwrap_or(0)
+        };
         let word = |line: &'static str| line.split('\t').next().unwrap_or(line);
         let candidates = |list: &'static SortedLines| {
-            list.with_prefix(head).filter(move |l| word(l) != prefix && continues(prefix, word(l)))
+            list.with_prefix(head)
+                .filter(move |l| word(l) != prefix && continues(prefix, word(l)))
         };
         // Spoken-language ranking first (1 = most said), then the Tatoeba counts.
         if let Some(best) = candidates(&VOCABULARY).min_by_key(|l| column(l)) {
             return Some(word(best).to_string());
         }
-        candidates(&WORDS).max_by_key(|l| column(l)).map(|l| word(l).to_string())
+        candidates(&WORDS)
+            .max_by_key(|l| column(l))
+            .map(|l| word(l).to_string())
     }
 
     pub fn syllable_log_probability(&self, syllable: char) -> f64 {
-        self.tiers.get(&syllable).copied().unwrap_or(UNKNOWN_SYLLABLE_LOGP)
+        self.tiers
+            .get(&syllable)
+            .copied()
+            .unwrap_or(UNKNOWN_SYLLABLE_LOGP)
     }
 
     /// `partial`: the token is still being typed, so a trailing lone consonant is
@@ -176,8 +197,13 @@ impl KoreanModel {
         // ㅋㅋ ㅎㅎ ㅠㅠ ㄷㄷ…; and any two consonants (ㄹㅇ ㅇㅈ ㅈㅅ ㄱㅊ ㅁㅊ), which the original
         // misses. Two only: longer all-consonant keys spell English words (tea, set, cat).
         let all_chat = units.len() >= 2
-            && (units.iter().all(|u| matches!(u, Unit::Jamo(j) if CHAT_JAMO.contains(*j)))
-                || (units.len() == 2 && units.iter().all(|u| matches!(u, Unit::Jamo(j) if is_consonant(*j)))));
+            && (units
+                .iter()
+                .all(|u| matches!(u, Unit::Jamo(j) if CHAT_JAMO.contains(*j)))
+                || (units.len() == 2
+                    && units
+                        .iter()
+                        .all(|u| matches!(u, Unit::Jamo(j) if is_consonant(*j)))));
         let mut total = 0.0;
         for (i, unit) in units.iter().enumerate() {
             total += match unit {
@@ -193,7 +219,10 @@ impl KoreanModel {
                 }
             };
         }
-        Some(KoreanScore { average_log_probability: total / keys.chars().count() as f64, composition })
+        Some(KoreanScore {
+            average_log_probability: total / keys.chars().count() as f64,
+            composition,
+        })
     }
 }
 

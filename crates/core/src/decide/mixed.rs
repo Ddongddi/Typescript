@@ -2,34 +2,11 @@
 //! `githubdp` → `github에`, `APIfmf` → `API를`, `commitgotj` → `commit해서`.
 //! The Japanese branches of the original are gone.
 
-use std::collections::HashSet;
-use std::sync::LazyLock;
-
-use crate::engine::{Decision, DecisionContext, DecisionEngine, Language};
-use crate::english::EnglishModel;
-use crate::hangul::{DubeolsikLayout, HangulComposer};
-use crate::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
-
-/// Particles and endings that commonly attach directly to a (loan)word.
-const SUFFIXES: &str = "에 에서 에게 에는 에서는 에도 에서도 의 을 를 은 는 이 가 도 로 으로 와 과 랑 이랑 하고 한테 까지 부터 만 보다 \
-처럼 이나 나 이야 야 이에요 예요 이다 입니다 인데 이라 이라고 라고 으로는 로는 으로도 로도 이고 이지 이랑은 \
-했어 했다 했어요 했는데 했고 했지 했음 해서 해야 하는 하면 하고 하기 하게 하다 해 해요 합니다 할 한 함 하자 해줘 해봐 \
-됐어 됐다 된 되는 되면 돼 돼요 됩니다 같은 같아 적 적인 적으로 스럽게 같이 들 들이 들을 들은 에요 이요 를요 을요 \
-같은건 같은거 같은게 같은걸 같은데 같다 같네 같아서 같은지 같고 같아요 인가 인지 인데요 인건 인게 인거 \
-이라는 라는 이란 에선 으론 로서 으로서";
-
-/// Particles that follow a single letter (x에, n이, a를, X축의 X): case particles only, not
-/// endings like 해/한, so short English (ago) doesn't split.
-const SINGLE_LETTER_PARTICLES: &str = "에 에서 에게 에는 에서는 에도 의 을 를 은 는 이 가 도 로 으로 와 과 랑 이랑 하고 한테 까지 부터 만 보다 \
-처럼 이나 나 이라 이라고 라고 이랑은 으로는 로는 같은 같이";
-
-static SUFFIX_SET: LazyLock<HashSet<&'static str>> = LazyLock::new(|| SUFFIXES.split_whitespace().collect());
-static SINGLE_SET: LazyLock<HashSet<&'static str>> =
-    LazyLock::new(|| SINGLE_LETTER_PARTICLES.split_whitespace().collect());
-
-pub fn is_suffix(s: &str) -> bool {
-    SUFFIX_SET.contains(s)
-}
+use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::lang::english::EnglishModel;
+use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
+use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
+use crate::lang::particles::{is_ending, is_single_letter_particle};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MixedWord {
@@ -57,7 +34,7 @@ impl MixedWord {
         }
         let composed = HangulComposer::compose(&suffix_keys)?;
         let text = composed.text();
-        if !composed.stray_jamo().is_empty() || !SINGLE_SET.contains(text.as_str()) {
+        if !composed.stray_jamo().is_empty() || !is_single_letter_particle(&text) {
             return None;
         }
         // 도 and 나 are the keys eh and sk, common English endings (heh, meh, yeh, tsk): after a
@@ -65,7 +42,11 @@ impl MixedWord {
         if first.is_lowercase() && (text == "도" || text == "나") {
             return None;
         }
-        Some(MixedWord { english: first.to_string(), korean_keys: suffix_keys, korean: text })
+        Some(MixedWord {
+            english: first.to_string(),
+            korean_keys: suffix_keys,
+            korean: text,
+        })
     }
 
     /// Splits off the longest Korean particle/ending at the end of `keys`. Only the shape is
@@ -81,9 +62,11 @@ impl MixedWord {
                 continue;
             }
             let suffix_keys: String = chars[start..].iter().collect();
-            let Some(composed) = HangulComposer::compose(&suffix_keys) else { continue };
+            let Some(composed) = HangulComposer::compose(&suffix_keys) else {
+                continue;
+            };
             let text = composed.text();
-            if composed.stray_jamo().is_empty() && SUFFIX_SET.contains(text.as_str()) {
+            if composed.stray_jamo().is_empty() && is_ending(&text) {
                 return Some(MixedWord {
                     english: chars[..start].iter().collect(),
                     korean_keys: suffix_keys,
@@ -142,7 +125,9 @@ impl SplittingEngine {
     fn is_acronym(front: &str) -> bool {
         (2..=6).contains(&front.chars().count())
             && front.chars().all(|c| c.is_uppercase())
-            && front.chars().any(|c| !DubeolsikLayout::is_korean_shift_key(c))
+            && front
+                .chars()
+                .any(|c| !DubeolsikLayout::is_korean_shift_key(c))
     }
 
     /// Slack, TextEdit, VSCode, GitHub: a name typed with its capitals, so English even when
@@ -160,26 +145,33 @@ impl SplittingEngine {
         }
         // Every capital a shifted jamo and the keys spelling whole Hangul is Korean typed with
         // shift (RoRmtgkgfu, 깨끗핳려), not a name (TextEdit).
-        HangulComposer::compose(front).map(|c| !c.stray_jamo().is_empty()).unwrap_or(true)
+        HangulComposer::compose(front)
+            .map(|c| !c.stray_jamo().is_empty())
+            .unwrap_or(true)
     }
 
     fn has_english_only_capital(front: &str) -> bool {
-        front.chars().any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
+        front
+            .chars()
+            .any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
     }
 
     fn looks_english(&self, front: &str) -> bool {
         if self.english.is_known_word(front) {
             return true;
         }
-        let unreadable = HangulComposer::compose(front).map(|c| !c.stray_jamo().is_empty()).unwrap_or(true);
+        let unreadable = HangulComposer::compose(front)
+            .map(|c| !c.stray_jamo().is_empty())
+            .unwrap_or(true);
         unreadable && self.english.average_log_probability(front) >= self.english_spelling_floor
     }
 
     fn reads_as_korean(&self, keys: &str) -> bool {
         match HangulComposer::compose(keys) {
-            Some(c) if c.stray_jamo().is_empty() => {
-                c.syllables().iter().all(|s| self.korean.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP)
-            }
+            Some(c) if c.stray_jamo().is_empty() => c
+                .syllables()
+                .iter()
+                .all(|s| self.korean.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP),
             _ => false,
         }
     }
@@ -211,7 +203,9 @@ impl SplittingEngine {
             if !front_ok || !DubeolsikLayout::starts_syllable(back.chars().next()?) {
                 continue;
             }
-            let Some(composed) = HangulComposer::compose(&back) else { continue };
+            let Some(composed) = HangulComposer::compose(&back) else {
+                continue;
+            };
             if !composed.stray_jamo().is_empty() || composed.syllables().len() < 2 {
                 continue;
             }
@@ -230,7 +224,11 @@ impl SplittingEngine {
             if !Self::has_english_only_capital(&front) && self.reads_as_korean(keys) {
                 return None;
             }
-            return Some(MixedWord { english: front, korean_keys: back, korean: text });
+            return Some(MixedWord {
+                english: front,
+                korean_keys: back,
+                korean: text,
+            });
         }
         None
     }
@@ -270,7 +268,9 @@ impl DecisionEngine for SplittingEngine {
                 if d.language == Language::Mixed {
                     d.output
                 } else {
-                    MixedWord::split(keys).map(|m| m.text()).unwrap_or_else(|| keys.to_string())
+                    MixedWord::split(keys)
+                        .map(|m| m.text())
+                        .unwrap_or_else(|| keys.to_string())
                 }
             }
             other => self.base.render(keys, other),

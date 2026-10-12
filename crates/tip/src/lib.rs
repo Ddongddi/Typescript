@@ -21,9 +21,12 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
 
-use windows::core::{implement, Error, Interface, Ref, Result, BOOL, GUID, HRESULT, IUnknown, PCSTR};
+use windows::core::{
+    implement, Error, IUnknown, Interface, Ref, Result, BOOL, GUID, HRESULT, PCSTR,
+};
 use windows::Win32::Foundation::{
-    CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, E_FAIL, E_INVALIDARG, HMODULE, HWND, S_FALSE, S_OK,
+    CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, E_FAIL, E_INVALIDARG, HMODULE, HWND, S_FALSE,
+    S_OK,
 };
 use windows::Win32::System::Com::{IClassFactory, IClassFactory_Impl};
 use windows::Win32::System::LibraryLoader::DisableThreadLibraryCalls;
@@ -63,7 +66,11 @@ fn guarded(f: impl FnOnce() -> HRESULT) -> HRESULT {
 /// # Safety
 /// COM calls this with valid (or null) pointers, as `DllGetClassObject` always does.
 #[no_mangle]
-pub unsafe extern "system" fn DllGetClassObject(clsid: *const GUID, iid: *const GUID, out: *mut *mut c_void) -> HRESULT {
+pub unsafe extern "system" fn DllGetClassObject(
+    clsid: *const GUID,
+    iid: *const GUID,
+    out: *mut *mut c_void,
+) -> HRESULT {
     guarded(|| {
         if clsid.is_null() || iid.is_null() || out.is_null() {
             return E_INVALIDARG;
@@ -101,7 +108,12 @@ pub extern "system" fn DllUnregisterServer() -> HRESULT {
 
 /// `rundll32 typescript_tip.dll,EnableForUser`: switches the profile on for the current user.
 #[no_mangle]
-pub extern "system" fn EnableForUser(_hwnd: HWND, _instance: HMODULE, _command_line: PCSTR, _show: i32) {
+pub extern "system" fn EnableForUser(
+    _hwnd: HWND,
+    _instance: HMODULE,
+    _command_line: PCSTR,
+    _show: i32,
+) {
     let _ = catch_unwind(AssertUnwindSafe(registry::enable_for_user));
 }
 
@@ -109,7 +121,12 @@ pub extern "system" fn EnableForUser(_hwnd: HWND, _instance: HMODULE, _command_l
 struct ClassFactory;
 
 impl IClassFactory_Impl for ClassFactory_Impl {
-    fn CreateInstance(&self, outer: Ref<IUnknown>, iid: *const GUID, out: *mut *mut c_void) -> Result<()> {
+    fn CreateInstance(
+        &self,
+        outer: Ref<IUnknown>,
+        iid: *const GUID,
+        out: *mut *mut c_void,
+    ) -> Result<()> {
         if outer.is_some() {
             return Err(Error::from(CLASS_E_NOAGGREGATION));
         }

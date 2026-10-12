@@ -9,9 +9,9 @@
 
 use std::io::{self, BufRead};
 
+use typescript_core::lang::hangul::HangulComposer;
+use typescript_core::store::history::suggest;
 use typescript_core::{make_engine, DecisionContext, DecisionEngine, Language, TextConverter};
-use typescript_core::hangul::HangulComposer;
-use typescript_core::history::suggest;
 
 fn lines() -> impl Iterator<Item = String> {
     io::stdin().lock().lines().map_while(Result::ok)
@@ -25,14 +25,22 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("--compose") => {
             for keys in lines() {
-                let text = HangulComposer::compose(&keys).map(|c| c.text()).unwrap_or_else(|| keys.clone());
+                let text = HangulComposer::compose(&keys)
+                    .map(|c| c.text())
+                    .unwrap_or_else(|| keys.clone());
                 println!("{keys}\t{text}");
             }
         }
         Some("--suggest") => {
             // What Tab would complete each line of keys to, from the built-in word lists.
             for keys in lines() {
-                let d = engine.decide(&keys, &DecisionContext { previous_language: None, partial: true });
+                let d = engine.decide(
+                    &keys,
+                    &DecisionContext {
+                        previous_language: None,
+                        partial: true,
+                    },
+                );
                 let suggestion = suggest(None, d.language, &d.output).unwrap_or_default();
                 println!("{keys}\t{}\t{}\t{suggestion}", d.language.name(), d.output);
             }
@@ -42,7 +50,13 @@ fn main() {
                 let mut fields = line.split('\t');
                 let keys = fields.next().unwrap_or("");
                 let previous = fields.next().and_then(Language::parse);
-                let d = engine.decide(keys, &DecisionContext { previous_language: previous, partial: false });
+                let d = engine.decide(
+                    keys,
+                    &DecisionContext {
+                        previous_language: previous,
+                        partial: false,
+                    },
+                );
                 println!(
                     "{keys}\t{}\t{:.4}\t{}\t{}\t{}",
                     d.language.name(),
@@ -65,8 +79,15 @@ fn main() {
                 if verbose {
                     for w in &words {
                         let d = &w.decision;
-                        let lang = if d.language == Language::English { "en" } else { "ko" };
-                        println!("  {:<16} → {} [{lang} {:.2}] {}", w.keys, d.output, d.confidence, d.explanation);
+                        let lang = if d.language == Language::English {
+                            "en"
+                        } else {
+                            "ko"
+                        };
+                        println!(
+                            "  {:<16} → {} [{lang} {:.2}] {}",
+                            w.keys, d.output, d.confidence, d.explanation
+                        );
                     }
                 }
             };

@@ -12,9 +12,14 @@ use std::time::{Duration, Instant};
 
 use windows::core::{w, GUID};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+};
 use windows::Win32::System::LibraryLoader::{GetModuleHandleW, LoadLibraryW};
-use windows::Win32::UI::Input::Ime::{GCS_COMPATTR, GCS_COMPSTR, GCS_CURSORPOS,ImmGetCompositionStringW, ImmGetContext,ImmGetConversionStatus, ImmGetOpenStatus, ImmIsIME, ImmReleaseContext};
+use windows::Win32::UI::Input::Ime::{
+    ImmGetCompositionStringW, ImmGetContext, ImmGetConversionStatus, ImmGetOpenStatus, ImmIsIME,
+    ImmReleaseContext, GCS_COMPATTR, GCS_COMPSTR, GCS_CURSORPOS,
+};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::TextServices::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -32,7 +37,12 @@ const TYPESCRIPT: (GUID, GUID) = (
 static mut OLD_PROC: isize = 0;
 
 /// Logs the IME messages the RichEdit gets, then lets it handle them.
-unsafe extern "system" fn edit_proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn edit_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     let name = match message {
         0x010D => Some("STARTCOMPOSITION"),
         0x010E => Some("ENDCOMPOSITION"),
@@ -43,13 +53,21 @@ unsafe extern "system" fn edit_proc(hwnd: HWND, message: u32, wparam: WPARAM, lp
         _ => None,
     };
     if let Some(name) = name {
-        println!("    WM_IME_{name} wparam={:#x} lparam={:#x}", wparam.0, lparam.0);
+        println!(
+            "    WM_IME_{name} wparam={:#x} lparam={:#x}",
+            wparam.0, lparam.0
+        );
     }
     let old: WNDPROC = std::mem::transmute(OLD_PROC);
     CallWindowProcW(old, hwnd, message, wparam, lparam)
 }
 
-unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn window_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     DefWindowProcW(hwnd, message, wparam, lparam)
 }
 
@@ -75,7 +93,11 @@ fn key(vk: u16, up: bool) -> INPUT {
             ki: KEYBDINPUT {
                 wVk: VIRTUAL_KEY(vk),
                 wScan: 0,
-                dwFlags: if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) },
+                dwFlags: if up {
+                    KEYEVENTF_KEYUP
+                } else {
+                    KEYBD_EVENT_FLAGS(0)
+                },
                 time: 0,
                 dwExtraInfo: 0,
             },
@@ -159,19 +181,30 @@ fn main() {
         // Microsoft's IME is Korean; Typescript is registered under en-US (see guids.rs).
         // LAB_LANGID=0412 tries another language the profile is registered under.
         let default_langid = if which == "--ms" { LANGID_KO } else { 0x0409 };
-        let langid = std::env::var("LAB_LANGID").ok().and_then(|v| u16::from_str_radix(&v, 16).ok()).unwrap_or(default_langid);
+        let langid = std::env::var("LAB_LANGID")
+            .ok()
+            .and_then(|v| u16::from_str_radix(&v, 16).ok())
+            .unwrap_or(default_langid);
         // LAB_PROFILE=7A3F0001-0000-4000-8000-000000000001: another (lab) profile of the service.
         let profile = std::env::var("LAB_PROFILE")
             .ok()
             .and_then(|v| u128::from_str_radix(&v.replace('-', ""), 16).ok())
             .map_or(profile, GUID::from_u128);
         // A TSF thread, then the chosen text service for this process.
-        let manager: ITfThreadMgr = CoCreateInstance(&CLSID_TF_ThreadMgr, None, CLSCTX_INPROC_SERVER).unwrap();
+        let manager: ITfThreadMgr =
+            CoCreateInstance(&CLSID_TF_ThreadMgr, None, CLSCTX_INPROC_SERVER).unwrap();
         let _client = manager.Activate().unwrap();
         let profiles: ITfInputProcessorProfileMgr =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER).unwrap();
         profiles
-            .ActivateProfile(1, langid, &clsid, &profile, HKL::default(), TF_IPPMF_FORPROCESS | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE)
+            .ActivateProfile(
+                1,
+                langid,
+                &clsid,
+                &profile,
+                HKL::default(),
+                TF_IPPMF_FORPROCESS | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE,
+            )
             .unwrap();
         pump(Duration::from_millis(800));
         let _ = SetFocus(Some(edit));
@@ -190,7 +223,8 @@ fn main() {
         let layout = GetKeyboardLayout(0);
         let himc = ImmGetContext(edit);
         let (mut conversion, mut sentence) = (Default::default(), Default::default());
-        let have_status = ImmGetConversionStatus(himc, Some(&mut conversion), Some(&mut sentence)).as_bool();
+        let have_status =
+            ImmGetConversionStatus(himc, Some(&mut conversion), Some(&mut sentence)).as_bool();
         println!(
             "{which}: hkl={:#010x} is_ime={} open={} conversion={:#x} sentence={:#x} (status ok: {have_status})",
             layout.0 as usize,
@@ -213,7 +247,8 @@ fn main() {
             let himc = ImmGetContext(edit);
             let compstr = ImmGetCompositionStringW(himc, GCS_COMPSTR, None, 0);
             let mut attr = [0u8; 8];
-            let compattr = ImmGetCompositionStringW(himc, GCS_COMPATTR, Some(attr.as_mut_ptr().cast()), 8);
+            let compattr =
+                ImmGetCompositionStringW(himc, GCS_COMPATTR, Some(attr.as_mut_ptr().cast()), 8);
             let cursor = ImmGetCompositionStringW(himc, GCS_CURSORPOS, None, 0);
             println!(
                 "  after {}: IMM composition bytes={compstr} attr={:?} cursor={cursor}",
@@ -223,7 +258,8 @@ fn main() {
             let _ = ImmReleaseContext(edit, himc);
         }
         pump(Duration::from_millis(400));
-        let installed = GetModuleHandleW(w!(r"C:\Program Files\Typescript\typescript_tip.dll")).is_ok();
+        let installed =
+            GetModuleHandleW(w!(r"C:\Program Files\Typescript\typescript_tip.dll")).is_ok();
         println!("{which}: installed DLL loaded: {installed}");
         let typed = text_of(edit);
         println!("{which}: the control holds {typed:?}  (wanted \"테스트\" after Space)");

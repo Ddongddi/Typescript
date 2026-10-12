@@ -23,7 +23,9 @@ pub struct EditSession {
 
 impl EditSession {
     pub fn new(work: impl FnOnce(u32) + 'static) -> Self {
-        Self { work: RefCell::new(Some(Box::new(work))) }
+        Self {
+            work: RefCell::new(Some(Box::new(work))),
+        }
     }
 }
 
@@ -32,7 +34,8 @@ impl ITfEditSession_Impl for EditSession_Impl {
         let work = self.work.borrow_mut().take();
         if let Some(work) = work {
             // A panic must not cross into the host application.
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(ec))).map_err(|_| Error::from(E_FAIL))?;
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(ec)))
+                .map_err(|_| Error::from(E_FAIL))?;
         }
         Ok(())
     }
@@ -53,7 +56,8 @@ impl TsfClient<'_> {
     /// the result on: a call an app refuses is otherwise invisible.
     fn logged<T>(&self, step: &str, result: Result<T>) -> Result<T> {
         if let Err(e) = &result {
-            self.inner.trace(&format!("{step} failed: {:#010x}", e.code().0));
+            self.inner
+                .trace(&format!("{step} failed: {:#010x}", e.code().0));
         }
         result
     }
@@ -63,7 +67,10 @@ impl TsfClient<'_> {
         // SAFETY: TF_SELECTION is plain data; GetSelection fills it when it reports a fetch.
         let mut sel = [unsafe { std::mem::zeroed::<TF_SELECTION>() }];
         let mut fetched = 0u32;
-        unsafe { self.context.GetSelection(self.ec, TF_DEFAULT_SELECTION, &mut sel, &mut fetched)? };
+        unsafe {
+            self.context
+                .GetSelection(self.ec, TF_DEFAULT_SELECTION, &mut sel, &mut fetched)?
+        };
         let [first] = sel;
         if fetched == 0 {
             return Err(E_FAIL.into());
@@ -84,9 +91,14 @@ impl TsfClient<'_> {
             range.Collapse(self.ec, TF_ANCHOR_END)?;
             let sel = TF_SELECTION {
                 range: ManuallyDrop::new(Some(range.clone())),
-                style: TF_SELECTIONSTYLE { ase: TF_AE_NONE, fInterimChar: false.into() },
+                style: TF_SELECTIONSTYLE {
+                    ase: TF_AE_NONE,
+                    fInterimChar: false.into(),
+                },
             };
-            let result = self.context.SetSelection(self.ec, std::slice::from_ref(&sel));
+            let result = self
+                .context
+                .SetSelection(self.ec, std::slice::from_ref(&sel));
             drop(ManuallyDrop::into_inner(sel.range)); // SetSelection took its own reference
             result
         }
@@ -106,7 +118,10 @@ impl TsfClient<'_> {
         let range = unsafe { self.inner.composition.borrow().as_ref()?.GetRange().ok()? };
         let view = unsafe { self.context.GetActiveView().ok()? };
         let (mut rect, mut clipped) = (RECT::default(), BOOL::default());
-        unsafe { view.GetTextExt(self.ec, &range, &mut rect, &mut clipped).ok()? };
+        unsafe {
+            view.GetTextExt(self.ec, &range, &mut rect, &mut clipped)
+                .ok()?
+        };
         Some(rect)
     }
 
@@ -129,7 +144,9 @@ impl TsfClient<'_> {
             return;
         }
         let _ = unsafe {
-            self.context.GetProperty(&GUID_PROP_ATTRIBUTE).and_then(|p| p.Clear(self.ec, range))
+            self.context
+                .GetProperty(&GUID_PROP_ATTRIBUTE)
+                .and_then(|p| p.Clear(self.ec, range))
         };
     }
 
@@ -145,14 +162,22 @@ impl TsfClient<'_> {
             return Ok(());
         }
         if slot.is_none() {
-            let insert: ITfInsertAtSelection = self.logged("cast ITfInsertAtSelection", self.context.cast())?;
-            let at = self.logged("query selection", unsafe { insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[]) })?;
-            let composing: ITfContextComposition = self.logged("cast ITfContextComposition", self.context.cast())?;
+            let insert: ITfInsertAtSelection =
+                self.logged("cast ITfInsertAtSelection", self.context.cast())?;
+            let at = self.logged("query selection", unsafe {
+                insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[])
+            })?;
+            let composing: ITfContextComposition =
+                self.logged("cast ITfContextComposition", self.context.cast())?;
             let sink = self.inner.comp_sink.borrow().clone();
-            *slot = Some(self.logged("StartComposition", unsafe { composing.StartComposition(self.ec, &at, sink.as_ref()) })?);
+            *slot = Some(self.logged("StartComposition", unsafe {
+                composing.StartComposition(self.ec, &at, sink.as_ref())
+            })?);
             self.inner.trace("composition started");
         }
-        let Some(composition) = slot.as_ref() else { return Err(E_FAIL.into()) };
+        let Some(composition) = slot.as_ref() else {
+            return Err(E_FAIL.into());
+        };
         let range = self.logged("GetRange", unsafe { composition.GetRange() })?;
         self.logged("SetText", unsafe { range.SetText(self.ec, 0, &chars) })?;
         self.mark(&range);
@@ -178,7 +203,9 @@ impl TsfClient<'_> {
             return end;
         }
         let insert: ITfInsertAtSelection = self.context.cast()?;
-        let range = unsafe { insert.InsertTextAtSelection(self.ec, TF_IAS_NO_DEFAULT_COMPOSITION, &chars)? };
+        let range = unsafe {
+            insert.InsertTextAtSelection(self.ec, TF_IAS_NO_DEFAULT_COMPOSITION, &chars)?
+        };
         self.select_end(&range)
     }
 }
@@ -194,24 +221,42 @@ impl TextClient for TsfClient<'_> {
 
     fn selected_range(&self) -> Range {
         match self.selection().and_then(|r| Self::extent(&r)) {
-            Ok((start, len)) if start >= 0 && len >= 0 => Range { location: start as usize, length: len as usize },
-            _ => Range { location: NOT_FOUND, length: 0 },
+            Ok((start, len)) if start >= 0 && len >= 0 => Range {
+                location: start as usize,
+                length: len as usize,
+            },
+            _ => Range {
+                location: NOT_FOUND,
+                length: 0,
+            },
         }
     }
 
     fn marked_range(&self) -> Range {
         let slot = self.inner.composition.borrow();
-        let found = slot.as_ref().and_then(|c| unsafe { c.GetRange().ok() }).and_then(|r| Self::extent(&r).ok());
+        let found = slot
+            .as_ref()
+            .and_then(|c| unsafe { c.GetRange().ok() })
+            .and_then(|r| Self::extent(&r).ok());
         match found {
-            Some((start, len)) if start >= 0 && len >= 0 => Range { location: start as usize, length: len as usize },
-            _ => Range { location: NOT_FOUND, length: 0 },
+            Some((start, len)) if start >= 0 && len >= 0 => Range {
+                location: start as usize,
+                length: len as usize,
+            },
+            _ => Range {
+                location: NOT_FOUND,
+                length: 0,
+            },
         }
     }
 
     fn text_in(&self, range: Range) -> Option<String> {
         let probe = self.selection().ok()?;
         let acp: ITfRangeACP = probe.cast().ok()?;
-        unsafe { acp.SetExtent(range.location as i32, range.length as i32).ok()? };
+        unsafe {
+            acp.SetExtent(range.location as i32, range.length as i32)
+                .ok()?
+        };
         let mut buffer = vec![0u16; range.length + 1];
         let mut count = 0u32;
         unsafe { probe.GetText(self.ec, 0, &mut buffer, &mut count).ok()? };

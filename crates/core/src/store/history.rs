@@ -11,9 +11,9 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::Language;
-use crate::english::EnglishModel;
-use crate::korean::{continues, KoreanModel};
+use crate::decide::engine::Language;
+use crate::lang::english::EnglishModel;
+use crate::lang::korean::{continues, KoreanModel};
 use crate::support_dir;
 
 /// A word has to be typed this often before it is suggested: a one-off (a password typed
@@ -41,14 +41,17 @@ pub struct History {
 }
 
 fn read(path: Option<&PathBuf>) -> Store {
-    path.and_then(|p| fs::read(p).ok()).and_then(|d| serde_json::from_slice(&d).ok()).unwrap_or_default()
+    path.and_then(|p| fs::read(p).ok())
+        .and_then(|d| serde_json::from_slice(&d).ok())
+        .unwrap_or_default()
 }
 
 /// Hangul syllables or ASCII letters only, 2..=32 characters: no numbers, no mixed tokens.
 fn is_recordable(word: &str) -> bool {
     let n = word.chars().count();
     (2..=MAX_WORD_CHARS).contains(&n)
-        && (word.chars().all(|c| ('가'..='힣').contains(&c)) || word.chars().all(|c| c.is_ascii_alphabetic()))
+        && (word.chars().all(|c| ('가'..='힣').contains(&c))
+            || word.chars().all(|c| c.is_ascii_alphabetic()))
 }
 
 impl History {
@@ -58,7 +61,13 @@ impl History {
 
     pub fn new(path: Option<PathBuf>) -> Self {
         let store = read(path.as_ref());
-        Self { path, state: Mutex::new(State { store, fresh: BTreeMap::new() }) }
+        Self {
+            path,
+            state: Mutex::new(State {
+                store,
+                fresh: BTreeMap::new(),
+            }),
+        }
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -93,7 +102,9 @@ impl History {
         for (word, n) in &s.fresh {
             *merged.words.entry(word.clone()).or_default() += n;
         }
-        let Ok(json) = serde_json::to_vec_pretty(&merged) else { return };
+        let Ok(json) = serde_json::to_vec_pretty(&merged) else {
+            return;
+        };
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
@@ -142,10 +153,12 @@ pub fn suggest(history: Option<&History>, language: Language, prefix: &str) -> O
     if prefix.is_empty() || language == Language::Mixed {
         return None;
     }
-    history.and_then(|h| h.suggest(prefix)).or_else(|| match language {
-        Language::English => EnglishModel::shared().complete(prefix),
-        _ => KoreanModel::default().complete(prefix),
-    })
+    history
+        .and_then(|h| h.suggest(prefix))
+        .or_else(|| match language {
+            Language::English => EnglishModel::shared().complete(prefix),
+            _ => KoreanModel::default().complete(prefix),
+        })
 }
 
 #[cfg(test)]
@@ -153,7 +166,10 @@ mod tests {
     use super::*;
 
     fn temp(name: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!("typescript-history-{name}-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "typescript-history-{name}-{}.json",
+            std::process::id()
+        ));
         let _ = fs::remove_file(&path);
         path
     }
@@ -235,9 +251,15 @@ mod tests {
     #[test]
     fn built_in_lists_complete_when_the_user_has_no_history() {
         let english = suggest(None, Language::English, "progra").unwrap();
-        assert!(english.starts_with("progra") && english.len() > 6, "{english}");
+        assert!(
+            english.starts_with("progra") && english.len() > 6,
+            "{english}"
+        );
         let korean = suggest(None, Language::Korean, "안녕").unwrap();
-        assert!(korean.starts_with("안녕") && korean.chars().count() > 2, "{korean}");
+        assert!(
+            korean.starts_with("안녕") && korean.chars().count() > 2,
+            "{korean}"
+        );
         assert_eq!(suggest(None, Language::English, "the"), None);
         assert_eq!(suggest(None, Language::Mixed, "github에"), None);
     }

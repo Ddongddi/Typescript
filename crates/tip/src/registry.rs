@@ -3,7 +3,9 @@
 
 use windows::core::{Error, Result, PCWSTR};
 use windows::Win32::Foundation::MAX_PATH;
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+};
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
 use windows::Win32::System::Registry::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
@@ -73,15 +75,19 @@ pub fn register() -> Result<()> {
     // SAFETY: COM objects created and used on this thread.
     unsafe {
         // Start clean: profiles of earlier versions (they were under Korean) must not linger.
-        let old: ITfInputProcessorProfiles = CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
+        let old: ITfInputProcessorProfiles =
+            CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
         let _ = old.Unregister(&CLSID_TYPESCRIPT); // fails when there is nothing to remove
         let profiles: ITfInputProcessorProfileMgr =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
         // typescript.ico sits next to the DLL (install.ps1 puts it there); without it Windows
         // shows its default keyboard icon.
         let icon_path = std::path::Path::new(&path).with_file_name("typescript.ico");
-        let icon: Vec<u16> =
-            if icon_path.exists() { icon_path.to_string_lossy().encode_utf16().collect() } else { Vec::new() };
+        let icon: Vec<u16> = if icon_path.exists() {
+            icon_path.to_string_lossy().encode_utf16().collect()
+        } else {
+            Vec::new()
+        };
         for (guid, name, _) in PROFILES {
             let description: Vec<u16> = name.encode_utf16().collect();
             profiles.RegisterProfile(
@@ -97,7 +103,8 @@ pub fn register() -> Result<()> {
                 0,
             )?;
         }
-        let categories: ITfCategoryMgr = CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
+        let categories: ITfCategoryMgr =
+            CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
         for category in CATEGORIES {
             categories.RegisterCategory(&CLSID_TYPESCRIPT, &category, &CLSID_TYPESCRIPT)?;
         }
@@ -116,18 +123,29 @@ pub fn unregister() -> Result<()> {
     };
     // SAFETY: COM objects created and used on this thread.
     unsafe {
-        if let Ok(categories) = CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER) {
+        if let Ok(categories) =
+            CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)
+        {
             for category in CATEGORIES {
-                note(categories.UnregisterCategory(&CLSID_TYPESCRIPT, &category, &CLSID_TYPESCRIPT));
+                note(categories.UnregisterCategory(
+                    &CLSID_TYPESCRIPT,
+                    &category,
+                    &CLSID_TYPESCRIPT,
+                ));
             }
         }
         // Every profile under every language, including the Korean ones of earlier versions.
-        if let Ok(profiles) =
-            CoCreateInstance::<_, ITfInputProcessorProfiles>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)
-        {
+        if let Ok(profiles) = CoCreateInstance::<_, ITfInputProcessorProfiles>(
+            &CLSID_TF_InputProcessorProfiles,
+            None,
+            CLSCTX_INPROC_SERVER,
+        ) {
             note(profiles.Unregister(&CLSID_TYPESCRIPT));
         }
-        let class = wide(&format!(r"SOFTWARE\Classes\CLSID\{}", guid_string(&CLSID_TYPESCRIPT)));
+        let class = wide(&format!(
+            r"SOFTWARE\Classes\CLSID\{}",
+            guid_string(&CLSID_TYPESCRIPT)
+        ));
         note(RegDeleteTreeW(HKEY_LOCAL_MACHINE, PCWSTR(class.as_ptr())).ok());
     }
     first_error.map_or(Ok(()), Err)

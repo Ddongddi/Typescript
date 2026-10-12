@@ -32,7 +32,12 @@ impl AppPolicy {
     /// identifiers collide with Hangul easily).
     pub const STRICT_THRESHOLD: f64 = 0.97;
 
-    pub const STANDARD: AppPolicy = AppPolicy { enabled: true, conversion_threshold: 0.5, escape_to_app: false, use_system_ime: false };
+    pub const STANDARD: AppPolicy = AppPolicy {
+        enabled: true,
+        conversion_threshold: 0.5,
+        escape_to_app: false,
+        use_system_ime: false,
+    };
 }
 
 impl Default for AppPolicy {
@@ -59,7 +64,9 @@ impl Override {
     fn applied_to(&self, base: AppPolicy) -> AppPolicy {
         AppPolicy {
             enabled: self.enabled.unwrap_or(base.enabled),
-            conversion_threshold: self.conversion_threshold.unwrap_or(base.conversion_threshold),
+            conversion_threshold: self
+                .conversion_threshold
+                .unwrap_or(base.conversion_threshold),
             escape_to_app: self.escape_to_app.unwrap_or(base.escape_to_app),
             use_system_ime: self.use_system_ime.unwrap_or(base.use_system_ime),
         }
@@ -77,7 +84,12 @@ impl AppPolicies {
     pub const DEFAULT_KEY: &'static str = "*";
 
     pub fn new(overrides: impl IntoIterator<Item = (String, Override)>) -> Self {
-        Self { overrides: overrides.into_iter().map(|(k, v)| (k.to_lowercase(), v)).collect() }
+        Self {
+            overrides: overrides
+                .into_iter()
+                .map(|(k, v)| (k.to_lowercase(), v))
+                .collect(),
+        }
     }
 
     pub fn store_path() -> Option<PathBuf> {
@@ -94,18 +106,26 @@ impl AppPolicies {
 
     /// What every app uses unless its own entry says otherwise.
     pub fn default_policy(&self) -> AppPolicy {
-        self.overrides.get(Self::DEFAULT_KEY).map_or(AppPolicy::STANDARD, |o| o.applied_to(AppPolicy::STANDARD))
+        self.overrides
+            .get(Self::DEFAULT_KEY)
+            .map_or(AppPolicy::STANDARD, |o| o.applied_to(AppPolicy::STANDARD))
     }
 
     /// The apps the user listed (the default entry excluded).
     pub fn apps(&self) -> Vec<&str> {
-        self.overrides.keys().map(String::as_str).filter(|k| *k != Self::DEFAULT_KEY).collect()
+        self.overrides
+            .keys()
+            .map(String::as_str)
+            .filter(|k| *k != Self::DEFAULT_KEY)
+            .collect()
     }
 
     /// `exe`: the host process's file name, any case.
     pub fn policy(&self, exe: Option<&str>) -> AppPolicy {
         let base = self.default_policy();
-        let Some(id) = exe.map(str::to_lowercase) else { return base };
+        let Some(id) = exe.map(str::to_lowercase) else {
+            return base;
+        };
         if id == Self::DEFAULT_KEY {
             return base;
         }
@@ -127,7 +147,11 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { return_confirms_only: true, pause_key: "hangul".to_string(), autocomplete: true }
+        Self {
+            return_confirms_only: true,
+            pause_key: "hangul".to_string(),
+            autocomplete: true,
+        }
     }
 }
 
@@ -147,8 +171,15 @@ impl Settings {
                 .get("returnConfirmsOnly")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.return_confirms_only),
-            pause_key: value.get("pauseKey").and_then(|v| v.as_str()).map(str::to_string).unwrap_or(defaults.pause_key),
-            autocomplete: value.get("autocomplete").and_then(|v| v.as_bool()).unwrap_or(defaults.autocomplete),
+            pause_key: value
+                .get("pauseKey")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .unwrap_or(defaults.pause_key),
+            autocomplete: value
+                .get("autocomplete")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(defaults.autocomplete),
         }
     }
 
@@ -157,15 +188,25 @@ impl Settings {
         let mut object = fs::read(path)
             .ok()
             .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok())
-            .and_then(|v| if let serde_json::Value::Object(m) = v { Some(m) } else { None })
+            .and_then(|v| {
+                if let serde_json::Value::Object(m) = v {
+                    Some(m)
+                } else {
+                    None
+                }
+            })
             .unwrap_or_default();
-        object.insert("returnConfirmsOnly".into(), self.return_confirms_only.into());
+        object.insert(
+            "returnConfirmsOnly".into(),
+            self.return_confirms_only.into(),
+        );
         object.insert("pauseKey".into(), self.pause_key.clone().into());
         object.insert("autocomplete".into(), self.autocomplete.into());
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
-        let json = serde_json::to_vec_pretty(&serde_json::Value::Object(object)).map_err(std::io::Error::other)?;
+        let json = serde_json::to_vec_pretty(&serde_json::Value::Object(object))
+            .map_err(std::io::Error::other)?;
         fs::write(path, json)
     }
 }
@@ -175,13 +216,20 @@ mod tests {
     use super::*;
 
     fn temp(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("typescript-{name}-{}-{:?}.json", std::process::id(), std::thread::current().id()))
+        std::env::temp_dir().join(format!(
+            "typescript-{name}-{}-{:?}.json",
+            std::process::id(),
+            std::thread::current().id()
+        ))
     }
 
     #[test]
     fn every_app_starts_at_the_default() {
         let policies = AppPolicies::default();
-        assert_eq!(policies.policy(Some("windowsterminal.exe")), AppPolicy::STANDARD);
+        assert_eq!(
+            policies.policy(Some("windowsterminal.exe")),
+            AppPolicy::STANDARD
+        );
         assert_eq!(policies.policy(None), AppPolicy::STANDARD);
         assert!(policies.apps().is_empty());
     }
@@ -196,10 +244,27 @@ mod tests {
         .unwrap();
         let policies = AppPolicies::load(Some(&path));
         let _ = fs::remove_file(&path);
-        let strict = AppPolicy { conversion_threshold: 0.97, escape_to_app: true, ..AppPolicy::STANDARD };
+        let strict = AppPolicy {
+            conversion_threshold: 0.97,
+            escape_to_app: true,
+            ..AppPolicy::STANDARD
+        };
         assert_eq!(policies.policy(Some("WINDOWSTERMINAL.EXE")), strict);
-        assert_eq!(policies.policy(Some("game.exe")), AppPolicy { enabled: false, escape_to_app: true, ..AppPolicy::STANDARD });
-        assert_eq!(policies.policy(Some("notepad.exe")), AppPolicy { escape_to_app: true, ..AppPolicy::STANDARD });
+        assert_eq!(
+            policies.policy(Some("game.exe")),
+            AppPolicy {
+                enabled: false,
+                escape_to_app: true,
+                ..AppPolicy::STANDARD
+            }
+        );
+        assert_eq!(
+            policies.policy(Some("notepad.exe")),
+            AppPolicy {
+                escape_to_app: true,
+                ..AppPolicy::STANDARD
+            }
+        );
         assert_eq!(policies.apps(), vec!["game.exe", "windowsterminal.exe"]);
     }
 
@@ -207,7 +272,10 @@ mod tests {
     fn use_system_ime_is_per_app() {
         let policies = AppPolicies::new([(
             "KakaoTalk.exe".to_string(),
-            Override { use_system_ime: Some(true), ..Default::default() },
+            Override {
+                use_system_ime: Some(true),
+                ..Default::default()
+            },
         )]);
         assert!(policies.policy(Some("kakaotalk.exe")).use_system_ime);
         assert!(!policies.policy(Some("notepad.exe")).use_system_ime);
@@ -217,8 +285,13 @@ mod tests {
 
     #[test]
     fn missing_or_broken_files_mean_defaults() {
-        assert!(AppPolicies::load(Some(Path::new("Z:/nope/apps.json"))).overrides.is_empty());
-        assert_eq!(Settings::load(Some(Path::new("Z:/nope/settings.json"))), Settings::default());
+        assert!(AppPolicies::load(Some(Path::new("Z:/nope/apps.json")))
+            .overrides
+            .is_empty());
+        assert_eq!(
+            Settings::load(Some(Path::new("Z:/nope/settings.json"))),
+            Settings::default()
+        );
     }
 
     #[test]

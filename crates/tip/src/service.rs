@@ -11,7 +11,9 @@ use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
-use typescript_core::{make_engine, AppPolicies, History, InputSession, Key, LearningEngine, Settings};
+use typescript_core::{
+    make_engine, AppPolicies, History, InputSession, Key, LearningEngine, Settings,
+};
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
@@ -37,14 +39,18 @@ static ENGINE: OnceLock<Arc<LearningEngine>> = OnceLock::new();
 
 /// One engine per process: models and learned words are shared by every text service in it.
 fn engine() -> Arc<LearningEngine> {
-    ENGINE.get_or_init(|| make_engine(LearningEngine::default_store_path())).clone()
+    ENGINE
+        .get_or_init(|| make_engine(LearningEngine::default_store_path()))
+        .clone()
 }
 
 static HISTORY: OnceLock<Arc<History>> = OnceLock::new();
 
 /// One word history per process, like the engine: every text service in it counts into it.
 fn history() -> Arc<History> {
-    HISTORY.get_or_init(|| Arc::new(History::new(History::default_store_path()))).clone()
+    HISTORY
+        .get_or_init(|| Arc::new(History::new(History::default_store_path())))
+        .clone()
 }
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
@@ -55,11 +61,16 @@ fn active_profile_has_completion() -> Option<bool> {
         let profiles: ITfInputProcessorProfileMgr =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER).ok()?;
         let mut profile: TF_INPUTPROCESSORPROFILE = std::mem::zeroed();
-        profiles.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut profile).ok()?;
+        profiles
+            .GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut profile)
+            .ok()?;
         if profile.clsid != CLSID_TYPESCRIPT {
             return None;
         }
-        PROFILES.iter().find(|(guid, _, _)| *guid == profile.guidProfile).map(|(_, _, completion)| *completion)
+        PROFILES
+            .iter()
+            .find(|(guid, _, _)| *guid == profile.guidProfile)
+            .map(|(_, _, completion)| *completion)
     }
 }
 
@@ -114,7 +125,11 @@ fn printable(vk: u32, shift: bool) -> Option<char> {
 
 /// Keys that mean nothing to a word being typed: modifiers, locks, IME keys.
 fn is_ignored(vk: u32) -> bool {
-    matches!(vk, 0x10 | 0x11 | 0x12 | 0xA0..=0xA5 | 0x5B | 0x5C | 0x14 | 0x90 | 0x91 | 0x15 | 0x17 | 0x19 | 0xE5 | 0xFF)
+    matches!(
+        vk,
+        0x10 | 0x11 | 0x12 | 0xA0
+            ..=0xA5 | 0x5B | 0x5C | 0x14 | 0x90 | 0x91 | 0x15 | 0x17 | 0x19 | 0xE5 | 0xFF
+    )
 }
 
 /// The session's view of a virtual key, or None for keys it must not see at all.
@@ -153,7 +168,10 @@ struct Stamps {
 
 impl Stamps {
     fn read() -> Self {
-        let modified = |p: Option<PathBuf>| p.and_then(|p| std::fs::metadata(p).ok()).and_then(|m| m.modified().ok());
+        let modified = |p: Option<PathBuf>| {
+            p.and_then(|p| std::fs::metadata(p).ok())
+                .and_then(|m| m.modified().ok())
+        };
         Self {
             settings: modified(Settings::store_path()),
             apps: modified(AppPolicies::store_path()),
@@ -229,7 +247,9 @@ impl Inner {
     /// Reads which of our profiles the user picked. Returns whether it changed (the session is
     /// then rebuilt with or without completion).
     fn refresh_profile(&self) -> bool {
-        let Some(with_completion) = active_profile_has_completion() else { return false };
+        let Some(with_completion) = active_profile_has_completion() else {
+            return false;
+        };
         self.completion_profile.replace(with_completion) != with_completion
     }
 
@@ -237,12 +257,20 @@ impl Inner {
     /// next to it. Event names only: never what was typed, nor which keys.
     pub fn trace(&self, what: &str) {
         use std::io::Write;
-        let Some(dir) = typescript_core::support_dir() else { return };
+        let Some(dir) = typescript_core::support_dir() else {
+            return;
+        };
         if !dir.join("debug.on").exists() {
             return;
         }
-        let ms = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_millis());
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("debug.log")) {
+        let ms = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join("debug.log"))
+        {
             let _ = writeln!(file, "{ms} {} {what}", self.exe);
         }
     }
@@ -310,7 +338,9 @@ impl Inner {
         if let Ok(mut composition) = self.composition.try_borrow_mut() {
             *composition = None;
         }
-        let Ok(mut slot) = self.session.try_borrow_mut() else { return };
+        let Ok(mut slot) = self.session.try_borrow_mut() else {
+            return;
+        };
         if let Some(session) = slot.as_mut() {
             session.commit_for_new_context(&mut NoopClient);
         }
@@ -339,18 +369,31 @@ fn run_edit(
     let result = Rc::new(Cell::new(false));
     let (shared, ctx, out) = (inner.clone(), context.clone(), result.clone());
     let edit: ITfEditSession = EditSession::new(move |ec| {
-        let mut client = TsfClient { ec, context: &ctx, inner: &shared };
+        let mut client = TsfClient {
+            ec,
+            context: &ctx,
+            inner: &shared,
+        };
         out.set(work(&shared, &mut client));
     })
     .into();
     // SAFETY: `edit` outlives the call; a synchronous session has finished when this returns.
     let outcome = unsafe {
-        context.RequestEditSession(inner.client_id.get(), &edit, TF_CONTEXT_EDIT_CONTEXT_FLAGS(TF_ES_SYNC.0 | TF_ES_READWRITE.0))
+        context.RequestEditSession(
+            inner.client_id.get(),
+            &edit,
+            TF_CONTEXT_EDIT_CONTEXT_FLAGS(TF_ES_SYNC.0 | TF_ES_READWRITE.0),
+        )
     };
     matches!(outcome, Ok(hr) if hr.is_ok()) && result.get()
 }
 
-#[implement(ITfTextInputProcessorEx, ITfThreadMgrEventSink, ITfKeyEventSink, ITfDisplayAttributeProvider)]
+#[implement(
+    ITfTextInputProcessorEx,
+    ITfThreadMgrEventSink,
+    ITfKeyEventSink,
+    ITfDisplayAttributeProvider
+)]
 pub struct TextService {
     inner: Rc<Inner>,
 }
@@ -358,9 +401,10 @@ pub struct TextService {
 impl TextService {
     pub fn new() -> Self {
         crate::OBJECTS.fetch_add(1, Ordering::SeqCst);
-        Self { inner: Rc::new(Inner::new()) }
+        Self {
+            inner: Rc::new(Inner::new()),
+        }
     }
-
 }
 
 impl TextService_Impl {
@@ -369,7 +413,10 @@ impl TextService_Impl {
         *inner.thread_mgr.borrow_mut() = Some(tm.clone());
         inner.client_id.set(tid);
         inner.refresh_profile();
-        let sink: ITfCompositionSink = CompositionSink { inner: Rc::downgrade(inner) }.into();
+        let sink: ITfCompositionSink = CompositionSink {
+            inner: Rc::downgrade(inner),
+        }
+        .into();
         *inner.comp_sink.borrow_mut() = Some(sink);
 
         let keys: ITfKeystrokeMgr = tm.cast()?;
@@ -379,10 +426,15 @@ impl TextService_Impl {
 
         let source: ITfSource = tm.cast()?;
         let thread_sink: ITfThreadMgrEventSink = self.to_interface();
-        inner.cookie.set(unsafe { source.AdviseSink(&ITfThreadMgrEventSink::IID, &thread_sink)? });
+        inner
+            .cookie
+            .set(unsafe { source.AdviseSink(&ITfThreadMgrEventSink::IID, &thread_sink)? });
 
         // An app set to use the system's Korean IME: step aside once this callback is over.
-        if AppPolicies::load(AppPolicies::store_path().as_deref()).policy(Some(&inner.exe)).use_system_ime {
+        if AppPolicies::load(AppPolicies::store_path().as_deref())
+            .policy(Some(&inner.exe))
+            .use_system_ime
+        {
             inner.trace("handing over to the system Korean IME");
             crate::delegate::hand_over();
         }
@@ -479,8 +531,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
     }
 
     fn OnTestKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
-        let Ok(context) = pic.ok() else { return Ok(BOOL(0)) };
-        Ok(guard_bool(|| self.inner.test_key_down(context, wparam.0 as u32, lparam.0)))
+        let Ok(context) = pic.ok() else {
+            return Ok(BOOL(0));
+        };
+        Ok(guard_bool(|| {
+            self.inner.test_key_down(context, wparam.0 as u32, lparam.0)
+        }))
     }
 
     fn OnTestKeyUp(&self, _pic: Ref<ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
@@ -492,7 +548,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if self.inner.eaten_in_test.take() == Some(vk) {
             return Ok(BOOL(1)); // already handled when TSF asked
         }
-        let Ok(context) = pic.ok() else { return Ok(BOOL(0)) };
+        let Ok(context) = pic.ok() else {
+            return Ok(BOOL(0));
+        };
         Ok(guard_bool(|| self.inner.key_down(context, vk, lparam.0)))
     }
 

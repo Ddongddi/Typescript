@@ -45,7 +45,10 @@ const FINAL_COMBOS: [(char, char, char); 11] = [
 ];
 
 fn final_combo(a: char, b: char) -> Option<char> {
-    FINAL_COMBOS.iter().find(|(x, y, _)| *x == a && *y == b).map(|t| t.2)
+    FINAL_COMBOS
+        .iter()
+        .find(|(x, y, _)| *x == a && *y == b)
+        .map(|t| t.2)
 }
 
 /// Compound final → (stays as final, moves to the next syllable).
@@ -72,17 +75,45 @@ pub struct DubeolsikLayout;
 impl DubeolsikLayout {
     fn lower(c: char) -> Option<char> {
         Some(match c {
-            'q' => 'ㅂ', 'w' => 'ㅈ', 'e' => 'ㄷ', 'r' => 'ㄱ', 't' => 'ㅅ', 'y' => 'ㅛ', 'u' => 'ㅕ',
-            'i' => 'ㅑ', 'o' => 'ㅐ', 'p' => 'ㅔ', 'a' => 'ㅁ', 's' => 'ㄴ', 'd' => 'ㅇ', 'f' => 'ㄹ',
-            'g' => 'ㅎ', 'h' => 'ㅗ', 'j' => 'ㅓ', 'k' => 'ㅏ', 'l' => 'ㅣ', 'z' => 'ㅋ', 'x' => 'ㅌ',
-            'c' => 'ㅊ', 'v' => 'ㅍ', 'b' => 'ㅠ', 'n' => 'ㅜ', 'm' => 'ㅡ',
+            'q' => 'ㅂ',
+            'w' => 'ㅈ',
+            'e' => 'ㄷ',
+            'r' => 'ㄱ',
+            't' => 'ㅅ',
+            'y' => 'ㅛ',
+            'u' => 'ㅕ',
+            'i' => 'ㅑ',
+            'o' => 'ㅐ',
+            'p' => 'ㅔ',
+            'a' => 'ㅁ',
+            's' => 'ㄴ',
+            'd' => 'ㅇ',
+            'f' => 'ㄹ',
+            'g' => 'ㅎ',
+            'h' => 'ㅗ',
+            'j' => 'ㅓ',
+            'k' => 'ㅏ',
+            'l' => 'ㅣ',
+            'z' => 'ㅋ',
+            'x' => 'ㅌ',
+            'c' => 'ㅊ',
+            'v' => 'ㅍ',
+            'b' => 'ㅠ',
+            'n' => 'ㅜ',
+            'm' => 'ㅡ',
             _ => return None,
         })
     }
 
     fn shifted(c: char) -> Option<char> {
         Some(match c {
-            'Q' => 'ㅃ', 'W' => 'ㅉ', 'E' => 'ㄸ', 'R' => 'ㄲ', 'T' => 'ㅆ', 'O' => 'ㅒ', 'P' => 'ㅖ',
+            'Q' => 'ㅃ',
+            'W' => 'ㅉ',
+            'E' => 'ㄸ',
+            'R' => 'ㄲ',
+            'T' => 'ㅆ',
+            'O' => 'ㅒ',
+            'P' => 'ㅖ',
             _ => return None,
         })
     }
@@ -136,10 +167,28 @@ impl Composed {
         self.units.iter().map(|u| u.character()).collect()
     }
     pub fn syllables(&self) -> Vec<char> {
-        self.units.iter().filter_map(|u| if let Unit::Syllable(c) = u { Some(*c) } else { None }).collect()
+        self.units
+            .iter()
+            .filter_map(|u| {
+                if let Unit::Syllable(c) = u {
+                    Some(*c)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
     pub fn stray_jamo(&self) -> Vec<char> {
-        self.units.iter().filter_map(|u| if let Unit::Jamo(c) = u { Some(*c) } else { None }).collect()
+        self.units
+            .iter()
+            .filter_map(|u| {
+                if let Unit::Jamo(c) = u {
+                    Some(*c)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
     /// True when the last unit is a lone consonant: the user just started the next syllable.
     pub fn ends_with_pending_consonant(&self) -> bool {
@@ -162,9 +211,15 @@ impl HangulComposer {
 
     pub fn compose_jamos(jamos: &[char]) -> Composed {
         let mut units = Vec::new();
-        let (mut cho, mut jung, mut jong): (Option<char>, Option<char>, Option<char>) = (None, None, None);
+        let (mut cho, mut jung, mut jong): (Option<char>, Option<char>, Option<char>) =
+            (None, None, None);
 
-        fn flush(units: &mut Vec<Unit>, cho: &mut Option<char>, jung: &mut Option<char>, jong: &mut Option<char>) {
+        fn flush(
+            units: &mut Vec<Unit>,
+            cho: &mut Option<char>,
+            jung: &mut Option<char>,
+            jong: &mut Option<char>,
+        ) {
             match (*cho, *jung) {
                 (Some(c), Some(v)) => units.push(Unit::Syllable(syllable(c, v, *jong))),
                 _ => {
@@ -238,12 +293,28 @@ mod tests {
     #[test]
     fn composes() {
         for (keys, expected) in [
-            ("dkssudgktpdy", "안녕하세요"), ("gksrmf", "한글"), ("rkqt", "값"), ("rkqtdl", "값이"),
-            ("dlTek", "있다"), ("dhkswjsgl", "완전히"), ("ehlwl", "되지"), ("dmlwk", "의자"),
-            ("ekfrdl", "닭이"), ("rhkswls", "관진"), ("Qkffl", "빨리"), ("dkQk", "아빠"),
-            ("zzz", "ㅋㅋㅋ"), ("rk", "가"), ("r", "ㄱ"), ("k", "ㅏ"),
+            ("dkssudgktpdy", "안녕하세요"),
+            ("gksrmf", "한글"),
+            ("rkqt", "값"),
+            ("rkqtdl", "값이"),
+            ("dlTek", "있다"),
+            ("dhkswjsgl", "완전히"),
+            ("ehlwl", "되지"),
+            ("dmlwk", "의자"),
+            ("ekfrdl", "닭이"),
+            ("rhkswls", "관진"),
+            ("Qkffl", "빨리"),
+            ("dkQk", "아빠"),
+            ("zzz", "ㅋㅋㅋ"),
+            ("rk", "가"),
+            ("r", "ㄱ"),
+            ("k", "ㅏ"),
         ] {
-            assert_eq!(HangulComposer::compose(keys).unwrap().text(), expected, "{keys}");
+            assert_eq!(
+                HangulComposer::compose(keys).unwrap().text(),
+                expected,
+                "{keys}"
+            );
         }
     }
 
@@ -256,7 +327,10 @@ mod tests {
 
     #[test]
     fn english_produces_stray_jamo() {
-        assert!(!HangulComposer::compose("hello").unwrap().stray_jamo().is_empty());
+        assert!(!HangulComposer::compose("hello")
+            .unwrap()
+            .stray_jamo()
+            .is_empty());
     }
 
     #[test]

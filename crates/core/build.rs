@@ -39,7 +39,11 @@ fn is_ascii_letters(w: &str) -> bool {
 /// [^, ^, letters..., $] with ^ and $ both encoded as 0.
 fn encode(word: &str) -> Vec<usize> {
     let mut codes = vec![0, 0];
-    codes.extend(word.bytes().filter(u8::is_ascii_lowercase).map(|b| (b - b'a' + 1) as usize));
+    codes.extend(
+        word.bytes()
+            .filter(u8::is_ascii_lowercase)
+            .map(|b| (b - b'a' + 1) as usize),
+    );
     codes.push(0);
     codes
 }
@@ -49,7 +53,9 @@ fn main() {
     println!("cargo:rerun-if-changed=data");
     let data = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("data");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let read = |name: &str| fs::read_to_string(data.join(name)).unwrap_or_else(|e| panic!("data/{name}: {e}"));
+    let read = |name: &str| {
+        fs::read_to_string(data.join(name)).unwrap_or_else(|e| panic!("data/{name}: {e}"))
+    };
 
     let extras: Vec<&str> = COMMON_WORDS.split_whitespace().collect();
     let short: BTreeSet<&str> = SHORT_WORDS.split_whitespace().collect();
@@ -92,8 +98,10 @@ fn main() {
             *e = (*e).max(n);
         }
     }
-    let text: String =
-        levels.iter().map(|(w, l)| format!("{w}\t{l}\t{}\n", frequency.get(w).copied().unwrap_or(0))).collect();
+    let text: String = levels
+        .iter()
+        .map(|(w, l)| format!("{w}\t{l}\t{}\n", frequency.get(w).copied().unwrap_or(0)))
+        .collect();
     fs::write(out.join("english_levels.txt"), text).unwrap();
 
     // Letter trigrams, trained on Webster's 2nd (public domain) plus the extra words.
@@ -101,7 +109,10 @@ fn main() {
     let mut trigrams = vec![0f32; n * n * n];
     let mut contexts = vec![0f32; n * n];
     let web2 = read("web2.txt");
-    let spelling = web2.lines().map(|l| l.to_lowercase()).chain(extras.iter().map(|s| s.to_string()));
+    let spelling = web2
+        .lines()
+        .map(|l| l.to_lowercase())
+        .chain(extras.iter().map(|s| s.to_string()));
     for word in spelling {
         if !is_ascii_letters(&word) {
             continue;
@@ -112,7 +123,11 @@ fn main() {
             contexts[codes[i - 2] * n + codes[i - 1]] += 1.0;
         }
     }
-    let bytes: Vec<u8> = trigrams.iter().chain(contexts.iter()).flat_map(|f| f.to_le_bytes()).collect();
+    let bytes: Vec<u8> = trigrams
+        .iter()
+        .chain(contexts.iter())
+        .flat_map(|f| f.to_le_bytes())
+        .collect();
     fs::write(out.join("trigrams.bin"), bytes).unwrap();
 
     // Korean word lists
@@ -122,7 +137,10 @@ fn main() {
         let mut fields = line.split('\t');
         let word: &str = fields.next().unwrap_or("");
         if !word.is_empty() {
-            let count = fields.next().and_then(|n| n.trim().parse::<u64>().ok()).unwrap_or(1);
+            let count = fields
+                .next()
+                .and_then(|n| n.trim().parse::<u64>().ok())
+                .unwrap_or(1);
             *words.entry(word.to_string()).or_default() += count;
         }
     }
@@ -130,7 +148,12 @@ fn main() {
     fs::write(out.join("korean_words_sorted.txt"), sorted).unwrap();
     // "word<TAB>rank": the file is in order of how often the words are said, 1 = most.
     let mut vocab: BTreeMap<String, usize> = BTreeMap::new();
-    for (i, word) in read("korean_vocabulary.txt").lines().map(str::trim).filter(|w| !w.is_empty()).enumerate() {
+    for (i, word) in read("korean_vocabulary.txt")
+        .lines()
+        .map(str::trim)
+        .filter(|w| !w.is_empty())
+        .enumerate()
+    {
         vocab.entry(word.to_string()).or_insert(i + 1);
     }
     let ranked: String = vocab.iter().map(|(w, r)| format!("{w}\t{r}\n")).collect();

@@ -7,7 +7,7 @@
 
 use std::sync::LazyLock;
 
-use crate::sorted::SortedLines;
+use crate::lang::sorted::SortedLines;
 
 const LEVELS: &str = include_str!(concat!(env!("OUT_DIR"), "/english_levels.txt"));
 const TRIGRAMS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/trigrams.bin"));
@@ -27,12 +27,18 @@ pub struct EnglishModel {
     levels: SortedLines,
 }
 
-static SHARED: LazyLock<EnglishModel> = LazyLock::new(|| EnglishModel { levels: SortedLines::new(LEVELS) });
+static SHARED: LazyLock<EnglishModel> = LazyLock::new(|| EnglishModel {
+    levels: SortedLines::new(LEVELS),
+});
 
 /// [^, ^, letters..., $] with ^ and $ both encoded as 0.
 fn encode(word: &str) -> Vec<usize> {
     let mut codes = vec![0, 0];
-    codes.extend(word.bytes().filter(u8::is_ascii_lowercase).map(|b| (b - b'a' + 1) as usize));
+    codes.extend(
+        word.bytes()
+            .filter(u8::is_ascii_lowercase)
+            .map(|b| (b - b'a' + 1) as usize),
+    );
     codes.push(0);
     codes
 }
@@ -76,7 +82,11 @@ impl EnglishModel {
 
     /// The word's level, also for regular inflections of a listed word (None: not a word).
     pub fn level(&self, token: &str) -> Option<i32> {
-        let w: String = token.to_lowercase().chars().filter(|c| *c != '\'').collect();
+        let w: String = token
+            .to_lowercase()
+            .chars()
+            .filter(|c| *c != '\'')
+            .collect();
         if let Some(l) = self.listed(&w) {
             return Some(l);
         }
@@ -121,12 +131,25 @@ impl EnglishModel {
         if prefix.chars().count() < 3 || self.is_common_word(&prefix) {
             return None;
         }
-        let column = |line: &str, i: usize| line.split('\t').nth(i).and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
+        let column = |line: &str, i: usize| {
+            line.split('\t')
+                .nth(i)
+                .and_then(|n| n.parse::<u64>().ok())
+                .unwrap_or(0)
+        };
         let best = self
             .levels
             .with_prefix(&prefix)
-            .filter(|l| column(l, 1) <= EXTRA_LEVEL as u64 && l.split('\t').next() != Some(prefix.as_str()))
-            .max_by_key(|l| (column(l, 2), std::cmp::Reverse(column(l, 1)), std::cmp::Reverse(l.len())))?;
+            .filter(|l| {
+                column(l, 1) <= EXTRA_LEVEL as u64 && l.split('\t').next() != Some(prefix.as_str())
+            })
+            .max_by_key(|l| {
+                (
+                    column(l, 2),
+                    std::cmp::Reverse(column(l, 1)),
+                    std::cmp::Reverse(l.len()),
+                )
+            })?;
         best.split('\t').next().map(String::from)
     }
 

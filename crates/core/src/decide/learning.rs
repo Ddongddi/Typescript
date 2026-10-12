@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
 use crate::support_dir;
 
 /// lexicon.json: words learned for good, and words corrected once. Both fields are required
@@ -35,8 +35,12 @@ struct State {
 }
 
 fn read_store(path: Option<&Path>) -> Store {
-    let Some(path) = path else { return Store::default() };
-    let Ok(data) = fs::read(path) else { return Store::default() };
+    let Some(path) = path else {
+        return Store::default();
+    };
+    let Ok(data) = fs::read(path) else {
+        return Store::default();
+    };
     if let Ok(store) = serde_json::from_slice::<Store>(&data) {
         return store;
     }
@@ -56,7 +60,14 @@ impl LearningEngine {
 
     pub fn new(base: Box<dyn DecisionEngine>, store_path: Option<PathBuf>) -> Self {
         let store = read_store(store_path.as_deref());
-        Self { base, store_path, state: Mutex::new(State { store, last_learned: None }) }
+        Self {
+            base,
+            store_path,
+            state: Mutex::new(State {
+                store,
+                last_learned: None,
+            }),
+        }
     }
 
     pub fn base(&self) -> &dyn DecisionEngine {
@@ -80,7 +91,9 @@ impl LearningEngine {
     /// The keys most recently learned for good in this process, while still learned.
     pub fn last_learned(&self) -> Option<String> {
         let s = self.lock();
-        s.last_learned.clone().filter(|k| s.store.learned.contains_key(k))
+        s.last_learned
+            .clone()
+            .filter(|k| s.store.learned.contains_key(k))
     }
 
     /// Re-reads lexicon.json (another process or the user changed it).
@@ -111,8 +124,8 @@ impl LearningEngine {
     /// Pass `engine_choice` when the caller knows what the engine decided (the session always
     /// does: what was on screen, which a fresh decision might not match).
     pub fn learn(&self, keys: &str, language: Language, engine_choice: Option<Language>) {
-        let base_choice =
-            engine_choice.unwrap_or_else(|| self.base.decide(keys, &DecisionContext::default()).language);
+        let base_choice = engine_choice
+            .unwrap_or_else(|| self.base.decide(keys, &DecisionContext::default()).language);
         self.reload();
         let mut s = self.lock();
         // Already learned this way (e.g. converting a learned word again): nothing to change.
@@ -122,7 +135,9 @@ impl LearningEngine {
         if language == base_choice {
             s.store.learned.remove(keys);
             s.store.once.remove(keys);
-        } else if s.store.learned.get(keys) == Some(&language) || s.store.once.get(keys) == Some(&language) {
+        } else if s.store.learned.get(keys) == Some(&language)
+            || s.store.once.get(keys) == Some(&language)
+        {
             s.store.learned.insert(keys.to_string(), language);
             s.store.once.remove(keys);
             s.last_learned = Some(keys.to_string());
@@ -137,7 +152,9 @@ impl LearningEngine {
     /// Failing to save (read-only profile, sandboxed app) only costs the learning.
     fn persist(&self, store: &Store) {
         let Some(path) = &self.store_path else { return };
-        let Ok(json) = serde_json::to_vec_pretty(store) else { return };
+        let Ok(json) = serde_json::to_vec_pretty(store) else {
+            return;
+        };
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
