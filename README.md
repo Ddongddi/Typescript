@@ -1,6 +1,6 @@
 # Typescript
 
-Windows용 영어/한국어(두벌식) 자동 판별 입력기. QWERTY로만 치면 **단어마다** 영어인지 한국어인지 판단해서 알맞게 확정한다. 한/영 전환이 필요 없다.
+Windows용 영어/한국어(두벌식) 자동 판별 입력기.
 
 ```
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
