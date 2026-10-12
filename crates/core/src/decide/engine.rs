@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::decide::mixed::MixedWord;
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
 use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
-use crate::lang::korean::KoreanModel;
+use crate::lang::korean::{KoreanModel, KoreanScore};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -123,6 +123,15 @@ pub trait DecisionEngine: Send + Sync {
     }
 }
 
+/// Score floors for a dictionary English word by length: short ones collide with real Korean.
+const ENGLISH_FLOOR_LONG: f64 = -1.4;
+const ENGLISH_FLOOR_MEDIUM: f64 = -2.0;
+const ENGLISH_FLOOR_SHORT: f64 = -2.6;
+/// Taken off the English score when the token has non-letters.
+const NON_LETTER_PENALTY: f64 = 3.0;
+/// Confidence for keys with a capital outside QWERTOP: only ever English.
+const CAPITALISED_ENGLISH_CONFIDENCE: f64 = 0.99;
+
 /// Scores the same keystrokes as English (character trigrams + word list) and Korean
 /// (2-set syllables), each as average log-probability per keystroke, nudges the previous
 /// word's language, and picks the best. Confidence comes from the gap to the runner-up.
@@ -163,6 +172,60 @@ impl HeuristicEngine {
     }
 }
 
+impl HeuristicEngine {
+    /// Average log-probability of `keys` read as English: character trigrams, lifted to a floor
+    /// for dictionary words.
+    fn english_score(&self, keys: &str, known: bool) -> f64 {
+        let letters: String = keys.chars().filter(|c| c.is_alphabetic()).collect();
+        let count = keys.chars().count();
+        let mut e = self.english.average_log_probability(&letters);
+        // Also while typing: the preview must show what Space/Return will commit.
+        if known {
+            // Short dictionary words collide with real Korean (go=해, so=내, do=애),
+            // so they get a weaker boost and leave room for context to decide.
+            let mut floor = match count {
+                4.. => ENGLISH_FLOOR_LONG,
+                3 => ENGLISH_FLOOR_MEDIUM,
+                _ => ENGLISH_FLOOR_SHORT,
+            };
+            // to, so, go, do: everyday English just above a one-syllable Korean word (새, 내,
+            // 해, 애), so they stay English unless the previous word was Korean.
+            if count == 2 && self.english.is_common_word(keys) {
+                floor = self.korean_known_floor_short + 0.1;
+            }
+            if self.english.level(keys).unwrap_or(0) > EXTRA_LEVEL {
+                floor -= self.rare_word_floor_penalty;
+            }
+            e = e.max(floor);
+        }
+        if keys.chars().any(|c| !c.is_alphabetic()) {
+            e -= NON_LETTER_PENALTY; // "ra-men", "kan'i" aren't English
+        }
+        e
+    }
+
+    /// The Korean reading of `keys` with its score, and whether it is a word seen in real
+    /// text (which lifts the score to a floor).
+    fn korean_score(&self, keys: &str, partial: bool) -> (Option<KoreanScore>, bool) {
+        let mut k = self.korean.score(keys, partial);
+        let known = k.as_ref().is_some_and(|s| {
+            s.composition.stray_jamo().is_empty()
+                && self
+                    .korean
+                    .is_known_word_or_inflected(&s.composition.text())
+        });
+        if let (Some(score), true) = (k.as_mut(), known) {
+            let floor = if score.composition.syllables().len() >= 2 {
+                self.korean_known_floor_long
+            } else {
+                self.korean_known_floor_short
+            };
+            score.average_log_probability = score.average_log_probability.max(floor);
+        }
+        (k, known)
+    }
+}
+
 impl Default for HeuristicEngine {
     fn default() -> Self {
         Self::new()
@@ -178,57 +241,17 @@ impl DecisionEngine for HeuristicEngine {
         {
             return Decision {
                 language: Language::English,
-                confidence: 0.99,
+                confidence: CAPITALISED_ENGLISH_CONFIDENCE,
                 output: keys.to_string(),
                 explanation: "uppercase outside QWERTOP".to_string(),
                 runner_up: None,
             };
         }
 
-        let letters: String = keys.chars().filter(|c| c.is_alphabetic()).collect();
-        let count = keys.chars().count();
-        let mut e = self.english.average_log_probability(&letters);
-        // Also while typing: the preview must show what Space/Return will commit.
         let known = self.english.is_known_word(keys);
-        if known {
-            // Short dictionary words collide with real Korean (go=해, so=내, do=애),
-            // so they get a weaker boost and leave room for context to decide.
-            let mut floor = if count >= 4 {
-                -1.4
-            } else if count == 3 {
-                -2.0
-            } else {
-                -2.6
-            };
-            // to, so, go, do: everyday English just above a one-syllable Korean word (새, 내,
-            // 해, 애), so they stay English unless the previous word was Korean.
-            if count == 2 && self.english.is_common_word(keys) {
-                floor = self.korean_known_floor_short + 0.1;
-            }
-            if self.english.level(keys).unwrap_or(0) > EXTRA_LEVEL {
-                floor -= self.rare_word_floor_penalty;
-            }
-            e = e.max(floor);
-        }
-        if keys.chars().any(|c| !c.is_alphabetic()) {
-            e -= 3.0; // "ra-men", "kan'i" aren't English
-        }
+        let e = self.english_score(keys, known);
 
-        let mut k = self.korean.score(keys, context.partial);
-        let known_korean = k.as_ref().is_some_and(|s| {
-            s.composition.stray_jamo().is_empty()
-                && self
-                    .korean
-                    .is_known_word_or_inflected(&s.composition.text())
-        });
-        if let (Some(score), true) = (k.as_mut(), known_korean) {
-            let floor = if score.composition.syllables().len() >= 2 {
-                self.korean_known_floor_long
-            } else {
-                self.korean_known_floor_short
-            };
-            score.average_log_probability = score.average_log_probability.max(floor);
-        }
+        let (k, known_korean) = self.korean_score(keys, context.partial);
 
         let mut scores: Vec<(Language, f64)> = vec![(Language::English, e)];
         if let Some(k) = &k {
