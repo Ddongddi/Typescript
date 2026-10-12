@@ -79,7 +79,14 @@ echo "dkssud\tenglish" | cargo run -p typescript-cli -- --decide
 cargo clippy --all-targets -- -D warnings
 ```
 
-`crates/core` 는 OS 의존성이 없다 (판별 엔진, 세션 상태 머신). `crates/tip` 가 TSF COM DLL이다. 모델 테이블은 `build.rs` 가 빌드 때 구워서 DLL에 넣는다 (앱마다 로드되므로 실행 시 계산하지 않는다).
+`crates/core` 는 OS 의존성이 없다. 모듈은 역할별로 나뉜다.
+| 모듈 | 내용 |
+| --- | --- |
+| `lang/` | 한글 조합(`hangul`), 한국어/영어 모델, 조사·어미 목록(`particles`) |
+| `decide/` | 판별 엔진 체인: 교정 학습(`learning`) → 영어+조사 분리(`mixed`) → 점수(`engine`) |
+| `session/` | 입력 상태 머신: `word`(치는 중인 단어), `preview`(밑줄 미리보기), `flip`(확정 직후 Esc), `client`/`key`(앱과의 경계) |
+| `store/` | 디스크에 남는 것: 앱별 정책·설정(`policy`), 단어 기록(`history`) |
+ `crates/tip` 가 TSF COM DLL이다. 모델 테이블은 `build.rs` 가 빌드 때 구워서 DLL에 넣는다 (앱마다 로드되므로 실행 시 계산하지 않는다).
 
 ## 알려진 한계
 

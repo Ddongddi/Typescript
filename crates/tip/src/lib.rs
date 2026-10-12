@@ -13,8 +13,10 @@ mod delegate;
 mod display;
 mod ghost;
 mod guids;
+mod keymap;
 mod registry;
 mod service;
+mod shared;
 
 use std::ffi::c_void;
 use std::panic::{catch_unwind, AssertUnwindSafe};
