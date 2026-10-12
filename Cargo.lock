@@ -99,14 +99,14 @@ dependencies = [
 
 [[package]]
 name = "typescript-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "typescript-core",
 ]
 
 [[package]]
 name = "typescript-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-tip"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "typescript-core",
  "windows",

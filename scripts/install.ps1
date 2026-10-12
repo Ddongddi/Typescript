@@ -100,11 +100,12 @@ if ($Elevated) {
         } else {
             New-Item $dest -ItemType Directory -Force | Out-Null
             Unregister-Existing
-            Install-File (Join-Path $repo 'target\release\typescript_tip.dll') $dll64
-            Install-File (Join-Path $repo 'target\i686-pc-windows-msvc\release\typescript_tip.dll') $dll86
-            Install-File (Join-Path $repo 'target\release\typescript.exe') (Join-Path $dest 'typescript.exe')
-            Copy-Item (Join-Path $repo 'assets\typescript.ico') $dest -Force
-            Copy-Item (Join-Path $repo 'THIRD_PARTY_NOTICES.txt') $dest -Force -ErrorAction SilentlyContinue
+            Install-File (Join-Path $Source 'typescript_tip.dll') $dll64
+            Install-File (Join-Path $Source 'typescript_tip_x86.dll') $dll86
+            Install-File (Join-Path $Source 'typescript.exe') (Join-Path $dest 'typescript.exe')
+            foreach ($extra in 'typescript.ico', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
+                Copy-Item (Join-Path $Source $extra) $dest -Force -ErrorAction SilentlyContinue
+            }
             # Store apps and sandboxed processes load the DLL only if these groups can read it.
             & icacls.exe $dest /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' | Out-Null
             Invoke-Regsvr $regsvr64 $dll64
@@ -132,13 +133,10 @@ function New-SourceStage {
         Pop-Location
     }
     $stage = New-TempDirectory
-    Copy-Item (Join-Path $repo 'target
-elease	ypescript_tip.dll') $stage
-    Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc
-elease	ypescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
-    Copy-Item (Join-Path $repo 'target
-elease	ypescript.exe') $stage
-    Copy-Item (Join-Path $repo 'assets	ypescript.ico') $stage
+    Copy-Item (Join-Path $repo 'target\release\typescript_tip.dll') $stage
+    Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\typescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
+    Copy-Item (Join-Path $repo 'target\release\typescript.exe') $stage
+    Copy-Item (Join-Path $repo 'assets\typescript.ico') $stage
     Copy-Item (Join-Path $repo 'THIRD_PARTY_NOTICES.txt') $stage -ErrorAction SilentlyContinue
     Copy-Item $PSCommandPath $stage
     return $stage
