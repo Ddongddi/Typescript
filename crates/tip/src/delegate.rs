@@ -236,6 +236,7 @@ mod tests {
     /// Switches this test process to the system Korean IME, then puts back what was active.
     /// (Without the foreground hook: a foreground change meanwhile would restore early.)
     #[test]
+    #[ignore = "switches the machine's active input method and needs the Microsoft Korean IME; run with --ignored"]
     fn the_system_korean_ime_becomes_active_and_the_previous_one_comes_back() {
         // A TSF thread, as an app's UI thread is: switching only means something there.
         // SAFETY: COM on this test thread; the thread manager is deactivated before returning.

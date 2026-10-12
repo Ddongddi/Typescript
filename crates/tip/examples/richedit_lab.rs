@@ -235,7 +235,7 @@ fn main() {
         );
         let _ = ImmReleaseContext(edit, himc);
         // x p t m x m = 테스트 on a 2-set Korean layout.
-        for vk in [b'X', b'P', b'T', b'M', b'X', b'M'] {
+        for vk in *b"XPTMXM" {
             if GetForegroundWindow() != window {
                 eprintln!("lost the foreground: stopped");
                 break;
