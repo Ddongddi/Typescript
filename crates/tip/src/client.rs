@@ -6,8 +6,8 @@ use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 
 use typescript_core::session::{Range, TextClient, NOT_FOUND};
-use windows::core::{implement, Error, Interface, Result};
-use windows::Win32::Foundation::E_FAIL;
+use windows::core::{implement, Error, Interface, Result, BOOL};
+use windows::Win32::Foundation::{E_FAIL, RECT};
 use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::TextServices::*;
 
@@ -81,6 +81,24 @@ impl TsfClient<'_> {
             drop(ManuallyDrop::into_inner(sel.range)); // SetSelection took its own reference
             result
         }
+    }
+
+    /// Shows what Tab would complete the word to under it, or hides the hint (best effort).
+    pub fn show_hint(&self, hint: Option<&str>) {
+        let rect = hint.and_then(|_| self.word_rect());
+        match (hint, rect) {
+            (Some(text), Some(rect)) => self.inner.ghost.show(&format!("{text}   Tab"), rect),
+            _ => self.inner.ghost.hide(),
+        }
+    }
+
+    /// Where the word being typed is on screen.
+    fn word_rect(&self) -> Option<RECT> {
+        let range = unsafe { self.inner.composition.borrow().as_ref()?.GetRange().ok()? };
+        let view = unsafe { self.context.GetActiveView().ok()? };
+        let (mut rect, mut clipped) = (RECT::default(), BOOL::default());
+        unsafe { view.GetTextExt(self.ec, &range, &mut rect, &mut clipped).ok()? };
+        Some(rect)
     }
 
     /// Dotted underline while composing (best effort: not every app honors it).

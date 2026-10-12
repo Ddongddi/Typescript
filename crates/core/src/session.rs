@@ -384,11 +384,13 @@ impl InputSession {
         self.forced.or(self.pinned).or(self.preview_language)
     }
 
-    /// The word Tab would complete the one being typed to.
-    fn suggestion(&self) -> Option<String> {
+    /// The word Tab would complete the one being typed to (None: Tab passes through, and
+    /// always without autocomplete, i.e. without a history).
+    pub fn suggestion(&self) -> Option<String> {
+        let history = self.history.as_deref()?;
         let language = self.shown_language()?;
         let prefix = self.preview(language)?;
-        history::suggest(self.history.as_deref(), language, &prefix)
+        history::suggest(Some(history), language, &prefix)
     }
 
     fn decide(&mut self, partial: bool) -> Decision {

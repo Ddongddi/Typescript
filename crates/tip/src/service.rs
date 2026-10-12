@@ -20,6 +20,7 @@ use windows::Win32::UI::TextServices::*;
 
 use crate::client::{EditSession, TsfClient};
 use crate::display;
+use crate::ghost::Ghost;
 use crate::guids::GUID_DISPLAY_ATTRIBUTE;
 
 const VK_HANGUL: u32 = 0x15;
@@ -156,6 +157,8 @@ pub struct Inner {
     pub comp_sink: RefCell<Option<ITfCompositionSink>>,
     /// Atom of the display attribute (0: not registered).
     pub da_atom: Cell<u32>,
+    /// The Tab-completion hint under the word being typed.
+    pub ghost: Ghost,
     cookie: Cell<u32>,
     exe: String,
     stamps: Cell<Stamps>,
@@ -175,6 +178,7 @@ impl Inner {
             composition: RefCell::new(None),
             comp_sink: RefCell::new(None),
             da_atom: Cell::new(0),
+            ghost: Ghost::default(),
             cookie: Cell::new(0),
             exe,
             stamps: Cell::new(Stamps::read()),
@@ -225,19 +229,22 @@ impl Inner {
         let key = if pause { None } else { key_for(vk) };
         run_edit(self, context, move |inner, client| {
             let mut session = inner.session();
-            match key {
+            let handled = match key {
                 Some(key) => session.handle(key, client),
                 None => {
                     session.toggle_pause(client);
                     true
                 }
-            }
+            };
+            client.show_hint(session.suggestion().as_deref());
+            handled
         })
     }
 
     /// The text field changed: what was being composed stays as shown, the sentence context
     /// starts over, and files edited meanwhile (settings, apps, lexicon) are picked up.
     fn focus_changed(&self) {
+        self.ghost.hide();
         if let Ok(mut composition) = self.composition.try_borrow_mut() {
             *composition = None;
         }
@@ -334,6 +341,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
     fn Deactivate(&self) -> Result<()> {
         guard(|| {
             let inner = &self.inner;
+            inner.ghost.destroy();
             if let Ok(mut slot) = inner.session.try_borrow_mut() {
                 if let Some(session) = slot.as_mut() {
                     session.commit_for_new_context(&mut NoopClient);
@@ -436,6 +444,7 @@ impl ITfCompositionSink_Impl for CompositionSink_Impl {
     fn OnCompositionTerminated(&self, _ec: u32, _composition: Ref<ITfComposition>) -> Result<()> {
         guard(|| {
             if let Some(inner) = self.inner.upgrade() {
+                inner.ghost.hide();
                 if let Ok(mut composition) = inner.composition.try_borrow_mut() {
                     *composition = None;
                 }

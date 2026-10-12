@@ -10,6 +10,7 @@
 
 mod client;
 mod display;
+mod ghost;
 mod guids;
 mod registry;
 mod service;
