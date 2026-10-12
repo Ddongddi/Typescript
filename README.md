@@ -8,12 +8,21 @@ dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 fltpssm ghkdlxld                    →  리센느 화이팅
 ```
 ## 설치
-
+PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켠다 (관리자 권한 확인창 1회).
+```powershell
+irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+```
+받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치한다. 제거와 버전 지정은 스크립트 블록으로 부른다.
+```powershell
+$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
+& $i -Uninstall            # 제거 (설정은 %APPDATA%\Typescript 에 남는다)
+& $i -Version v0.2.0       # 특정 버전
+```
+소스에서 직접 빌드해 설치하려면 (Rust와 `rustup target add i686-pc-windows-msvc` 필요):
 ```powershell
 .\scripts\install.ps1            # 빌드(x64 + x86) → 관리자 권한 요청(UAC 1회) → 등록
-.\scripts\install.ps1 -Uninstall # 제거 (설정은 %APPDATA%\Typescript 에 남는다)
+.\scripts\install.ps1 -Uninstall # 제거
 ```
-
 설치 후 **Win+Space** 로 입력기를 고른다. 언어 목록에서는 **영어(미국)** 아래에 있다 (없으면 설치가 영어(미국)을 추가한다). 한국어 아래에 두면 카카오톡 같은 IMM32 앱에서 Windows가 조합을 한 글자로 잘라 버려서다 (아래 "앱 호환"). 두 가지가 있다.
 
 | 입력기 | 하는 일 |
@@ -70,6 +79,11 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 - 문제를 볼 때는 `%APPDATA%\Typescript\debug.on` 파일을 만들면 같은 폴더의 `debug.log` 에 이벤트 이름(포커스 이동, 조합 시작, 앱이 조합을 끝냄)만 남는다. 친 글자는 기록하지 않는다. 확인이 끝나면 파일을 지운다.
 - `cargo run -p typescript-tip --example richedit_lab -- --ts` (또는 `--ms`) 는 RichEdit 창에 실제 키를 보내 결과와 앱이 받는 IME 메시지를 찍는다 (카카오톡과 같은 컨트롤).
 
+## 릴리스
+`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 한다. 올라가는 파일은 `typescript-windows.zip`, `typescript-windows.zip.sha256`, `install.ps1` 이다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌린다.
+```powershell
+git tag v0.2.0; git push origin v0.2.0
+```
 ## 개발
 
 ```powershell

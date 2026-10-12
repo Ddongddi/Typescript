@@ -1,18 +1,32 @@
 <#
 .SYNOPSIS
-  Builds, installs and registers Typescript (the x64 and x86 text service, and the CLI).
+  Installs (or removes) Typescript: the x64 and x86 text service and the CLI.
 
-  .\scripts\install.ps1              install or update
-  .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
+  One line, from anywhere (downloads the latest GitHub release, checks its SHA-256):
+    irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+  Remove it, or pick a version:
+    & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Uninstall
+    & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Version v0.2.0
+
+  From a checkout (builds first; needs Rust + the i686-pc-windows-msvc target):
+    .\scripts\install.ps1              install or update
+    .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
   Afterwards pick "Typescript" with Win+Space (or in Settings > Time & language > Language
   & region > English (United States) > Keyboards).
 #>
-param([switch]$Uninstall, [switch]$Elevated)
+param(
+    [switch]$Uninstall,
+    # Release tag to install (default: the latest release).
+    [string]$Version = 'latest',
+    # Internal: the elevated half of the script, and the folder it installs from.
+    [switch]$Elevated,
+    [string]$Source
+)
 
+$GitHubRepo = 'iamallyouneed/Typescript'
 $ErrorActionPreference = 'Stop'
-$repo = Split-Path -Parent $PSScriptRoot
 $dest = Join-Path $env:ProgramFiles 'Typescript'
 $dll64 = Join-Path $dest 'typescript_tip.dll'
 $dll86 = Join-Path $dest 'typescript_tip_x86.dll'
@@ -103,9 +117,11 @@ if ($Elevated) {
     exit 0
 }
 
-# --- the user's side: build, ask for elevation, enable the profile ---
+# --- the user's side: get the files, ask for elevation, enable the profile ---
 
-if (-not $Uninstall) {
+# Builds from a checkout into a folder laid out like the release package.
+function New-SourceStage {
+    $repo = Split-Path -Parent $PSScriptRoot
     Push-Location $repo
     try {
         & cargo build --release -p typescript-tip -p typescript-cli
@@ -115,26 +131,82 @@ if (-not $Uninstall) {
     } finally {
         Pop-Location
     }
+    $stage = New-TempDirectory
+    Copy-Item (Join-Path $repo 'target
+elease	ypescript_tip.dll') $stage
+    Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc
+elease	ypescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
+    Copy-Item (Join-Path $repo 'target
+elease	ypescript.exe') $stage
+    Copy-Item (Join-Path $repo 'assets	ypescript.ico') $stage
+    Copy-Item (Join-Path $repo 'THIRD_PARTY_NOTICES.txt') $stage -ErrorAction SilentlyContinue
+    Copy-Item $PSCommandPath $stage
+    return $stage
 }
 
-$arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"", '-Elevated')
-if ($Uninstall) { $arguments += '-Uninstall' }
-Write-Host 'Asking for administrator rights to register the text service...'
-$p = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
-if ($p.ExitCode -ne 0) {
-    if (Test-Path $log) { Get-Content $log -Tail 20 }
-    throw "The elevated step failed (exit $($p.ExitCode)). Log: $log"
+function New-TempDirectory {
+    $dir = Join-Path $env:TEMP "typescript-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    New-Item $dir -ItemType Directory | Out-Null
+    return $dir
 }
 
-if ($Uninstall) {
-    Set-Keyboards $false
-    Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript.'
-} else {
-    # Per user: switch the registered profile on.
-    & rundll32.exe $dll64, EnableForUser
-    Set-Keyboards $true
-    Write-Host 'Typescript installed.'
-    Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
-    Write-Host '  Pause key  -> the Han/Eng key (VK_HANGUL), per text field. Settings: %APPDATA%\Typescript\settings.json'
-    Write-Host '  Apps already running pick the new text service up when you reopen them.'
+# Downloads a release package, checks its SHA-256 and unpacks it.
+function Get-ReleaseStage {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" }
+            else { "https://github.com/$GitHubRepo/releases/download/$Version" }
+    $stage = New-TempDirectory
+    $zip = Join-Path $stage 'typescript-windows.zip'
+    Write-Host "Downloading Typescript ($Version)..."
+    Invoke-WebRequest "$base/typescript-windows.zip" -OutFile $zip -UseBasicParsing
+    # To a file, not .Content: Windows PowerShell 5.1 returns bytes for an octet-stream.
+    $sumFile = "$zip.sha256"
+    Invoke-WebRequest "$base/typescript-windows.zip.sha256" -OutFile $sumFile -UseBasicParsing
+    $expected = ((Get-Content $sumFile -Raw) -split '\s+')[0].Trim()
+    $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
+    if ($actual -ne $expected) { throw "Checksum mismatch for $zip (expected $expected, got $actual)" }
+    Expand-Archive $zip -DestinationPath $stage -Force
+    Remove-Item $zip, $sumFile
+    return $stage
+}
+
+$stage = $null
+$inPackage = $PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot 'typescript_tip.dll'))
+$inCheckout = $PSScriptRoot -and (Test-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Cargo.toml'))
+try {
+    if ($inPackage -or ($Uninstall -and $PSCommandPath)) {
+        $Source = $PSScriptRoot # nothing to fetch: the files are here, or there is nothing to install
+    } elseif ($inCheckout) {
+        $stage = New-SourceStage
+        $Source = $stage
+    } else {
+        # Piped from the web: fetch the release package and use the script inside it.
+        $stage = Get-ReleaseStage
+        $Source = $stage
+    }
+    $script = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $Source 'install.ps1' }
+
+    $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Elevated', '-Source', "`"$Source`"")
+    if ($Uninstall) { $arguments += '-Uninstall' }
+    Write-Host 'Asking for administrator rights to register the text service...'
+    $p = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
+    if ($p.ExitCode -ne 0) {
+        if (Test-Path $log) { Get-Content $log -Tail 20 }
+        throw "The elevated step failed (exit $($p.ExitCode)). Log: $log"
+    }
+
+    if ($Uninstall) {
+        Set-Keyboards $false
+        Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript.'
+    } else {
+        # Per user: switch the registered profile on.
+        & rundll32.exe $dll64, EnableForUser
+        Set-Keyboards $true
+        Write-Host 'Typescript installed.'
+        Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
+        Write-Host '  Pause key  -> the Han/Eng key (VK_HANGUL), per text field. Settings: %APPDATA%\Typescript\settings.json'
+        Write-Host '  Apps already running pick the new text service up when you reopen them.'
+    }
+} finally {
+    if ($stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
 }

@@ -1,0 +1,27 @@
+name: Release
+
+# Push a tag like v0.2.0 to publish a release with the installer.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: i686-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+      - run: cargo build --release -p typescript-tip -p typescript-cli
+      - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+      - run: ./scripts/package.ps1
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$env:GITHUB_REF_NAME" dist/* --title "$env:GITHUB_REF_NAME" --generate-notes
