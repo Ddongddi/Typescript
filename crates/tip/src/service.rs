@@ -11,7 +11,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
-use typescript_core::{make_engine, AppPolicies, InputSession, Key, LearningEngine, Settings};
+use typescript_core::{make_engine, AppPolicies, History, InputSession, Key, LearningEngine, Settings};
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
@@ -24,6 +24,7 @@ use crate::guids::GUID_DISPLAY_ATTRIBUTE;
 
 const VK_HANGUL: u32 = 0x15;
 const VK_BACK: u32 = 0x08;
+const VK_TAB: u32 = 0x09;
 const VK_RETURN: u32 = 0x0D;
 const VK_ESCAPE: u32 = 0x1B;
 const VK_SHIFT: i32 = 0x10;
@@ -36,6 +37,13 @@ static ENGINE: OnceLock<Arc<LearningEngine>> = OnceLock::new();
 /// One engine per process: models and learned words are shared by every text service in it.
 fn engine() -> Arc<LearningEngine> {
     ENGINE.get_or_init(|| make_engine(LearningEngine::default_store_path())).clone()
+}
+
+static HISTORY: OnceLock<Arc<History>> = OnceLock::new();
+
+/// One word history per process, like the engine: every text service in it counts into it.
+fn history() -> Arc<History> {
+    HISTORY.get_or_init(|| Arc::new(History::new(History::default_store_path()))).clone()
 }
 
 fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
@@ -108,6 +116,7 @@ fn key_for(vk: u32) -> Option<Key> {
             Key::Letter(if upper { c } else { c.to_ascii_lowercase() })
         }
         VK_BACK => Key::Delete,
+        VK_TAB if !shift => Key::Tab,
         VK_ESCAPE if shift => Key::Cycle,
         VK_ESCAPE => Key::Escape,
         VK_RETURN => Key::Enter,
@@ -177,8 +186,11 @@ impl Inner {
         let mut slot = self.session.borrow_mut();
         if slot.is_none() {
             let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
-            let mut session =
-                InputSession::new(engine(), policies, self.settings.borrow().return_confirms_only);
+            let settings = self.settings.borrow();
+            let mut session = InputSession::new(engine(), policies, settings.return_confirms_only);
+            if settings.autocomplete {
+                session = session.with_history(history());
+            }
             session.activate(Some(&self.exe));
             *slot = Some(session);
         }

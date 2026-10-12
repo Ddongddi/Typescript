@@ -22,7 +22,11 @@ impl SortedLines {
     }
 
     fn line(&self, i: usize) -> &'static str {
-        let start = self.starts[i] as usize;
+        self.line_at(self.starts[i])
+    }
+
+    fn line_at(&self, start: u32) -> &'static str {
+        let start = start as usize;
         let end = self.text[start..].find('\n').map_or(self.text.len(), |e| start + e);
         &self.text[start..end]
     }
@@ -52,6 +56,13 @@ impl SortedLines {
         None
     }
 
+    /// Every line whose first field starts with `prefix` (they are contiguous in sorted order).
+    pub fn with_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = &'static str> + 'a {
+        let field = |line: &'static str| line.split('\t').next().unwrap_or(line);
+        let first = self.starts.partition_point(|&s| field(self.line_at(s)) < prefix);
+        (first..self.starts.len()).map(|i| self.line(i)).take_while(move |l| field(l).starts_with(prefix))
+    }
+
     pub fn contains(&self, key: &str) -> bool {
         self.get(key).is_some()
     }
@@ -70,6 +81,20 @@ mod tests {
         assert!(s.contains("apple"));
         assert!(!s.contains("app"));
         assert!(!s.contains("zzz"));
+    }
+
+    #[test]
+    fn lists_lines_by_prefix() {
+        let s = SortedLines::new("app\t1
+apple\t2
+apply\t3
+banana\t4
+");
+        let found: Vec<_> = s.with_prefix("app").collect();
+        assert_eq!(found, ["app\t1", "apple\t2", "apply\t3"]);
+        assert_eq!(s.with_prefix("appl").count(), 2);
+        assert_eq!(s.with_prefix("c").count(), 0);
+        assert_eq!(s.with_prefix("").count(), 4);
     }
 
     #[test]

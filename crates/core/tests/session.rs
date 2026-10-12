@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use typescript_core::session::NOT_FOUND;
+use typescript_core::History;
 use typescript_core::testing::FakeTextField;
 use typescript_core::{
     AppPolicies, AppPolicy, EnglishModel, HeuristicEngine, InputSession, Key, LearningEngine, SplittingEngine,
@@ -486,4 +487,56 @@ fn lexicon_file_is_created_under_the_given_path() {
     session.handle(Key::Other, &mut field); // closes the window → one correction recorded
     assert!(path.exists());
     let _ = std::fs::remove_file(&path);
+}
+
+
+fn rig_with_history(name: &str, words: &[&str]) -> Rig {
+    let history = Arc::new(History::new(None));
+    for w in words {
+        history.record(w);
+    }
+    let mut rig = Rig::new(name);
+    rig.session = InputSession::new(engine(name), AppPolicies::default(), true).with_history(history);
+    rig
+}
+
+/// Tab replaces the underlined word with the word typed most often that continues it.
+#[test]
+fn tab_completes_english_from_the_users_own_words() {
+    let mut r = rig_with_history("tab-en", &["zebrafish", "zebrafish"]);
+    r.type_("zebraf");
+    assert!(r.key(Key::Tab));
+    assert_eq!(r.text(), "zebrafish");
+    assert!(!r.composing());
+    // The word that was completed counts for next time, and the sentence goes on.
+    r.type_(" ");
+    assert_eq!(r.text(), "zebrafish ");
+}
+
+#[test]
+fn tab_completes_korean_from_the_users_own_words() {
+    let mut r = rig_with_history("tab-ko", &["안녕하세요", "안녕하세요"]);
+    r.type_("dkssud");
+    assert!(r.composing());
+    assert!(r.key(Key::Tab));
+    assert_eq!(r.text(), "안녕하세요");
+    assert!(!r.composing());
+}
+
+/// Nothing to complete: the word goes in as shown and the app gets the Tab.
+#[test]
+fn tab_without_a_completion_commits_and_passes_through() {
+    let mut r = rig_with_history("tab-none", &[]);
+    r.type_("the");
+    assert!(!r.key(Key::Tab));
+    assert_eq!(r.text(), "the");
+    assert!(!r.composing());
+}
+
+#[test]
+fn tab_without_history_never_completes() {
+    let mut r = Rig::new("tab-off");
+    r.type_("zebraf");
+    assert!(!r.key(Key::Tab));
+    assert_eq!(r.text(), "zebraf");
 }

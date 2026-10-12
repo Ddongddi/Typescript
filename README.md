@@ -26,6 +26,7 @@ dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 | Shift+Esc | 어느 앱에서나 읽기를 순환 |
 | 확정 직후 Esc | 방금 확정한 단어를 다음 읽기로 바꾼다. 같은 교정을 두 번 하면 학습한다 |
 | Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위 |
+| Tab | 쓰는 중인 단어를 자주 쓴 단어로 완성한다 (내가 친 단어 우선, 없으면 내장 사전). 완성할 게 없으면 단어만 확정하고 Tab은 앱으로 간다 |
 | **한/영 키** | 이 텍스트 필드에서 Typescript를 끄고 켠다 (다른 칸으로 가면 다시 켜진다) |
 
 ## 설정 (`%APPDATA%\Typescript\`)
@@ -34,8 +35,9 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 
 `settings.json`
 ```json
-{ "returnConfirmsOnly": true, "pauseKey": "hangul" }
+{ "returnConfirmsOnly": true, "pauseKey": "hangul", "autocomplete": true }
 ```
+`autocomplete`: Tab 자동완성과 단어 기록(`user_history.json`, 2번 이상 친 단어만 제안). `false`면 둘 다 끈다.
 `pauseKey`: `"hangul"`(한/영 키) 또는 `"off"`.
 
 `apps.json` — 키는 **exe 파일 이름**(대소문자 무시). `"*"` 는 기본값이고, 앱 항목에는 다른 키만 적는다.

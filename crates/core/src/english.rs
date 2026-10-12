@@ -114,6 +114,22 @@ impl EnglishModel {
         best
     }
 
+    /// The most common word that continues `prefix` (autocomplete); None under three letters or
+    /// when `prefix` is already an everyday word.
+    pub fn complete(&self, prefix: &str) -> Option<String> {
+        let prefix = prefix.to_lowercase();
+        if prefix.chars().count() < 3 || self.is_common_word(&prefix) {
+            return None;
+        }
+        let level = |line: &str| line.split('\t').nth(1).and_then(|l| l.parse::<i32>().ok()).unwrap_or(i32::MAX);
+        let best = self
+            .levels
+            .with_prefix(&prefix)
+            .filter(|l| level(l) <= EXTRA_LEVEL && l.split('\t').next() != Some(prefix.as_str()))
+            .min_by_key(|l| (level(l), l.len()))?;
+        best.split('\t').next().map(String::from)
+    }
+
     /// A word people use (SCOWL level ≤ 50, or one of the extra words).
     pub fn is_known_word(&self, token: &str) -> bool {
         self.level(token).is_some_and(|l| l <= KNOWN_LEVEL)

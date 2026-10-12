@@ -7,7 +7,7 @@
 //!                           COMMON_WORDS merged (what EnglishModel::new did at runtime)
 //!   trigrams.bin            27^3 trigram counts then 27^2 context counts, f32 little endian,
 //!                           trained on web2 + COMMON_WORDS
-//!   korean_words_sorted.txt first column of korean_words.txt, sorted unique
+//!   korean_words_sorted.txt "word<TAB>count" from korean_words.txt, sorted unique
 //!   korean_vocab_sorted.txt korean_vocabulary.txt, sorted unique
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -104,13 +104,18 @@ fn main() {
     fs::write(out.join("trigrams.bin"), bytes).unwrap();
 
     // Korean word lists
-    let words: BTreeSet<String> = read("korean_words.txt")
-        .lines()
-        .filter_map(|l| l.split('\t').next())
-        .filter(|w| !w.is_empty())
-        .map(String::from)
-        .collect();
-    fs::write(out.join("korean_words_sorted.txt"), words.iter().map(|w| format!("{w}\n")).collect::<String>()).unwrap();
+    // "word<TAB>count" (the count orders autocomplete suggestions); contains() looks at the word only.
+    let mut words: BTreeMap<String, u64> = BTreeMap::new();
+    for line in read("korean_words.txt").lines() {
+        let mut fields = line.split('\t');
+        let word: &str = fields.next().unwrap_or("");
+        if !word.is_empty() {
+            let count = fields.next().and_then(|n| n.trim().parse::<u64>().ok()).unwrap_or(1);
+            *words.entry(word.to_string()).or_default() += count;
+        }
+    }
+    let sorted: String = words.iter().map(|(w, n)| format!("{w}\t{n}\n")).collect();
+    fs::write(out.join("korean_words_sorted.txt"), sorted).unwrap();
     let vocab: BTreeSet<String> =
         read("korean_vocabulary.txt").lines().map(str::trim).filter(|w| !w.is_empty()).map(String::from).collect();
     fs::write(out.join("korean_vocab_sorted.txt"), vocab.iter().map(|w| format!("{w}\n")).collect::<String>()).unwrap();

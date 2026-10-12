@@ -114,11 +114,13 @@ pub struct Settings {
     pub return_confirms_only: bool,
     /// Key that pauses Typescript in the text field: "hangul" (한/영) or "off".
     pub pause_key: String,
+    /// Tab completes the word being typed, and the words typed are counted for that.
+    pub autocomplete: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { return_confirms_only: true, pause_key: "hangul".to_string() }
+        Self { return_confirms_only: true, pause_key: "hangul".to_string(), autocomplete: true }
     }
 }
 
@@ -139,6 +141,7 @@ impl Settings {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.return_confirms_only),
             pause_key: value.get("pauseKey").and_then(|v| v.as_str()).map(str::to_string).unwrap_or(defaults.pause_key),
+            autocomplete: value.get("autocomplete").and_then(|v| v.as_bool()).unwrap_or(defaults.autocomplete),
         }
     }
 
@@ -151,6 +154,7 @@ impl Settings {
             .unwrap_or_default();
         object.insert("returnConfirmsOnly".into(), self.return_confirms_only.into());
         object.insert("pauseKey".into(), self.pause_key.clone().into());
+        object.insert("autocomplete".into(), self.autocomplete.into());
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }

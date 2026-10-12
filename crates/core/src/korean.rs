@@ -100,6 +100,18 @@ impl KoreanModel {
         WORDS.contains(hangul) || VOCABULARY.contains(hangul)
     }
 
+    /// The most frequent seen word that continues `prefix` (autocomplete); None under two
+    /// syllables, or when `prefix` is itself at least as frequent as anything longer.
+    pub fn complete(&self, prefix: &str) -> Option<String> {
+        if prefix.chars().count() < 2 {
+            return None;
+        }
+        let count = |line: &str| line.split('\t').nth(1).and_then(|n| n.parse::<u64>().ok()).unwrap_or(0);
+        let own = WORDS.get(prefix).map_or(0, count);
+        let best = WORDS.with_prefix(prefix).filter(|l| !l.starts_with(&format!("{prefix}\t"))).max_by_key(|l| count(l))?;
+        (count(best) > own).then(|| best.split('\t').next().unwrap_or(best).to_string())
+    }
+
     pub fn syllable_log_probability(&self, syllable: char) -> f64 {
         self.tiers.get(&syllable).copied().unwrap_or(UNKNOWN_SYLLABLE_LOGP)
     }

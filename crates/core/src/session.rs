@@ -11,6 +11,8 @@
 //!   Delete         in Korean the last jamo of the syllable being typed, then whole syllables
 //!                  (as the system's 2-set does); else the last keystroke
 //!   Space, punct.  commit the word; the app types the key itself
+//!   Tab            complete the word to the user's most typed (else a built-in) word that
+//!                  continues it; with no completion it commits and the app gets the Tab
 //!   Return         commit the word as shown and nothing else (with `return_confirms_only`)
 //!   anything else  commit and let the app handle the key
 //! Right after a word was committed with space/punctuation, Esc / Shift+Esc cycle that
@@ -21,6 +23,7 @@ use std::sync::{Arc, LazyLock};
 use crate::engine::{Decision, DecisionContext, DecisionEngine, Language};
 use crate::english::EnglishModel;
 use crate::hangul::{HangulComposer, Unit};
+use crate::history::{self, History};
 use crate::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
 use crate::learning::LearningEngine;
 use crate::policy::{AppPolicies, AppPolicy};
@@ -78,7 +81,9 @@ pub enum Key {
     /// Space, digit or punctuation.
     Printable(char),
     Enter,
-    /// Tab, arrows, shortcuts…: commit and let the app handle the key.
+    /// Completes the word being typed, if there is a completion.
+    Tab,
+    /// Arrows, shortcuts…: commit and let the app handle the key.
     Other,
 }
 
@@ -141,6 +146,8 @@ pub struct InputSession {
     /// The last correction handed to the learning engine: going back and forth is one correction.
     last_recorded: Option<(String, Language)>,
     last_trace: Option<Trace>,
+    /// Counts committed words and completes with them; None: no autocomplete.
+    history: Option<Arc<History>>,
 }
 
 fn char_count(s: &str) -> usize {
@@ -171,7 +178,14 @@ impl InputSession {
             syllable_start: None,
             last_recorded: None,
             last_trace: None,
+            history: None,
         }
+    }
+
+    /// Turns on Tab completion, learning from the words committed.
+    pub fn with_history(mut self, history: Arc<History>) -> Self {
+        self.history = Some(history);
+        self
     }
 
     pub fn keys(&self) -> &str {
@@ -320,6 +334,21 @@ impl InputSession {
                 self.commit(client);
                 self.return_confirms_only
             }
+            Key::Tab => {
+                let Some(word) = self.suggestion() else {
+                    self.commit(client);
+                    self.previous_language = None;
+                    return false;
+                };
+                let language = self.shown_language().unwrap_or(Language::English);
+                self.reset_word();
+                client.insert_text(&word, None);
+                if let Some(h) = &self.history {
+                    h.record(&word);
+                }
+                self.previous_language = Some(language.sentence_language());
+                true
+            }
             Key::Other => {
                 self.commit(client);
                 self.previous_language = None;
@@ -342,10 +371,25 @@ impl InputSession {
     /// word doesn't continue the previous sentence.
     pub fn commit_for_new_context(&mut self, client: &mut dyn TextClient) {
         self.commit(client);
+        if let Some(h) = &self.history {
+            h.flush();
+        }
         self.previous_language = None;
     }
 
     // MARK: - Private
+
+    /// The language on screen for the word being typed.
+    fn shown_language(&self) -> Option<Language> {
+        self.forced.or(self.pinned).or(self.preview_language)
+    }
+
+    /// The word Tab would complete the one being typed to.
+    fn suggestion(&self) -> Option<String> {
+        let language = self.shown_language()?;
+        let prefix = self.preview(language)?;
+        history::suggest(self.history.as_deref(), language, &prefix)
+    }
 
     fn decide(&mut self, partial: bool) -> Decision {
         let ctx = DecisionContext { previous_language: self.previous_language, partial };
@@ -498,14 +542,23 @@ impl InputSession {
             Language::Korean => self.hangul().unwrap_or_else(|| self.engine.render(&self.keys, language)),
             other => self.engine.render(&self.keys, other),
         };
+        if let Some(h) = &self.history {
+            h.record(&text);
+        }
         let word = Word { keys: std::mem::take(&mut self.keys), text, language, decided };
         self.previous_language = Some(language.sentence_language());
+        self.reset_word();
+        word
+    }
+
+    /// Starts a new word: the caller has taken the keys or no longer needs them.
+    fn reset_word(&mut self) {
+        self.keys.clear();
         self.forced = None;
         self.pinned = None;
         self.syllable_start = None;
         self.preview_language = None;
         self.engine_preview = None;
-        word
     }
 
     /// Korean as the system's 2-set input deletes it: jamo by jamo in the syllable being typed

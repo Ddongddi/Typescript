@@ -3,13 +3,15 @@
 //!   typescript -v "..."                              also print per-word scores
 //!   echo "..." | typescript                          convert stdin line by line
 //!   typescript --compose < keys.txt                  print "keys<TAB>hangul" per line
-//!   typescript --decide < keys_prev.tsv              verdict for "keys<TAB>previous" lines
+//!   typescript --suggest < keys.txt                  "keys, language, shown, Tab completion" per line
+//!   typescript --decide < keys_prev.tsv            verdict for "keys<TAB>previous" lines
 //!                                                    (previous: english|korean|mixed|empty)
 
 use std::io::{self, BufRead};
 
 use typescript_core::{make_engine, DecisionContext, DecisionEngine, Language, TextConverter};
 use typescript_core::hangul::HangulComposer;
+use typescript_core::history::suggest;
 
 fn lines() -> impl Iterator<Item = String> {
     io::stdin().lock().lines().map_while(Result::ok)
@@ -25,6 +27,14 @@ fn main() {
             for keys in lines() {
                 let text = HangulComposer::compose(&keys).map(|c| c.text()).unwrap_or_else(|| keys.clone());
                 println!("{keys}\t{text}");
+            }
+        }
+        Some("--suggest") => {
+            // What Tab would complete each line of keys to, from the built-in word lists.
+            for keys in lines() {
+                let d = engine.decide(&keys, &DecisionContext { previous_language: None, partial: true });
+                let suggestion = suggest(None, d.language, &d.output).unwrap_or_default();
+                println!("{keys}\t{}\t{}\t{suggestion}", d.language.name(), d.output);
             }
         }
         Some("--decide") => {
