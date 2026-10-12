@@ -1,0 +1,193 @@
+//! Port of DecisionEngineTests + MixedWordTests + the learning tests of the Swift suite.
+//! Keys → expected output strings are the original's, unchanged.
+
+use std::path::PathBuf;
+
+use typescript_core::{
+    make_engine, DecisionContext, DecisionEngine, HeuristicEngine, Language, LearningEngine, SplittingEngine,
+    TextConverter,
+};
+use typescript_core::EnglishModel;
+
+fn temp_lexicon(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("typescript-{name}-{}.json", std::process::id()))
+}
+
+fn heuristic() -> HeuristicEngine {
+    HeuristicEngine::new()
+}
+
+fn splitting() -> SplittingEngine {
+    SplittingEngine::new(Box::new(heuristic()), EnglishModel::shared())
+}
+
+fn ctx() -> DecisionContext {
+    DecisionContext::default()
+}
+
+#[test]
+fn english_words_stay_english() {
+    let e = heuristic();
+    for word in [
+        "hello", "world", "the", "keyboard", "language", "switch", "input", "method", "files", "running",
+        "commit", "github", "please", "thanks", "Apple", "API", "is", "a", "computer", "people", "quick",
+        "brown", "fox", "jumps", "over", "lazy", "dog",
+    ] {
+        let d = e.decide(word, &ctx());
+        assert_eq!(d.language, Language::English, "{word} → {} {}", d.output, d.explanation);
+    }
+}
+
+#[test]
+fn korean_keystrokes_become_hangul() {
+    let e = heuristic();
+    for (keys, expected) in [
+        ("dkssudgktpdy", "안녕하세요"), ("gksrmf", "한글"), ("rkatkgkqslek", "감사합니다"), ("dhsmf", "오늘"),
+        ("skfTl", "날씨"), ("whgdk", "좋아"), ("dlTek", "있다"), ("tkfkd", "사랑"), ("zjavbxj", "컴퓨터"),
+        ("vmfhrmfoa", "프로그램"), ("wjdakf", "정말"), ("rhakdnj", "고마워"), ("wkf", "잘"), ("ajrdj", "먹어"),
+        ("zzz", "ㅋㅋㅋ"), ("dlrjs", "이건"), ("djEjg", "어떻"), ("tlrks", "시간"), ("rmfjsep", "그런데"),
+    ] {
+        let d = e.decide(keys, &ctx());
+        assert_eq!(d.language, Language::Korean, "{keys} → {} {}", d.output, d.explanation);
+        assert_eq!(d.output, expected, "{keys}");
+    }
+}
+
+#[test]
+fn mixed_sentence() {
+    let e = heuristic();
+    let c = TextConverter::new(&e);
+    assert_eq!(c.convert("dkssudgktpdy, hello world!").0, "안녕하세요, hello world!");
+    assert_eq!(c.convert("dlrjs github dp commit gkf rjdi").0, "이건 github 에 commit 할 거야");
+    assert_eq!(c.convert("tmvmfls API qkfvy wnsql").0, "스프린 API 발표 준비");
+}
+
+#[test]
+fn context_resolves_short_collisions() {
+    let e = heuristic();
+    let c = TextConverter::new(&e);
+    assert_eq!(c.convert("let's go").0, "let's go");
+    assert_eq!(c.convert("dlrj go").0, "이거 해");
+}
+
+#[test]
+fn partial_preview_does_not_punish_pending_consonant() {
+    let d = heuristic().decide("dkss", &DecisionContext { previous_language: None, partial: true });
+    assert_eq!(d.language, Language::Korean, "{}", d.explanation);
+}
+
+#[test]
+fn learning_overrides_base() {
+    let path = temp_lexicon("learn");
+    let _ = std::fs::remove_file(&path);
+    let learning = LearningEngine::new(Box::new(heuristic()), Some(path.clone()));
+    assert_eq!(learning.decide("hello", &ctx()).language, Language::English);
+    learning.learn("hello", Language::Korean, None);
+    assert_eq!(learning.decide("hello", &ctx()).language, Language::English); // once: not yet
+    learning.learn("hello", Language::Korean, None);
+    assert_eq!(learning.decide("hello", &ctx()).output, "ㅗ디ㅣㅐ");
+    // Persisted and reloaded.
+    let reloaded = LearningEngine::new(Box::new(heuristic()), Some(path.clone()));
+    assert_eq!(reloaded.decide("hello", &ctx()).language, Language::Korean);
+    // Learning the base choice removes the override.
+    reloaded.learn("hello", Language::English, None);
+    assert_eq!(reloaded.decide("hello", &ctx()).language, Language::English);
+    let _ = std::fs::remove_file(&path);
+}
+
+/// A lexicon.json it can't read (hand-edited, another version) is set aside, not overwritten.
+#[test]
+fn unreadable_lexicon_is_kept_aside() {
+    let path = temp_lexicon("aside");
+    let aside = PathBuf::from(format!("{}.unreadable", path.display()));
+    std::fs::write(&path, r#"{"de": "japanese"}"#).unwrap();
+    let learning = LearningEngine::new(Box::new(heuristic()), Some(path.clone()));
+    assert!(learning.learned().is_empty() && learning.pending().is_empty());
+    assert!(aside.exists());
+    // A different correction than before starts over.
+    learning.learn("rjtm", Language::English, Some(Language::Korean));
+    learning.learn("rjtm", Language::Mixed, Some(Language::Korean));
+    assert!(learning.learned().is_empty());
+    assert_eq!(learning.pending().get("rjtm"), Some(&Language::Mixed));
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&aside);
+}
+
+#[test]
+fn splits_english_plus_particle() {
+    let e = splitting();
+    for (keys, expected) in [
+        ("githubdp", "github에"), ("APIfmf", "API를"), ("commitgotj", "commit해서"), ("serverdptj", "server에서"),
+        ("pythondmfh", "python으로"), ("deploygoTdj", "deploy했어"), ("TextEditdptj", "TextEdit에서"),
+        ("Slackdptj", "Slack에서"), ("VSCodedptj", "VSCode에서"), ("GitHubdp", "GitHub에"), ("iPhonedptj", "iPhone에서"),
+    ] {
+        let d = e.decide(keys, &ctx());
+        assert_eq!(d.language, Language::Mixed, "{keys}: {}", d.explanation);
+        assert_eq!(d.output, expected, "{keys}");
+    }
+}
+
+#[test]
+fn splits_english_plus_korean_word() {
+    let e = splitting();
+    for (keys, expected) in [
+        ("hellodnjfem", "hello월드"), ("githubtjqj", "github서버"), ("loginghkaus", "login화면"),
+        ("designvhsxm", "design폰트"), ("Reactzjavhsjsxm", "React컴포넌트"), ("VSCodetjfwjd", "VSCode설정"),
+    ] {
+        let d = e.decide(keys, &ctx());
+        assert_eq!(d.language, Language::Mixed, "{keys}: {}", d.explanation);
+        assert_eq!(d.output, expected, "{keys}");
+    }
+}
+
+/// Korean typed with shift isn't a capitalized name; names that spell like English
+/// (cartman ≠ car스무) stay whole. `hasansowo`/`nonakawo` (clean romaji) are Japanese-only: dropped.
+#[test]
+fn leaves_whole_words_alone() {
+    let e = splitting();
+    for keys in [
+        "work", "park", "hello", "thanks", "dkssudgktpdy", "akadp", "ruxdp", "wkfrk", "TkdRjvnfdms", "dlTdj",
+        "Rmxdptj", "ThkTdjdy", "RoRmtgkgfusk", "cartman", "Cartman", "stuntman", "comstock", "wolfsbane",
+    ] {
+        let d = e.decide(keys, &ctx());
+        assert_ne!(d.language, Language::Mixed, "{keys}: {}", d.explanation);
+    }
+}
+
+#[test]
+fn esc_cycles_through_readings() {
+    assert_eq!(Language::English.next("githubdp"), Language::Mixed);
+    assert_eq!(Language::Mixed.next("githubdp"), Language::English); // 햐소ㅕㅠ에 is garbled: skipped
+    assert_eq!(Language::Korean.next("githubdp"), Language::English);
+    assert_eq!(Language::English.next("dkssud"), Language::Korean);
+    // No split available: english ↔ korean.
+    assert_eq!(Language::English.next("hello"), Language::Korean);
+}
+
+#[test]
+fn mixed_sentence_with_splitting() {
+    let e = splitting();
+    let c = TextConverter::new(&e);
+    assert_eq!(c.convert("dlrjs githubdp commitgkf rjdi").0, "이건 github에 commit할 거야");
+}
+
+#[test]
+fn full_chain_matches_the_parts() {
+    let engine = make_engine(None);
+    let c = TextConverter::new(engine.as_ref());
+    assert_eq!(c.convert("dlrjs githubdp commitgkf rjdi").0, "이건 github에 commit할 거야");
+}
+
+/// Consonant-only chat words (ㄹㅇ, ㅇㅈ, ㅈㅅ…) read as Korean; English words made of the same
+/// keys (as, we, tea, set, cat) don't.
+#[test]
+fn consonant_only_chat_words_are_korean() {
+    let e = heuristic();
+    for (keys, expected) in [("fd", "ㄹㅇ"), ("dw", "ㅇㅈ"), ("wt", "ㅈㅅ"), ("rc", "ㄱㅊ"), ("cz", "ㅊㅋ")] {
+        let d = e.decide(keys, &ctx());
+        assert_eq!((d.language, d.output.as_str()), (Language::Korean, expected), "{keys}: {}", d.explanation);
+    }
+    for word in ["as", "at", "we", "re", "tea", "set", "cat", "eat", "fast"] {
+        assert_eq!(e.decide(word, &ctx()).language, Language::English, "{word}");
+    }
+}

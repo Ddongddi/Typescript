@@ -1,0 +1,489 @@
+//! Port of InputSessionTests + MixedWordSessionTests + PauseTests + the English/Korean parts of
+//! EndToEndTests, SessionPolicyTests and CorrectionTests, driven through a fake text field.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use typescript_core::session::NOT_FOUND;
+use typescript_core::testing::FakeTextField;
+use typescript_core::{
+    AppPolicies, AppPolicy, EnglishModel, HeuristicEngine, InputSession, Key, LearningEngine, SplittingEngine,
+    TextClient,
+};
+use typescript_core::policy::Override;
+
+fn engine(name: &str) -> Arc<LearningEngine> {
+    let path = std::env::temp_dir().join(format!("typescript-sess-{name}-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let base = SplittingEngine::new(Box::new(HeuristicEngine::new()), EnglishModel::shared());
+    Arc::new(LearningEngine::new(Box::new(base), Some(path)))
+}
+
+fn lexicon_path(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("typescript-sess-{name}-{}.json", std::process::id()))
+}
+
+struct Rig {
+    session: InputSession,
+    field: FakeTextField,
+}
+
+impl Rig {
+    fn new(name: &str) -> Self {
+        Self { session: InputSession::new(engine(name), AppPolicies::default(), true), field: FakeTextField::new() }
+    }
+
+    fn with_policies(name: &str, policies: AppPolicies, app: &str) -> Self {
+        let mut rig = Self { session: InputSession::new(engine(name), policies, true), field: FakeTextField::new() };
+        rig.session.activate(Some(app));
+        rig
+    }
+
+    fn key(&mut self, key: Key) -> bool {
+        self.session.handle(key, &mut self.field)
+    }
+
+    /// Letters and printable keys as themselves; keys the session passes on are typed by the
+    /// field, as in a real text field. "⏎" Return, "⎋" Esc, "⇧" Shift+Esc, "⌫" Delete.
+    fn type_(&mut self, script: &str) {
+        for ch in script.chars() {
+            match ch {
+                '⏎' => {
+                    if !self.key(Key::Enter) {
+                        self.field.insert_text("\n", None);
+                    }
+                }
+                '⎋' => {
+                    self.key(Key::Escape);
+                }
+                '⇧' => {
+                    self.key(Key::Cycle);
+                }
+                '⌫' => {
+                    self.key(Key::Delete);
+                }
+                c => {
+                    let k = if c.is_ascii_alphabetic() { Key::Letter(c) } else { Key::Printable(c) };
+                    if !self.key(k) {
+                        self.field.insert_text(&c.to_string(), None);
+                    }
+                }
+            }
+        }
+    }
+
+    fn text(&self) -> String {
+        self.field.text()
+    }
+
+    fn composing(&self) -> bool {
+        self.field.marked_range().location != NOT_FOUND
+    }
+}
+
+#[test]
+fn types_mixed_sentence() {
+    let mut r = Rig::new("mixed");
+    r.type_("dkssudgktpdy hello ");
+    assert_eq!(r.text(), "안녕하세요 hello ");
+}
+
+#[test]
+fn esc_after_commit_flips_the_word_and_learns_it() {
+    let mut r = Rig::new("flip");
+    r.type_("hello ");
+    assert_eq!(r.text(), "hello ");
+    assert!(r.key(Key::Escape));
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ ");
+    assert_eq!(r.field.selected_range().location, "ㅗ디ㅣㅐ ".encode_utf16().count());
+    // Esc again flips back.
+    assert!(r.key(Key::Escape));
+    assert_eq!(r.text(), "hello ");
+    // Flipping back to the engine's own choice clears the learned override.
+    r.type_("hello ");
+    assert_eq!(r.text(), "hello hello ");
+}
+
+/// One Esc changes only that word (a habitual Esc shouldn't stick); the same correction a second
+/// time is remembered.
+#[test]
+fn flipped_choice_is_remembered_the_second_time() {
+    let mut r = Rig::new("remember");
+    r.type_("rjtm ");
+    let first = r.text();
+    r.key(Key::Escape);
+    let flipped = r.text();
+    assert_ne!(flipped, first);
+    r.type_("rjtm ");
+    assert_eq!(r.text(), format!("{flipped}{first}"));
+    r.key(Key::Escape);
+    assert_eq!(r.text(), format!("{flipped}{flipped}"));
+    r.type_("rjtm ");
+    assert_eq!(r.text(), format!("{flipped}{flipped}{flipped}"));
+}
+
+#[test]
+fn flip_only_applies_to_the_word_before_the_caret() {
+    let mut r = Rig::new("caret");
+    r.type_("dkssud ");
+    r.field.cursor = 0; // user clicked elsewhere
+    assert!(!r.key(Key::Escape));
+    assert_eq!(r.text(), "안녕 ");
+}
+
+#[test]
+fn esc_passes_through_when_text_cannot_be_verified() {
+    let mut r = Rig::new("unreadable");
+    r.field.readable = false;
+    r.type_("dkssud ");
+    assert!(!r.key(Key::Escape));
+    assert_eq!(r.text(), "안녕 ");
+}
+
+#[test]
+fn any_other_key_ends_the_flip_window() {
+    let mut r = Rig::new("window");
+    r.type_("dkssud ");
+    assert!(!r.key(Key::Other));
+    assert!(!r.key(Key::Escape));
+    assert_eq!(r.text(), "안녕 ");
+}
+
+#[test]
+fn esc_while_composing_flips_the_preview() {
+    let mut r = Rig::new("compose");
+    r.type_("dkssud");
+    assert_eq!(r.text(), "안녕");
+    r.key(Key::Escape);
+    assert_eq!(r.text(), "dkssud");
+    r.type_(" ");
+    assert_eq!(r.text(), "dkssud ");
+}
+
+#[test]
+fn delete_removes_keystrokes() {
+    let mut r = Rig::new("del");
+    r.type_("dkssud");
+    r.key(Key::Delete);
+    assert_eq!(r.text(), "안녀");
+}
+
+/// As the system's 2-set input: the syllable being typed goes jamo by jamo, earlier ones whole.
+#[test]
+fn delete_korean_like_the_system() {
+    let mut r = Rig::new("delko");
+    r.type_("gksrnr");
+    assert_eq!(r.text(), "한국");
+    for expected in ["한구", "한ㄱ", "한", ""] {
+        r.key(Key::Delete);
+        assert_eq!(r.text(), expected);
+    }
+    r.type_("dkssudgktpdy");
+    for expected in ["안녕하세ㅇ", "안녕하세", "안녕하", "안녕"] {
+        r.key(Key::Delete);
+        assert_eq!(r.text(), expected);
+    }
+    r.type_("gk");
+    assert_eq!(r.text(), "안녕하");
+    r.key(Key::Delete);
+    assert_eq!(r.text(), "안녕ㅎ");
+}
+
+/// After a Delete the syllable being typed stays apart from the ones before: 세요 → 세ㅇ → 세유.
+#[test]
+fn retyping_after_delete_keeps_syllables_apart() {
+    let mut r = Rig::new("retype");
+    r.type_("dkssudgktpdy");
+    r.key(Key::Delete);
+    r.type_("b ");
+    assert_eq!(r.text(), "안녕하세유 ");
+}
+
+#[test]
+fn delete_keeps_the_language_shown() {
+    let mut r = Rig::new("keeplang");
+    r.type_("gksrnr");
+    r.key(Key::Delete);
+    r.key(Key::Delete);
+    assert_eq!(r.text(), "한ㄱ");
+    r.type_(" ");
+    assert_eq!(r.text(), "한ㄱ ");
+}
+
+#[test]
+fn delete_english_key_by_key() {
+    let mut r = Rig::new("delen");
+    r.type_("hello");
+    r.key(Key::Delete);
+    assert_eq!(r.text(), "hell");
+}
+
+#[test]
+fn types_english_then_korean_word() {
+    let mut r = Rig::new("enko");
+    r.type_("hellodnjfem githubtjqj ");
+    assert_eq!(r.text(), "hello월드 github서버 ");
+}
+
+/// Return on an underlined word only confirms it; with nothing underlined it is the app's.
+#[test]
+fn return_confirms_then_goes_to_the_app() {
+    let mut r = Rig::new("ret");
+    r.type_("dkssud");
+    assert!(r.key(Key::Enter));
+    assert_eq!(r.text(), "안녕");
+    assert!(!r.composing());
+    assert!(!r.key(Key::Enter));
+}
+
+/// With the setting off, Return confirms the word and the app gets it too.
+#[test]
+fn return_goes_on_when_it_does_not_only_confirm() {
+    let mut session = InputSession::new(engine("ret2"), AppPolicies::default(), false);
+    let mut field = FakeTextField::new();
+    for c in "dkssud".chars() {
+        session.handle(Key::Letter(c), &mut field);
+    }
+    assert!(!session.handle(Key::Enter, &mut field));
+    assert_eq!(field.text(), "안녕");
+    assert!(field.marked_range().location == NOT_FOUND);
+}
+
+#[test]
+fn types_single_letter_with_particle() {
+    let mut r = Rig::new("single");
+    r.type_("xdp ndl Xfmf Xeh ");
+    assert_eq!(r.text(), "x에 n이 X를 X도 ");
+}
+
+#[test]
+fn keeps_short_english_ending_in_eh_or_sk() {
+    let mut r = Rig::new("ehsk");
+    r.type_("heh meh tsk ");
+    assert_eq!(r.text(), "heh meh tsk ");
+}
+
+/// Korean then English with no space: 오늘은 then google에서.
+#[test]
+fn types_korean_then_english_word() {
+    let mut r = Rig::new("koen");
+    r.type_("dhsmfdmsgoogledptj dlrjtdmsgithubdp ");
+    assert_eq!(r.text(), "오늘은google에서 이것은github에 ");
+}
+
+#[test]
+fn plain_korean_stays_whole() {
+    let mut r = Rig::new("whole");
+    r.type_("dkssudgktpdy qusruddlfur rhkswjadmfh ");
+    assert_eq!(r.text(), "안녕하세요 변경이력 관점으로 ");
+    // A consonant just typed for the next syllable isn't broken Hangul (하느님ㅇ, then lad…).
+    let mut r = Rig::new("whole2");
+    r.type_("gksmsladml tlsqnsladms godirpTspdy ");
+    assert_eq!(r.text(), "하느님의 신부님은 해야겠네요 ");
+}
+
+// ---- pause ----
+
+#[test]
+fn paused_keys_go_through_as_typed() {
+    let mut r = Rig::with_policies("pause1", AppPolicies::default(), "test.app");
+    r.session.toggle_pause(&mut r.field);
+    r.type_("jjkkhl dkssud");
+    assert_eq!(r.text(), "jjkkhl dkssud");
+    assert!(!r.composing());
+}
+
+#[test]
+fn pausing_commits_the_word_in_progress() {
+    let mut r = Rig::with_policies("pause2", AppPolicies::default(), "test.app");
+    r.type_("dkssud");
+    r.session.toggle_pause(&mut r.field);
+    assert_eq!(r.text(), "안녕");
+    assert!(!r.composing());
+}
+
+#[test]
+fn second_tap_resumes() {
+    let mut r = Rig::with_policies("pause3", AppPolicies::default(), "test.app");
+    r.session.toggle_pause(&mut r.field);
+    r.type_("jk ");
+    r.session.toggle_pause(&mut r.field);
+    r.type_("dkssud ");
+    assert_eq!(r.text(), "jk 안녕 ");
+}
+
+#[test]
+fn another_text_field_resumes() {
+    let mut r = Rig::with_policies("pause4", AppPolicies::default(), "test.app");
+    r.session.toggle_pause(&mut r.field);
+    r.session.activate(Some("test.other"));
+    assert!(!r.session.paused());
+}
+
+// ---- policy ----
+
+fn strict_policies() -> AppPolicies {
+    AppPolicies::new([
+        ("test.strict".to_string(), Override { conversion_threshold: Some(0.9999), ..Default::default() }),
+        ("test.off".to_string(), Override { enabled: Some(false), ..Default::default() }),
+        (
+            "test.terminal".to_string(),
+            Override { conversion_threshold: Some(AppPolicy::STRICT_THRESHOLD), escape_to_app: Some(true), enabled: None },
+        ),
+    ])
+}
+
+#[test]
+fn strict_app_keeps_uncertain_words_english() {
+    let mut r = Rig::with_policies("strict", strict_policies(), "test.strict");
+    r.type_("dhsmf ");
+    assert_eq!(r.text(), "dhsmf ");
+}
+
+#[test]
+fn disabled_app_passes_keys_through() {
+    let mut r = Rig::with_policies("off", strict_policies(), "test.off");
+    assert!(!r.key(Key::Letter('d')));
+    assert!(r.text().is_empty());
+}
+
+#[test]
+fn strict_still_splits_mixed_words() {
+    let mut r = Rig::with_policies("strictsplit", strict_policies(), "test.terminal");
+    r.type_("ciw gst githubdp xdp hellodnjfem ");
+    assert_eq!(r.text(), "ciw gst github에 x에 hello월드 ");
+}
+
+#[test]
+fn esc_cycles_mixed_word_after_commit() {
+    let mut r = Rig::new("cyclemixed");
+    r.type_("githubdp ");
+    assert_eq!(r.text(), "github에 ");
+    // The garbled Korean reading (햐소ㅕㅠ에) is skipped: github에 ↔ githubdp.
+    r.key(Key::Escape);
+    assert_eq!(r.text(), "githubdp ");
+    r.key(Key::Escape);
+    assert_eq!(r.text(), "github에 ");
+}
+
+#[test]
+fn correction_counts_once_with_the_final_choice() {
+    let mut r = Rig::new("corr1");
+    r.session.activate(Some("com.example.chat"));
+    r.type_("hello ");
+    r.key(Key::Escape); // hello → ㅗ디ㅣㅐ
+    assert!(r.session.engine().pending().is_empty()); // window still open
+    r.type_("x"); // any other key closes it
+    assert_eq!(r.session.engine().pending().get("hello"), Some(&typescript_core::Language::Korean));
+}
+
+#[test]
+fn nothing_counts_when_the_word_is_flipped_back() {
+    let mut r = Rig::new("corr2");
+    r.type_("hello ");
+    r.key(Key::Escape);
+    r.key(Key::Escape);
+    r.type_("x");
+    assert!(r.session.engine().pending().is_empty());
+}
+
+/// The engine is unsure about "so" (English, 0.55): an Esc to 내 must still count.
+#[test]
+fn esc_while_typing_is_learned_the_second_time() {
+    let mut r = Rig::new("corr3");
+    r.session.activate(Some("com.apple.TextEdit"));
+    r.type_("so⎋ ");
+    assert_eq!(r.text(), "내 ");
+    r.type_("x so⎋ ");
+    assert_eq!(r.session.engine().learned().get("so"), Some(&typescript_core::Language::Korean));
+    r.type_("x so ");
+    assert!(r.text().ends_with("내 "), "{}", r.text());
+}
+
+// ---- terminal (Esc belongs to the app) ----
+
+#[test]
+fn space_commits_what_the_preview_shows() {
+    let mut r = Rig::with_policies("e2e1", strict_policies(), "test.terminal");
+    r.type_("esc djEjgrp");
+    assert_eq!(r.text(), "esc 어떻게"); // still composing (marked)
+    r.type_(" todrkrgo?");
+    assert_eq!(r.text(), "esc 어떻게 생각해?");
+}
+
+#[test]
+fn terminal_escape_goes_to_the_app() {
+    let mut r = Rig::with_policies("e2e2", strict_policies(), "test.terminal");
+    r.type_("dkssud");
+    assert!(!r.key(Key::Escape)); // passed to the app
+    assert_eq!(r.text(), "안녕");
+    r.type_(" hello ");
+    assert!(!r.key(Key::Escape)); // no undo after commit either
+    assert_eq!(r.text(), "안녕 hello ");
+}
+
+#[test]
+fn terminal_shift_escape_switches() {
+    let mut r = Rig::with_policies("e2e3", strict_policies(), "test.terminal");
+    r.type_("hello⇧");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ");
+    r.type_("⇧ "); // back to English, then commit
+    assert_eq!(r.text(), "hello ");
+    r.type_("⇧");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ ");
+}
+
+#[test]
+fn escape_switches_in_other_apps() {
+    let mut r = Rig::with_policies("e2e4", strict_policies(), "com.apple.TextEdit");
+    r.type_("hello⎋");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ");
+}
+
+#[test]
+fn acronyms_and_longer_endings() {
+    for (script, expected) in
+        [("UIrkxdmsrjs ", "UI같은건 "), ("UIdp ", "UI에 "), ("AIrk ", "AI가 "), ("githubrkxdmsep ", "github같은데 ")]
+    {
+        let mut r = Rig::with_policies("e2e5", strict_policies(), "test.terminal");
+        r.type_(script);
+        assert_eq!(r.text(), expected);
+    }
+}
+
+#[test]
+fn korean_with_english_and_particles() {
+    let mut r = Rig::new("e2e6");
+    r.type_("dlrjs githubdp commitgkf rjdi.");
+    assert_eq!(r.text(), "이건 github에 commit할 거야.");
+}
+
+#[test]
+fn punctuation_after_words() {
+    for (script, expected) in [("dho?", "왜?"), ("rjdi.", "거야."), ("hello.", "hello."), ("hello, world!", "hello, world!")] {
+        let mut r = Rig::new("punct");
+        r.type_(script);
+        assert_eq!(r.text(), expected, "{script}");
+    }
+}
+
+#[test]
+fn lexicon_file_is_created_under_the_given_path() {
+    let path = lexicon_path("persist");
+    let _ = std::fs::remove_file(&path);
+    let engine = Arc::new(LearningEngine::new(
+        Box::new(SplittingEngine::new(Box::new(HeuristicEngine::new()), EnglishModel::shared())),
+        Some(path.clone()),
+    ));
+    let mut session = InputSession::new(engine, AppPolicies::default(), true);
+    let mut field = FakeTextField::new();
+    for c in "hello".chars() {
+        session.handle(Key::Letter(c), &mut field);
+    }
+    session.handle(Key::Printable(' '), &mut field);
+    field.insert_text(" ", None);
+    session.handle(Key::Escape, &mut field);
+    session.handle(Key::Other, &mut field); // closes the window → one correction recorded
+    assert!(path.exists());
+    let _ = std::fs::remove_file(&path);
+}

@@ -1,0 +1,11 @@
+[package]
+name = "typescript-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "typescript"
+path = "src/main.rs"
+
+[dependencies]
+typescript-core = { path = "../core" }
