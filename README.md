@@ -59,16 +59,17 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 - `enabled: false` 키를 그대로 통과 (영문 입력)
 - `conversionThreshold` 기본 0.5. 0.97(엄격)은 터미널에서 짧은 명령이 한글로 바뀌는 것을 막는다
 - `escapeToApp: true` Esc를 앱에 넘기고 Shift+Esc로 읽기를 바꾼다 (에디터)
+- `useSystemIme: true` 그 앱에서는 시스템 한국어 입력기로 넘긴다 (한/영 키로 전환. 아래 "앱 호환")
 
 `lexicon.json` — 교정으로 배운 단어 (직접 고쳐도 된다).
 
 ## 앱 호환
 
-- **카카오톡**은 키를 칠 때마다 조합을 끝내 버려서(`안녕` → `ㅇkㄴㄴuㅇ`) 이 입력기와 맞지 않는다. 앱 단위로 끈다:
+- **카카오톡**은 키를 칠 때마다 조합을 끝내 버려서(`안녕` → `ㅇkㄴㄴuㅇ`) 이 입력기와 맞지 않는다. 그런 앱에서는 Typescript가 비켜서고 **시스템 한국어 입력기(Microsoft IME)로 넘기게** 할 수 있다. 그 앱 안에서는 평소처럼 **한/영 키로 전환**하고, 다른 앱은 그대로 Typescript다:
   ```json
-  { "kakaotalk.exe": { "enabled": false } }
+  { "kakaotalk.exe": { "useSystemIme": true, "enabled": false } }
   ```
-  (`apps.json`, 끄면 그 앱에서는 키가 그대로 통과한다. 카톡에서는 한/영 전환으로 다른 입력기를 쓰면 된다.) 같은 증상이 있는 앱도 같은 방식으로 끈다.
+  (`apps.json`) `useSystemIme` 가 그 프로세스만 Microsoft 한국어 IME로 바꾼다 (한국어 IME가 없으면 아무 일도 없다). `enabled: false` 는 넘기기가 실패했을 때를 위한 예비로, 키를 그대로 통과시킨다. 같은 증상이 있는 앱도 같은 방식으로 쓴다. 앱을 다시 켜야 적용된다.
 - 문제를 볼 때는 `%APPDATA%\Typescript\debug.on` 파일을 만들면 같은 폴더의 `debug.log` 에 이벤트 이름(포커스 이동, 앱이 조합을 끝냄)만 남는다. 친 글자는 기록하지 않는다. `composition ended by app` 이 키마다 찍히는 앱이 위 증상의 앱이다. 확인이 끝나면 파일을 지운다.
 
 ## 개발

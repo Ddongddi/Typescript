@@ -21,6 +21,10 @@ pub struct AppPolicy {
     /// Esc belongs to the app (vim, editors): it commits the word and goes through, and
     /// Shift+Esc switches the word's language instead.
     pub escape_to_app: bool,
+    /// Typescript steps aside in this app: the text service hands the process over to the
+    /// system's Korean IME, so the Han/Eng key works as it does everywhere else. For apps that
+    /// don't get along with composition-based input (KakaoTalk).
+    pub use_system_ime: bool,
 }
 
 impl AppPolicy {
@@ -28,7 +32,7 @@ impl AppPolicy {
     /// identifiers collide with Hangul easily).
     pub const STRICT_THRESHOLD: f64 = 0.97;
 
-    pub const STANDARD: AppPolicy = AppPolicy { enabled: true, conversion_threshold: 0.5, escape_to_app: false };
+    pub const STANDARD: AppPolicy = AppPolicy { enabled: true, conversion_threshold: 0.5, escape_to_app: false, use_system_ime: false };
 }
 
 impl Default for AppPolicy {
@@ -47,6 +51,8 @@ pub struct Override {
     pub conversion_threshold: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub escape_to_app: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_system_ime: Option<bool>,
 }
 
 impl Override {
@@ -55,6 +61,7 @@ impl Override {
             enabled: self.enabled.unwrap_or(base.enabled),
             conversion_threshold: self.conversion_threshold.unwrap_or(base.conversion_threshold),
             escape_to_app: self.escape_to_app.unwrap_or(base.escape_to_app),
+            use_system_ime: self.use_system_ime.unwrap_or(base.use_system_ime),
         }
     }
 }
@@ -194,6 +201,18 @@ mod tests {
         assert_eq!(policies.policy(Some("game.exe")), AppPolicy { enabled: false, escape_to_app: true, ..AppPolicy::STANDARD });
         assert_eq!(policies.policy(Some("notepad.exe")), AppPolicy { escape_to_app: true, ..AppPolicy::STANDARD });
         assert_eq!(policies.apps(), vec!["game.exe", "windowsterminal.exe"]);
+    }
+
+    #[test]
+    fn use_system_ime_is_per_app() {
+        let policies = AppPolicies::new([(
+            "KakaoTalk.exe".to_string(),
+            Override { use_system_ime: Some(true), ..Default::default() },
+        )]);
+        assert!(policies.policy(Some("kakaotalk.exe")).use_system_ime);
+        assert!(!policies.policy(Some("notepad.exe")).use_system_ime);
+        let parsed: Override = serde_json::from_str(r#"{"useSystemIme": true}"#).unwrap();
+        assert_eq!(parsed.use_system_ime, Some(true));
     }
 
     #[test]

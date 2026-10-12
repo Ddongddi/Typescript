@@ -9,6 +9,7 @@
 #![allow(non_snake_case)]
 
 mod client;
+mod delegate;
 mod display;
 mod ghost;
 mod guids;
@@ -33,6 +34,12 @@ static MODULE: AtomicIsize = AtomicIsize::new(0);
 /// Live text services; `DllCanUnloadNow` only says yes at zero.
 pub(crate) static OBJECTS: AtomicUsize = AtomicUsize::new(0);
 static LOCKS: AtomicUsize = AtomicUsize::new(0);
+
+/// Keeps the DLL loaded for the rest of the process: code of ours is registered with Windows
+/// (a WinEvent hook) and must not disappear under it.
+pub(crate) fn pin_module() {
+    LOCKS.fetch_add(1, Ordering::SeqCst);
+}
 
 pub(crate) fn module_handle() -> HMODULE {
     HMODULE(MODULE.load(Ordering::SeqCst) as *mut c_void)

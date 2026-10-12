@@ -362,6 +362,12 @@ impl TextService_Impl {
         let thread_sink: ITfThreadMgrEventSink = self.to_interface();
         inner.cookie.set(unsafe { source.AdviseSink(&ITfThreadMgrEventSink::IID, &thread_sink)? });
 
+        // An app set to use the system's Korean IME: step aside once this callback is over.
+        if AppPolicies::load(AppPolicies::store_path().as_deref()).policy(Some(&inner.exe)).use_system_ime {
+            inner.trace("handing over to the system Korean IME");
+            crate::delegate::hand_over();
+        }
+
         // The underline is cosmetic: a failure here just means no underline.
         if let Ok(categories) = unsafe {
             CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)

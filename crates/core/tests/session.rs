@@ -329,7 +329,7 @@ fn strict_policies() -> AppPolicies {
         ("test.off".to_string(), Override { enabled: Some(false), ..Default::default() }),
         (
             "test.terminal".to_string(),
-            Override { conversion_threshold: Some(AppPolicy::STRICT_THRESHOLD), escape_to_app: Some(true), enabled: None },
+            Override { conversion_threshold: Some(AppPolicy::STRICT_THRESHOLD), escape_to_app: Some(true), ..Default::default() },
         ),
     ])
 }
