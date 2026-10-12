@@ -72,6 +72,9 @@ pub fn register() -> Result<()> {
 
     // SAFETY: COM objects created and used on this thread.
     unsafe {
+        // Start clean: profiles of earlier versions (they were under Korean) must not linger.
+        let old: ITfInputProcessorProfiles = CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
+        let _ = old.Unregister(&CLSID_TYPESCRIPT); // fails when there is nothing to remove
         let profiles: ITfInputProcessorProfileMgr =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
         // typescript.ico sits next to the DLL (install.ps1 puts it there); without it Windows
@@ -83,7 +86,7 @@ pub fn register() -> Result<()> {
             let description: Vec<u16> = name.encode_utf16().collect();
             profiles.RegisterProfile(
                 &CLSID_TYPESCRIPT,
-                LANGID_KO_KR,
+                LANGID_TYPESCRIPT,
                 &guid,
                 &description,
                 &icon,
@@ -118,12 +121,11 @@ pub fn unregister() -> Result<()> {
                 note(categories.UnregisterCategory(&CLSID_TYPESCRIPT, &category, &CLSID_TYPESCRIPT));
             }
         }
+        // Every profile under every language, including the Korean ones of earlier versions.
         if let Ok(profiles) =
-            CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)
+            CoCreateInstance::<_, ITfInputProcessorProfiles>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)
         {
-            for (guid, _, _) in PROFILES {
-                note(profiles.UnregisterProfile(&CLSID_TYPESCRIPT, LANGID_KO_KR, &guid, 0));
-            }
+            note(profiles.Unregister(&CLSID_TYPESCRIPT));
         }
         let class = wide(&format!(r"SOFTWARE\Classes\CLSID\{}", guid_string(&CLSID_TYPESCRIPT)));
         note(RegDeleteTreeW(HKEY_LOCAL_MACHINE, PCWSTR(class.as_ptr())).ok());
@@ -139,7 +141,7 @@ pub fn enable_for_user() -> Result<()> {
         let profiles: ITfInputProcessorProfiles =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
         for (guid, _, _) in PROFILES {
-            profiles.EnableLanguageProfile(&CLSID_TYPESCRIPT, LANGID_KO_KR, &guid, true)?;
+            profiles.EnableLanguageProfile(&CLSID_TYPESCRIPT, LANGID_TYPESCRIPT, &guid, true)?;
         }
         Ok(())
     }

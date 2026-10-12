@@ -62,7 +62,9 @@ fn activate(profiles: &ITfInputProcessorProfileMgr, langid: u16, clsid: &GUID, p
     };
 }
 
-fn switch() {
+/// Remembers the active text service and activates the system Korean IME (applied by TSF
+/// asynchronously, once the thread's messages are processed).
+fn switch_profile() {
     let Some(profiles) = profiles() else { return };
     // Remember what to put back (unless the system IME is already what's active).
     // SAFETY: the struct is plain data, filled by the call.
@@ -79,6 +81,10 @@ fn switch() {
         &SYSTEM_IME_PROFILE,
         TF_IPPMF_FORPROCESS | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE,
     );
+}
+
+fn switch() {
+    switch_profile();
     HANDED_OVER.store(true, Ordering::SeqCst);
     HOOK.call_once(|| {
         crate::pin_module();
@@ -124,7 +130,7 @@ unsafe extern "system" fn foreground_changed(
 fn restore() {
     let previous = PREVIOUS.lock().unwrap_or_else(|e| e.into_inner()).take();
     let (clsid, profile, langid) =
-        previous.unwrap_or((crate::guids::CLSID_TYPESCRIPT, crate::guids::GUID_PROFILE, LANGID_KO_KR));
+        previous.unwrap_or((crate::guids::CLSID_TYPESCRIPT, crate::guids::GUID_PROFILE, crate::guids::LANGID_TYPESCRIPT));
     HANDED_OVER.store(false, Ordering::SeqCst);
     if let Some(profiles) = profiles() {
         activate(&profiles, langid, &clsid, &profile, TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
@@ -170,22 +176,49 @@ mod tests {
     use super::*;
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
 
-    /// Switches this test process (only it) to the system Korean IME and asks TSF who is active.
-    #[test]
-    fn hand_over_makes_the_system_korean_ime_active_for_this_process() {
-        // SAFETY: COM and message pumping on this test thread.
+    fn active() -> TF_INPUTPROCESSORPROFILE {
+        // SAFETY: COM object used on this test thread; the struct is plain data.
         unsafe {
-            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-            hand_over();
-            let mut message = MSG::default();
-            while PeekMessageW(&mut message, None, 0, 0, PM_REMOVE).as_bool() {
-                DispatchMessageW(&message);
-            }
-            let profiles: ITfInputProcessorProfileMgr =
-                CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER).unwrap();
+            let profiles = profiles().expect("TSF profiles");
             let mut active: TF_INPUTPROCESSORPROFILE = std::mem::zeroed();
             profiles.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut active).unwrap();
-            assert_eq!(active.clsid, SYSTEM_IME_CLSID, "active profile: {:?}", active.guidProfile);
+            active
         }
+    }
+
+    fn pump() {
+        // SAFETY: drains this thread's own messages.
+        unsafe {
+            let mut message = MSG::default();
+            for _ in 0..50 {
+                while PeekMessageW(&mut message, None, 0, 0, PM_REMOVE).as_bool() {
+                    DispatchMessageW(&message);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+    }
+
+    /// Switches this test process to the system Korean IME, then puts back what was active.
+    /// (Without the foreground hook: a foreground change meanwhile would restore early.)
+    #[test]
+    fn the_system_korean_ime_becomes_active_and_the_previous_one_comes_back() {
+        // A TSF thread, as an app's UI thread is: switching only means something there.
+        // SAFETY: COM on this test thread; the thread manager is deactivated before returning.
+        let manager: ITfThreadMgr = unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            CoCreateInstance(&CLSID_TF_ThreadMgr, None, CLSCTX_INPROC_SERVER).unwrap()
+        };
+        let client = unsafe { manager.Activate().unwrap() };
+        let before = active();
+        switch_profile();
+        pump();
+        assert_eq!(active().clsid, SYSTEM_IME_CLSID, "after switch: {:?}", active().guidProfile);
+        restore();
+        pump();
+        let after = active();
+        let _ = unsafe { manager.Deactivate() };
+        let _ = client;
+        assert_eq!((after.clsid, after.guidProfile), (before.clsid, before.guidProfile));
     }
 }

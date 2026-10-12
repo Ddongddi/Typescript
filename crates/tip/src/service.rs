@@ -180,6 +180,8 @@ pub struct Inner {
     /// The document manager that last got focus (a raw pointer, only ever compared).
     last_focus: Cell<usize>,
     cookie: Cell<u32>,
+    /// A key handled in OnTestKeyDown (OnKeyDown then only confirms it).
+    eaten_in_test: Cell<Option<u32>>,
     exe: String,
     stamps: Cell<Stamps>,
 }
@@ -202,6 +204,7 @@ impl Inner {
             completion_profile: Cell::new(true),
             last_focus: Cell::new(0),
             cookie: Cell::new(0),
+            eaten_in_test: Cell::new(None),
             exe,
             stamps: Cell::new(Stamps::read()),
         }
@@ -259,6 +262,22 @@ impl Inner {
             return false;
         }
         matches!(key, Key::Letter(_)) || session.is_composing() || session.has_flip_window()
+    }
+
+    /// TSF asks whether we take the key. Letters: yes, typed in `key_down`. A key that may end
+    /// the word and then belong to the app (Space, punctuation, Enter, Tab, arrows) is handled
+    /// right here, because an app that talks IMM32 (KakaoTalk, any RichEdit) never gets back a
+    /// key we said we'd take: the answer has to be final now.
+    fn test_key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
+        if !self.wants(vk) {
+            return false;
+        }
+        if self.is_pause_key(vk) || matches!(key_for(vk), Some(Key::Letter(_))) {
+            return true;
+        }
+        let eaten = self.key_down(context, vk, lparam);
+        self.eaten_in_test.set(eaten.then_some(vk));
+        eaten
     }
 
     fn key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
@@ -459,8 +478,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         Ok(())
     }
 
-    fn OnTestKeyDown(&self, _pic: Ref<ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
-        Ok(guard_bool(|| self.inner.wants(wparam.0 as u32)))
+    fn OnTestKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
+        let Ok(context) = pic.ok() else { return Ok(BOOL(0)) };
+        Ok(guard_bool(|| self.inner.test_key_down(context, wparam.0 as u32, lparam.0)))
     }
 
     fn OnTestKeyUp(&self, _pic: Ref<ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
@@ -468,8 +488,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
     }
 
     fn OnKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
+        let vk = wparam.0 as u32;
+        if self.inner.eaten_in_test.take() == Some(vk) {
+            return Ok(BOOL(1)); // already handled when TSF asked
+        }
         let Ok(context) = pic.ok() else { return Ok(BOOL(0)) };
-        Ok(guard_bool(|| self.inner.key_down(context, wparam.0 as u32, lparam.0)))
+        Ok(guard_bool(|| self.inner.key_down(context, vk, lparam.0)))
     }
 
     fn OnKeyUp(&self, _pic: Ref<ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {

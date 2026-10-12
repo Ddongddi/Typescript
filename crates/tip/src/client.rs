@@ -49,6 +49,15 @@ fn utf16(s: &str) -> Vec<u16> {
 }
 
 impl TsfClient<'_> {
+    /// Notes a failed step in the debug log (the step's name and HRESULT, never text) and passes
+    /// the result on: a call an app refuses is otherwise invisible.
+    fn logged<T>(&self, step: &str, result: Result<T>) -> Result<T> {
+        if let Err(e) = &result {
+            self.inner.trace(&format!("{step} failed: {:#010x}", e.code().0));
+        }
+        result
+    }
+
     /// The selection as a (copy of a) range.
     fn selection(&self) -> Result<ITfRange> {
         // SAFETY: TF_SELECTION is plain data; GetSelection fills it when it reports a fetch.
@@ -107,11 +116,11 @@ impl TsfClient<'_> {
         if atom == 0 {
             return;
         }
-        let _ = unsafe {
+        let _ = self.logged("mark", unsafe {
             self.context
                 .GetProperty(&GUID_PROP_ATTRIBUTE)
                 .and_then(|p| p.SetValue(self.ec, range, &VARIANT::from(atom as i32)))
-        };
+        });
     }
 
     /// Committed text must not keep the composition's underline.
@@ -136,17 +145,18 @@ impl TsfClient<'_> {
             return Ok(());
         }
         if slot.is_none() {
-            let insert: ITfInsertAtSelection = self.context.cast()?;
-            let at = unsafe { insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[])? };
-            let composing: ITfContextComposition = self.context.cast()?;
+            let insert: ITfInsertAtSelection = self.logged("cast ITfInsertAtSelection", self.context.cast())?;
+            let at = self.logged("query selection", unsafe { insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[]) })?;
+            let composing: ITfContextComposition = self.logged("cast ITfContextComposition", self.context.cast())?;
             let sink = self.inner.comp_sink.borrow().clone();
-            *slot = Some(unsafe { composing.StartComposition(self.ec, &at, sink.as_ref())? });
+            *slot = Some(self.logged("StartComposition", unsafe { composing.StartComposition(self.ec, &at, sink.as_ref()) })?);
+            self.inner.trace("composition started");
         }
         let Some(composition) = slot.as_ref() else { return Err(E_FAIL.into()) };
-        let range = unsafe { composition.GetRange()? };
-        unsafe { range.SetText(self.ec, 0, &chars)? };
+        let range = self.logged("GetRange", unsafe { composition.GetRange() })?;
+        self.logged("SetText", unsafe { range.SetText(self.ec, 0, &chars) })?;
         self.mark(&range);
-        self.select_end(&range)
+        self.logged("SetSelection", self.select_end(&range))
     }
 
     fn insert(&self, text: &str, replacing: Option<Range>) -> Result<()> {
@@ -175,11 +185,11 @@ impl TsfClient<'_> {
 
 impl TextClient for TsfClient<'_> {
     fn set_marked_text(&mut self, text: &str) {
-        let _ = self.set_marked(text);
+        let _ = self.logged("set_marked", self.set_marked(text));
     }
 
     fn insert_text(&mut self, text: &str, replacing: Option<Range>) {
-        let _ = self.insert(text, replacing);
+        let _ = self.logged("insert", self.insert(text, replacing));
     }
 
     fn selected_range(&self) -> Range {

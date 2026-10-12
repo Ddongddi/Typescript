@@ -7,7 +7,7 @@
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
   Afterwards pick "Typescript" with Win+Space (or in Settings > Time & language > Language
-  & region > Korean > Keyboards).
+  & region > English (United States) > Keyboards).
 #>
 param([switch]$Uninstall, [switch]$Elevated)
 
@@ -20,19 +20,30 @@ $regsvr64 = Join-Path $env:SystemRoot 'System32\regsvr32.exe'
 $regsvr86 = Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
 $log = Join-Path $env:TEMP 'typescript-install.log'
 # The picker entries (CLSID + profile GUID, see crates/tip/src/guids.rs): with and without Tab completion.
-$tips = @(
-    '0412:{E231DAD4-326F-436F-B74C-D08F1D66D822}{D7B9871C-E74A-4B4F-9791-CBD1E9E074FE}',
-    '0412:{E231DAD4-326F-436F-B74C-D08F1D66D822}{BFC1C2A9-657F-443A-B4DE-ACF8EACA9AEC}'
+# Registered under English (US), not Korean: see LANGID_TYPESCRIPT in guids.rs for why.
+$profiles = @(
+    '{E231DAD4-326F-436F-B74C-D08F1D66D822}{D7B9871C-E74A-4B4F-9791-CBD1E9E074FE}',
+    '{E231DAD4-326F-436F-B74C-D08F1D66D822}{BFC1C2A9-657F-443A-B4DE-ACF8EACA9AEC}'
 )
 
-# Adds (or removes) the keyboards under Korean in the user's language list; existing ones stay.
+# Adds (or removes) the keyboards under English (US) in the user's language list, adding the
+# language if it is missing; existing keyboards stay. Entries of earlier versions (under Korean) go.
 function Set-Keyboards([bool]$Present) {
     $list = Get-WinUserLanguageList
-    $ko = $list | Where-Object { $_.LanguageTag -eq 'ko' }
-    if (-not $ko) { return }
-    foreach ($tip in $tips) {
-        if ($Present -and $ko.InputMethodTips -notcontains $tip) { $ko.InputMethodTips.Add($tip) }
-        if (-not $Present) { [void]$ko.InputMethodTips.Remove($tip) }
+    foreach ($ko in @($list | Where-Object { $_.LanguageTag -eq 'ko' })) {
+        foreach ($p in $profiles) { [void]$ko.InputMethodTips.Remove("0412:$p") }
+    }
+    $en = $list | Where-Object { $_.LanguageTag -eq 'en-US' }
+    if ($Present -and -not $en) {
+        $list.Add('en-US')
+        $en = $list | Where-Object { $_.LanguageTag -eq 'en-US' }
+    }
+    if ($en) {
+        foreach ($p in $profiles) {
+            $tip = "0409:$p"
+            if ($Present -and $en.InputMethodTips -notcontains $tip) { $en.InputMethodTips.Add($tip) }
+            if (-not $Present) { [void]$en.InputMethodTips.Remove($tip) }
+        }
     }
     Set-WinUserLanguageList $list -Force -WarningAction SilentlyContinue
 }

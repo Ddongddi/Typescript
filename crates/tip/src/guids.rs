@@ -12,8 +12,14 @@ pub const GUID_PROFILE_PLAIN: GUID = GUID::from_u128(0xBFC1C2A9_657F_443A_B4DE_A
 /// The display attribute (dotted underline) of the text being composed.
 pub const GUID_DISPLAY_ATTRIBUTE: GUID = GUID::from_u128(0x268841E3_D0E9_45B7_80EC_783286D96160);
 
-/// ko-KR: shows up under Korean in the language settings, and apps treat it like the
-/// system's Korean IME.
+/// en-US: the language Typescript is registered under. Not Korean on purpose: for a Korean
+/// text service, Windows' bridge to IMM32 apps (KakaoTalk, anything built on RichEdit) only
+/// keeps a one-character "interim" composition and commits the rest at once, so the preview of
+/// a whole word broke into jamo and letters (ㅌpㅅmㅌm). Under any other language the bridge
+/// keeps the whole composition. (Pairing Korean with a US keyboard layout does not help: the
+/// bridge goes by the profile's language.)
+pub const LANGID_TYPESCRIPT: u16 = 0x0409;
+/// ko-KR: Microsoft's Korean IME (see delegate.rs), and where Typescript used to be registered.
 pub const LANGID_KO_KR: u16 = 0x0412;
 pub const DESCRIPTION: &str = "Typescript";
 
