@@ -80,7 +80,7 @@ fn answer(app: &App, mut http: tiny_http::Request) {
     if response.content_type.starts_with("text/html") {
         out = out.with_header(header(
             "Content-Security-Policy",
-            "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
+            "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'",
         ));
     }
     let _ = http.respond(out);
