@@ -48,3 +48,17 @@ fn a_flipped_byte_no_longer_matches_its_hash() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn the_released_dictionary_passes_its_own_validity_check() {
+    let root = built_packs("kanji");
+    let found = pack::scan(&root);
+    let ja = found.packs.iter().find(|f| f.manifest.id == "ja").unwrap();
+    let bytes = std::fs::read(ja.dir.join("ipadic_compact.bin")).unwrap();
+    assert!(typescript_core::KanjiDictionary::valid(&bytes));
+    assert!(!typescript_core::KanjiDictionary::valid(
+        &bytes[..bytes.len() - 100]
+    ));
+    assert!(!typescript_core::KanjiDictionary::valid(b""));
+    let _ = std::fs::remove_dir_all(&root);
+}

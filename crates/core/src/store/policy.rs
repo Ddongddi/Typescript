@@ -88,6 +88,17 @@ pub struct AppPolicies {
     pub overrides: BTreeMap<String, Override>,
 }
 
+/// The file's bytes without a leading UTF-8 byte order mark: Windows PowerShell and Notepad
+/// write one, and serde_json refuses it.
+fn read_json_file(path: &Path) -> Option<Vec<u8>> {
+    let data = fs::read(path).ok()?;
+    let bom = [0xEF, 0xBB, 0xBF];
+    Some(
+        data.strip_prefix(&bom[..])
+            .map_or_else(|| data.clone(), <[u8]>::to_vec),
+    )
+}
+
 impl AppPolicies {
     /// The `apps.json` key of the default policy.
     pub const DEFAULT_KEY: &'static str = "*";
@@ -108,7 +119,7 @@ impl AppPolicies {
     /// Loads user overrides; a missing or unreadable file means none.
     pub fn load(path: Option<&Path>) -> Self {
         let parsed = path
-            .and_then(|p| fs::read(p).ok())
+            .and_then(read_json_file)
             .and_then(|d| serde_json::from_slice::<BTreeMap<String, Override>>(&d).ok());
         Self::new(parsed.unwrap_or_default())
     }
@@ -186,7 +197,7 @@ impl Settings {
 
     pub fn load(path: Option<&Path>) -> Settings {
         let value = path
-            .and_then(|p| fs::read(p).ok())
+            .and_then(read_json_file)
             .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok());
         let defaults = Settings::default();
         let Some(value) = value else { return defaults };
@@ -236,8 +247,7 @@ impl Settings {
 
     /// Writes these values over the file's, keeping any keys this version doesn't know.
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
-        let mut object = fs::read(path)
-            .ok()
+        let mut object = read_json_file(path)
             .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok())
             .and_then(|v| {
                 if let serde_json::Value::Object(m) = v {
@@ -420,6 +430,18 @@ mod tests {
             Settings::load(Some(&path)).languages.ids(),
             vec!["ja", "en"]
         );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_byte_order_mark_does_not_hide_the_file() {
+        // Windows PowerShell and Notepad write settings.json and apps.json with a BOM.
+        let s = load_json("langs-bom", "\u{feff}{ \"languages\": [\"ko\"] }");
+        assert_eq!(s.languages.ids(), vec!["ko"]);
+        let path = temp("apps-bom");
+        std::fs::write(&path, "\u{feff}{ \"game.exe\": { \"enabled\": false } }").unwrap();
+        let policies = AppPolicies::load(Some(&path));
+        assert!(!policies.policy(Some("game.exe")).enabled);
         let _ = std::fs::remove_file(&path);
     }
 }

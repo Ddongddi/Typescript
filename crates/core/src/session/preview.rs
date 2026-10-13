@@ -6,14 +6,15 @@ use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language}
 use crate::lang::english::EnglishModel;
 use crate::lang::hangul::HangulComposer;
 use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
+use crate::lang::pack::PackLazy;
 use crate::lang::romaji::RomajiComposer;
 use crate::store::policy::AppPolicy;
-use std::sync::LazyLock;
 
 /// The preview only switches language mid-word when the new reading is at least this likely.
 const PREVIEW_FLIP_CONFIDENCE: f64 = 0.7;
 
-pub(super) static KOREAN: LazyLock<KoreanModel> = LazyLock::new(KoreanModel::default);
+pub(super) static KOREAN: PackLazy<KoreanModel> =
+    PackLazy::new(Language::Korean, KoreanModel::default);
 
 /// The last decision and what it was made from, for debugging.
 #[derive(Clone, Debug)]
@@ -155,7 +156,7 @@ impl InputSession {
                 || !korean
                     .syllables()
                     .iter()
-                    .all(|s| KOREAN.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP)
+                    .all(|s| KOREAN.get().syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP)
                 || !self.is_other_language_word(&back)
             {
                 continue;

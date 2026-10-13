@@ -38,7 +38,7 @@ pub fn reload_engines() {
 /// Loads the installed packs this process doesn't have yet (on first use and whenever the
 /// settings change: a language may just have been installed).
 pub fn refresh_packs() {
-    if let Some(root) = typescript_core::pack_dir() {
+    for root in typescript_core::pack_dirs() {
         typescript_core::pack::refresh(&root);
     }
 }

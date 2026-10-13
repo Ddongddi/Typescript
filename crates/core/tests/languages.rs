@@ -134,6 +134,25 @@ mod session {
     }
 
     #[test]
+    fn esc_goes_to_the_app_with_one_language() {
+        let engine = make_engine(None, &Languages::from_ids(&["en"]).unwrap());
+        let mut session = InputSession::new(engine, AppPolicies::default(), true);
+        let mut field = FakeTextField::new();
+        for c in "hell".chars() {
+            assert!(session.handle(Key::Letter(c), &mut field));
+        }
+        // Esc has nothing to switch to: the word goes in as typed and the app gets the key.
+        assert!(!session.handle(Key::Escape, &mut field));
+        assert_eq!(field.text(), "hell");
+        // Right after a commit too (the flip window): the app's Esc, not a no-op of ours.
+        assert!(session.handle(Key::Letter('o'), &mut field));
+        assert!(!session.handle(Key::Printable(' '), &mut field));
+        field.insert_text(" ", None);
+        assert!(!session.handle(Key::Escape, &mut field));
+        assert_eq!(field.text(), "hello ");
+    }
+
+    #[test]
     fn esc_cycles_in_the_users_order() {
         // ko first: the engine shows 안녕, Esc goes to the next language in the list (English).
         assert_eq!(typed(&["ko", "en"], "dkssud⎋ "), "dkssud ");

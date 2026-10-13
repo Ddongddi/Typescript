@@ -311,9 +311,9 @@ impl DecisionEngine for HeuristicEngine {
         let known = self.english_on && self.english.is_known_word(keys);
         let e = self.english_score(keys, known);
 
-        let (k, known_korean) = self.korean_score(keys, context.partial);
+        // Without Korean its tables are never touched (its pack may not be installed).
         let (k, known_korean) = if self.korean_on {
-            (k, known_korean)
+            self.korean_score(keys, context.partial)
         } else {
             (None, false)
         };

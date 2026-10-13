@@ -163,7 +163,11 @@ function Install-Packs([string]$from) {
     $packRoot = Join-Path $env:LOCALAPPDATA 'Typescript\packs'
     New-Item $packRoot -ItemType Directory -Force | Out-Null
     $settingsPath = Join-Path $env:APPDATA 'Typescript\settings.json'
-    $settings = if (Test-Path $settingsPath) { Get-Content $settingsPath -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+    $settings = [pscustomobject]@{}
+    if (Test-Path $settingsPath) {
+        try { $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json }
+        catch { Write-Warning "settings.json is not valid JSON ($($_.Exception.Message)); it will be rewritten." }
+    }
     $hadJapanese = [bool]$settings.PSObject.Properties['japanese'] -and $settings.japanese -eq $true
     $ids = @('en', 'ko')
     if ($Japanese -or $hadJapanese) { $ids += 'ja' }
@@ -173,14 +177,29 @@ function Install-Packs([string]$from) {
     }
     # Korean and Japanese need the English pack's word list, even with English turned off.
     $need = @($ids) + @('en') | Select-Object -Unique
+    # A pack folder is never written in place: running apps keep its files mapped and Windows
+    # refuses to overwrite those. A folder that is already there is the same version (versions
+    # are immutable), so it is left alone; a new one is copied aside and moved in whole, so a
+    # reader never sees a half-copied pack.
+    $staging = Join-Path (Split-Path $packRoot) 'packs-incoming'
+    Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item $staging -ItemType Directory -Force | Out-Null
     foreach ($id in $need) {
-        Get-ChildItem (Join-Path $from 'packs') -Directory -Filter "$id-*" -ErrorAction SilentlyContinue |
-            ForEach-Object { Copy-Item $_.FullName $packRoot -Recurse -Force }
+        Get-ChildItem (Join-Path $from 'packs') -Directory -Filter "$id-*" -ErrorAction SilentlyContinue | ForEach-Object {
+            if (-not (Test-Path (Join-Path $packRoot $_.Name))) {
+                Copy-Item $_.FullName (Join-Path $staging $_.Name) -Recurse
+                Move-Item (Join-Path $staging $_.Name) (Join-Path $packRoot $_.Name)
+            }
+        }
     }
+    Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
     & icacls.exe $packRoot /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
     $settings | Add-Member -NotePropertyName languages -NotePropertyValue $ids -Force
+    # The versions before language packs read this key; keep it true to what is on.
+    $settings | Add-Member -NotePropertyName japanese -NotePropertyValue ($ids -contains 'ja') -Force
     New-Item (Split-Path $settingsPath) -ItemType Directory -Force | Out-Null
-    $settings | ConvertTo-Json | Set-Content $settingsPath -Encoding utf8
+    # Not Set-Content -Encoding utf8: Windows PowerShell 5.1 writes a byte order mark with it.
+    [IO.File]::WriteAllText($settingsPath, ($settings | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 }
 
 # Downloads a release package, checks its SHA-256 and unpacks it.

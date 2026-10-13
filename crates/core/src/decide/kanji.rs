@@ -68,10 +68,26 @@ impl KanjiDictionary {
         &SHARED
     }
 
+    /// The bytes are a whole dictionary: right magic, and the tables the header describes fit.
+    /// A pack is only registered when this holds, so a half-copied file costs the Japanese
+    /// pack, not the text service.
+    pub fn valid(data: &[u8]) -> bool {
+        if data.len() <= 32 || &data[..8] != MAGIC {
+            return false;
+        }
+        let u32_at = |at: usize| {
+            u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
+        };
+        let (lsize, rsize) = (u16_at(data, 20) as usize, u16_at(data, 22) as usize);
+        let table_len = (u32_at(8) + 1) * 4;
+        let at_matrix = 32 + 3 * table_len + u32_at(24) + u32_at(28);
+        at_matrix + lsize * rsize * 2 <= data.len()
+    }
+
     fn new(data: &'static [u8]) -> Self {
         assert!(
-            data.len() > 32 && &data[..8] == MAGIC,
-            "data/ipadic_compact.bin: bad magic (rebuild with tools/build_ipadic.py)"
+            Self::valid(data),
+            "ipadic_compact.bin: bad magic or truncated (rebuild with tools/build_ipadic.py)"
         );
         let u32_at = |at: usize| {
             u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize

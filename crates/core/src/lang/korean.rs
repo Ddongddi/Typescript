@@ -2,11 +2,10 @@
 //! accidental Hangul English produces on a 2-set layout (e.g. "the" → "솓").
 
 use std::collections::HashMap;
-use std::sync::LazyLock;
 
 use crate::decide::engine::Language;
 use crate::lang::hangul::{is_consonant, Composed, HangulComposer, Unit};
-use crate::lang::pack;
+use crate::lang::pack::{self, PackLazy};
 use crate::lang::particles::is_ending;
 use crate::lang::sorted::SortedLines;
 use crate::lang::syllables::{TIER1, TIER2, TIER3};
@@ -23,11 +22,13 @@ pub const CHAT_JAMO_LOGP: f64 = -4.0;
 const CHAT_JAMO: &str = "ㅋㅎㅠㅜㄷㅇㄱㅅㅂㄴ";
 
 /// Words seen in Korean sentences (korean_words.txt).
-static WORDS: LazyLock<SortedLines> =
-    LazyLock::new(|| SortedLines::new(pack::text(Language::Korean, "korean_words_sorted.txt")));
+static WORDS: PackLazy<SortedLines> = PackLazy::new(Language::Korean, || {
+    SortedLines::new(pack::text(Language::Korean, "korean_words_sorted.txt"))
+});
 
-static VOCABULARY: LazyLock<SortedLines> =
-    LazyLock::new(|| SortedLines::new(pack::text(Language::Korean, "korean_vocab_sorted.txt")));
+static VOCABULARY: PackLazy<SortedLines> = PackLazy::new(Language::Korean, || {
+    SortedLines::new(pack::text(Language::Korean, "korean_vocab_sorted.txt"))
+});
 
 /// Where syllable probabilities come from.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -131,7 +132,7 @@ impl KoreanModel {
 
     /// A word that occurs in real Korean text (the composed Hangul, not the keys).
     pub fn is_known_word(&self, hangul: &str) -> bool {
-        WORDS.contains(hangul)
+        WORDS.get().contains(hangul)
     }
 
     /// A known word, or a vocabulary word (two syllables or more) with a particle/ending
@@ -148,7 +149,7 @@ impl KoreanModel {
 
     /// A word in the wider vocabulary (loanwords like 월드, 서버), for English + Korean splits.
     pub fn is_vocabulary_word(&self, hangul: &str) -> bool {
-        WORDS.contains(hangul) || VOCABULARY.contains(hangul)
+        WORDS.get().contains(hangul) || VOCABULARY.get().contains(hangul)
     }
 
     /// The most commonly said word that continues `prefix` (autocomplete), where the syllable
@@ -170,10 +171,10 @@ impl KoreanModel {
                 .filter(move |l| word(l) != prefix && continues(prefix, word(l)))
         };
         // Spoken-language ranking first (1 = most said), then the Tatoeba counts.
-        if let Some(best) = candidates(&VOCABULARY).min_by_key(|l| column(l)) {
+        if let Some(best) = candidates(VOCABULARY.get()).min_by_key(|l| column(l)) {
             return Some(word(best).to_string());
         }
-        candidates(&WORDS)
+        candidates(WORDS.get())
             .max_by_key(|l| column(l))
             .map(|l| word(l).to_string())
     }

@@ -7,10 +7,9 @@
 //! Port of JapaneseModel.swift.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::LazyLock;
 
 use crate::decide::engine::Language;
-use crate::lang::pack;
+use crate::lang::pack::{self, PackLazy};
 use crate::lang::romaji::{ComposeResult, RomajiComposer};
 
 const STRAY_LETTER_LOGP: f64 = -13.0;
@@ -32,14 +31,15 @@ pub struct JapaneseModel {
     vocabulary: f32,
 }
 
-static SHARED: LazyLock<JapaneseModel> =
-    LazyLock::new(|| JapaneseModel::new(pack::text(Language::Japanese, "kana_trigrams.txt")));
+static SHARED: PackLazy<JapaneseModel> = PackLazy::new(Language::Japanese, || {
+    JapaneseModel::new(pack::text(Language::Japanese, "kana_trigrams.txt"))
+});
 
 impl JapaneseModel {
     /// One model per process, built lazily (Japanese is off by default; only a session with
     /// Japanese enabled pays for this).
     pub fn shared() -> &'static JapaneseModel {
-        &SHARED
+        SHARED.get()
     }
 
     fn new(text: &str) -> Self {

@@ -147,7 +147,7 @@ impl Registry {
                 .keys()
                 .map(|name| map(&found.dir.join(name)).map(|bytes| (name.clone(), bytes)))
                 .collect();
-            if let Some(files) = files {
+            if let Some(files) = files.filter(|f| usable(language, f)) {
                 let requires = found
                     .manifest
                     .requires
@@ -173,6 +173,16 @@ impl Registry {
     }
 }
 
+/// A pack whose data can't be used is left out like a missing one (the Japanese dictionary is
+/// checked because the converter would panic on a damaged file).
+fn usable(language: Language, files: &[(String, &'static [u8])]) -> bool {
+    language != Language::Japanese
+        || files
+            .iter()
+            .find(|(name, _)| name == "ipadic_compact.bin")
+            .is_some_and(|(_, bytes)| crate::decide::kanji::KanjiDictionary::valid(bytes))
+}
+
 /// Maps a file for the rest of the process.
 /// ponytail: the mapping is leaked on purpose (models hold `&'static` slices into it); a new
 /// pack version maps a second copy, bounded by how many updates one process lives through.
@@ -181,8 +191,10 @@ fn map(path: &Path) -> Option<&'static [u8]> {
     if file.metadata().ok()?.len() == 0 {
         return Some(&[]);
     }
-    // SAFETY: pack files are only ever replaced by writing a new version folder, never
-    // modified in place (typescript-config, install.ps1), so the mapped bytes don't change.
+    // SAFETY: pack files are never modified in place: an update writes a new version folder
+    // (install.ps1 skips folders that exist, typescript-config will do the same), and Windows
+    // refuses to truncate or overwrite a file that has a mapped view, so the mapped bytes
+    // can't change under the models.
     let mmap = unsafe { memmap2::Mmap::map(&file) }.ok()?;
     let leaked: &'static memmap2::Mmap = Box::leak(Box::new(mmap));
     Some(&leaked[..])
@@ -234,6 +246,43 @@ fn embedded() -> Registry {
 fn global() -> &'static RwLock<Registry> {
     static GLOBAL: OnceLock<RwLock<Registry>> = OnceLock::new();
     GLOBAL.get_or_init(|| RwLock::new(embedded()))
+}
+
+/// A model built from pack data. Until the pack is available it hands out an empty stand-in
+/// that is not remembered as the model, so a pack installed later is picked up instead of the
+/// process staying empty until it restarts.
+pub(crate) struct PackLazy<T> {
+    language: Language,
+    make: fn() -> T,
+    loaded: OnceLock<T>,
+    stand_in: OnceLock<T>,
+}
+
+impl<T> PackLazy<T> {
+    pub(crate) const fn new(language: Language, make: fn() -> T) -> Self {
+        Self {
+            language,
+            make,
+            loaded: OnceLock::new(),
+            stand_in: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn get(&self) -> &T {
+        self.get_if(available(self.language))
+    }
+
+    /// `available`: the language's pack is loaded (the tests pass it in).
+    pub(crate) fn get_if(&self, available: bool) -> &T {
+        if let Some(model) = self.loaded.get() {
+            return model;
+        }
+        if available {
+            self.loaded.get_or_init(self.make)
+        } else {
+            self.stand_in.get_or_init(self.make)
+        }
+    }
 }
 
 /// Loads the packs installed under `root` that this process doesn't have yet.
@@ -357,11 +406,11 @@ mod tests {
         registry.add_scan(scan(&dir));
         let first = registry.bytes(Language::English, "a.txt");
         assert_eq!(first, b"hello\n");
-        // A newer English and a Japanese pack appear while the process runs.
+        // A newer English and a Korean pack appear while the process runs.
         write(&dir, "en", "0.4.1", &any_core());
-        write(&dir, "ja", "0.4.0", &any_core());
+        write(&dir, "ko", "0.4.0", &any_core());
         registry.add_scan(scan(&dir));
-        assert!(registry.has(Language::Japanese));
+        assert!(registry.has(Language::Korean));
         // The English data already handed out stays the same (and valid).
         assert_eq!(
             registry.bytes(Language::English, "a.txt").as_ptr(),
@@ -377,5 +426,49 @@ mod tests {
         assert!(!registry.has(Language::Korean));
         registry.insert(Language::English, vec![], vec![]);
         assert!(registry.has(Language::Korean));
+    }
+
+    #[test]
+    fn a_japanese_pack_with_a_damaged_dictionary_is_not_registered() {
+        let dir = temp("badja");
+        write(&dir, "en", "0.4.0", &any_core());
+        let pack = dir.join("ja-0.4.0");
+        std::fs::create_dir_all(&pack).unwrap();
+        std::fs::write(pack.join("kana_trigrams.txt"), "a\n").unwrap();
+        std::fs::write(pack.join("ipadic_compact.bin"), b"TSIPDIC2 cut short").unwrap();
+        let manifest = serde_json::json!({
+            "id": "ja", "name": "ja", "version": "0.4.0", "core": any_core(),
+            "requires": ["en"],
+            "files": { "kana_trigrams.txt": "x", "ipadic_compact.bin": "x" },
+        });
+        std::fs::write(pack.join("manifest.json"), manifest.to_string()).unwrap();
+        let mut registry = Registry::default();
+        registry.add_scan(scan(&dir));
+        assert!(registry.has(Language::English));
+        assert!(
+            !registry.has(Language::Japanese),
+            "a damaged dictionary must not load"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_model_waits_for_its_pack_instead_of_freezing_empty() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static BUILT: AtomicUsize = AtomicUsize::new(0);
+        static LAZY: PackLazy<usize> = PackLazy::new(Language::English, || {
+            BUILT.fetch_add(1, Ordering::SeqCst) + 1
+        });
+        // No pack yet: an empty stand-in, built once, and not remembered as the model.
+        let stand_in = *LAZY.get_if(false);
+        assert_eq!(*LAZY.get_if(false), stand_in);
+        assert_eq!(BUILT.load(Ordering::SeqCst), 1);
+        // The pack arrives: the real model is built now, from the pack's data.
+        let real = *LAZY.get_if(true);
+        assert_ne!(real, stand_in);
+        assert_eq!(BUILT.load(Ordering::SeqCst), 2);
+        // From here on that is the model, whatever availability says.
+        assert_eq!(*LAZY.get_if(false), real);
+        assert_eq!(BUILT.load(Ordering::SeqCst), 2);
     }
 }

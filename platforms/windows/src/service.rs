@@ -11,7 +11,9 @@ use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
 use typescript_core::store::policy::Override;
-use typescript_core::{AppPolicies, InputSession, Key, Language, LearningEngine, Settings};
+use typescript_core::{
+    make_engine, AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
+};
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
@@ -129,23 +131,33 @@ impl Inner {
             refresh_packs();
             let settings = self.settings.borrow();
             let mut policies = AppPolicies::load(AppPolicies::store_path().as_deref());
-            // Languages whose packs aren't installed are left out; with none left, every key
-            // goes to the app as typed (the engine is never asked).
-            let languages = settings.languages.available().unwrap_or_else(|| {
-                policies = AppPolicies::new([(
-                    AppPolicies::DEFAULT_KEY.to_string(),
-                    Override {
-                        enabled: Some(false),
-                        ..Override::default()
-                    },
-                )]);
-                settings.languages.clone()
-            });
-            if languages != settings.languages {
-                self.trace("language packs missing: some languages are left out");
-            }
-            let mut session =
-                InputSession::new(engine(&languages), policies, settings.return_confirms_only);
+            // Languages whose packs aren't installed are left out. With none left, every key
+            // goes to the app as typed, and the engine behind this session is a throwaway one:
+            // the shared engines are only ever built over real models, so a pack installed
+            // later is picked up on the next rebuild.
+            let (languages, engine) = match settings.languages.available() {
+                Some(languages) => {
+                    if languages != settings.languages {
+                        self.trace("language packs missing: some languages are left out");
+                    }
+                    let engine = engine(&languages);
+                    (languages, engine)
+                }
+                None => {
+                    self.trace("language packs missing: keys go through as typed");
+                    policies = AppPolicies::new([(
+                        AppPolicies::DEFAULT_KEY.to_string(),
+                        Override {
+                            enabled: Some(false),
+                            ..Override::default()
+                        },
+                    )]);
+                    let languages = Languages::legacy(false);
+                    let engine = make_engine(None, &languages);
+                    (languages, engine)
+                }
+            };
+            let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
             if languages.contains(Language::Japanese)
                 && typescript_core::pack::available(Language::Japanese)
             {

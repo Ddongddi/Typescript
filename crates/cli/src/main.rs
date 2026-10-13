@@ -27,7 +27,7 @@ fn main() {
     // No lexicon: evaluation must not depend on (or change) what this user has learned.
     // English and Korean are built in; Japanese comes from the installed pack (or a build with
     // `--features japanese`).
-    if let Some(root) = typescript_core::pack_dir() {
+    for root in typescript_core::pack_dirs() {
         typescript_core::pack::refresh(&root);
     }
     let japanese = args.iter().any(|a| a == "--japanese");

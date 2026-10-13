@@ -5,14 +5,13 @@
 //! builds its word map from the list. Here build.rs does both (trained on Webster's 2nd, public
 //! domain) and the DLL carries the result as read-only data: see build.rs.
 
-use std::sync::LazyLock;
-
 use crate::decide::engine::Language;
-use crate::lang::pack;
+use crate::lang::pack::{self, PackLazy};
 use crate::lang::sorted::SortedLines;
 
-static TRIGRAMS: LazyLock<&'static [u8]> =
-    LazyLock::new(|| pack::bytes(Language::English, "trigrams.bin"));
+static TRIGRAMS: PackLazy<&'static [u8]> = PackLazy::new(Language::English, || {
+    pack::bytes(Language::English, "trigrams.bin")
+});
 
 // Symbols: 0 = word boundary, 1..=26 = a..z
 const SYMBOLS: usize = 27;
@@ -29,7 +28,7 @@ pub struct EnglishModel {
     levels: SortedLines,
 }
 
-static SHARED: LazyLock<EnglishModel> = LazyLock::new(|| EnglishModel {
+static SHARED: PackLazy<EnglishModel> = PackLazy::new(Language::English, || EnglishModel {
     levels: SortedLines::new(pack::text(Language::English, "english_levels.txt")),
 });
 
@@ -48,6 +47,7 @@ fn encode(word: &str) -> Vec<usize> {
 /// Counts are stored trigrams first (27³), then contexts (27²). Missing data counts 0.
 fn count(index: usize) -> f32 {
     TRIGRAMS
+        .get()
         .get(index * 4..index * 4 + 4)
         .map_or(0.0, |b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
 }
@@ -55,7 +55,7 @@ fn count(index: usize) -> f32 {
 impl EnglishModel {
     /// One model per process, built lazily.
     pub fn shared() -> &'static EnglishModel {
-        &SHARED
+        SHARED.get()
     }
 
     pub fn word_count(&self) -> usize {

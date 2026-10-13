@@ -306,8 +306,10 @@ impl InputSession {
             self.after_digit = false;
         }
         let pending = self.last_commit.take();
-        // Esc switches languages unless the app owns it; Shift+Esc always does.
-        let switches = key == Key::Cycle || (key == Key::Escape && !self.policy.escape_to_app);
+        // Esc switches languages unless the app owns it; Shift+Esc always does. With a single
+        // language there is nothing to switch to, and the app gets the key.
+        let switches = (key == Key::Cycle || (key == Key::Escape && !self.policy.escape_to_app))
+            && self.languages.len() > 1;
         if switches && self.word.is_empty() {
             if let Some(changed) = pending.as_ref().and_then(|p| self.cycle(p, client)) {
                 self.last_commit = Some(changed);

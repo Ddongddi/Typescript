@@ -714,7 +714,8 @@ impl InputSession {
             if !(is_ending(&korean_text)
                 || (korean.syllables().len() >= 2
                     && korean.syllables().iter().all(|s| {
-                        super::preview::KOREAN.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP
+                        super::preview::KOREAN.get().syllable_log_probability(*s)
+                            > UNKNOWN_SYLLABLE_LOGP
                     })))
             {
                 continue;
