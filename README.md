@@ -25,6 +25,8 @@
   <img src="https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white" alt="Rust">
   <img src="https://img.shields.io/badge/Windows-TSF-0078D4?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Android-IME-3DDC84?logo=android&logoColor=white" alt="Android">
+  <img src="https://img.shields.io/badge/macOS-InputMethodKit-000000?logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-IBus-FCC624?logo=linux&logoColor=black" alt="Linux">
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
 </p>
 
@@ -47,15 +49,16 @@ kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね 
 - **섞어 쓰기.** `githubdp` → `github에` 처럼 영어 단어 뒤에 조사·어미를 붙여 씁니다.
 - **앱마다 다른 규칙.** 터미널에서는 엄격하게, 게임에서는 끄고, 에디터에서는 Esc를 앱에 넘깁니다 (`apps.json`).
 - **가볍게.** 모델 테이블은 릴리스 때 미리 계산해 **언어 팩**으로 나눠 두고(앱마다 로드되는 DLL이라 실행 시 계산하지 않습니다), 입력기는 팩을 메모리 맵으로 읽습니다. DLL은 1MB 안쪽이고 언어는 필요한 팩만 받습니다.
-- **Windows와 Android가 같은 코어.** 판별 로직은 OS를 모르는 Rust 코어 하나이고, 플랫폼은 키를 넣고 편집 명령을 받아 적용합니다.
+- **Windows, Android, macOS, Linux가 같은 코어.** 판별 로직은 OS를 모르는 Rust 코어 하나이고, 플랫폼은 키를 넣고 편집 명령을 받아 적용합니다.
 
-| | Windows | Android |
-| --- | --- | --- |
-| 형태 | TSF 텍스트 서비스 (x64 + x86 DLL) | `InputMethodService` APK (arm64) |
-| 입력 | 물리 키보드 | 화면 키보드 + 블루투스/USB 키보드 |
-| 영어·한국어 | 있음 | 있음 |
-| 자동완성(Tab)·단어 학습 | 있음 | 없음 (폰 키보드에 이미 있는 기능) |
-| 일본어 | **일본어 팩** (`-Japanese`) | 없음 |
+| | Windows | Android | macOS | Linux |
+| --- | --- | --- | --- | --- |
+| 형태 | TSF 텍스트 서비스 (x64 + x86 DLL) | `InputMethodService` APK (arm64) | InputMethodKit 입력기 (`Typescript.app`, 유니버설) | IBus 엔진 (`ibus-engine-typescript`) |
+| 입력 | 물리 키보드 | 화면 키보드 + 블루투스/USB 키보드 | 물리 키보드 | 물리 키보드 |
+| 영어·한국어 | 있음 | 있음 | 있음 | 있음 |
+| 자동완성(Tab)·단어 학습 | 있음 | 없음 (폰 키보드에 이미 있는 기능) | 없음 | 없음 |
+| 일본어 | **일본어 팩** (`-Japanese`) | 없음 | **일본어 팩** (`--languages ko,en,ja`) | **일본어 팩** (`--languages ko,en,ja`) |
+| 일시정지 키 | 한/영 | `한/영` 키 | Option+Space | 한/영 (Hangul), Pause |
 
 ## 설치
 
@@ -100,6 +103,21 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 | `Typescript` | 자동 판별만 (자동완성도, 단어 기록도 없다) |
 
 이미 떠 있는 앱은 다시 열어야 새 입력기를 읽습니다. 아이콘은 `assets/icon.png` 를 바꾸고 `.\scripts\make-icon.ps1` 후 다시 설치하면 됩니다.
+
+### macOS와 Linux
+
+한 줄로 설치합니다 (현재 사용자에게만 설치하고 관리자 권한은 필요 없습니다. 릴리스를 받아 SHA-256을 확인합니다).
+
+```sh
+curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh
+# 언어를 고르거나 제거할 때:
+curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --languages ko,en,ja
+curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --uninstall
+```
+
+- **macOS:** `~/Library/Input Methods/Typescript.app` 로 설치됩니다. 로그아웃했다가 다시 들어온 뒤 시스템 설정 → 키보드 → 입력 소스 → 편집에서 **Typescript** 를 추가합니다. 서명·공증을 하지 않아 처음에는 개인정보 보호 및 보안에서 허용해야 할 수 있습니다. 한/영 키가 없으니 **Option+Space** 가 일시정지입니다. 앱별 규칙의 키는 앱 번들 ID의 마지막 부분(소문자, 예: `terminal`)입니다.
+- **Linux:** IBus 엔진이 `~/.local/share/typescript/` 에, 컴포넌트가 `~/.local/share/ibus/component/` 에 설치됩니다. 설정 → 키보드 → 입력 소스(또는 `ibus-setup`)에서 **Typescript** 를 추가합니다. 목록에 없으면 로그아웃했다가 다시 들어오세요. IBus는 입력 중인 앱의 이름을 알려 주지 않아 앱별 규칙은 기본 규칙만 적용됩니다. fcitx5는 아직 지원하지 않습니다.
+- 설정은 macOS에서 `~/Library/Application Support/Typescript/`, Linux에서 `~/.config/Typescript/`(언어 팩은 `~/.local/share/Typescript/packs/`)에 저장됩니다. `typescript-config` 로 언어·설정·앱 규칙·업데이트를 관리하는 방법은 아래와 같습니다 (`~/.local/bin` 이 PATH에 있어야 합니다).
 
 ### Android
 
@@ -267,7 +285,7 @@ cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/pac
 
 ### 릴리스
 
-`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 언어 팩 생성(`build-packs`) → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 합니다. 올라가는 파일은 `typescript-windows.zip`(입력기와 `packs\`), `.sha256`, `install.ps1`, `typescript.apk` 입니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌립니다.
+`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 언어 팩 생성(`build-packs`) → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 합니다. Linux와 macOS는 각 러너에서 따로 빌드·패키징(`scripts/package.sh`)하고, 마지막 `publish` 잡이 모아 한 번에 릴리스합니다. 올라가는 파일은 `typescript-windows.zip`(입력기와 `packs\`), `typescript-linux.zip`, `typescript-macos.zip`, 각 `.sha256`, `install.ps1`, `install.sh`, `typescript.apk` 입니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌립니다.
 
 ```powershell
 git tag v0.4.1; git push origin v0.4.0
@@ -275,6 +293,8 @@ git tag v0.4.1; git push origin v0.4.0
 
 ## 알려진 한계
 
+- macOS·Linux 입력기는 CI에서 컴파일까지만 확인합니다. 실제 입력 동작은 아직 사람이 해당 OS에서 검증하지 못했습니다. 문제가 있으면 이슈로 알려 주세요.
+- Linux는 IBus만 지원하고(GNOME 기본), 앱 이름을 알 수 없어 앱별 규칙이 적용되지 않습니다. 확정한 글자를 되돌리는 동작(Esc, 순환)은 IBus 입력 중인 단어에서만 됩니다.
 - 영어(미국) 아래에 등록되므로 작업 표시줄의 언어 표시는 `ENG` 다.
 - TSF 동작은 앱마다 다르다. 확정 직후 Esc(되돌리기)는 캐럿 뒤 텍스트를 읽을 수 있는 앱에서만 되고, 읽지 못하면 Esc는 앱에 전달된다.
 - 한/영 키가 없는 키보드에서는 일시정지 키가 없다. 일시정지 상태를 보여 주는 표시도 Windows에는 아직 없다.
