@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component>
+  <name>io.github.iamallyouneed.Typescript</name>
+  <description>Typescript: English, Korean and Japanese by word</description>
+  <exec>@EXEC@ --ibus</exec>
+  <version>@VERSION@</version>
+  <author>iamallyouneed</author>
+  <license>MIT</license>
+  <homepage>https://github.com/iamallyouneed/Typescript</homepage>
+  <textdomain>typescript</textdomain>
+  <engines>
+    <engine>
+      <name>typescript</name>
+      <language>en</language>
+      <license>MIT</license>
+      <author>iamallyouneed</author>
+      <layout>us</layout>
+      <longname>Typescript</longname>
+      <description>English, Korean and Japanese by word</description>
+      <rank>0</rank>
+    </engine>
+  </engines>
+</component>
