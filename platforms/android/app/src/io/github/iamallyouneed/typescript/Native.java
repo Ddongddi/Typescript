@@ -30,7 +30,4 @@ final class Native {
     static native String nativeTogglePause(long handle, String before);
 
     static native boolean nativePaused(long handle);
-
-    /** The word Tab would complete to, or "". */
-    static native String nativeSuggestion(long handle);
 }

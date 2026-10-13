@@ -10,8 +10,7 @@ use std::sync::Arc;
 use typescript_core::session::testing::FakeTextField;
 use typescript_core::session::NoopClient;
 use typescript_core::{
-    make_engine, AppPolicies, History, InputSession, Key, LearningEngine, Range, Settings,
-    TextClient,
+    make_engine, AppPolicies, InputSession, Key, LearningEngine, Range, Settings, TextClient,
 };
 
 const SEP: char = '\u{1}';
@@ -116,16 +115,13 @@ pub struct Ime {
 }
 
 impl Ime {
-    /// `dir`: where the app keeps settings.json, apps.json, lexicon.json, user_history.json.
+    /// `dir`: where the app keeps settings.json, apps.json, lexicon.json.
     pub fn new(dir: &Path) -> Self {
         let engine: Arc<LearningEngine> = make_engine(Some(dir.join("lexicon.json")));
         let settings = Settings::load(Some(&dir.join("settings.json")));
         let policies = AppPolicies::load(Some(&dir.join("apps.json")));
-        let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
-        if settings.autocomplete {
-            let history = History::new(Some(dir.join("user_history.json")));
-            session = session.with_history(Arc::new(history));
-        }
+        // No word history and no Tab completion: the phone's keyboards have their own suggestions.
+        let session = InputSession::new(engine, policies, settings.return_confirms_only);
         Self {
             session,
             composing: String::new(),
@@ -172,10 +168,5 @@ impl Ime {
 
     pub fn paused(&self) -> bool {
         self.session.paused()
-    }
-
-    /// The word Tab would complete to, for the suggestion strip.
-    pub fn suggestion(&self) -> Option<String> {
-        self.session.suggestion()
     }
 }

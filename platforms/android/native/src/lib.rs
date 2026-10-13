@@ -111,14 +111,3 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativePaus
 ) -> jboolean {
     with(handle, false, |ime| ime.paused()) as jboolean
 }
-
-/// The word Tab would complete to, or an empty string.
-#[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeSuggestion(
-    env: JNIEnv,
-    _: JClass,
-    handle: jlong,
-) -> jstring {
-    let word = with(handle, None, |ime| ime.suggestion()).unwrap_or_default();
-    reply(&env, &word)
-}

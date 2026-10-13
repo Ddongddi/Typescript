@@ -33,8 +33,8 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 이미 떠 있는 앱은 다시 열어야 새 입력기를 읽는다. 아이콘은 `assets/icon.png` 를 바꾸고 `.\scripts\make-icon.ps1` 후 다시 설치하면 된다.
 
 ### Android
-릴리스의 `typescript.apk` 를 받아 설치한다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Typescript** 를 켜고, 입력창에서 키보드로 고른다. 화면 키보드(안드로이드 기본 `KeyboardView`에 두벌식 자모를 키마다 같이 표시)와 블루투스/USB 물리 키보드 둘 다 된다. 한/영 판별, 밑줄 미리보기, Esc 순환, Tab 자동완성은 Windows와 같은 코어가 처리한다.
-화면 키보드에서는 위쪽 줄이 자동완성 제안(누르면 Tab), `가/A` 키가 Esc(말하는 중인 단어 또는 방금 친 단어의 언어 순환), `한/영` 키가 일시정지(켜져 있으면 `OFF` 표시)다. 비밀번호 칸과 텍스트가 아닌 칸에서는 판별 없이 글자만 넣는다.
+릴리스의 `typescript.apk` 를 받아 설치한다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Typescript** 를 켜고, 입력창에서 키보드로 고른다. 화면 키보드(안드로이드 기본 `KeyboardView`에 두벌식 자모를 키마다 같이 표시)와 블루투스/USB 물리 키보드 둘 다 된다. 한/영 판별, 밑줄 미리보기, Esc 순환은 Windows와 같은 코어가 처리한다. 자동완성(Tab)과 단어 학습은 Android에는 없다 (폰 키보드에 이미 있는 기능이라 뺐다).
+화면 키보드에서는 `가/A` 키가 Esc(말하는 중인 단어 또는 방금 친 단어의 언어 순환), `한/영` 키가 일시정지(켜져 있으면 `OFF` 표시)다. 비밀번호 칸과 텍스트가 아닌 칸에서는 판별 없이 글자만 넣는다.
 ```powershell
 .\platforms\android\build.ps1                 # platforms\android\build\typescript.apk (arm64 + x86_64)
 .\platforms\android\build.ps1 -Abi arm64-v8a  # 폰용만

@@ -1,20 +1,14 @@
 package io.github.iamallyouneed.typescript;
 
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
 import android.text.InputType;
-import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -40,7 +34,6 @@ public class TypescriptIme extends InputMethodService implements KeyboardView.On
     private KeyboardView keyboardView;
     private Keyboard letters;
     private Keyboard symbols;
-    private TextView suggestion;
 
     @Override
     public void onCreate() {
@@ -64,25 +57,7 @@ public class TypescriptIme extends InputMethodService implements KeyboardView.On
         keyboardView.setPreviewEnabled(false);
         keyboardView.setKeyboard(letters);
 
-        suggestion = new TextView(this);
-        suggestion.setGravity(Gravity.CENTER_VERTICAL);
-        suggestion.setTextSize(17);
-        suggestion.setTypeface(Typeface.DEFAULT_BOLD);
-        suggestion.setTextColor(Color.DKGRAY);
-        suggestion.setBackgroundColor(Color.rgb(0xE8, 0xE8, 0xEC));
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        suggestion.setPadding(pad, 0, pad, 0);
-        suggestion.setOnClickListener(v -> {
-            if (suggestion.getText().length() > 0) soft(Native.TAB, 0, KeyEvent.KEYCODE_TAB);
-        });
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        int strip = (int) (40 * getResources().getDisplayMetrics().density);
-        root.addView(suggestion, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, strip));
-        root.addView(keyboardView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-        return root;
+        return keyboardView;
     }
 
     @Override
@@ -281,10 +256,9 @@ public class TypescriptIme extends InputMethodService implements KeyboardView.On
     @Override
     public void swipeUp() {}
 
-    /** The suggestion strip and the Han/Eng key show what Rust knows. */
+    /** The Han/Eng key shows whether Typescript is paused. */
     private void refresh() {
         if (keyboardView == null || ime == 0) return;
-        suggestion.setText(active ? Native.nativeSuggestion(ime) : "");
         String label = active && Native.nativePaused(ime) ? "OFF" : "한/영";
         for (Keyboard board : new Keyboard[] {letters, symbols}) {
             for (Keyboard.Key key : board.getKeys()) {
