@@ -128,10 +128,15 @@ impl InputSession {
                 );
         }
         // An English word before the mark keeps it English (to-do, co-op); ra-men isn't one.
+        // A hyphen always re-decides, even after a word the list knows: めーる, よそろー and
+        // どーなつ start with me, yo, do, and the engine (the hyphen weighs against English)
+        // is what keeps them typable. An English compound whose reading is clean kana
+        // (to-do → とーど) leans Japanese now; Esc reads it back. (macOS Seamtype keeps the
+        // word English here; this port re-decides instead.)
         if self.word.forced.is_none()
             && (ch == '-' || ch == '\'')
             && self.word.preview_language == Some(Language::English)
-            && !EnglishModel::shared().is_known_word(&self.word.keys)
+            && (ch == '-' || !EnglishModel::shared().is_known_word(&self.word.keys))
             && RomajiComposer::compose(&self.word.keys, true).stray_letters == 0
         {
             let context = DecisionContext {

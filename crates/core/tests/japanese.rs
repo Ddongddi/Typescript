@@ -804,6 +804,36 @@ fn katakana_and_hiragana_shortcuts() {
     assert_eq!(r.text(), "こーひー hello");
 }
 
+/// The long-vowel mark after a start the English list knows: me, yo and do are English words,
+/// but めーる, よーそろー and どーなつ must still type as Japanese. (macOS Seamtype keeps the
+/// word English here, which leaves those words untypable; this port re-decides with the mark
+/// in the keys instead — see belongs_to_japanese_phrase.)
+#[test]
+fn long_vowel_after_a_known_english_word() {
+    let mut r = JaRig::new("ja-longvowel");
+    r.type_("me-ru");
+    assert_eq!(r.text(), "めーる");
+    r.type_("⏎");
+    r.type_("yo-soro-");
+    assert_eq!(r.text(), "めーるよーそろー");
+    r.type_("⏎");
+    r.type_("do-natsu");
+    assert_eq!(r.text(), "めーるよーそろーどーなつ");
+}
+
+/// An English compound whose reading is clean kana leans Japanese at the hyphen and reads back
+/// with one Esc: to-do → とーど → ⎋ → to-do.
+#[test]
+fn clean_kana_english_compound_reads_back_with_escape() {
+    let mut r = JaRig::new("ja-compound");
+    r.type_("to-do");
+    assert_eq!(r.text(), "とーど");
+    r.type_("⎋");
+    assert_eq!(r.text(), "to-do");
+    r.type_("⏎");
+    assert_eq!(r.text(), "to-do");
+}
+
 #[test]
 fn pick_a_second_candidate() {
     // The original used a reading with several kanji candidates (かんじを); with the fake
