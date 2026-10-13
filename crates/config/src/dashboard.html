@@ -21,6 +21,7 @@ body { margin: 0; min-height: 100vh; background: radial-gradient(60% 40% at 85% 
 main { max-width: 860px; margin: 0 auto; padding: 56px 20px 110px; }
 header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 30px; }
 h1 { margin: 0; font: 400 clamp(40px, 6vw, 64px) / 1 var(--serif); letter-spacing: -0.03em; }
+.tagline { order: 3; flex-basis: 100%; margin: 6px 0 0; color: var(--mute); font-size: 15px; }
 .ver { font: 12px var(--mono); color: var(--mute); }
 .link { margin-left: auto; font: 12px var(--mono); color: var(--mute); display: flex; align-items: center; gap: 8px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); transition: background .3s; }
@@ -32,14 +33,29 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 [role=tab] { appearance: none; background: none; border: 0; border-radius: 4px 4px 0 0; color: #b4beb8; font: 500 14px var(--sans); padding: 11px 15px; min-height: 44px; white-space: nowrap; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, background .15s; }
 [role=tab]:hover { color: #fff; background: #ffffff12; }
 [role=tab][aria-selected=true] { color: #fff; border-bottom-color: var(--acc); }
-h2 { font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); margin: 38px 0 14px; }
+h2 { font: 500 13px var(--sans); letter-spacing: 0; color: var(--mute); margin: 40px 0 14px; display: flex; align-items: center; gap: 12px; }
+h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 h2:first-child { margin-top: 0; }
 .note { color: var(--mute); font-size: 14px; margin: 0 0 16px; max-width: 64ch; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 16px 20px; margin-bottom: 22px; }
+.flow .arrow { color: var(--mute); }
+.flow .chipl { display: inline-flex; align-items: center; gap: 10px; border: 1px solid #ffffff22; border-radius: 999px; padding: 4px 16px 4px 6px; font-size: 14px; }
+.flow .chipl b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #ffffff10; font: 400 19px/1 var(--serif); }
+.flow .cap { flex-basis: 100%; font-size: 13px; color: var(--mute); margin-top: 2px; }
+.g-ko { color: var(--acc); } .g-ja { color: var(--info); } .g-en { color: var(--fg); }
+.pill { font: 500 11px var(--mono); color: var(--bg); background: var(--mute); border-radius: 3px; padding: 0 6px; margin-right: 8px; vertical-align: 2px; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; } .seg .btn:first-child { border-radius: 4px 0 0 4px; } .seg .btn:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+.seg .btn:hover:not(:disabled) { transform: none; }
+.emptybox { border: 1px dashed #ffffff2e; border-radius: 4px; padding: 26px; text-align: center; color: var(--mute); font-size: 14px; }
+.emptybox b { display: block; color: var(--fg); font-weight: 500; font-size: 16px; margin-bottom: 4px; }
+[role=tabpanel]:not([hidden]) { animation: rise .28s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 .row { display: grid; grid-template-columns: 64px 1fr auto; gap: 18px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 18px 20px; margin-bottom: -1px; transition: border-color .2s, background .2s; }
 .row:hover { border-color: #ffffff33; background: #0e1514; }
 .row[aria-busy=true] { border-color: var(--acc); }
-.rank { font: 400 52px/1 var(--serif); color: var(--acc); letter-spacing: -0.03em; text-align: center; }
-.rank.off { color: #3a4541; }
+.rank { font: 400 46px/1 var(--serif); text-align: center; }
+.rank.off { opacity: .35; }
 .name { font: 500 17px var(--sans); }
 .name small { font: 11px var(--mono); color: var(--mute); margin-left: 10px; }
 .meta { color: var(--mute); font-size: 14px; }
@@ -65,7 +81,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .setting .text { flex: 1; min-width: 0; }
 .setting .text b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-weight: 500; font-size: 16px; }
 .setting .text span { display: block; color: var(--mute); font-size: 14px; }
-.setting .text em { display: block; font: normal 12px/1.7 var(--mono); color: #7f8984; margin-top: 4px; }
+.setting .text em { display: block; font: normal 13px/1.7 var(--sans); color: #7f8984; margin-top: 4px; }
 .tag { font: 500 10px var(--mono); letter-spacing: .04em; color: var(--acc); border: 1px solid #f4a26166; border-radius: 3px; padding: 0 6px; }
 .switch { position: relative; width: 44px; height: 26px; flex: none; }
 .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
@@ -130,6 +146,7 @@ pre.note { font: 12px/1.7 var(--mono); }
 <main>
   <header>
     <h1>Typescript</h1><span class="ver" id="ver"></span>
+    <p class="tagline">영문 자판 그대로 치면, 단어마다 영어·한국어·일본어를 알아서 골라 줍니다.</p>
     <span class="link" role="status"><span class="dot" id="dot"></span><span id="linktext">연결됨</span></span>
   </header>
   <div role="tablist" aria-label="설정">
@@ -213,8 +230,9 @@ function langRow(l, position) {
   const on = position != null, working = pending === "lang-" + l.id;
   const actions = [];
   if (on) {
-    actions.push(h("button", { class: "btn", "data-f": "mv-" + l.id + "-up", disabled: busy || position === 0, "aria-label": l.name + " 위로", onclick: () => move(l.id, -1) }, "↑"));
-    actions.push(h("button", { class: "btn", "data-f": "mv-" + l.id + "-down", disabled: busy || position === state.order.length - 1, "aria-label": l.name + " 아래로", onclick: () => move(l.id, 1) }, "↓"));
+    actions.push(h("span", { class: "seg", role: "group", "aria-label": l.name + " 순서" },
+      h("button", { class: "btn", "data-f": "mv-" + l.id + "-up", disabled: busy || position === 0, "aria-label": l.name + " 위로", onclick: () => move(l.id, -1) }, "↑"),
+      h("button", { class: "btn", "data-f": "mv-" + l.id + "-down", disabled: busy || position === state.order.length - 1, "aria-label": l.name + " 아래로", onclick: () => move(l.id, 1) }, "↓")));
     actions.push(h("button", {
       class: "btn danger", "data-f": "lang-" + l.id, disabled: busy || state.order.length < 2, title: state.order.length < 2 ? "하나는 켜 두어야 합니다" : "",
       onclick: () => act(l.name + "을(를) 껐습니다", "/api/languages", { action: "remove", id: l.id }, "lang-" + l.id),
@@ -225,10 +243,10 @@ function langRow(l, position) {
     actions.push(h("button", { class: "btn primary", "data-f": "lang-" + l.id, disabled: busy, onclick: () => act(l.name + "을(를) 받았습니다", "/api/languages", { action: "add", id: l.id }, "lang-" + l.id) }, working ? "받는 중…" : "받기 · " + mb(l.size)));
   }
   const status = on ? (l.installed ? "켜짐 · " + l.version : "팩이 없습니다") : (l.installed ? "받아 둠 · " + l.version : "받을 수 있음");
-  const needs = l.requiredBy.length ? " · " + l.requiredBy.join(", ") + "이(가) 이 데이터를 씁니다" : "";
+  const needs = l.requiredBy.length ? " · " + l.requiredBy.join(", ") + " 언어가 이 데이터를 함께 씁니다" : "";
   return h("div", { class: "row", "aria-busy": working },
-    h("div", { class: "rank" + (on ? "" : " off"), "aria-hidden": "true" }, on ? position + 1 : GLYPH[l.id] || "·"),
-    h("div", {}, h("div", { class: "name" }, l.name, h("small", {}, l.id)), h("div", { class: "meta" }, (on ? position + 1 + "번째 · " : "") + status + needs)),
+    h("div", { class: "rank g-" + l.id + (on ? "" : " off"), "aria-hidden": "true" }, GLYPH[l.id] || "·"),
+    h("div", {}, h("div", { class: "name" }, on ? h("span", { class: "pill" }, "#" + (position + 1)) : null, l.name, h("small", {}, l.id)), h("div", { class: "meta" }, status + needs)),
     h("div", { class: "actions" }, actions));
 }
 
@@ -236,13 +254,19 @@ function renderLang() {
   const p = $("p-lang"); p.replaceChildren();
   if (state.catalogError) p.append(h("div", { class: "banner bad", role: "alert" }, "릴리스 목록을 불러오지 못해서 설치된 언어만 보입니다. " + state.catalogError));
   for (const why of state.problems) p.append(h("div", { class: "banner bad", role: "alert" }, "쓸 수 없는 팩: " + why));
-  p.append(h("h2", {}, "켜진 언어 · Esc 순서"));
-  p.append(h("p", { class: "note" }, "단어에서 Esc를 누르면 이 순서대로 읽기가 바뀝니다. 하나는 켜 두어야 합니다. ‘체험’ 탭에서 바로 쳐 볼 수 있습니다."));
   const byId = Object.fromEntries(state.languages.map((l) => [l.id, l]));
+  const flow = h("div", { class: "flow", "aria-label": "Esc 순서" });
+  state.order.forEach((id, i) => {
+    if (i) flow.append(h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
+    flow.append(h("span", { class: "chipl" }, h("b", { class: "g-" + id }, GLYPH[id] || "·"), langName(id)));
+  });
+  flow.append(h("span", { class: "cap" }, "단어에서 Esc를 누를 때마다 이 순서로 읽기가 바뀝니다. 하나는 켜 두어야 합니다. ‘체험’ 탭에서 바로 쳐 볼 수 있습니다."));
+  p.append(flow);
+  p.append(h("h2", {}, "켜진 언어"));
   state.order.forEach((id, i) => { if (byId[id]) p.append(langRow(byId[id], i)); });
   const rest = state.languages.filter((l) => !state.order.includes(l.id));
   p.append(h("h2", {}, "더 쓸 수 있는 언어"));
-  if (!rest.length) p.append(h("div", { class: "empty" }, "모두 켜져 있습니다."));
+  if (!rest.length) p.append(h("div", { class: "emptybox" }, h("b", {}, "받을 수 있는 언어를 모두 켰습니다"), "새 언어는 릴리스에 올라오면 여기에 나타납니다. 업데이트 탭에서 확인해 보세요."));
   rest.forEach((l) => p.append(langRow(l, null)));
 }
 
