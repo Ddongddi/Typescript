@@ -81,13 +81,13 @@ impl Updates {
         Updates {
             api: Box::new(crate::fetch::Http::default()),
             url: update::LATEST_API.to_string(),
-            launch: Box::new(update::launch_powershell),
+            launch: Box::new(update::launch_installer),
         }
     }
 }
 
 /// File names of the programs running now (for picking the app a rule is for), sorted and
-/// lowercase. Windows only; elsewhere, or if the list can't be read, it is empty.
+/// lowercase. Empty if the list can't be read.
 fn running_apps() -> Vec<String> {
     #[cfg(windows)]
     {
@@ -101,7 +101,34 @@ fn running_apps() -> Vec<String> {
         }
     }
     #[cfg(not(windows))]
-    Vec::new()
+    ps_apps()
+}
+
+/// macOS and Linux: every running program's name from `ps` (no way to tell which have windows).
+#[cfg(not(windows))]
+fn ps_apps() -> Vec<String> {
+    let Ok(out) = std::process::Command::new("ps")
+        .args(["-axco", "comm"])
+        .output()
+    else {
+        return Vec::new();
+    };
+    program_names(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// Names from `ps -axco comm` output: lowercase, sorted, no duplicates; the header line and
+/// kernel threads (`kworker/0:1`) are left out.
+#[cfg_attr(windows, allow(dead_code))]
+fn program_names(ps: &str) -> Vec<String> {
+    let mut names: Vec<String> = ps
+        .lines()
+        .skip(1)
+        .map(|l| l.trim().to_lowercase())
+        .filter(|n| !n.is_empty() && !n.contains(['/', ':']))
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }
 
 #[cfg(windows)]
@@ -787,15 +814,16 @@ mod tests {
         use std::sync::{Arc, Mutex};
         let f = fixture("app-update");
         let release = f.root.join("release");
-        let zip = crate::testutil::zip_of(&[("install.ps1", b"# installer")]);
-        std::fs::write(release.join("typescript-windows.zip"), &zip).unwrap();
-        let sum = format!("{}  typescript-windows.zip", crate::hash::sha256_hex(&zip));
-        std::fs::write(release.join("typescript-windows.zip.sha256"), sum).unwrap();
+        let zip = crate::testutil::zip_of(&[(crate::update::INSTALLER_SCRIPT, b"# installer")]);
+        let name = crate::update::INSTALLER_ZIP;
+        std::fs::write(release.join(name), &zip).unwrap();
+        let sum = format!("{}  {name}", crate::hash::sha256_hex(&zip));
+        std::fs::write(release.join(format!("{name}.sha256")), sum).unwrap();
         let latest = json!({
             "tag_name": "v9.0.0", "body": "big news",
             "assets": [
-                {"name": "typescript-windows.zip", "browser_download_url": "https://x.test/typescript-windows.zip"},
-                {"name": "typescript-windows.zip.sha256", "browser_download_url": "https://x.test/typescript-windows.zip.sha256"},
+                {"name": name, "browser_download_url": format!("https://x.test/{name}")},
+                {"name": format!("{name}.sha256"), "browser_download_url": format!("https://x.test/{name}.sha256")},
             ],
         });
         std::fs::write(release.join("latest"), latest.to_string()).unwrap();
@@ -875,7 +903,7 @@ mod tests {
             .collect();
         assert!(names
             .iter()
-            .all(|n| n.ends_with(".exe") && *n == n.to_lowercase()));
+            .all(|n| (!cfg!(windows) || n.ends_with(".exe")) && *n == n.to_lowercase()));
         assert!(
             names.windows(2).all(|w| w[0] < w[1]),
             "sorted, no duplicates"
@@ -883,6 +911,18 @@ mod tests {
         if cfg!(windows) {
             assert!(!names.is_empty());
         }
+    }
+
+    #[test]
+    fn ps_output_becomes_program_names() {
+        let ps = "COMMAND
+bash
+Google Chrome
+kworker/0:1
+bash
+
+";
+        assert_eq!(program_names(ps), vec!["bash", "google chrome"]);
     }
 
     #[test]

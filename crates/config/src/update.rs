@@ -1,6 +1,7 @@
 //! Is there a newer release, and bringing the installed packs (and the program) up to it.
 //! Packs update without administrator rights; the program is replaced by running the release's
-//! own install.ps1, which asks for them.
+//! own install script (install.ps1 asks for administrator rights; install.sh installs for the
+//! current user).
 
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -19,7 +20,17 @@ pub const LATEST_API: &str =
     "https://api.github.com/repos/iamallyouneed/Typescript/releases/latest";
 const DAY: u64 = 24 * 60 * 60;
 const API_MAX: usize = 2 * 1024 * 1024;
-const INSTALLER_ZIP: &str = "typescript-windows.zip";
+/// The program package of this system's release and the script in it that installs it.
+#[cfg(windows)]
+pub const INSTALLER_ZIP: &str = "typescript-windows.zip";
+#[cfg(windows)]
+pub const INSTALLER_SCRIPT: &str = "install.ps1";
+#[cfg(target_os = "macos")]
+pub const INSTALLER_ZIP: &str = "typescript-macos.zip";
+#[cfg(all(not(windows), not(target_os = "macos")))]
+pub const INSTALLER_ZIP: &str = "typescript-linux.zip";
+#[cfg(not(windows))]
+pub const INSTALLER_SCRIPT: &str = "install.sh";
 const INSTALLER_MAX: usize = 200 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
@@ -235,7 +246,7 @@ fn asset<'a>(release: &'a Release, name: &str) -> Result<&'a str> {
 }
 
 /// Downloads the release's installer package, checks its SHA-256, unpacks it and hands its
-/// install.ps1 to `launch`. Nothing is started unless the checksum matches.
+/// install script to `launch`. Nothing is started unless the checksum matches.
 ///
 /// The checksum comes from the same release as the program, so it catches a damaged download,
 /// not a bad release. What the program is trusted for is where it comes from: over the network
@@ -263,17 +274,24 @@ pub fn run_installer(
     let _ = std::fs::remove_dir_all(&stage);
     std::fs::create_dir_all(&stage)?;
     unpack(&zip, &stage)?;
-    let script = stage.join("install.ps1");
+    let script = stage.join(INSTALLER_SCRIPT);
     if !script.is_file() {
-        return err("the program package has no install.ps1");
+        return err(format!("the program package has no {INSTALLER_SCRIPT}"));
     }
     launch(&script)
 }
 
-/// The elevated PowerShell installer, in its own window.
-pub fn launch_powershell(script: &Path) -> Result<()> {
-    std::process::Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+/// The installer: the elevated PowerShell script in its own window on Windows, `sh install.sh`
+/// (which installs for the current user and asks for nothing) elsewhere.
+pub fn launch_installer(script: &Path) -> Result<()> {
+    let mut command = if cfg!(windows) {
+        let mut c = std::process::Command::new("powershell");
+        c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]);
+        c
+    } else {
+        std::process::Command::new("sh")
+    };
+    command
         .arg(script)
         .spawn()
         .map(|_| ())
@@ -307,8 +325,13 @@ pub fn apply(
     if program_is_newer {
         run_installer(env, api, &release, launch)?;
         said.push(format!(
-            "started the installer for {} (confirm the administrator prompt)",
-            release.tag
+            "started the installer for {}{}",
+            release.tag,
+            if cfg!(windows) {
+                " (confirm the administrator prompt)"
+            } else {
+                ""
+            }
         ));
     }
     if said.is_empty() {
@@ -467,12 +490,14 @@ mod tests {
     #[test]
     fn the_program_update_is_checked_before_it_is_started() {
         let f = fixture("upd-bin");
-        let zip = crate::testutil::zip_of(&[("install.ps1", b"# installer")]);
-        std::fs::write(f.root.join("release").join("typescript-windows.zip"), &zip).unwrap();
+        let zip = crate::testutil::zip_of(&[(INSTALLER_SCRIPT, b"# installer")]);
+        std::fs::write(f.root.join("release").join(INSTALLER_ZIP), &zip).unwrap();
         let sum = crate::hash::sha256_hex(&zip);
         std::fs::write(
-            f.root.join("release").join("typescript-windows.zip.sha256"),
-            format!("{sum}  typescript-windows.zip"),
+            f.root
+                .join("release")
+                .join(format!("{INSTALLER_ZIP}.sha256")),
+            format!("{sum}  {INSTALLER_ZIP}"),
         )
         .unwrap();
         let release = Release {
@@ -480,12 +505,12 @@ mod tests {
             notes: String::new(),
             assets: vec![
                 (
-                    "typescript-windows.zip".into(),
-                    "https://x.test/typescript-windows.zip".into(),
+                    INSTALLER_ZIP.into(),
+                    format!("https://x.test/{INSTALLER_ZIP}"),
                 ),
                 (
-                    "typescript-windows.zip.sha256".into(),
-                    "https://x.test/typescript-windows.zip.sha256".into(),
+                    format!("{INSTALLER_ZIP}.sha256"),
+                    format!("https://x.test/{INSTALLER_ZIP}.sha256"),
                 ),
             ],
         };
@@ -496,11 +521,13 @@ mod tests {
         })
         .unwrap();
         let script = started.borrow().clone().unwrap();
-        assert!(script.ends_with("install.ps1") && script.is_file());
+        assert!(script.ends_with(INSTALLER_SCRIPT) && script.is_file());
 
         // A download that does not match its checksum never runs.
         std::fs::write(
-            f.root.join("release").join("typescript-windows.zip.sha256"),
+            f.root
+                .join("release")
+                .join(format!("{INSTALLER_ZIP}.sha256")),
             format!("{}  x", "0".repeat(64)),
         )
         .unwrap();

@@ -160,7 +160,7 @@ pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
         }
         Some("update") => {
             let (api, url) = update::api_from_env(false);
-            update::apply(env, source, api.as_ref(), &url, &update::launch_powershell)
+            update::apply(env, source, api.as_ref(), &url, &update::launch_installer)
         }
         Some("setup") => crate::setup::run(&args[1..], env, source),
         Some("help") | Some("--help") | Some("-h") => Ok(format!("{USAGE}\n")),

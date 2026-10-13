@@ -48,7 +48,9 @@ pub extern "C" fn ts_new(dir: *const c_char) -> *mut Handle {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_free(h: *mut Handle) {
+/// # Safety
+/// `h` is NULL or from `ts_new`, and is not used afterwards.
+pub unsafe extern "C" fn ts_free(h: *mut Handle) {
     if !h.is_null() {
         // SAFETY: the handle is not used after this call.
         drop(unsafe { Box::from_raw(h) });
@@ -56,7 +58,9 @@ pub extern "C" fn ts_free(h: *mut Handle) {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_string_free(s: *mut c_char) {
+/// # Safety
+/// `s` is NULL or a string this library returned, and is not used afterwards.
+pub unsafe extern "C" fn ts_string_free(s: *mut c_char) {
     if !s.is_null() {
         // SAFETY: `s` came from this library's `reply`.
         drop(unsafe { CString::from_raw(s) });
@@ -107,7 +111,7 @@ mod tests {
         let p = ts_key(h, kind, ch as u32, before.as_ptr());
         // SAFETY: `p` is a string this library just returned.
         let s = unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned();
-        ts_string_free(p);
+        unsafe { ts_string_free(p) };
         s
     }
 
@@ -147,7 +151,7 @@ mod tests {
         apply(&mut field, &mut composing, &out);
         assert_eq!(field.trim_end(), "안녕");
         assert_eq!(ts_paused(h), 0);
-        ts_free(h);
+        unsafe { ts_free(h) };
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -156,7 +160,7 @@ mod tests {
         let p = ts_key(std::ptr::null_mut(), 0, 'a' as u32, std::ptr::null());
         // SAFETY: just returned by this library.
         assert_eq!(unsafe { CStr::from_ptr(p) }.to_str().unwrap(), "0");
-        ts_string_free(p);
-        ts_free(std::ptr::null_mut());
+        unsafe { ts_string_free(p) };
+        unsafe { ts_free(std::ptr::null_mut()) };
     }
 }
