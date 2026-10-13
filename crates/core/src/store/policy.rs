@@ -25,6 +25,9 @@ pub struct AppPolicy {
     /// system's Korean IME, so the Han/Eng key works as it does everywhere else. For apps that
     /// don't get along with composition-based input (KakaoTalk).
     pub use_system_ime: bool,
+    /// Full-width digits and spaces after Japanese (when turned on in the settings) apply here;
+    /// false keeps them half-width in this app (a terminal, a code editor).
+    pub full_width: bool,
 }
 
 impl AppPolicy {
@@ -37,6 +40,7 @@ impl AppPolicy {
         conversion_threshold: 0.5,
         escape_to_app: false,
         use_system_ime: false,
+        full_width: true,
     };
 }
 
@@ -58,6 +62,8 @@ pub struct Override {
     pub escape_to_app: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_system_ime: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub full_width: Option<bool>,
 }
 
 impl Override {
@@ -69,6 +75,7 @@ impl Override {
                 .unwrap_or(base.conversion_threshold),
             escape_to_app: self.escape_to_app.unwrap_or(base.escape_to_app),
             use_system_ime: self.use_system_ime.unwrap_or(base.use_system_ime),
+            full_width: self.full_width.unwrap_or(base.full_width),
         }
     }
 }
@@ -143,6 +150,16 @@ pub struct Settings {
     pub pause_key: String,
     /// Tab completes the word being typed, and the words typed are counted for that.
     pub autocomplete: bool,
+    /// Detect romaji Japanese and convert it (kana preview, Space for kanji).
+    pub japanese: bool,
+    /// With Japanese on: show (and commit) the top kanji candidate while typing, like macOS
+    /// Live Conversion. Space opens the other candidates, Esc shows the kana.
+    pub live_conversion: bool,
+    /// With Japanese on: digits after Japanese text are part of it, full-width (１２３);
+    /// Space offers 123.
+    pub full_width_digits: bool,
+    /// With Japanese on: a space after Japanese text is full-width (⇧Space types the other width).
+    pub full_width_space: bool,
 }
 
 impl Default for Settings {
@@ -151,6 +168,10 @@ impl Default for Settings {
             return_confirms_only: true,
             pause_key: "hangul".to_string(),
             autocomplete: true,
+            japanese: false,
+            live_conversion: false,
+            full_width_digits: false,
+            full_width_space: false,
         }
     }
 }
@@ -180,6 +201,22 @@ impl Settings {
                 .get("autocomplete")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.autocomplete),
+            japanese: value
+                .get("japanese")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(defaults.japanese),
+            live_conversion: value
+                .get("liveConversion")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(defaults.live_conversion),
+            full_width_digits: value
+                .get("fullWidthDigits")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(defaults.full_width_digits),
+            full_width_space: value
+                .get("fullWidthSpace")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(defaults.full_width_space),
         }
     }
 
@@ -202,6 +239,10 @@ impl Settings {
         );
         object.insert("pauseKey".into(), self.pause_key.clone().into());
         object.insert("autocomplete".into(), self.autocomplete.into());
+        object.insert("japanese".into(), self.japanese.into());
+        object.insert("liveConversion".into(), self.live_conversion.into());
+        object.insert("fullWidthDigits".into(), self.full_width_digits.into());
+        object.insert("fullWidthSpace".into(), self.full_width_space.into());
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }

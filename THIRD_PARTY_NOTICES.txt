@@ -25,3 +25,7 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
 
 5. Letter-trigram training list (web2.txt)
    Webster's Second International Dictionary word list (/usr/share/dict/web2), public domain.
+
+6. Kana trigram model (kana_trigrams.txt, the Japanese detector)
+   Derived from Tatoeba sentences, CC BY 2.0 FR. https://tatoeba.org
+   License: https://creativecommons.org/licenses/by/2.0/fr/

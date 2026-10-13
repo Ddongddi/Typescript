@@ -8,6 +8,9 @@ pub(super) struct WordState {
     pub keys: String,
     /// The reading chosen with Esc.
     pub forced: Option<Language>,
+    /// Whether `forced` is the user's choice (Esc) rather than "back to kana" after converting
+    /// a phrase the engine read as Japanese anyway: only the user's choices are corrections.
+    pub forced_by_user: bool,
     /// The language shown when Delete was pressed, held until the next letter.
     pub pinned: Option<Language>,
     /// The reading currently on screen.

@@ -150,13 +150,14 @@ impl History {
 /// What Tab completes `prefix` (as shown in `language`) to: the user's own words first, then
 /// the built-in lists. Mixed words (github에) have no completion.
 pub fn suggest(history: Option<&History>, language: Language, prefix: &str) -> Option<String> {
-    if prefix.is_empty() || language == Language::Mixed {
+    if prefix.is_empty() || matches!(language, Language::Mixed | Language::Japanese) {
         return None;
     }
     history
         .and_then(|h| h.suggest(prefix))
         .or_else(|| match language {
             Language::English => EnglishModel::shared().complete(prefix),
+            Language::Japanese => None,
             _ => KoreanModel::default().complete(prefix),
         })
 }
