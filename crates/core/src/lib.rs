@@ -20,6 +20,7 @@ pub use decide::segmenter::{JapaneseSegmenter, Segment};
 pub use lang::english::EnglishModel;
 pub use lang::japanese::JapaneseModel;
 pub use lang::romaji::RomajiComposer;
+pub use lang::set::Languages;
 pub use session::{Conversion, InputSession, Key, Range, TextClient};
 pub use store::history::History;
 pub use store::policy::{AppPolicies, AppPolicy, Settings};

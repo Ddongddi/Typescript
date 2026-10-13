@@ -31,6 +31,26 @@ impl Language {
         }
     }
 
+    /// The short id used in settings.json and pack names.
+    pub fn id(self) -> &'static str {
+        match self {
+            Language::English => "en",
+            Language::Korean => "ko",
+            Language::Mixed => "mixed",
+            Language::Japanese => "ja",
+        }
+    }
+
+    /// A language the user can turn on (not `Mixed`, which comes from English + Korean).
+    pub fn from_id(id: &str) -> Option<Language> {
+        match id {
+            "en" => Some(Language::English),
+            "ko" => Some(Language::Korean),
+            "ja" => Some(Language::Japanese),
+            _ => None,
+        }
+    }
+
     pub fn parse(s: &str) -> Option<Language> {
         match s {
             "english" => Some(Language::English),

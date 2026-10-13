@@ -127,7 +127,10 @@ impl Inner {
         if slot.is_none() {
             let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
             let settings = self.settings.borrow();
-            let japanese = settings.japanese && typescript_core::JAPANESE;
+            let japanese = settings
+                .languages
+                .contains(typescript_core::Language::Japanese)
+                && typescript_core::JAPANESE;
             let mut session =
                 InputSession::new(engine(japanese), policies, settings.return_confirms_only);
             if japanese {

@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::decide::engine::Language;
+use crate::lang::set::Languages;
 use crate::support_dir;
 
 /// How eagerly Typescript converts in a given app.
@@ -150,8 +152,9 @@ pub struct Settings {
     pub pause_key: String,
     /// Tab completes the word being typed, and the words typed are counted for that.
     pub autocomplete: bool,
-    /// Detect romaji Japanese and convert it (kana preview, Space for kanji).
-    pub japanese: bool,
+    /// The languages turned on, in Esc order (`"languages": ["en", "ko"]`). Files from before
+    /// language packs have only `"japanese"`: that gives English + Korean (+ Japanese).
+    pub languages: Languages,
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like macOS
     /// Live Conversion. Space opens the other candidates, Esc shows the kana.
     pub live_conversion: bool,
@@ -168,7 +171,7 @@ impl Default for Settings {
             return_confirms_only: true,
             pause_key: "hangul".to_string(),
             autocomplete: true,
-            japanese: crate::JAPANESE,
+            languages: Languages::legacy(crate::JAPANESE),
             live_conversion: false,
             full_width_digits: false,
             full_width_space: false,
@@ -201,10 +204,21 @@ impl Settings {
                 .get("autocomplete")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.autocomplete),
-            japanese: value
-                .get("japanese")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(defaults.japanese),
+            languages: value
+                .get("languages")
+                .and_then(|v| v.as_array())
+                .and_then(|list| {
+                    let ids: Vec<&str> = list.iter().filter_map(|v| v.as_str()).collect();
+                    Languages::from_ids(&ids)
+                })
+                .unwrap_or_else(|| {
+                    Languages::legacy(
+                        value
+                            .get("japanese")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(crate::JAPANESE),
+                    )
+                }),
             live_conversion: value
                 .get("liveConversion")
                 .and_then(|v| v.as_bool())
@@ -239,7 +253,12 @@ impl Settings {
         );
         object.insert("pauseKey".into(), self.pause_key.clone().into());
         object.insert("autocomplete".into(), self.autocomplete.into());
-        object.insert("japanese".into(), self.japanese.into());
+        object.insert("languages".into(), self.languages.ids().into());
+        // Read by the versions before language packs.
+        object.insert(
+            "japanese".into(),
+            self.languages.contains(Language::Japanese).into(),
+        );
         object.insert("liveConversion".into(), self.live_conversion.into());
         object.insert("fullWidthDigits".into(), self.full_width_digits.into());
         object.insert("fullWidthSpace".into(), self.full_width_space.into());
@@ -347,5 +366,60 @@ mod tests {
         let _ = fs::remove_file(&path);
         assert!(text.contains("\"future\""), "{text}");
         assert!(text.contains("\"off\""), "{text}");
+    }
+
+    fn load_json(name: &str, json: &str) -> Settings {
+        let path = temp(name);
+        std::fs::write(&path, json).unwrap();
+        let s = Settings::load(Some(&path));
+        let _ = std::fs::remove_file(&path);
+        s
+    }
+
+    #[test]
+    fn languages_come_from_the_list_in_order() {
+        let s = load_json("langs-list", r#"{ "languages": ["ko", "ja"] }"#);
+        assert_eq!(s.languages.ids(), vec!["ko", "ja"]);
+    }
+
+    #[test]
+    fn languages_fall_back_to_the_japanese_key() {
+        let s = load_json("langs-legacy-ja", r#"{ "japanese": true }"#);
+        assert_eq!(s.languages.ids(), vec!["en", "ko", "ja"]);
+        let s = load_json("langs-legacy", r#"{ "japanese": false }"#);
+        assert_eq!(s.languages.ids(), vec!["en", "ko"]);
+    }
+
+    #[test]
+    fn broken_languages_fall_back_too() {
+        for json in [
+            r#"{ "japanese": false, "languages": [] }"#,
+            r#"{ "japanese": false, "languages": ["xx"] }"#,
+            r#"{ "japanese": false, "languages": ["mixed"] }"#,
+            r#"{ "japanese": false, "languages": "ko" }"#,
+            r#"{ "japanese": false, "languages": [1, 2] }"#,
+        ] {
+            let s = load_json("langs-broken", json);
+            assert_eq!(s.languages.ids(), vec!["en", "ko"], "{json}");
+        }
+    }
+
+    #[test]
+    fn save_writes_languages_and_the_old_japanese_key() {
+        let path = temp("langs-save");
+        let _ = std::fs::remove_file(&path);
+        let s = Settings {
+            languages: Languages::from_ids(&["ja", "en"]).unwrap(),
+            ..Settings::default()
+        };
+        s.save(&path).unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(v["languages"], serde_json::json!(["ja", "en"]));
+        assert_eq!(v["japanese"], serde_json::json!(true));
+        assert_eq!(
+            Settings::load(Some(&path)).languages.ids(),
+            vec!["ja", "en"]
+        );
+        let _ = std::fs::remove_file(&path);
     }
 }

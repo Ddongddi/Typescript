@@ -6,5 +6,6 @@ pub mod japanese;
 pub mod korean;
 pub mod particles;
 pub mod romaji;
+pub mod set;
 pub(crate) mod sorted;
 mod syllables;
