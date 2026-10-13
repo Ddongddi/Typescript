@@ -33,7 +33,7 @@ $dll86 = Join-Path $dest 'typescript_tip_x86.dll'
 $regsvr64 = Join-Path $env:SystemRoot 'System32\regsvr32.exe'
 $regsvr86 = Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
 $log = Join-Path $env:TEMP 'typescript-install.log'
-# The picker entries (CLSID + profile GUID, see crates/tip/src/guids.rs): with and without Tab completion.
+# The picker entries (CLSID + profile GUID, see platforms/windows/src/guids.rs): with and without Tab completion.
 # Registered under English (US), not Korean: see LANGID_TYPESCRIPT in guids.rs for why.
 $profiles = @(
     '{E231DAD4-326F-436F-B74C-D08F1D66D822}{D7B9871C-E74A-4B4F-9791-CBD1E9E074FE}',
