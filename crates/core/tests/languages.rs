@@ -99,3 +99,51 @@ mod japanese {
         assert_eq!(decide(&["en", "ja"], "githubdp").0, Language::English);
     }
 }
+
+mod session {
+    use typescript_core::session::testing::FakeTextField;
+    use typescript_core::{make_engine, AppPolicies, InputSession, Key, Languages, TextClient};
+
+    fn typed(ids: &[&str], script: &str) -> String {
+        let engine = make_engine(None, &Languages::from_ids(ids).unwrap());
+        let mut session = InputSession::new(engine, AppPolicies::default(), true);
+        let mut field = FakeTextField::new();
+        for ch in script.chars() {
+            let key = match ch {
+                '⎋' => Key::Escape,
+                c if c.is_ascii_alphabetic() => Key::Letter(c),
+                c => Key::Printable(c),
+            };
+            if !session.handle(key, &mut field) {
+                if let Key::Printable(c) = key {
+                    field.insert_text(&c.to_string(), None);
+                }
+            }
+        }
+        session.commit(&mut field);
+        field.text()
+    }
+
+    #[test]
+    fn korean_only_session() {
+        assert_eq!(typed(&["ko"], "dkssud hello "), "안녕 ㅗ디ㅣㅐ ");
+    }
+
+    #[test]
+    fn esc_does_nothing_with_one_language() {
+        assert_eq!(typed(&["ko"], "dkssud⎋ "), "안녕 ");
+    }
+
+    #[test]
+    fn esc_cycles_in_the_users_order() {
+        // ko first: the engine shows 안녕, Esc goes to the next language in the list (English).
+        assert_eq!(typed(&["ko", "en"], "dkssud⎋ "), "dkssud ");
+    }
+
+    #[cfg(feature = "japanese")]
+    #[test]
+    fn japanese_on_without_a_converter_does_not_panic() {
+        // Space opens the conversion (the built-in kana converter offers the kana itself).
+        assert_eq!(typed(&["en", "ko", "ja"], "kyou "), "きょう");
+    }
+}

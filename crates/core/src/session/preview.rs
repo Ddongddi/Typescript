@@ -184,7 +184,7 @@ impl InputSession {
             }
             Language::Mixed => true,
             Language::Japanese => {
-                if !self.japanese_enabled || decision.confidence < 0.9 || char_count(keys) < 4 {
+                if !self.japanese_enabled() || decision.confidence < 0.9 || char_count(keys) < 4 {
                     return false;
                 }
                 let romaji = RomajiComposer::compose(keys, true);
@@ -208,7 +208,7 @@ impl InputSession {
                 let text = self.engine.render(&self.word.keys, Language::Mixed);
                 (text != self.word.keys).then_some(text)
             }
-            Language::Japanese => self.japanese_enabled.then(|| self.japanese_reading(true)),
+            Language::Japanese => self.japanese_enabled().then(|| self.japanese_reading(true)),
         }
     }
 }

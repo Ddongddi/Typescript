@@ -44,7 +44,7 @@ impl InputSession {
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width
     /// (`Settings.full_width_digits`), as addresses in Japan often need.
     pub(super) fn digits_full_width(&self) -> bool {
-        self.japanese_enabled && self.full_width_digits && self.policy.full_width
+        self.japanese_enabled() && self.full_width_digits && self.policy.full_width
     }
 
     /// A symbol typed as its own Japanese word, shown full-width (or as the 「」・ a Japanese IME types).
@@ -686,7 +686,7 @@ impl InputSession {
     /// part is a particle or two ordinary syllables, the Japanese goes in (kanji with live
     /// conversion) and the rest carries on as Korean, so 를요, 에서 or 도시락은 can follow.
     pub(super) fn split_off_japanese_before_korean(&mut self, client: &mut dyn TextClient) {
-        if !self.japanese_enabled || char_count(&self.word.keys) < 5 {
+        if !self.japanese_enabled() || char_count(&self.word.keys) < 5 {
             return;
         }
         if !HangulComposer::compose(&self.word.keys).is_none_or(|c| c.is_broken()) {

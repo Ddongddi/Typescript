@@ -10,7 +10,9 @@ use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
-use typescript_core::{AppPolicies, InputSession, Key, LearningEngine, Settings};
+use typescript_core::{
+    AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
+};
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
@@ -127,16 +129,17 @@ impl Inner {
         if slot.is_none() {
             let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
             let settings = self.settings.borrow();
-            let japanese = settings
-                .languages
-                .contains(typescript_core::Language::Japanese)
-                && typescript_core::JAPANESE;
-            let mut session = InputSession::new(
-                engine(&settings.languages),
-                policies,
-                settings.return_confirms_only,
-            );
-            if japanese {
+            // An edition without the Japanese models can't read it, whatever the settings say.
+            let wanted = &settings.languages;
+            let languages = Languages::new(
+                wanted
+                    .iter()
+                    .filter(|l| typescript_core::JAPANESE || *l != Language::Japanese),
+            )
+            .unwrap_or_else(|| Languages::legacy(false));
+            let mut session =
+                InputSession::new(engine(&languages), policies, settings.return_confirms_only);
+            if languages.contains(Language::Japanese) {
                 session = session.with_japanese(converter(), settings.live_conversion);
             }
             session.set_full_width_digits(settings.full_width_digits);

@@ -48,7 +48,7 @@ use word::WordState;
 
 use std::sync::Arc;
 
-use crate::decide::convert::JapaneseConverter;
+use crate::decide::convert::{JapaneseConverter, KanaConverter};
 use crate::decide::engine::{DecisionEngine, Language};
 use crate::decide::learning::LearningEngine;
 use crate::decide::segmenter::JapaneseSegmenter;
@@ -79,8 +79,8 @@ pub struct InputSession {
     previous_language: Option<Language>,
     last_commit: Option<Committed>,
     paused: bool,
-    /// Detect romaji Japanese and convert it (kana preview, Space for kanji).
-    japanese_enabled: bool,
+    /// The languages that are on, in Esc order (the engine's).
+    languages: Languages,
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like
     /// macOS Live Conversion.
     live_conversion: bool,
@@ -128,6 +128,8 @@ impl InputSession {
         policies: AppPolicies,
         return_confirms_only: bool,
     ) -> Self {
+        let languages = engine.languages().clone();
+        let japanese = languages.contains(Language::Japanese);
         Self {
             engine,
             policies,
@@ -139,10 +141,11 @@ impl InputSession {
             previous_language: None,
             last_commit: None,
             paused: false,
-            japanese_enabled: false,
+            languages,
             live_conversion: false,
-            converter: None,
-            segmenter: None,
+            converter: japanese.then(|| Arc::new(KanaConverter) as Arc<dyn JapaneseConverter>),
+            segmenter: japanese
+                .then(|| JapaneseSegmenter::new(EnglishModel::shared(), JapaneseModel::shared())),
             conversion: None,
             live_suppressed: false,
             live_cache: None,
@@ -163,21 +166,21 @@ impl InputSession {
         self
     }
 
-    /// Turns on Japanese: romaji is detected and converted, Esc cycles to it, and `converter`
-    /// drives Space (candidates) — with `live_conversion`, the top candidate while typing.
+    /// The kana→kanji engine for Space and, with `live_conversion`, the top candidate while
+    /// typing. Japanese itself is on when the engine's languages include it.
     pub fn with_japanese(
         mut self,
         converter: Arc<dyn JapaneseConverter>,
         live_conversion: bool,
     ) -> Self {
-        self.japanese_enabled = true;
         self.converter = Some(converter);
         self.live_conversion = live_conversion;
-        self.segmenter = Some(JapaneseSegmenter::new(
-            EnglishModel::shared(),
-            JapaneseModel::shared(),
-        ));
         self
+    }
+
+    /// Romaji is detected and converted (Japanese is among the languages).
+    fn japanese_enabled(&self) -> bool {
+        self.languages.contains(Language::Japanese)
     }
 
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width.
@@ -246,7 +249,7 @@ impl InputSession {
     pub fn claims_key(&self, key: Key) -> bool {
         if !self.policy.enabled
             || self.paused
-            || !self.japanese_enabled
+            || !self.japanese_enabled()
             || !self.word.keys.is_empty()
             || self.conversion.is_some()
         {
@@ -284,7 +287,7 @@ impl InputSession {
             // With nothing being typed, the other width: full-width unless Space already types that.
             let eligible = self.word.keys.is_empty()
                 && self.conversion.is_none()
-                && self.japanese_enabled
+                && self.japanese_enabled()
                 && self.policy.full_width;
             if !eligible {
                 return self.handle(Key::Printable(' '), client);
@@ -392,8 +395,7 @@ impl InputSession {
             Some(l) => l,
             None => self.decide(true).language,
         };
-        self.word.forced =
-            Some(shown.next(&self.word.keys, &Languages::legacy(self.japanese_enabled)));
+        self.word.forced = Some(shown.next(&self.word.keys, &self.languages));
         self.word.forced_by_user = true;
         self.word.pinned = None;
         if self.word.forced != Some(Language::Japanese) {
@@ -411,7 +413,7 @@ impl InputSession {
             self.after_digit = ch.is_numeric();
             return handled;
         }
-        if self.japanese_enabled && self.belongs_to_japanese_phrase(ch) {
+        if self.japanese_enabled() && self.belongs_to_japanese_phrase(ch) {
             self.word.keys.push(ch);
             // Digits don't read as anything: the phrase stays Japanese, as it was shown.
             if ch.is_numeric() && self.word.forced.is_none() {
@@ -462,7 +464,10 @@ impl InputSession {
     /// word confirms it, as in a Japanese IME; Space shows its other forms.
     fn on_printable_empty(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
         if self.previous_language == Some(Language::Japanese) {
-            if ch == ' ' && self.full_width_space && self.japanese_enabled && self.policy.full_width
+            if ch == ' '
+                && self.full_width_space
+                && self.japanese_enabled()
+                && self.policy.full_width
             {
                 client.insert_text("　", None);
                 return true;
@@ -514,7 +519,7 @@ impl InputSession {
     /// phrase; otherwise the keys stay the app's shortcuts.
     fn on_kana_form(&mut self, katakana: bool, client: &mut dyn TextClient) -> bool {
         if self.word.keys.is_empty()
-            || !self.japanese_enabled
+            || !self.japanese_enabled()
             || !(self.word.forced == Some(Language::Japanese)
                 || self.word.preview_language == Some(Language::Japanese))
         {

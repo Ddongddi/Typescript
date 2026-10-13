@@ -69,7 +69,7 @@ impl LearningEngine {
                 store,
                 last_learned: None,
             }),
-            languages: Languages::legacy(true),
+            languages: Languages::legacy(false),
         }
     }
 
