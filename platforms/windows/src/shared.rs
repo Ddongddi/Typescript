@@ -3,7 +3,9 @@
 
 use std::sync::{Arc, OnceLock};
 
-use typescript_core::{make_engine, History, JapaneseConverter, KanaConverter, LearningEngine};
+use typescript_core::{
+    make_engine, DictionaryConverter, History, JapaneseConverter, LearningEngine,
+};
 
 static ENGINE: OnceLock<Arc<LearningEngine>> = OnceLock::new();
 static ENGINE_JA: OnceLock<Arc<LearningEngine>> = OnceLock::new();
@@ -36,12 +38,15 @@ pub fn reload_engines() {
 
 static CONVERTER: OnceLock<Arc<dyn JapaneseConverter>> = OnceLock::new();
 
-/// The kana→kanji engine for this process. The macOS engines (libmecabra, AzooKey) have no
-/// Windows counterpart yet, so this is `KanaConverter`: the reading in hiragana and katakana.
-/// See `typescript_core::decide::convert`.
+/// The kana→kanji engine for this process: the compact IPADIC dictionary (decide/kanji.rs),
+/// with the user's choices learned into `%APPDATA%\Typescript\kanji_learning.json`.
 pub fn converter() -> Arc<dyn JapaneseConverter> {
     CONVERTER
-        .get_or_init(|| Arc::new(KanaConverter::new()))
+        .get_or_init(|| {
+            Arc::new(DictionaryConverter::new(
+                DictionaryConverter::default_learning_path(),
+            ))
+        })
         .clone()
 }
 

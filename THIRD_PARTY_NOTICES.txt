@@ -29,3 +29,14 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
 6. Kana trigram model (kana_trigrams.txt, the Japanese detector)
    Derived from Tatoeba sentences, CC BY 2.0 FR. https://tatoeba.org
    License: https://creativecommons.org/licenses/by/2.0/fr/
+
+7. Japanese dictionary (crates/core/data/ipadic_compact.bin, made from mecab-ipadic)
+   Copyright 2000, 2001, 2002, 2003 Nara Institute of Science and Technology.
+   All Rights Reserved. Use, reproduction, and distribution of this data is permitted;
+   any copy, in its original form or modified, must include this notice.
+   https://github.com/taku910/mecab
+
+8. Word-frequency adjustments to the costs inside ipadic_compact.bin
+   Made with wordfreq 3.1.1 (code Apache-2.0, https://github.com/rspeer/wordfreq);
+   wordfreq's combined data is provided under CC BY-SA 4.0.
+   https://creativecommons.org/licenses/by-sa/4.0/
