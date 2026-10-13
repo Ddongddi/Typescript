@@ -2,3 +2,4 @@ target/
 *.stackdump
 dist/
 platforms/android/build/
+target-*/
