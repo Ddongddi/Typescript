@@ -15,7 +15,8 @@
   --sans: "Inter Tight", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
   --serif: "Instrument Serif", "Times New Roman", serif;
 }
-*, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; scrollbar-width: none; }
+::-webkit-scrollbar { display: none; }
 html { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
 body { margin: 0; min-height: 100vh; background: radial-gradient(60% 40% at 85% 0, #f4a26114, transparent 70%); }
 main { max-width: 860px; margin: 0 auto; padding: 56px 20px 110px; }
@@ -116,7 +117,33 @@ textarea { width: 100%; font: 17px/1.5 var(--mono); resize: vertical; min-height
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px 16px; }
 .field { display: grid; gap: 4px; font-size: 12px; color: var(--mute); }
 .field select { width: 100%; color: var(--fg); font-size: 14px; }
+.dd { position: relative; display: inline-block; min-width: 150px; }
+.field .dd { display: block; }
+.dd-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 14px var(--sans); color: var(--fg); text-align: left; background: #080b0a; border: 1px solid #ffffff26; border-radius: 4px; padding: 9px 12px; min-height: 40px; cursor: pointer; transition: border-color .15s, background .15s; }
+.dd-btn:hover:not(:disabled) { border-color: #ffffff55; background: #0b100f; }
+.dd-btn[aria-expanded=true] { border-color: var(--acc); }
+.dd-caret { width: 7px; height: 7px; flex: none; border: solid var(--mute); border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform .18s; }
+.dd-btn[aria-expanded=true] .dd-caret { transform: translateY(2px) rotate(225deg); border-color: var(--acc); }
+.dd-menu { position: absolute; z-index: 30; left: 0; min-width: 100%; top: calc(100% + 6px); margin: 0; padding: 4px; list-style: none; max-height: 268px; overflow: auto; background: #0e1514; border: 1px solid #ffffff2e; border-radius: 6px; box-shadow: 0 16px 40px #000c; animation: pop .14s ease both; }
+.dd-menu.right { left: auto; right: 0; }
+.dd-menu.up { top: auto; bottom: calc(100% + 6px); }
+@keyframes pop { from { opacity: 0; transform: translateY(-4px); } }
+.dd-menu[hidden] { display: none; }
+.dd-opt { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 9px 10px; border-radius: 4px; font-size: 14px; white-space: nowrap; cursor: pointer; }
+.dd-opt.active { background: #ffffff14; }
+.dd-opt[aria-selected=true] { color: var(--acc); }
+.dd-opt[aria-selected=true]::after { content: ""; width: 5px; height: 9px; flex: none; border: solid var(--acc); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
 .add { margin-top: 22px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.bar input { flex: 1 1 220px; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; font: 12px var(--mono); color: var(--mute); }
+.procs { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.proc { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 8px 8px 8px 14px; transition: border-color .2s; }
+.proc:hover { border-color: #ffffff33; }
+.proc code { font: 13px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc .dd { min-width: 128px; flex: none; }
+.proc .dd-btn { min-height: 34px; padding: 5px 10px; font-size: 13px; }
+#p-apps.dropping { outline: 2px dashed var(--acc); outline-offset: 10px; }
 .add .pair { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .add input { flex: 1 1 240px; }
 .skeleton { height: 76px; border: 1px solid var(--line); background: linear-gradient(100deg, var(--panel) 30%, #121a18 50%, var(--panel) 70%) 0 0 / 200% 100%; margin-bottom: -1px; animation: shine 1.4s linear infinite; }
@@ -139,6 +166,66 @@ pre.note { font: 12px/1.7 var(--mono); }
   .switch input:checked + i::after { background: Highlight; }
   [role=tab][aria-selected=true] { border-bottom-color: Highlight; }
 }
+/* minimal, seamless: no boxes, only hairlines */
+body { background: radial-gradient(50% 30% at 85% 0, #f4a2610d, transparent 70%); }
+.card, .row, .app, .proc, .flow, .banner, .skeleton { background: transparent; border: 0; border-radius: 0; }
+.card { padding: 0; } .card.pad { padding: 6px 0; }
+.row { border-top: 1px solid var(--line); margin: 0; padding: 20px 4px; }
+.row:last-of-type { border-bottom: 1px solid var(--line); }
+.row:hover { background: #ffffff05; border-color: var(--line); }
+.row[aria-busy=true] { border-color: var(--line); background: #f4a2610a; }
+.apps { gap: 0; }
+.app { border-top: 1px solid var(--line); padding: 22px 0; }
+.procs { gap: 0 28px; }
+.proc { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.proc:hover { border-color: var(--line); }
+.flow { padding: 0 0 22px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.flow .chipl { border-color: #ffffff1a; }
+.banner { border-left: 2px solid var(--acc); padding: 4px 0 4px 14px; }
+.banner.bad { border-left-color: var(--bad); }
+.emptybox { border: 0; padding: 18px 0; text-align: left; }
+.skeleton { border-top: 1px solid var(--line); }
+.setting { padding: 20px 0; }
+button.btn { background: transparent; border-color: #ffffff1c; }
+button.btn:hover:not(:disabled) { background: #ffffff0d; transform: none; }
+button.btn.primary { background: #fff; border-color: #fff; }
+button.btn.primary:hover:not(:disabled) { background: #dfe5e1; }
+select, input[type=text], textarea, .dd-btn { background: transparent; border-color: #ffffff1c; }
+.dd-btn:hover:not(:disabled) { background: #ffffff08; }
+.sum span { background: none; border: 1px solid #ffffff1a; }
+[role=tablist] { margin-bottom: 34px; }
+@media (max-width: 600px) { .row { padding: 16px 0; } }
+/* 체험 */
+.try .cap { display: block; font: 12px var(--mono); color: var(--mute); margin-bottom: 6px; }
+.try-in { display: block; width: 100%; font: 400 clamp(22px, 3.6vw, 32px)/1.4 var(--mono); color: var(--fg); background: transparent; border: 0; border-bottom: 1px solid #ffffff24; border-radius: 0; padding: 6px 0 14px; min-height: 0; resize: none; caret-color: var(--acc); transition: border-color .2s; }
+.try-in:hover { border-color: #ffffff24; }
+.try-in:focus { outline: none; border-bottom: 1px solid var(--acc); box-shadow: 0 1px 0 var(--acc); }
+.try-in::placeholder { color: #2c3633; }
+.try-samples { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; margin-top: 14px; font: 12px var(--mono); color: var(--mute); }
+.linkbtn { appearance: none; background: none; border: 0; padding: 4px 0; font: 12px var(--mono); color: #b4beb8; cursor: pointer; border-bottom: 1px solid #ffffff22; transition: color .15s, border-color .15s; }
+.linkbtn:hover { color: var(--acc); border-color: var(--acc); }
+.try-rule { display: flex; align-items: center; gap: 14px; margin: 44px 0 26px; font: 12px var(--mono); color: var(--mute); }
+.try-rule::before, .try-rule::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.units { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 22px 28px; min-height: 96px; }
+.unit { display: grid; gap: 6px; justify-items: start; animation: rise .22s ease both; }
+.u-out { font: 400 clamp(30px, 5vw, 44px)/1.1 var(--serif); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.u-meta { font: 11px var(--mono); color: var(--mute); white-space: pre; }
+.u-bar { display: block; width: 100%; min-width: 36px; height: 2px; background: #ffffff12; border-radius: 2px; overflow: hidden; }
+.u-bar i { display: block; height: 100%; background: var(--mute); }
+.unit.l-ko .u-bar i, .unit.l-ko .u-meta { color: var(--acc); background-color: var(--acc); }
+.unit.l-ja .u-bar i { background: var(--info); } .unit.l-ja .u-meta { color: var(--info); }
+.unit.l-en .u-bar i { background: #ffffff55; }
+.unit.l-ko .u-meta, .unit.l-ja .u-meta { background: none; }
+.unit.kept .u-out { opacity: .75; }
+.unit.kept .u-bar { background: none; border-top: 2px dotted #ffffff40; height: 0; }
+.unit.kept .u-bar i { display: none; }
+.sep { font: 400 clamp(30px, 5vw, 44px)/1.1 var(--serif); color: var(--mute); }
+.br { flex-basis: 100%; height: 0; }
+.idle { color: #3a4541; font: 15px var(--sans); }
+.try-foot { display: flex; align-items: center; gap: 12px; margin-top: 34px; }
+.try-foot .grow { flex: 1; }
+.try-foot .dd-btn { border-color: transparent; padding-left: 0; color: var(--mute); }
+.try-foot .dd { min-width: 0; }
 </style>
 </head>
 <body>
@@ -226,6 +313,60 @@ const GLYPH = { en: "A", ko: "가", ja: "あ" };
 const mb = (n) => (n / 1048576).toFixed(1) + " MB";
 const langName = (id) => (state && state.languages.find((l) => l.id === id) || {}).name || (id === "mixed" ? "혼합" : id);
 
+// A dropdown that looks like the rest of the page. `.value` is the chosen option's value;
+// `onchange(value)` runs only when another option is chosen. Keys: Up Down Home End, Enter/Space, Esc.
+let openDd = null, ddCount = 0;
+function closeDd(refocus) {
+  if (!openDd) return;
+  openDd.menu.hidden = true; openDd.btn.setAttribute("aria-expanded", "false"); openDd.btn.removeAttribute("aria-activedescendant");
+  if (refocus) openDd.btn.focus();
+  openDd = null;
+}
+document.addEventListener("pointerdown", (e) => { if (openDd && !openDd.root.contains(e.target)) closeDd(false); });
+function dd({ value, options, label, onchange, key, disabled, title }) {
+  const id = "dd" + ++ddCount;
+  let cur = Math.max(0, options.findIndex((o) => String(o[0]) === String(value))), active = cur;
+  const val = h("span", {}, options[cur][1]);
+  const btn = h("button", { type: "button", class: "dd-btn", "aria-haspopup": "listbox", "aria-expanded": "false", "aria-label": label + ": " + options[cur][1], "data-f": key, disabled, title }, val, h("i", { class: "dd-caret", "aria-hidden": "true" }));
+  const items = options.map((o, i) => h("li", { role: "option", id: id + "-" + i, class: "dd-opt", "aria-selected": i === cur,
+    onpointermove: () => mark(i), onclick: () => choose(i) }, o[1]));
+  const menu = h("ul", { class: "dd-menu", role: "listbox", "aria-label": label, hidden: true }, items);
+  const root = h("div", { class: "dd" }, btn, menu);
+  Object.defineProperty(root, "value", { get: () => options[cur][0] });
+  const self = { root, btn, menu };
+  function mark(i) {
+    active = Math.max(0, Math.min(options.length - 1, i));
+    items.forEach((el, k) => el.classList.toggle("active", k === active));
+    btn.setAttribute("aria-activedescendant", id + "-" + active);
+    items[active].scrollIntoView({ block: "nearest" });
+  }
+  function open() {
+    closeDd(false);
+    menu.hidden = false; menu.classList.remove("up", "right");
+    const r = btn.getBoundingClientRect();
+    if (r.left + menu.offsetWidth > document.querySelector("main").getBoundingClientRect().right) menu.classList.add("right");
+    if (r.bottom + menu.offsetHeight + 12 > innerHeight && r.top > menu.offsetHeight + 12) menu.classList.add("up");
+    btn.setAttribute("aria-expanded", "true"); openDd = self; mark(cur);
+  }
+  function choose(i) {
+    const changed = i !== cur;
+    if (changed) { cur = i; val.textContent = options[i][1]; items.forEach((el, k) => el.setAttribute("aria-selected", k === i)); btn.setAttribute("aria-label", label + ": " + options[i][1]); }
+    closeDd(true);
+    if (changed && onchange) onchange(options[i][0]);
+  }
+  btn.addEventListener("click", () => (openDd === self ? closeDd(false) : open()));
+  btn.addEventListener("keydown", (e) => {
+    const isOpen = openDd === self;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!isOpen) open(); else mark(active + (e.key === "ArrowDown" ? 1 : -1)); }
+    else if (e.key === "Home" && isOpen) { e.preventDefault(); mark(0); }
+    else if (e.key === "End" && isOpen) { e.preventDefault(); mark(options.length - 1); }
+    else if ((e.key === "Enter" || e.key === " ") && isOpen) { e.preventDefault(); choose(active); }
+    else if (e.key === "Escape" && isOpen) { e.preventDefault(); e.stopPropagation(); closeDd(true); }
+    else if (e.key === "Tab" && isOpen) closeDd(false);
+  });
+  return root;
+}
+
 function langRow(l, position) {
   const on = position != null, working = pending === "lang-" + l.id;
   const actions = [];
@@ -288,8 +429,7 @@ const SETTINGS = [
 function setting(key, title, desc, example) {
   const v = state.settings[key], changed = v !== state.defaults[key];
   const control = key === "pauseKey"
-    ? h("select", { "data-f": key, "aria-label": title, onchange: (e) => act("저장했습니다", "/api/settings", { pauseKey: e.target.value }, key) },
-        h("option", { value: "hangul", selected: v === "hangul" }, "한/영 키"), h("option", { value: "off", selected: v === "off" }, "사용 안 함"))
+    ? dd({ key, label: title, value: v, options: [["hangul", "한/영 키"], ["off", "사용 안 함"]], onchange: (val) => act("저장했습니다", "/api/settings", { pauseKey: val }, key) })
     : h("label", { class: "switch" },
         h("input", { type: "checkbox", "data-f": key, checked: v, "aria-label": title, onchange: (e) => act("저장했습니다", "/api/settings", { [key]: e.target.checked }, key) }), h("i"));
   const reset = changed ? h("button", { class: "btn quiet", "data-f": key + "-reset", disabled: busy, "aria-label": title + " 기본값으로", onclick: () => act("기본값으로 되돌렸습니다", "/api/settings", { [key]: state.defaults[key] }, key) }, "기본값으로") : null;
@@ -337,18 +477,20 @@ function appCard(exe, rule) {
     for (const k of Object.keys(r)) if (r[k] === undefined) delete r[k];
     next[exe] = r; saveApps(next, key);
   };
-  const sel = (key, label, hint) => h("label", { class: "field" }, label,
-    h("select", { "data-f": "app-" + exe + "-" + key, disabled: busy, title: hint || "", onchange: (e) => edit({ [key]: triVal(e.target.value) }, "app-" + exe + "-" + key) },
-      TRI.map(([v, t]) => h("option", { value: v, selected: tri(rule[key]) === v }, t))));
+  const sel = (key, label, hint) => h("div", { class: "field" }, h("span", {}, label),
+    dd({ key: "app-" + exe + "-" + key, label: exe + " " + label, disabled: busy, title: hint, value: tri(rule[key]), options: TRI,
+      onchange: (v) => edit({ [key]: triVal(v) }, "app-" + exe + "-" + key) }));
   const th = rule.conversionThreshold;
-  const thSel = h("label", { class: "field" }, "변환 기준",
-    h("select", { "data-f": "app-" + exe + "-th", disabled: busy, title: "높을수록 확실할 때만 바꿉니다", onchange: (e) => edit({ conversionThreshold: e.target.value === "" ? undefined : Number(e.target.value) }, "app-" + exe + "-th") },
-      h("option", { value: "", selected: th === undefined }, "기본 0.5"), h("option", { value: "0.97", selected: th === 0.97 }, "엄격 0.97"),
-      th !== undefined && th !== 0.97 ? h("option", { value: String(th), selected: true }, "직접 " + th) : null));
+  const thOpts = [["", "기본 0.5"], ["0.97", "엄격 0.97"]];
+  if (th !== undefined && th !== 0.97) thOpts.push([String(th), "직접 " + th]);
+  const thSel = h("div", { class: "field" }, h("span", {}, "변환 기준"),
+    dd({ key: "app-" + exe + "-th", label: exe + " 변환 기준", disabled: busy, title: "높을수록 확실할 때만 바꿉니다", value: th === undefined ? "" : String(th), options: thOpts,
+      onchange: (v) => edit({ conversionThreshold: v === "" ? undefined : Number(v) }, "app-" + exe + "-th") }));
   const sum = summary(rule);
   const star = exe === "*";
-  const presetSel = h("select", { "aria-label": exe + " 프리셋 적용", disabled: busy, onchange: (e) => { const p = PRESETS[e.target.value]; e.target.value = ""; if (p) edit(p[1], "app-" + exe + "-th"); } },
-    h("option", { value: "" }, "프리셋 적용…"), PRESETS.map((p, i) => h("option", { value: i }, p[0])));
+  const presetSel = dd({ key: "app-" + exe + "-preset", label: exe + " 프리셋 적용", disabled: busy, value: "",
+    options: [["", "프리셋 적용…"], ...PRESETS.map((x, i) => [String(i), x[0]])],
+    onchange: (v) => { if (v !== "") edit(PRESETS[v][1], "app-" + exe + "-th"); } });
   return h("article", { class: "app", "aria-label": star ? "모든 앱" : exe },
     h("h3", {}, star ? "모든 앱 (*)" : exe, h("span", { class: "grow" }), presetSel,
       star ? null : h("button", { class: "btn danger", disabled: busy, "aria-label": exe + " 삭제", onclick: () => { const n = { ...state.apps }; delete n[exe]; saveApps(n); } }, "삭제")),
@@ -356,33 +498,84 @@ function appCard(exe, rule) {
     h("div", { class: "fields" }, sel("enabled", "사용"), thSel, sel("escapeToApp", "Esc는 앱에게"), sel("useSystemIme", "시스템 IME"), sel("fullWidth", "일본어 전각")));
 }
 
-let runningApps = null;
+let runningApps = null, loadingApps = false, appFilter = "", appPage = 0;
+const PAGE_SIZE = 12;
+const blankRule = "blank";
 async function loadRunning() {
-  if (runningApps) return;
-  try { runningApps = (await api("/api/processes")).apps; } catch (e) { runningApps = []; }
-  const list = $("running"); if (list) list.replaceChildren(...runningApps.filter((a) => !state.apps[a]).map((a) => h("option", { value: a })));
+  if (loadingApps) return;
+  loadingApps = true; if (state) renderApps();
+  try { runningApps = (await api("/api/processes")).apps; } catch (e) { runningApps = []; toast(e.message, true); }
+  loadingApps = false; if (state) renderApps();
+}
+
+function addApp(name, rule, quiet) {
+  const n = name.trim().toLowerCase();
+  if (!n) return;
+  if (!/^[^\\/:*?"<>|]+$/.test(n)) { toast("파일 이름만 적어 주세요 (경로 없이)", true); return; }
+  if (state.apps[n]) { if (!quiet) toast("이미 있는 앱입니다", true); return; }
+  saveApps({ ...state.apps, [n]: rule }, "app-" + n + "-th");
+}
+
+function procList() {
+  const box = h("div", {});
+  const q = appFilter.trim().toLowerCase();
+  const all = (runningApps || []).filter((a) => !state.apps[a] && a.includes(q));
+  const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  appPage = Math.min(appPage, pages - 1);
+  const rows = all.slice(appPage * PAGE_SIZE, (appPage + 1) * PAGE_SIZE);
+  const grid = h("div", { class: "procs" });
+  if (loadingApps && !runningApps) grid.replaceChildren(h("div", { class: "skeleton" }), h("div", { class: "skeleton" }));
+  else if (!all.length) grid.replaceChildren(h("div", { class: "emptybox", style: "grid-column:1/-1" }, h("b", {}, q ? "찾는 앱이 없습니다" : "규칙을 추가할 앱이 없습니다"), q ? "다른 이름으로 찾거나, 아래에서 파일 이름을 직접 적어 주세요." : "열려 있는 프로그램이 여기에 나옵니다."));
+  else grid.replaceChildren(...rows.map((a) => h("div", { class: "proc" }, h("code", { title: a }, a),
+    dd({ key: "proc-" + a, label: a + " 규칙 추가", disabled: busy, value: "",
+      options: [["", "규칙 추가…"], [blankRule, "기본 규칙으로"], ...PRESETS.map((x, i) => [String(i), x[0]])],
+      onchange: (v) => addApp(a, v === blankRule ? {} : { ...PRESETS[v][1] }) }))));
+  box.append(grid);
+  if (pages > 1) {
+    const go = (d) => { appPage += d; box.replaceWith(procList()); };
+    box.append(h("div", { class: "pager" },
+      h("button", { class: "btn quiet", disabled: appPage === 0, "aria-label": "이전 페이지", onclick: () => go(-1) }, "←"),
+      h("span", { role: "status" }, (appPage + 1) + " / " + pages + " · " + all.length + "개"),
+      h("button", { class: "btn quiet", disabled: appPage === pages - 1, "aria-label": "다음 페이지", onclick: () => go(1) }, "→")));
+  }
+  return box;
 }
 
 function renderApps() {
   const p = $("p-apps"); p.replaceChildren();
   p.append(h("p", { class: "note" }, "앱 실행 파일 이름(대소문자 무시)마다 규칙을 정합니다. ‘기본’은 ‘모든 앱’ 항목을 따릅니다. 터미널은 변환 기준을 엄격하게, 게임은 끄는 식으로 씁니다."));
-  const input = h("input", { type: "text", id: "newapp", list: "running", placeholder: "예: windowsterminal.exe", "aria-label": "앱 실행 파일 이름", autocomplete: "off", onfocus: loadRunning });
-  const preset = h("select", { "aria-label": "처음 적용할 프리셋" }, h("option", { value: "" }, "프리셋 없음"), PRESETS.map((x, i) => h("option", { value: i }, x[0])));
-  const add = () => {
-    const n = input.value.trim().toLowerCase();
-    if (!n) return;
-    if (!/^[^\\/:*?"<>|]+$/.test(n)) { toast("파일 이름만 적어 주세요 (경로 없이)", true); return; }
-    if (state.apps[n]) { toast("이미 있는 앱입니다", true); return; }
-    saveApps({ ...state.apps, [n]: preset.value === "" ? {} : { ...PRESETS[preset.value][1] } }, "app-" + n + "-th");
-  };
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
   const exes = ["*", ...Object.keys(state.apps).filter((k) => k !== "*").sort()];
   p.append(h("div", { class: "apps" }, exes.map((e) => appCard(e, state.apps[e] || {}))));
-  const list = h("datalist", { id: "running" }, (runningApps || []).filter((a) => !state.apps[a]).map((a) => h("option", { value: a })));
-  p.append(h("div", { class: "card pad add" }, h("b", {}, "앱 추가"),
-    h("div", { class: "note", style: "margin:4px 0 0" }, "칸을 누르면 지금 실행 중인 프로그램이 제안됩니다."),
-    h("div", { class: "pair" }, input, preset, h("button", { class: "btn primary", disabled: busy, onclick: add }, "추가")), list));
+
+  p.append(h("h2", {}, "실행 중인 앱"));
+  const list = h("div", {});
+  const filter = h("input", { type: "text", "data-f": "app-filter", placeholder: "앱 이름으로 찾기", "aria-label": "실행 중인 앱 찾기", autocomplete: "off", value: appFilter,
+    oninput: (e) => { appFilter = e.target.value; appPage = 0; list.replaceChildren(procList()); } });
+  p.append(h("div", { class: "bar" }, filter,
+    h("button", { class: "btn", disabled: loadingApps, onclick: loadRunning }, loadingApps ? "불러오는 중…" : "새로고침")), list);
+  list.append(procList());
+
+  p.append(h("h2", {}, "직접 추가"));
+  const input = h("input", { type: "text", placeholder: "예: windowsterminal.exe", "aria-label": "앱 실행 파일 이름", autocomplete: "off" });
+  const preset = dd({ label: "처음 적용할 프리셋", value: "", options: [["", "프리셋 없음"], ...PRESETS.map((x, i) => [String(i), x[0]])] });
+  const add = () => addApp(input.value, preset.value === "" ? {} : { ...PRESETS[preset.value][1] });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+  p.append(h("div", { class: "card pad" },
+    h("div", { class: "note", style: "margin:0 0 10px" }, "목록에 없으면 파일 이름을 적거나, .exe 파일을 이 화면으로 끌어다 놓으세요."),
+    h("div", { class: "pair", style: "display:flex;flex-wrap:wrap;gap:8px" }, input, preset, h("button", { class: "btn primary", disabled: busy, onclick: add }, "추가"))));
 }
+
+const appsPanel = () => $("p-apps");
+["dragenter", "dragover"].forEach((t) => document.addEventListener(t, (e) => { if (!appsPanel().hidden && e.dataTransfer && [...e.dataTransfer.types].includes("Files")) { e.preventDefault(); appsPanel().classList.add("dropping"); } }));
+document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) appsPanel().classList.remove("dropping"); });
+document.addEventListener("drop", (e) => {
+  appsPanel().classList.remove("dropping");
+  if (appsPanel().hidden || !state) return;
+  e.preventDefault();
+  const names = [...(e.dataTransfer ? e.dataTransfer.files : [])].map((f) => f.name).filter((n) => n.toLowerCase().endsWith(".exe"));
+  if (!names.length) { toast(".exe 파일을 끌어다 놓아 주세요", true); return; }
+  addApp(names[0], {});
+});
 
 function renderUpdate() {
   const p = $("p-upd"); p.replaceChildren();
@@ -424,37 +617,43 @@ function threshold() {
 
 function scheduleTry() { clearTimeout(tryState.timer); tryState.timer = setTimeout(runTry, 180); }
 
+let lastOut = "";
 async function runTry() {
-  const out = $("try-out"), list = $("try-words");
-  if (!out) return;
+  const units = $("try-units");
+  if (!units) return;
   const mine = ++tryState.seq;
-  if (!tryState.text.trim()) { out.replaceChildren(h("span", { class: "meta" }, "위에 영문 자판으로 쳐 보세요.")); list.replaceChildren(); return; }
+  if (!tryState.text.trim()) { lastOut = ""; units.replaceChildren(h("span", { class: "idle" }, "여기에 읽힌 결과가 나타납니다")); $("try-copy").disabled = true; return; }
   let r;
   try { r = await api("/api/try", { text: tryState.text, ...(threshold() !== undefined ? { threshold: threshold() } : {}) }); }
-  catch (e) { if (mine === tryState.seq) out.replaceChildren(h("span", { class: "meta", role: "alert" }, e.message)); return; }
+  catch (e) { if (mine === tryState.seq) units.replaceChildren(h("span", { class: "idle", role: "alert" }, e.message)); return; }
   if (mine !== tryState.seq) return; // a newer keystroke is already on its way
-  const words = r.segments.filter((s) => s.keys);
-  out.replaceChildren(...r.segments.map((s) => s.keys
-    ? h("span", { class: "w l-" + s.lang + (s.kept ? " kept" : ""), title: s.keys + (s.kept ? " — 확신이 부족해 그대로 둠" : "") }, s.out)
-    : document.createTextNode(s.text)));
-  list.replaceChildren(...words.map((s) => h("div", { class: "wr" },
-    h("span", { class: "k" }, s.keys),
-    h("span", {}, "→ " + s.out + (s.kept ? " (그대로 둠)" : "")),
-    h("span", { class: "conf" }, langName(s.lang) + " · " + Math.round(s.confidence * 100) + "%"))));
+  lastOut = r.segments.map((x) => (x.keys ? x.out : x.text)).join("");
+  $("try-copy").disabled = false;
+  units.replaceChildren(...r.segments.flatMap((x) => {
+    if (x.keys) {
+      return [h("div", { class: "unit l-" + x.lang + (x.kept ? " kept" : ""), title: x.kept ? "확신이 부족해 그대로 둠" : x.why },
+        h("span", { class: "u-out" }, x.out),
+        h("span", { class: "u-meta" }, x.keys + "  " + (GLYPH[x.lang] || x.lang) + " " + Math.round(x.confidence * 100)),
+        h("span", { class: "u-bar" }, h("i", { style: "width:" + Math.round(x.confidence * 100) + "%" })))];
+    }
+    if (x.text.includes(String.fromCharCode(10))) return [h("div", { class: "br" })];
+    return x.text.trim() ? [h("span", { class: "sep" }, x.text.trim())] : [];
+  }));
 }
 
 function buildTry() {
   const p = $("p-try");
-  const area = h("textarea", { id: "try-in", rows: 3, spellcheck: "false", autocomplete: "off", "aria-label": "영문 자판으로 친 글", placeholder: "예: dkssudgktpdy hello world",
+  const area = h("textarea", { id: "try-in", class: "try-in", rows: 2, spellcheck: "false", autocomplete: "off", "aria-label": "영문 자판으로 친 글", placeholder: "dkssudgktpdy hello world",
     oninput: (e) => { tryState.text = e.target.value; scheduleTry(); } });
-  const app = h("select", { id: "try-app", "aria-label": "적용할 앱 규칙", onchange: (e) => { tryState.app = e.target.value; scheduleTry(); } });
-  const chips = h("div", { class: "chips", id: "try-chips" });
-  p.append(h("p", { class: "note" }, "한/영 전환 없이 영문 자판 그대로 쳐 보세요. 입력기가 단어마다 어느 언어로 읽는지 그대로 보여 줍니다. 아무 곳에도 저장되지 않습니다."),
-    h("div", { class: "card pad" }, h("label", { for: "try-in", class: "field" }, "입력"), area, chips,
-      h("div", { class: "add", style: "margin-top:14px" }, h("label", { class: "field", style: "max-width:260px" }, "앱 규칙 적용", app))),
-    h("h2", {}, "결과"),
-    h("div", { class: "card pad" }, h("div", { class: "out", id: "try-out", "aria-live": "polite" }), h("div", { class: "legend", id: "try-legend" }), h("div", { class: "words", id: "try-words" })),
-    h("p", { class: "note", style: "margin-top:16px" }, "실제 입력에서는 앞 단어와 기록한 단어, Esc·Tab 같은 키도 영향을 줍니다. 여기서는 단어 읽기만 보여 줍니다."));
+  p.append(h("div", { class: "try" },
+    h("label", { class: "cap", for: "try-in" }, "영문 자판으로 그냥 치세요"), area,
+    h("div", { class: "try-samples", id: "try-chips" }),
+    h("div", { class: "try-rule", "aria-hidden": "true" }, h("span", {}, "읽힌 결과")),
+    h("div", { class: "units", id: "try-units", "aria-live": "polite" }),
+    h("div", { class: "try-foot" },
+      h("span", { id: "try-app" }), h("span", { class: "grow" }),
+      h("button", { class: "btn quiet", id: "try-copy", disabled: true, onclick: async () => { try { await navigator.clipboard.writeText(lastOut); toast("복사했습니다"); } catch (e) { toast("복사하지 못했습니다", true); } } }, "결과 복사")),
+    h("p", { class: "note", style: "margin-top:26px" }, "단어마다 읽은 언어와 확신도(%)를 보여 줍니다. 점선은 확신이 부족해 그대로 둔 단어입니다. 실제 입력에서는 앞 단어와 기록한 단어도 영향을 줍니다.")));
 }
 
 function updateTry() {
@@ -462,21 +661,39 @@ function updateTry() {
   if (!app) return;
   const names = ["*", ...Object.keys(state.apps).filter((k) => k !== "*").sort()];
   if (!names.includes(tryState.app)) tryState.app = "*";
-  app.replaceChildren(...names.map((n) => h("option", { value: n, selected: n === tryState.app }, n === "*" ? "모든 앱" : n)));
-  chips.replaceChildren(...SAMPLES.filter((s) => !s[2] || state.order.includes(s[2])).map((s) => h("button", { class: "btn chip", onclick: () => { $("try-in").value = s[0]; tryState.text = s[0]; runTry(); $("try-in").focus(); } }, s[0] + "  · " + s[1])));
-  const colors = { en: "영어", ko: "한국어", ja: "일본어" };
-  $("try-legend").replaceChildren(...state.order.map((id) => h("span", {}, h("i", { class: "w l-" + id }), colors[id] || id)), h("span", {}, "점선 = 확신이 부족해 그대로 둠"));
+  app.replaceChildren(dd({ label: "적용할 앱 규칙", value: tryState.app, options: names.map((n) => [n, n === "*" ? "모든 앱 기준" : n + " 기준"]), onchange: (v) => { tryState.app = v; scheduleTry(); } }));
+  chips.replaceChildren(h("span", {}, "예시"), ...SAMPLES.filter((x) => !x[2] || state.order.includes(x[2])).map((x) => h("button", { class: "linkbtn", onclick: () => { $("try-in").value = x[0]; tryState.text = x[0]; runTry(); $("try-in").focus(); } }, x[0])));
   const order = state.order.join();
   if (order !== tryState.order) { tryState.order = order; runTry(); }
 }
 
 function render(focusKey) {
   if (!state) return;
+  openDd = null;
   $("ver").textContent = "v" + state.version;
   const active = focusKey || (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f);
   renderLang(); renderSettings(); renderApps(); renderUpdate(); updateTry();
   if (active) { const el = document.querySelector('[data-f="' + CSS.escape(active) + '"]'); if (el && !el.disabled) el.focus({ preventScroll: true }); }
 }
+
+// On the 체험 tab, typing anywhere goes into the input (like a terminal).
+const tryActive = () => !$("p-try").hidden && !openDd;
+const editable = (el) => el && (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.isContentEditable);
+document.addEventListener("keydown", (e) => {
+  if (!tryActive() || e.ctrlKey || e.metaKey || e.altKey || editable(e.target)) return;
+  const typing = e.key.length === 1 || e.key === "Backspace";
+  // A focused button keeps Space and Enter; letters are free.
+  if (!typing || (e.target.tagName === "BUTTON" && e.key === " ")) return;
+  $("try-in").focus();
+});
+document.addEventListener("paste", (e) => {
+  if (!tryActive() || editable(e.target)) return;
+  const text = e.clipboardData && e.clipboardData.getData("text");
+  if (!text) return;
+  e.preventDefault();
+  const area = $("try-in"); area.focus(); area.setRangeText(text, area.selectionStart, area.selectionEnd, "end");
+  area.dispatchEvent(new Event("input"));
+});
 
 const tabs = ["t-lang", "t-try", "t-set", "t-apps", "t-upd"], panels = ["p-lang", "p-try", "p-set", "p-apps", "p-upd"];
 function select(i, focus) {
@@ -484,6 +701,7 @@ function select(i, focus) {
   if (focus) $(tabs[i]).focus();
   history.replaceState(null, "", "/#" + tabs[i].slice(2));
   if (i === 1 && state) runTry();
+  if (i === 3 && runningApps === null) loadRunning();
 }
 tabs.forEach((t, i) => {
   $(t).addEventListener("click", () => select(i, true));
@@ -503,7 +721,7 @@ setInterval(beat, 5000);
   buildTry();
   const start = tabs.indexOf("t-" + location.hash.slice(1));
   if (start > 0) select(start, false);
-  try { state = await api("/api/state"); render(); }
+  try { state = await api("/api/state"); render(); if (!$("p-apps").hidden) loadRunning(); }
   catch (e) { $("p-lang").replaceChildren(h("div", { class: "banner bad", role: "alert" }, e.message + " 터미널에서 typescript-config 를 다시 실행해 주세요.")); }
 })();
 </script>

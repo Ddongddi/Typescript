@@ -91,28 +91,72 @@ impl Updates {
 fn running_apps() -> Vec<String> {
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        const NO_WINDOW: u32 = 0x0800_0000;
-        let Ok(out) = std::process::Command::new("tasklist")
-            .args(["/fo", "csv", "/nh"])
-            .creation_flags(NO_WINDOW)
-            .output()
-        else {
-            return Vec::new();
-        };
-        let text = String::from_utf8_lossy(&out.stdout);
-        let mut names: Vec<String> = text
-            .lines()
-            .filter_map(|l| l.strip_prefix('"')?.split('"').next())
-            .map(str::to_lowercase)
-            .filter(|n| n.ends_with(".exe"))
-            .collect();
-        names.sort();
-        names.dedup();
-        names
+        // The programs that have a window first (what a person means by "my apps"); if that
+        // finds nothing (a service session, no PowerShell), every process.
+        let with_windows = windowed_apps();
+        if with_windows.is_empty() {
+            tasklist()
+        } else {
+            with_windows
+        }
     }
     #[cfg(not(windows))]
     Vec::new()
+}
+
+#[cfg(windows)]
+fn command_lines(mut command: std::process::Command) -> Vec<String> {
+    use std::os::windows::process::CommandExt;
+    const NO_WINDOW: u32 = 0x0800_0000;
+    let Ok(out) = command.creation_flags(NO_WINDOW).output() else {
+        return Vec::new();
+    };
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(str::to_string)
+        .collect()
+}
+
+#[cfg(windows)]
+fn exe_names(names: impl Iterator<Item = String>) -> Vec<String> {
+    let mut names: Vec<String> = names
+        .map(|n| n.trim().to_lowercase())
+        .map(|n| {
+            if n.ends_with(".exe") {
+                n
+            } else {
+                format!("{n}.exe")
+            }
+        })
+        .filter(|n| n.len() > 4)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+#[cfg(windows)]
+fn windowed_apps() -> Vec<String> {
+    let mut command = std::process::Command::new("powershell");
+    command.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-Process | Where-Object { $_.MainWindowTitle } | ForEach-Object { $_.ProcessName }",
+    ]);
+    exe_names(command_lines(command).into_iter())
+}
+
+#[cfg(windows)]
+fn tasklist() -> Vec<String> {
+    let mut command = std::process::Command::new("tasklist");
+    command.args(["/fo", "csv", "/nh"]);
+    let lines = command_lines(command);
+    exe_names(
+        lines
+            .iter()
+            .filter_map(|l| Some(l.strip_prefix('"')?.split('"').next()?.to_string())),
+    )
 }
 
 pub struct App {
