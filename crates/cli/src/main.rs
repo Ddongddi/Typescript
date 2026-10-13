@@ -15,7 +15,7 @@ use typescript_core::lang::hangul::HangulComposer;
 use typescript_core::store::history::suggest;
 use typescript_core::{
     make_engine, DecisionContext, DecisionEngine, DictionaryConverter, JapaneseConverter, Language,
-    TextConverter,
+    Languages, TextConverter,
 };
 
 fn lines() -> impl Iterator<Item = String> {
@@ -26,7 +26,7 @@ fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // No lexicon: evaluation must not depend on (or change) what this user has learned.
     let japanese = args.iter().any(|a| a == "--japanese");
-    let engine = make_engine(None, japanese);
+    let engine = make_engine(None, &Languages::legacy(japanese));
 
     match args.first().map(String::as_str) {
         Some("--compose") => {

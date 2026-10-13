@@ -96,6 +96,8 @@ pub struct SplittingEngine {
     /// English than this; stricter still when the Korean half isn't in the word lists.
     pub mixed_word_spelling_ceiling: f64,
     pub unknown_word_spelling_ceiling: f64,
+    /// English + Korean splits (github에, hello월드) only happen with Korean on.
+    pub korean_on: bool,
 }
 
 impl SplittingEngine {
@@ -112,6 +114,7 @@ impl SplittingEngine {
             english_spelling_floor: -2.6,
             mixed_word_spelling_ceiling: -2.7,
             unknown_word_spelling_ceiling: -3.2,
+            korean_on: true,
         }
     }
 
@@ -259,26 +262,29 @@ impl SplittingEngine {
 
 impl DecisionEngine for SplittingEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
-        if let Some(mixed) = MixedWord::split(keys) {
-            let front_ok = Self::is_acronym(&mixed.english)
-                || Self::is_capitalized_name(&mixed.english)
-                || (mixed.english.chars().count() >= 3 && self.looks_english(&mixed.english));
-            // A capital with no shifted jamo (the S of Slack) was typed as English on purpose,
-            // even if the letters would also spell Korean (slackdptj, 님차에서).
-            if front_ok
-                && !self.english.is_known_word(keys)
-                && (Self::has_english_only_capital(&mixed.english) || !self.reads_as_korean(keys))
-            {
+        if self.korean_on {
+            if let Some(mixed) = MixedWord::split(keys) {
+                let front_ok = Self::is_acronym(&mixed.english)
+                    || Self::is_capitalized_name(&mixed.english)
+                    || (mixed.english.chars().count() >= 3 && self.looks_english(&mixed.english));
+                // A capital with no shifted jamo (the S of Slack) was typed as English on purpose,
+                // even if the letters would also spell Korean (slackdptj, 님차에서).
+                if front_ok
+                    && !self.english.is_known_word(keys)
+                    && (Self::has_english_only_capital(&mixed.english)
+                        || !self.reads_as_korean(keys))
+                {
+                    return Self::split_decision(&mixed);
+                }
+            }
+            if let Some(mixed) = MixedWord::split_single_letter(keys) {
+                if !self.english.is_known_word(keys) && !self.reads_as_korean(keys) {
+                    return Self::split_decision(&mixed);
+                }
+            }
+            if let Some(mixed) = self.english_then_korean_word(keys) {
                 return Self::split_decision(&mixed);
             }
-        }
-        if let Some(mixed) = MixedWord::split_single_letter(keys) {
-            if !self.english.is_known_word(keys) && !self.reads_as_korean(keys) {
-                return Self::split_decision(&mixed);
-            }
-        }
-        if let Some(mixed) = self.english_then_korean_word(keys) {
-            return Self::split_decision(&mixed);
         }
         // Not when the keys spell a Korean word: guswo is 현재, not gus + を (but slackwo,
         // 님차재, is no word, so slackを).

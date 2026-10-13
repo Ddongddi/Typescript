@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use typescript_core::session::testing::FakeTextField;
 use typescript_core::{
-    make_engine, AppPolicies, DictionaryConverter, InputSession, JapaneseConverter, Key, TextClient,
+    make_engine, AppPolicies, DictionaryConverter, InputSession, JapaneseConverter, Key, Languages,
+    TextClient,
 };
 
 fn rig(name: &str) -> (InputSession, FakeTextField, Arc<DictionaryConverter>) {
@@ -14,7 +15,7 @@ fn rig(name: &str) -> (InputSession, FakeTextField, Arc<DictionaryConverter>) {
         std::process::id()
     ));
     let _ = std::fs::remove_file(&lexicon);
-    let engine = make_engine(Some(lexicon), true);
+    let engine = make_engine(Some(lexicon), &Languages::legacy(true));
     let converter = Arc::new(DictionaryConverter::new(None));
     let session = InputSession::new(engine, AppPolicies::default(), true)
         .with_japanese(converter.clone(), false);

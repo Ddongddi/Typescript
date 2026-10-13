@@ -13,6 +13,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::lang::set::Languages;
 use crate::support_dir;
 
 /// lexicon.json: words learned for good, and words corrected once. Both fields are required
@@ -27,6 +28,7 @@ pub struct LearningEngine {
     base: Box<dyn DecisionEngine>,
     store_path: Option<PathBuf>,
     state: Mutex<State>,
+    languages: Languages,
 }
 
 struct State {
@@ -67,7 +69,19 @@ impl LearningEngine {
                 store,
                 last_learned: None,
             }),
+            languages: Languages::legacy(true),
         }
+    }
+
+    /// Only these languages may come out: a word learned in a language that is now off is
+    /// decided by the heuristics again.
+    pub fn with_languages(mut self, languages: Languages) -> Self {
+        self.languages = languages;
+        self
+    }
+
+    pub fn languages(&self) -> &Languages {
+        &self.languages
     }
 
     pub fn base(&self) -> &dyn DecisionEngine {
@@ -169,7 +183,13 @@ impl LearningEngine {
 
 impl DecisionEngine for LearningEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
-        let learned = self.lock().store.learned.get(keys).copied();
+        let learned = self
+            .lock()
+            .store
+            .learned
+            .get(keys)
+            .copied()
+            .filter(|l| self.languages.allows(*l));
         if let Some(language) = learned {
             return Decision {
                 language,

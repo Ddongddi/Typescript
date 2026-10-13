@@ -35,19 +35,19 @@ pub fn support_dir() -> Option<PathBuf> {
 }
 
 /// The engine chain of the original `Runtime.makeEngine`:
-/// learned corrections → mixed-word splitting → heuristic scores.
-/// `japanese`: score romaji Japanese too (the app's `Settings.japanese`).
-pub fn make_engine(store_path: Option<PathBuf>, japanese: bool) -> Arc<LearningEngine> {
-    let english = EnglishModel::shared();
-    let heuristic = if japanese && JAPANESE {
-        HeuristicEngine::with_japanese(english, JapaneseModel::shared())
-    } else {
-        HeuristicEngine::new()
-    };
+/// learned corrections → mixed-word splitting → heuristic scores, over `languages`.
+pub fn make_engine(store_path: Option<PathBuf>, languages: &Languages) -> Arc<LearningEngine> {
+    let heuristic = HeuristicEngine::for_languages(languages);
     let segmenter = heuristic.segmenter.clone();
-    let mut splitting = SplittingEngine::new(Box::new(heuristic), english);
-    if let Some(segmenter) = segmenter {
-        splitting = splitting.with_japanese(segmenter);
-    }
-    Arc::new(LearningEngine::new(Box::new(splitting), store_path))
+    let engine: Box<dyn DecisionEngine> = if languages.contains(Language::English) {
+        let mut splitting = SplittingEngine::new(Box::new(heuristic), EnglishModel::shared());
+        splitting.korean_on = languages.contains(Language::Korean);
+        if let Some(segmenter) = segmenter {
+            splitting = splitting.with_japanese(segmenter);
+        }
+        Box::new(splitting)
+    } else {
+        Box::new(heuristic)
+    };
+    Arc::new(LearningEngine::new(engine, store_path).with_languages(languages.clone()))
 }

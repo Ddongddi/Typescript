@@ -131,8 +131,11 @@ impl Inner {
                 .languages
                 .contains(typescript_core::Language::Japanese)
                 && typescript_core::JAPANESE;
-            let mut session =
-                InputSession::new(engine(japanese), policies, settings.return_confirms_only);
+            let mut session = InputSession::new(
+                engine(&settings.languages),
+                policies,
+                settings.return_confirms_only,
+            );
             if japanese {
                 session = session.with_japanese(converter(), settings.live_conversion);
             }

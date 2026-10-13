@@ -179,6 +179,10 @@ pub struct HeuristicEngine {
     /// With Japanese on: English words inside a phrase (`googlede…`) score as segmented
     /// Japanese, not as kana with stray letters.
     pub segmenter: Option<JapaneseSegmenter>,
+    /// English competes (off: the keys stay as typed only when no language reads them).
+    pub english_on: bool,
+    /// Korean competes.
+    pub korean_on: bool,
 }
 
 impl HeuristicEngine {
@@ -201,7 +205,21 @@ impl HeuristicEngine {
             korean_known_floor_short: -2.0,
             english_word_protection: 1.0,
             segmenter: None,
+            english_on: true,
+            korean_on: true,
         }
+    }
+
+    /// The heuristic over the languages that are on (Japanese only in builds that carry it).
+    pub fn for_languages(languages: &Languages) -> Self {
+        let mut engine = if languages.contains(Language::Japanese) && crate::JAPANESE {
+            Self::with_japanese(EnglishModel::shared(), JapaneseModel::shared())
+        } else {
+            Self::new()
+        };
+        engine.english_on = languages.contains(Language::English);
+        engine.korean_on = languages.contains(Language::Korean);
+        engine
     }
 
     /// The heuristic with Japanese scoring and segmentation on (the app's `makeEngine`).
@@ -276,9 +294,10 @@ impl Default for HeuristicEngine {
 impl DecisionEngine for HeuristicEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
         // Shift on a key that has no shifted jamo (e.g. "Hello", "API") is only ever English.
-        if keys
-            .chars()
-            .any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
+        if self.english_on
+            && keys
+                .chars()
+                .any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
         {
             return Decision {
                 language: Language::English,
@@ -289,10 +308,15 @@ impl DecisionEngine for HeuristicEngine {
             };
         }
 
-        let known = self.english.is_known_word(keys);
+        let known = self.english_on && self.english.is_known_word(keys);
         let e = self.english_score(keys, known);
 
         let (k, known_korean) = self.korean_score(keys, context.partial);
+        let (k, known_korean) = if self.korean_on {
+            (k, known_korean)
+        } else {
+            (None, false)
+        };
 
         // A dictionary English word may already be complete: score its Japanese reading as
         // finished too, so the preview shows what Space will commit ("to" stays to, not と).
@@ -319,7 +343,10 @@ impl DecisionEngine for HeuristicEngine {
             )
         });
 
-        let mut scores: Vec<(Language, f64)> = vec![(Language::English, e)];
+        let mut scores: Vec<(Language, f64)> = Vec::new();
+        if self.english_on {
+            scores.push((Language::English, e));
+        }
         if let Some(k) = &k {
             scores.push((
                 Language::Korean,
@@ -350,6 +377,21 @@ impl DecisionEngine for HeuristicEngine {
                 }
                 scores[i].1 += bias;
             }
+        }
+        if scores.is_empty() {
+            // No language that is on reads these keys (Korean only, and the keys aren't Hangul).
+            let language = if self.korean_on {
+                Language::Korean
+            } else {
+                Language::Japanese
+            };
+            return Decision {
+                language,
+                confidence: 0.5,
+                output: keys.to_string(),
+                explanation: "no enabled language reads these keys".to_string(),
+                runner_up: None,
+            };
         }
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 

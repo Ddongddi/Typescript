@@ -13,7 +13,8 @@ use typescript_core::session::NOT_FOUND;
 use typescript_core::store::policy::Override;
 use typescript_core::{
     make_engine, AppPolicies, ConversionCandidate, DecisionContext, DecisionEngine, EnglishModel,
-    HeuristicEngine, InputSession, JapaneseConverter, JapaneseModel, Key, Language, TextClient,
+    HeuristicEngine, InputSession, JapaneseConverter, JapaneseModel, Key, Language, Languages,
+    TextClient,
 };
 
 /// Deterministic converter: a few readings with fixed candidates, including a
@@ -98,7 +99,7 @@ impl JaRig {
 
     fn build(name: &str, live: bool, policies: AppPolicies, app: Option<&str>) -> Self {
         let path = lexicon_path(name);
-        let engine = make_engine(Some(path), true);
+        let engine = make_engine(Some(path), &Languages::legacy(true));
         let converter = Arc::new(FakeConverter::new());
         let converter_dyn: Arc<dyn JapaneseConverter> = converter.clone();
         let mut session =
@@ -249,7 +250,7 @@ fn japanese_context_helps_ambiguous_words() {
 
 #[test]
 fn japanese_is_off_by_default() {
-    let engine = make_engine(None, false);
+    let engine = make_engine(None, &Languages::legacy(false));
     assert_ne!(
         engine
             .decide("konnichiha", &DecisionContext::default())

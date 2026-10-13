@@ -10,7 +10,8 @@ use std::sync::Arc;
 use typescript_core::session::testing::FakeTextField;
 use typescript_core::session::NoopClient;
 use typescript_core::{
-    make_engine, AppPolicies, InputSession, Key, LearningEngine, Range, Settings, TextClient,
+    make_engine, AppPolicies, InputSession, Key, Languages, LearningEngine, Range, Settings,
+    TextClient,
 };
 
 const SEP: char = '\u{1}';
@@ -117,7 +118,8 @@ pub struct Ime {
 impl Ime {
     /// `dir`: where the app keeps settings.json, apps.json, lexicon.json.
     pub fn new(dir: &Path) -> Self {
-        let engine: Arc<LearningEngine> = make_engine(Some(dir.join("lexicon.json")), false);
+        let engine: Arc<LearningEngine> =
+            make_engine(Some(dir.join("lexicon.json")), &Languages::legacy(false));
         let settings = Settings::load(Some(&dir.join("settings.json")));
         let policies = AppPolicies::load(Some(&dir.join("apps.json")));
         // No word history and no Tab completion: the phone's keyboards have their own suggestions.

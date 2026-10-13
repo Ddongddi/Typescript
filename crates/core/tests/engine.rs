@@ -279,7 +279,7 @@ fn mixed_sentence_with_splitting() {
 
 #[test]
 fn full_chain_matches_the_parts() {
-    let engine = make_engine(None, false);
+    let engine = make_engine(None, &Languages::legacy(false));
     let c = TextConverter::new(engine.as_ref());
     assert_eq!(
         c.convert("dlrjs githubdp commitgkf rjdi").0,

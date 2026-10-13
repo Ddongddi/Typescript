@@ -140,7 +140,7 @@ fn cycle(start: Language, keys: &str, japanese: bool) -> String {
 }
 
 fn decide_snapshot(japanese: bool) -> String {
-    let engine = make_engine(None, japanese);
+    let engine = make_engine(None, &Languages::legacy(japanese));
     let mut previous: Vec<Option<Language>> =
         vec![None, Some(Language::English), Some(Language::Korean)];
     if japanese {
@@ -215,7 +215,7 @@ fn session_for(config: &str) -> Option<InputSession> {
     if japanese && !cfg!(feature = "japanese") {
         return None;
     }
-    let engine: Arc<LearningEngine> = make_engine(None, japanese);
+    let engine: Arc<LearningEngine> = make_engine(None, &Languages::legacy(japanese));
     let mut session = InputSession::new(engine, AppPolicies::default(), true);
     if config == "enko-tab" {
         session = session.with_history(Arc::new(History::new(None)));
