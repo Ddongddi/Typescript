@@ -7,8 +7,5 @@ edition = "2021"
 name = "typescript"
 path = "src/main.rs"
 
-[features]
-japanese = ["typescript-core/japanese"]
-
 [dependencies]
 typescript-core = { path = "../core", features = ["embedded-packs"] }

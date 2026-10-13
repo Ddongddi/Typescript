@@ -212,7 +212,7 @@ impl HeuristicEngine {
 
     /// The heuristic over the languages that are on (Japanese only in builds that carry it).
     pub fn for_languages(languages: &Languages) -> Self {
-        let mut engine = if languages.contains(Language::Japanese) && crate::JAPANESE {
+        let mut engine = if languages.contains(Language::Japanese) {
             Self::with_japanese(EnglishModel::shared(), JapaneseModel::shared())
         } else {
             Self::new()

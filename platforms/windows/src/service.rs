@@ -10,9 +10,8 @@ use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
-use typescript_core::{
-    AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
-};
+use typescript_core::store::policy::Override;
+use typescript_core::{AppPolicies, InputSession, Key, Language, LearningEngine, Settings};
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
@@ -23,7 +22,7 @@ use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
 use crate::keymap::{key_for, VK_HANGUL};
-use crate::shared::{converter, engine, history, reload_engines};
+use crate::shared::{converter, engine, history, refresh_packs, reload_engines};
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
 /// TSF won't say).
@@ -127,19 +126,29 @@ impl Inner {
     pub fn session(&self) -> RefMut<'_, InputSession> {
         let mut slot = self.session.borrow_mut();
         if slot.is_none() {
-            let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
+            refresh_packs();
             let settings = self.settings.borrow();
-            // An edition without the Japanese models can't read it, whatever the settings say.
-            let wanted = &settings.languages;
-            let languages = Languages::new(
-                wanted
-                    .iter()
-                    .filter(|l| typescript_core::JAPANESE || *l != Language::Japanese),
-            )
-            .unwrap_or_else(|| Languages::legacy(false));
+            let mut policies = AppPolicies::load(AppPolicies::store_path().as_deref());
+            // Languages whose packs aren't installed are left out; with none left, every key
+            // goes to the app as typed (the engine is never asked).
+            let languages = settings.languages.available().unwrap_or_else(|| {
+                policies = AppPolicies::new([(
+                    AppPolicies::DEFAULT_KEY.to_string(),
+                    Override {
+                        enabled: Some(false),
+                        ..Override::default()
+                    },
+                )]);
+                settings.languages.clone()
+            });
+            if languages != settings.languages {
+                self.trace("language packs missing: some languages are left out");
+            }
             let mut session =
                 InputSession::new(engine(&languages), policies, settings.return_confirms_only);
-            if languages.contains(Language::Japanese) {
+            if languages.contains(Language::Japanese)
+                && typescript_core::pack::available(Language::Japanese)
+            {
                 session = session.with_japanese(converter(), settings.live_conversion);
             }
             session.set_full_width_digits(settings.full_width_digits);

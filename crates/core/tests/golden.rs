@@ -177,7 +177,6 @@ fn decisions_en_ko() {
     check("decide_enko.tsv", &decide_snapshot(false));
 }
 
-#[cfg(feature = "japanese")]
 #[test]
 fn decisions_en_ko_ja() {
     check("decide_enkoja.tsv", &decide_snapshot(true));
@@ -212,16 +211,12 @@ impl TextClient for Recorder {
 
 fn session_for(config: &str) -> Option<InputSession> {
     let japanese = config.starts_with("enkoja");
-    if japanese && !cfg!(feature = "japanese") {
-        return None;
-    }
     let engine: Arc<LearningEngine> = make_engine(None, &Languages::legacy(japanese));
     let mut session = InputSession::new(engine, AppPolicies::default(), true);
     if config == "enko-tab" {
         session = session.with_history(Arc::new(History::new(None)));
     }
     if japanese {
-        #[cfg(feature = "japanese")]
         {
             let converter: Arc<dyn typescript_core::JapaneseConverter> =
                 Arc::new(typescript_core::DictionaryConverter::new(None));
@@ -326,7 +321,6 @@ fn session_edits_en_ko() {
     );
 }
 
-#[cfg(feature = "japanese")]
 #[test]
 fn session_edits_en_ko_ja() {
     check("session_enkoja.tsv", &session_snapshot(|_| true));

@@ -501,7 +501,7 @@ impl JapaneseConverter for DictionaryConverter {
     }
 }
 
-#[cfg(all(test, feature = "japanese"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

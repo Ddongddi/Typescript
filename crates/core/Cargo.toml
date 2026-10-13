@@ -4,23 +4,12 @@ version = "0.4.0"
 edition = "2021"
 
 [features]
-# The Japanese models: the IPADIC kanji dictionary (16 MB) and the kana trigrams. Only the
-# "with Japanese" edition carries them; the default edition is English + Korean and stays small.
 # Packs carried inside the binary (Android, the CLI, the tests). The Windows text service
 # reads the installed packs instead.
 embedded-en = []
 embedded-ko = []
 embedded-ja = []
 embedded-packs = ["embedded-en", "embedded-ko", "embedded-ja"]
-japanese = []
-
-[[test]]
-name = "japanese"
-required-features = ["japanese"]
-
-[[test]]
-name = "kanji"
-required-features = ["japanese"]
 
 [dependencies]
 memmap2 = "0.9"

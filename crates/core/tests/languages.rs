@@ -72,7 +72,6 @@ fn learned_language_that_is_off_is_ignored() {
     let _ = std::fs::remove_file(&path);
 }
 
-#[cfg(feature = "japanese")]
 mod japanese {
     use super::*;
 
@@ -140,7 +139,6 @@ mod session {
         assert_eq!(typed(&["ko", "en"], "dkssud⎋ "), "dkssud ");
     }
 
-    #[cfg(feature = "japanese")]
     #[test]
     fn japanese_on_without_a_converter_does_not_panic() {
         // Space opens the conversion (the built-in kana converter offers the kana itself).

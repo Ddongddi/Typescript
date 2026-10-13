@@ -26,10 +26,6 @@ pub use session::{Conversion, InputSession, Key, Range, TextClient};
 pub use store::history::History;
 pub use store::policy::{AppPolicies, AppPolicy, Settings};
 
-/// This build carries the Japanese models (the `japanese` feature). Without it Japanese is
-/// never turned on, whatever the settings say.
-pub const JAPANESE: bool = cfg!(feature = "japanese");
-
 /// `%APPDATA%\Typescript` (settings.json, apps.json, lexicon.json, user_history.json).
 pub fn support_dir() -> Option<PathBuf> {
     std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("Typescript"))

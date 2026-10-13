@@ -35,6 +35,14 @@ pub fn reload_engines() {
     }
 }
 
+/// Loads the installed packs this process doesn't have yet (on first use and whenever the
+/// settings change: a language may just have been installed).
+pub fn refresh_packs() {
+    if let Some(root) = typescript_core::pack_dir() {
+        typescript_core::pack::refresh(&root);
+    }
+}
+
 static CONVERTER: OnceLock<Arc<dyn JapaneseConverter>> = OnceLock::new();
 
 /// The kana→kanji engine for this process: the compact IPADIC dictionary (decide/kanji.rs),

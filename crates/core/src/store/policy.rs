@@ -171,7 +171,7 @@ impl Default for Settings {
             return_confirms_only: true,
             pause_key: "hangul".to_string(),
             autocomplete: true,
-            languages: Languages::legacy(crate::JAPANESE),
+            languages: Languages::legacy(false),
             live_conversion: false,
             full_width_digits: false,
             full_width_space: false,
@@ -216,7 +216,7 @@ impl Settings {
                         value
                             .get("japanese")
                             .and_then(|v| v.as_bool())
-                            .unwrap_or(crate::JAPANESE),
+                            .unwrap_or(false),
                     )
                 }),
             live_conversion: value

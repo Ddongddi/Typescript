@@ -53,10 +53,6 @@ fn main() {
         }
         Some("--convert") => {
             // Kana → kanji candidates, for tuning and evaluation (no learning file).
-            if !typescript_core::JAPANESE {
-                eprintln!("built without Japanese: rebuild with --features japanese");
-                return;
-            }
             let converter = DictionaryConverter::new(None);
             for kana in lines() {
                 let candidates = converter.candidates(&kana);
