@@ -1,0 +1,753 @@
+//! The Japanese side of the session: the kana reading and preview, in-phrase symbols and
+//! full-width digits/spaces, and the kana→kanji conversion flow. Port of the Japanese parts
+//! of InputSession.swift.
+
+use std::collections::HashSet;
+
+use super::{char_count, InputSession, Key, TextClient};
+use crate::decide::convert::ConversionCandidate;
+use crate::decide::engine::{DecisionContext, DecisionEngine, Language};
+use crate::decide::segmenter::{JapaneseSegmenter, Segment};
+use crate::lang::english::EnglishModel;
+use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
+use crate::lang::korean::UNKNOWN_SYLLABLE_LOGP;
+use crate::lang::particles::is_ending;
+use crate::lang::romaji::RomajiComposer;
+
+/// A kana→kanji conversion in progress.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Conversion {
+    /// The reading still being converted.
+    pub kana: String,
+    /// The romaji that produced `kana`, so Esc can go back to editing it.
+    pub keys: String,
+    pub candidates: Vec<ConversionCandidate>,
+    pub selected: usize,
+    /// The user chose Japanese for these keys with Esc (going back to kana keeps that).
+    pub(crate) user_forced: bool,
+}
+
+impl Conversion {
+    pub fn current(&self) -> &ConversionCandidate {
+        &self.candidates[self.selected]
+    }
+
+    /// What the user sees: the selected candidate, then any reading it doesn't cover.
+    pub fn display(&self) -> String {
+        let covered = self.current().kana_count;
+        let rest: String = self.kana.chars().skip(covered).collect();
+        format!("{}{}", self.current().text, rest)
+    }
+}
+
+impl InputSession {
+    /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width
+    /// (`Settings.full_width_digits`), as addresses in Japan often need.
+    pub(super) fn digits_full_width(&self) -> bool {
+        self.japanese_enabled && self.full_width_digits && self.policy.full_width
+    }
+
+    /// A symbol typed as its own Japanese word, shown full-width (or as the 「」・ a Japanese IME types).
+    pub(super) fn start_symbol(&mut self, ch: char, client: &mut dyn TextClient) {
+        self.last_recorded = None;
+        self.live_suppressed = false;
+        self.word.keys = ch.to_string();
+        self.word.forced = Some(Language::Japanese);
+        self.word.forced_by_user = false;
+        self.update_preview(client);
+    }
+
+    /// Full-width openers not closed yet in this sentence, so ) ] } close them full-width
+    /// after an English word too.
+    pub(super) fn closes_full_width(&self, ch: char) -> bool {
+        let opener = match ch {
+            ')' => '（',
+            ']' => '「',
+            '}' => '｛',
+            _ => return false,
+        };
+        self.open_brackets.last() == Some(&opener)
+    }
+
+    /// Keeps `open_brackets` up to date with text going in.
+    pub(super) fn note_brackets(&mut self, text: &str) {
+        for ch in text.chars() {
+            if matches!(ch, '（' | '「' | '｛' | '『' | '【') {
+                self.open_brackets.push(ch);
+            } else if let Some(opener) = match ch {
+                '）' => Some('（'),
+                '」' => Some('「'),
+                '｝' => Some('｛'),
+                '』' => Some('『'),
+                '】' => Some('【'),
+                _ => None,
+            } {
+                if self.open_brackets.last() == Some(&opener) {
+                    self.open_brackets.pop();
+                }
+            }
+        }
+    }
+
+    /// Whether a symbol typed after the current word continues a Japanese phrase.
+    /// Sentence punctuation (、。？！) never changes the word's language: it joins only a
+    /// word already read as Japanese ("hello." and "dho?" = 왜? stay what they were).
+    /// The in-word marks ー and ' may also turn an English-looking start into Japanese
+    /// ("ra" → "ra-" → らー), but never take a word away from Korean.
+    pub(super) fn belongs_to_japanese_phrase(&self, ch: char) -> bool {
+        if ch.is_ascii() && ch.is_ascii_digit() {
+            if !self.digits_full_width() {
+                return false;
+            }
+            return self.word.forced == Some(Language::Japanese)
+                || (self.word.forced.is_none()
+                    && self.word.preview_language == Some(Language::Japanese)
+                    && matches!(
+                        RomajiComposer::compose(&self.word.keys, true)
+                            .pending
+                            .as_str(),
+                        "" | "n"
+                    ));
+        }
+        if !RomajiComposer::is_in_phrase_symbol(ch) {
+            return false;
+        }
+        if self.word.forced == Some(Language::Japanese) {
+            return true;
+        }
+        // A letter still waiting for its vowel says the word may not be Japanese after all
+        // (baz) is baz), not ばz）); a final n is ん (nihon. is にほん。).
+        if self.word.preview_language == Some(Language::Japanese) {
+            return ch == '-'
+                || ch == '\''
+                || matches!(
+                    RomajiComposer::compose(&self.word.keys, true)
+                        .pending
+                        .as_str(),
+                    "" | "n"
+                );
+        }
+        // An English word before the mark keeps it English (to-do, co-op); ra-men isn't one.
+        if self.word.forced.is_none()
+            && (ch == '-' || ch == '\'')
+            && self.word.preview_language == Some(Language::English)
+            && !EnglishModel::shared().is_known_word(&self.word.keys)
+            && RomajiComposer::compose(&self.word.keys, true).stray_letters == 0
+        {
+            let context = DecisionContext {
+                previous_language: self.previous_language,
+                partial: true,
+            };
+            let mut keys = self.word.keys.clone();
+            keys.push(ch);
+            return self.engine.decide(&keys, &context).language == Language::Japanese;
+        }
+        false
+    }
+
+    /// Kana for the keys, with any English words inside the phrase kept as typed.
+    pub(super) fn japanese_reading(&self, partial: bool) -> String {
+        if !partial {
+            if let Some(segments) = self
+                .segmenter
+                .as_ref()
+                .and_then(|s| s.segment(&self.word.keys))
+            {
+                return JapaneseSegmenter::text(&segments);
+            }
+        }
+        // While typing, a consonant at the end is just waiting for its vowel (watashihag → わたしはg),
+        // not a stray letter to split an English word ("hag") out of.
+        if partial && RomajiComposer::compose(&self.word.keys, true).stray_letters > 0 {
+            if let Some(segments) = self
+                .segmenter
+                .as_ref()
+                .and_then(|s| s.segment(&self.word.keys))
+            {
+                // While typing, the last segment may still be growing; keep its pending letters visible.
+                if let Some((last, head)) = segments.split_last() {
+                    let tail = match last {
+                        Segment::Japanese { keys, .. } => RomajiComposer::compose(keys, true).text,
+                        Segment::English(word) => word.clone(),
+                    };
+                    return format!("{}{}", JapaneseSegmenter::text(head), tail);
+                }
+            }
+        }
+        RomajiComposer::compose(&self.word.keys, partial).text
+    }
+
+    // MARK: - Live conversion
+
+    pub(super) fn is_live(&self) -> bool {
+        self.live_conversion && !self.live_suppressed && self.converter.is_some()
+    }
+
+    /// The top candidate covering all of `kana` (cached: the preview asks on every key).
+    fn live_candidate(&mut self, kana: &str) -> Option<ConversionCandidate> {
+        if let Some((cached_kana, cached)) = &self.live_cache {
+            if cached_kana == kana {
+                return cached.clone();
+            }
+        }
+        let mut candidate = self
+            .conversion_candidates(kana)
+            .into_iter()
+            .find(|c| c.kana_count == char_count(kana) && !c.is_prediction);
+        // A short reading only turns into kanji (私, 今日), not into katakana mid-word
+        // (と → ト, こんに → コンに): those flicker while the phrase is still being typed.
+        if char_count(kana) <= 3 {
+            if let Some(found) = &candidate {
+                if !found
+                    .text
+                    .chars()
+                    .any(|ch| (0x4E00..=0x9FFF).contains(&(ch as u32)))
+                {
+                    candidate = None;
+                }
+            }
+        }
+        self.live_cache = Some((kana.to_string(), candidate.clone()));
+        candidate
+    }
+
+    /// The Japanese phrase as shown while typing: kana, or with live conversion the top
+    /// candidate followed by letters still waiting for their vowel (今日はいい天気でs).
+    pub(super) fn japanese_display(&mut self) -> String {
+        let reading = self.japanese_reading(true);
+        if !self.is_live() {
+            return reading;
+        }
+        let pending = RomajiComposer::compose(&self.word.keys, true).pending;
+        if !reading.ends_with(&pending) {
+            return reading;
+        }
+        let keep = char_count(&reading) - char_count(&pending);
+        let kana: String = reading.chars().take(keep).collect();
+        if kana.is_empty() {
+            return reading;
+        }
+        match self.live_candidate(&kana) {
+            Some(candidate) => format!("{}{}", candidate.text, pending),
+            None => reading,
+        }
+    }
+
+    /// What a Japanese phrase commits as without the candidate window: the kana, or with
+    /// live conversion the candidate that was on screen (which the converter learns).
+    pub(super) fn committed_japanese(&mut self) -> String {
+        let kana = self.japanese_reading(false);
+        if self.is_live() {
+            if let Some(candidate) = self.live_candidate(&kana) {
+                if let Some(converter) = &self.converter {
+                    converter.learn(&candidate, &kana);
+                }
+                return candidate.text;
+            }
+        }
+        kana
+    }
+
+    // MARK: - Conversion
+
+    pub(super) fn start_conversion(&mut self, client: &mut dyn TextClient) {
+        let kana = self.japanese_reading(false);
+        if self.converter.is_none() || kana.is_empty() {
+            return;
+        }
+        let user_forced = self.word.forced == Some(Language::Japanese) && self.word.forced_by_user;
+        if user_forced {
+            let keys = self.word.keys.clone();
+            let engine_choice = self.committed_language();
+            self.record(&keys, Language::Japanese, engine_choice);
+        }
+        let candidates = self.conversion_candidates(&kana);
+        let live = if self.is_live() {
+            self.live_candidate(&kana)
+        } else {
+            None
+        };
+        if candidates.is_empty() {
+            self.commit(client);
+            return;
+        }
+        // With live conversion the top candidate is already on screen: Space shows the next one.
+        let mut selected = 0;
+        if let Some(live) = &live {
+            if let Some(i) = candidates.iter().position(|c| c == live) {
+                if candidates.len() > 1 {
+                    selected = (i + 1) % candidates.len();
+                }
+            }
+        }
+        self.live_suppressed = false;
+        self.conversion = Some(Conversion {
+            kana: kana.clone(),
+            keys: std::mem::take(&mut self.word.keys),
+            candidates,
+            selected,
+            user_forced,
+        });
+        self.word.forced = None;
+        self.word.forced_by_user = false;
+        self.word.pinned = None;
+        self.word.syllable_start = None;
+        self.word.engine_preview = None;
+        self.previous_language = Some(Language::Japanese);
+        let display = self
+            .conversion
+            .as_ref()
+            .map(|c| c.display())
+            .unwrap_or_default();
+        client.set_marked_text(&display);
+    }
+
+    /// Shows the reading as katakana (or hiragana) as the selected "candidate": Return
+    /// commits it, Space flips to the other form, typing on commits it and continues.
+    pub(super) fn show_kana_forms(
+        &mut self,
+        katakana_first: bool,
+        kana: Option<String>,
+        keys: Option<String>,
+        client: &mut dyn TextClient,
+    ) {
+        let kana = kana.unwrap_or_else(|| self.japanese_reading(false));
+        let keys = keys.unwrap_or_else(|| self.word.keys.clone());
+        let forms = vec![
+            ConversionCandidate::new(RomajiComposer::katakana(&kana), char_count(&kana)),
+            ConversionCandidate::new(kana.clone(), char_count(&kana)),
+        ];
+        let candidates: Vec<ConversionCandidate> = if katakana_first {
+            forms
+        } else {
+            forms.into_iter().rev().collect()
+        };
+        self.conversion = Some(Conversion {
+            kana,
+            keys,
+            candidates,
+            selected: 0,
+            user_forced: false,
+        });
+        self.word.keys.clear();
+        self.word.forced = None;
+        self.word.forced_by_user = false;
+        self.word.pinned = None;
+        self.word.syllable_start = None;
+        self.word.engine_preview = None;
+        self.previous_language = Some(Language::Japanese);
+        let display = self
+            .conversion
+            .as_ref()
+            .map(|c| c.display())
+            .unwrap_or_default();
+        client.set_marked_text(&display);
+    }
+
+    /// The conversion with its first clause `step` kana shorter or longer (今日は|いいてんき):
+    /// candidates for exactly that much of the reading, the rest shown as kana. A boundary
+    /// never falls inside an English word (google). None when it can't move further.
+    fn resize_first_clause(&mut self, conversion: &Conversion, step: i32) -> Option<Conversion> {
+        self.converter.as_ref()?;
+        let reading: Vec<char> = conversion.kana.chars().collect();
+        let mut length = conversion.current().kana_count as i64 + step as i64;
+        while length >= 1
+            && length < reading.len() as i64
+            && reading[(length - 1) as usize].is_ascii()
+            && reading[(length - 1) as usize].is_alphabetic()
+            && reading[length as usize].is_ascii()
+            && reading[length as usize].is_alphabetic()
+        {
+            length += step as i64;
+        }
+        if length < 1
+            || length > reading.len() as i64
+            || length == conversion.current().kana_count as i64
+        {
+            return None;
+        }
+        let clause: String = reading[..length as usize].iter().collect();
+        let candidates: Vec<ConversionCandidate> = self
+            .conversion_candidates(&clause)
+            .into_iter()
+            .filter(|c| c.kana_count == char_count(&clause))
+            .collect();
+        if candidates.is_empty() {
+            return None;
+        }
+        Some(Conversion {
+            kana: conversion.kana.clone(),
+            keys: conversion.keys.clone(),
+            candidates,
+            selected: 0,
+            user_forced: conversion.user_forced,
+        })
+    }
+
+    pub(super) fn handle_converting(&mut self, key: Key, client: &mut dyn TextClient) -> bool {
+        let Some(conversion) = self.conversion.take() else {
+            return false;
+        };
+        match key {
+            Key::Printable(' ') | Key::Down | Key::ShiftSpace => {
+                let mut conversion = conversion;
+                conversion.selected = (conversion.selected + 1) % conversion.candidates.len();
+                let display = conversion.display();
+                self.conversion = Some(conversion);
+                client.set_marked_text(&display);
+                true
+            }
+
+            Key::Up => {
+                let mut conversion = conversion;
+                let count = conversion.candidates.len();
+                conversion.selected = (conversion.selected + count - 1) % count;
+                let display = conversion.display();
+                self.conversion = Some(conversion);
+                client.set_marked_text(&display);
+                true
+            }
+
+            Key::Left | Key::Right => {
+                let step = if key == Key::Left { -1 } else { 1 };
+                match self.resize_first_clause(&conversion, step) {
+                    Some(resized) => {
+                        let display = resized.display();
+                        self.conversion = Some(resized);
+                        client.set_marked_text(&display);
+                    }
+                    None => self.conversion = Some(conversion),
+                }
+                true
+            }
+
+            Key::Printable(ch) if ch.is_numeric() => {
+                let n = ch.to_digit(10).or_else(|| {
+                    let v = ch as u32;
+                    (0xFF10..=0xFF19).contains(&v).then(|| v - 0xFF10)
+                });
+                self.conversion = Some(conversion);
+                let count = self.conversion.as_ref().unwrap().candidates.len();
+                if let Some(n) = n {
+                    if n >= 1 && (n as usize) <= std::cmp::min(9, count) {
+                        self.choose(n as usize - 1, client);
+                        return true;
+                    }
+                }
+                self.commit(client);
+                self.handle(key, client)
+            }
+
+            Key::Enter => {
+                self.conversion = Some(conversion);
+                self.commit_candidate(client);
+                true
+            }
+
+            Key::Katakana | Key::Hiragana => {
+                self.show_kana_forms(
+                    key == Key::Katakana,
+                    Some(conversion.kana),
+                    Some(conversion.keys),
+                    client,
+                );
+                true
+            }
+
+            Key::Escape | Key::Cycle | Key::Delete => {
+                self.live_suppressed = true; // "back to kana" means kana, also with live conversion
+                                             // Back to editing the romaji — when it still spells the reading. After part of a
+                                             // phrase with English in it was committed it may not; keep the kana rather than lose it.
+                if JapaneseSegmenter::reading_of(&conversion.keys, self.segmenter.as_ref())
+                    != conversion.kana
+                {
+                    client.insert_text(&conversion.kana, None);
+                    self.previous_language = Some(Language::Japanese);
+                    return true;
+                }
+                // A final "n" was shown as ん; keep it ("henkan" → "henkan'") instead of
+                // letting it wait for a vowel again.
+                let mut keys = conversion.keys.clone();
+                self.word.syllable_start = None;
+                if keys.ends_with('n') && !keys.ends_with("nn") {
+                    keys.push('\'');
+                    self.added_n_marker = true;
+                }
+                self.word.keys = keys;
+                self.word.forced = Some(Language::Japanese);
+                self.word.forced_by_user = conversion.user_forced;
+                self.update_preview(client);
+                true
+            }
+
+            Key::Letter(_) | Key::Printable(_) => {
+                self.conversion = Some(conversion);
+                self.commit(client);
+                self.handle(key, client)
+            }
+
+            _ => {
+                self.conversion = Some(conversion);
+                self.commit(client);
+                false
+            }
+        }
+    }
+
+    /// Commits the selected candidate; if it covers only the start of the reading,
+    /// keeps converting the rest.
+    fn commit_candidate(&mut self, client: &mut dyn TextClient) {
+        if self.converter.is_none() {
+            return;
+        }
+        let Some(conversion) = self.conversion.take() else {
+            return;
+        };
+        let candidate = conversion.current().clone();
+        if let Some(converter) = &self.converter {
+            converter.learn(&candidate, &conversion.kana);
+        }
+        client.insert_text(&candidate.text, None);
+        self.note_brackets(&candidate.text);
+        let rest: String = conversion.kana.chars().skip(candidate.kana_count).collect();
+        if rest.is_empty() {
+            return;
+        }
+        let rest_keys = Self::keys_after(&conversion.keys, candidate.kana_count);
+        let candidates = self.conversion_candidates(&rest);
+        if candidates.is_empty() {
+            client.insert_text(&rest, None);
+        } else {
+            // The rest is the engine's Japanese, not something the user corrected.
+            let rest_conversion = Conversion {
+                kana: rest,
+                keys: rest_keys,
+                candidates,
+                selected: 0,
+                user_forced: false,
+            };
+            let display = rest_conversion.display();
+            self.conversion = Some(rest_conversion);
+            client.set_marked_text(&display);
+        }
+    }
+
+    /// Commits candidate `index` of the open conversion (e.g. clicked in the candidate window).
+    pub fn choose(&mut self, index: usize, client: &mut dyn TextClient) {
+        match self.conversion.as_mut() {
+            Some(conversion) if index < conversion.candidates.len() => {
+                conversion.selected = index;
+            }
+            _ => return,
+        }
+        self.commit_candidate(client);
+    }
+
+    /// The converter's candidates, with a number kept as typed: a reading that is only a number
+    /// offers itself (１２３) and its half-width form (123) first; otherwise the candidates that keep
+    /// the digits come before those that spell them out (３月, 3月, then 三月; 東京都１, not 東京都一).
+    fn conversion_candidates(&self, kana: &str) -> Vec<ConversionCandidate> {
+        let candidates = self
+            .converter
+            .as_ref()
+            .map(|c| c.candidates(kana))
+            .unwrap_or_default();
+        let digits = Self::digits_of(kana);
+        if digits.is_empty() {
+            return candidates;
+        }
+        let count = char_count(kana);
+        let whole = |only_matching: bool| -> Vec<ConversionCandidate> {
+            candidates
+                .iter()
+                .filter(|c| c.kana_count == count)
+                .filter(|c| (Self::digits_of(&c.text) == digits) == only_matching)
+                .cloned()
+                .collect()
+        };
+        let mut ordered: Vec<ConversionCandidate> = whole(true);
+        ordered.extend(whole(false));
+        if kana.chars().all(is_number_character) {
+            let mut head = vec![
+                ConversionCandidate::new(kana, count),
+                ConversionCandidate::new(Self::half_width(kana), count),
+            ];
+            head.extend(ordered);
+            ordered = head;
+        }
+        let mut shown: HashSet<String> = HashSet::new();
+        ordered
+            .into_iter()
+            .chain(candidates.into_iter().filter(|c| c.kana_count != count))
+            .filter(|c| shown.insert(c.text.clone()))
+            .collect()
+    }
+
+    /// The romaji left after the part that produced the first `kana_count` kana: the
+    /// shortest tail that composes to exactly the remaining kana ("kitte" after きっ is
+    /// "te"; "konnichiha" after こん is "nichiha").
+    pub fn keys_after(keys: &str, kana_count: usize) -> String {
+        let chars: Vec<char> = keys.chars().collect();
+        let rest: String = RomajiComposer::compose(keys, false)
+            .text
+            .chars()
+            .skip(kana_count)
+            .collect();
+        for i in (0..=chars.len()).rev() {
+            let tail: String = chars[i..].iter().collect();
+            if RomajiComposer::compose(&tail, false).text == rest {
+                return tail;
+            }
+        }
+        String::new()
+    }
+
+    /// The digits of `text` in order, as ASCII ("東京都１－２" → "12").
+    pub fn digits_of(text: &str) -> String {
+        Self::half_width(text)
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .collect()
+    }
+
+    /// Full-width ASCII (！ to ～) as ASCII.
+    pub fn half_width(text: &str) -> String {
+        text.chars()
+            .map(|c| {
+                let v = c as u32;
+                if (0xFF01..=0xFF5E).contains(&v) {
+                    char::from_u32(v - 0xFEE0).unwrap_or(c)
+                } else {
+                    c
+                }
+            })
+            .collect()
+    }
+
+    /// Takes the last kana off a Japanese phrase, as a Japanese IME does (かんこく → かんこ, not
+    /// かんこk): the keys become a spelling of the shorter reading, keeping as much of what was
+    /// typed as composes to it. A letter still waiting for its vowel goes alone (かんこk → かんこ),
+    /// and so does anything in a phrase with English in it.
+    pub(super) fn delete_kana(&mut self) {
+        let composed = RomajiComposer::compose(&self.word.keys, true);
+        if composed.pending.is_empty() && composed.stray_letters == 0 && !composed.text.is_empty() {
+            let shorter: String = composed
+                .text
+                .chars()
+                .take(char_count(&composed.text) - 1)
+                .collect();
+            if let Some(keys) = Self::keys_spelling(&shorter, &self.word.keys) {
+                self.word.keys = keys;
+                return;
+            }
+        }
+        self.word.keys.pop();
+    }
+
+    /// The longest start of `keys` that composes to a start of `kana`, followed by a spelling of
+    /// the rest ("kya" for き is "ki"; "kitte" for きっ is "kiltu").
+    fn keys_spelling(kana: &str, from: &str) -> Option<String> {
+        let chars: Vec<char> = from.chars().collect();
+        for cut in (0..chars.len()).rev() {
+            let front: String = chars[..cut].iter().collect();
+            let composed = RomajiComposer::compose(&front, true);
+            if !composed.pending.is_empty()
+                || composed.stray_letters != 0
+                || !kana.starts_with(&composed.text)
+            {
+                continue;
+            }
+            let rest_kana: String = kana.chars().skip(char_count(&composed.text)).collect();
+            let Some(rest) = RomajiComposer::romaji(&rest_kana) else {
+                continue;
+            };
+            let respelled = RomajiComposer::compose(&format!("{front}{rest}"), true);
+            if respelled.pending.is_empty() && respelled.text == kana {
+                return Some(format!("{front}{rest}"));
+            }
+        }
+        None
+    }
+
+    pub(super) fn drop_n_marker(&mut self) {
+        if self.added_n_marker && self.word.keys.ends_with('\'') {
+            self.word.keys.pop();
+        }
+        self.added_n_marker = false;
+    }
+
+    /// Japanese with Korean typed straight after it reads as broken Hangul: a particle
+    /// (rirekifmf, 履歴를, not 갹다ㅑ를) or a word (kyouhaehtl…, 今日は도시락은). Once the Korean
+    /// part is a particle or two ordinary syllables, the Japanese goes in (kanji with live
+    /// conversion) and the rest carries on as Korean, so 를요, 에서 or 도시락은 can follow.
+    pub(super) fn split_off_japanese_before_korean(&mut self, client: &mut dyn TextClient) {
+        if !self.japanese_enabled || char_count(&self.word.keys) < 5 {
+            return;
+        }
+        if !HangulComposer::compose(&self.word.keys).is_none_or(|c| c.is_broken()) {
+            return;
+        }
+        // Keys that still spell romaji are more Japanese (kyouhago is きょうはご, not きょうは해).
+        if RomajiComposer::compose(&self.word.keys, true).stray_letters == 0 {
+            return;
+        }
+        let chars: Vec<char> = self.word.keys.chars().collect();
+        // The longest Japanese front first: きょうは|도시, not きょう|하ㄷ….
+        for cut in (3..chars.len()).rev() {
+            let front: String = chars[..cut].iter().collect();
+            let back: String = chars[cut..].iter().collect();
+            if !DubeolsikLayout::starts_syllable(chars[cut]) {
+                continue;
+            }
+            let Some(korean) = HangulComposer::compose(&back) else {
+                continue;
+            };
+            if !korean.stray_jamo().is_empty() {
+                continue;
+            }
+            let korean_text = korean.text();
+            if !(is_ending(&korean_text)
+                || (korean.syllables().len() >= 2
+                    && korean.syllables().iter().all(|s| {
+                        super::preview::KOREAN.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP
+                    })))
+            {
+                continue;
+            }
+            if !RomajiComposer::compose(&front, false).is_clean() {
+                continue;
+            }
+            let decision = self.engine.decide(
+                &front,
+                &DecisionContext {
+                    previous_language: self.previous_language,
+                    partial: false,
+                },
+            );
+            if decision.language != Language::Japanese || decision.confidence < 0.9 {
+                continue;
+            }
+            self.word.keys = front;
+            let committed = self.committed_japanese();
+            client.insert_text(&committed, None);
+            self.word.keys = back;
+            self.word.syllable_start = None;
+            self.previous_language = Some(Language::Japanese);
+            self.word.forced = Some(Language::Korean);
+            self.word.forced_by_user = false;
+            self.word.preview_language = None;
+            self.word.engine_preview = None;
+            return;
+        }
+    }
+}
+
+/// What a number reading is made of: digits and the punctuation inside numbers, either width.
+fn is_number_character(c: char) -> bool {
+    c.is_ascii_digit()
+        || ('０'..='９').contains(&c)
+        || matches!(
+            c,
+            '－' | '．' | '，' | '／' | '：' | '-' | '.' | ',' | '/' | ':'
+        )
+}

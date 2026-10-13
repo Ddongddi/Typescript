@@ -6,13 +6,14 @@ use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language}
 use crate::lang::english::EnglishModel;
 use crate::lang::hangul::HangulComposer;
 use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
+use crate::lang::romaji::RomajiComposer;
 use crate::store::policy::AppPolicy;
 use std::sync::LazyLock;
 
 /// The preview only switches language mid-word when the new reading is at least this likely.
 const PREVIEW_FLIP_CONFIDENCE: f64 = 0.7;
 
-static KOREAN: LazyLock<KoreanModel> = LazyLock::new(KoreanModel::default);
+pub(super) static KOREAN: LazyLock<KoreanModel> = LazyLock::new(KoreanModel::default);
 
 /// The last decision and what it was made from, for debugging.
 #[derive(Clone, Debug)]
@@ -88,12 +89,14 @@ impl InputSession {
         } else if let Some(forced) = self.word.override_language() {
             self.word.preview_language = Some(forced);
             let text = match forced {
+                Language::Japanese => self.japanese_display(),
                 Language::Korean => self.word.hangul().unwrap_or_else(|| self.word.keys.clone()),
                 other => self.engine.render(&self.word.keys, other),
             };
             client.set_marked_text(&text);
         } else {
             self.split_off_korean_before_other(client);
+            self.split_off_japanese_before_korean(client);
             let decision = self.decide(true);
             let mut language = decision.language;
             // Hysteresis: a weak flip on one keystroke isn't shown, except into a dictionary
@@ -108,9 +111,12 @@ impl InputSession {
             }
             self.word.preview_language = Some(language);
             self.word.engine_preview = Some(language);
-            let text = self
-                .preview(language)
-                .unwrap_or_else(|| self.word.keys.clone());
+            let text = if language == Language::Japanese {
+                self.japanese_display()
+            } else {
+                self.preview(language)
+                    .unwrap_or_else(|| self.word.keys.clone())
+            };
             client.set_marked_text(&text);
         }
     }
@@ -164,17 +170,31 @@ impl InputSession {
         }
     }
 
-    /// A known English word, or one with a Korean particle (google에서).
+    /// A known English word, one with a Korean particle (google에서), or romaji the engine
+    /// is sure is Japanese (no word starts with っ or ん: that cut takes a letter from the Korean).
     pub(super) fn is_other_language_word(&self, keys: &str) -> bool {
         let ctx = DecisionContext {
             previous_language: Some(Language::Korean),
             partial: true,
         };
-        match self.engine.decide(keys, &ctx).language {
+        let decision = self.engine.decide(keys, &ctx);
+        match decision.language {
             Language::English => {
                 char_count(keys) >= 3 && EnglishModel::shared().is_known_word(keys)
             }
             Language::Mixed => true,
+            Language::Japanese => {
+                if !self.japanese_enabled || decision.confidence < 0.9 || char_count(keys) < 4 {
+                    return false;
+                }
+                let romaji = RomajiComposer::compose(keys, true);
+                romaji.stray_letters == 0
+                    && romaji
+                        .text
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c != 'っ' && c != 'ん')
+            }
             Language::Korean => false,
         }
     }
@@ -188,6 +208,7 @@ impl InputSession {
                 let text = self.engine.render(&self.word.keys, Language::Mixed);
                 (text != self.word.keys).then_some(text)
             }
+            Language::Japanese => self.japanese_enabled.then(|| self.japanese_reading(true)),
         }
     }
 }

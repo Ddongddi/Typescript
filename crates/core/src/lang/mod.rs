@@ -2,7 +2,9 @@
 
 pub mod english;
 pub mod hangul;
+pub mod japanese;
 pub mod korean;
 pub mod particles;
+pub mod romaji;
 pub(crate) mod sorted;
 mod syllables;

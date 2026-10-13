@@ -226,12 +226,18 @@ fn leaves_whole_words_alone() {
 
 #[test]
 fn esc_cycles_through_readings() {
-    assert_eq!(Language::English.next("githubdp"), Language::Mixed);
-    assert_eq!(Language::Mixed.next("githubdp"), Language::English); // 햐소ㅕㅠ에 is garbled: skipped
-    assert_eq!(Language::Korean.next("githubdp"), Language::English);
-    assert_eq!(Language::English.next("dkssud"), Language::Korean);
+    assert_eq!(Language::English.next("githubdp", false), Language::Mixed);
+    assert_eq!(Language::Mixed.next("githubdp", false), Language::English); // 햐소ㅕㅠ에 is garbled: skipped
+    assert_eq!(Language::Korean.next("githubdp", false), Language::English);
+    assert_eq!(Language::English.next("dkssud", false), Language::Korean);
     // No split available: english ↔ korean.
-    assert_eq!(Language::English.next("hello"), Language::Korean);
+    assert_eq!(Language::English.next("hello", false), Language::Korean);
+    // With Japanese on it joins the cycle where the keys read cleanly.
+    assert_eq!(Language::Korean.next("sushi", true), Language::Japanese);
+    assert_eq!(Language::Korean.next("sushi", false), Language::English);
+    assert_eq!(Language::Japanese.next("sushi", true), Language::English);
+    // No Korean reading for "ra-men".
+    assert_eq!(Language::English.next("ra-men", true), Language::Japanese);
 }
 
 #[test]
@@ -246,7 +252,7 @@ fn mixed_sentence_with_splitting() {
 
 #[test]
 fn full_chain_matches_the_parts() {
-    let engine = make_engine(None);
+    let engine = make_engine(None, false);
     let c = TextConverter::new(engine.as_ref());
     assert_eq!(
         c.convert("dlrjs githubdp commitgkf rjdi").0,

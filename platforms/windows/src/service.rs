@@ -21,7 +21,7 @@ use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
 use crate::keymap::{key_for, VK_HANGUL};
-use crate::shared::{engine, history};
+use crate::shared::{converter, engine, history, reload_engines};
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
 /// TSF won't say).
@@ -127,7 +127,16 @@ impl Inner {
         if slot.is_none() {
             let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
             let settings = self.settings.borrow();
-            let mut session = InputSession::new(engine(), policies, settings.return_confirms_only);
+            let mut session = InputSession::new(
+                engine(settings.japanese),
+                policies,
+                settings.return_confirms_only,
+            );
+            if settings.japanese {
+                session = session.with_japanese(converter(), settings.live_conversion);
+            }
+            session.set_full_width_digits(settings.full_width_digits);
+            session.set_full_width_space(settings.full_width_space);
             if settings.autocomplete && self.completion_profile.get() {
                 session = session.with_history(history());
             }
@@ -182,7 +191,10 @@ impl Inner {
         if !session.policy().enabled || session.paused() {
             return false;
         }
-        matches!(key, Key::Letter(_)) || session.is_composing() || session.has_flip_window()
+        matches!(key, Key::Letter(_))
+            || session.is_composing()
+            || session.has_flip_window()
+            || session.claims_key(key)
     }
 
     /// TSF asks whether we take the key. Letters: yes, typed in `key_down`. A key that may end
@@ -244,7 +256,7 @@ impl Inner {
         } else if stamps != self.stamps.get() {
             self.stamps.set(stamps);
             *self.settings.borrow_mut() = Settings::load(Settings::store_path().as_deref());
-            engine().reload();
+            reload_engines();
             *slot = None; // rebuilt with the new files on the next key
         } else if let Some(session) = slot.as_mut() {
             session.activate(Some(&self.exe));

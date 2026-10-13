@@ -5,7 +5,8 @@
 //!   typescript --compose < keys.txt                  print "keys<TAB>hangul" per line
 //!   typescript --suggest < keys.txt                  "keys, language, shown, Tab completion" per line
 //!   typescript --decide < keys_prev.tsv            verdict for "keys<TAB>previous" lines
-//!                                                    (previous: english|korean|mixed|empty)
+//!                                                    (previous: english|korean|mixed|japanese|empty)
+//! Add --japanese to score romaji Japanese too (--decide, -v).
 
 use std::io::{self, BufRead};
 
@@ -20,7 +21,8 @@ fn lines() -> impl Iterator<Item = String> {
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // No lexicon: evaluation must not depend on (or change) what this user has learned.
-    let engine = make_engine(None);
+    let japanese = args.iter().any(|a| a == "--japanese");
+    let engine = make_engine(None, japanese);
 
     match args.first().map(String::as_str) {
         Some("--compose") => {
@@ -79,10 +81,11 @@ fn main() {
                 if verbose {
                     for w in &words {
                         let d = &w.decision;
-                        let lang = if d.language == Language::English {
-                            "en"
-                        } else {
-                            "ko"
+                        let lang = match d.language {
+                            Language::English => "en",
+                            Language::Korean => "ko",
+                            Language::Mixed => "mix",
+                            Language::Japanese => "ja",
                         };
                         println!(
                             "  {:<16} → {} [{lang} {:.2}] {}",

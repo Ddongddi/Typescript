@@ -1,12 +1,13 @@
 //! English word with a Korean particle or ending typed straight after it (MixedWord.swift):
 //! `githubdp` → `github에`, `APIfmf` → `API를`, `commitgotj` → `commit해서`.
-//! The Japanese branches of the original are gone.
 
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::segmenter::JapaneseSegmenter;
 use crate::lang::english::EnglishModel;
 use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
 use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::particles::{is_ending, is_single_letter_particle};
+use crate::lang::romaji::RomajiComposer;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MixedWord {
@@ -79,12 +80,15 @@ impl MixedWord {
 }
 
 /// Decides `Mixed` for English and Korean typed as one token: English + particle (github에),
-/// a single letter + particle (x에), English + Korean word (hello월드). Never when the whole
-/// token is a known English word or reads as ordinary Korean.
+/// a single letter + particle (x에), English + Korean word (hello월드), and with Japanese on
+/// English + Japanese particle (githubで). Never when the whole token is a known English word or
+/// reads as ordinary Korean (every syllable is one people actually use).
 pub struct SplittingEngine {
     pub base: Box<dyn DecisionEngine>,
     pub english: &'static EnglishModel,
     pub korean: KoreanModel,
+    /// With Japanese on: English word + Japanese particle (githubで), decided the same way.
+    pub japanese: Option<JapaneseSegmenter>,
     /// The front counts as English if it's in the word list, or spells like English
     /// (trigram score at least this) and can't be read as Hangul.
     pub english_spelling_floor: f64,
@@ -104,9 +108,26 @@ impl SplittingEngine {
             base,
             english,
             korean: KoreanModel::default(),
+            japanese: None,
             english_spelling_floor: -2.6,
             mixed_word_spelling_ceiling: -2.7,
             unknown_word_spelling_ceiling: -3.2,
+        }
+    }
+
+    /// With the segmenter from the heuristic: English word + Japanese particle (githubで).
+    pub fn with_japanese(mut self, segmenter: JapaneseSegmenter) -> Self {
+        self.japanese = Some(segmenter);
+        self
+    }
+
+    /// Whether the keys spell a word people actually say in Korean (한국, guswo is 현재).
+    fn is_korean_word(&self, keys: &str) -> bool {
+        match HangulComposer::compose(keys) {
+            Some(composed) if composed.stray_jamo().is_empty() => {
+                self.korean.is_known_word(&composed.text())
+            }
+            _ => false,
         }
     }
 
@@ -189,8 +210,10 @@ impl SplittingEngine {
             return None;
         }
         let spelling = self.english.average_log_probability(keys);
-        // ponytail: the original also rejects clean romaji (hasansowo) here; Japanese is out of scope.
-        if spelling >= self.mixed_word_spelling_ceiling {
+        // Clean romaji (hasansowo, はさんそを) is Japanese, not English + Hangul.
+        if spelling >= self.mixed_word_spelling_ceiling
+            || RomajiComposer::compose(keys, false).is_clean()
+        {
             return None;
         }
         for start in (2..=chars.len() - 2).rev() {
@@ -256,6 +279,23 @@ impl DecisionEngine for SplittingEngine {
         }
         if let Some(mixed) = self.english_then_korean_word(keys) {
             return Self::split_decision(&mixed);
+        }
+        // Not when the keys spell a Korean word: guswo is 현재, not gus + を (but slackwo,
+        // 님차재, is no word, so slackを).
+        if let Some((word, particle)) = self
+            .japanese
+            .as_ref()
+            .and_then(|segmenter| segmenter.english_with_particle(keys))
+        {
+            if !self.is_korean_word(keys) {
+                return Decision {
+                    language: Language::Japanese,
+                    confidence: Self::CONFIDENCE,
+                    output: format!("{word}{particle}"),
+                    explanation: format!("split {word}+{particle}"),
+                    runner_up: None,
+                };
+            }
         }
         self.base.decide(keys, context)
     }

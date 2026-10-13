@@ -8,6 +8,15 @@ const VK_BACK: u32 = 0x08;
 const VK_TAB: u32 = 0x09;
 const VK_RETURN: u32 = 0x0D;
 const VK_ESCAPE: u32 = 0x1B;
+const VK_SPACE: u32 = 0x20;
+const VK_LEFT: u32 = 0x25;
+const VK_UP: u32 = 0x26;
+const VK_RIGHT: u32 = 0x27;
+const VK_DOWN: u32 = 0x28;
+const VK_J: u32 = 0x4A;
+const VK_K: u32 = 0x4B;
+const VK_F6: u32 = 0x75;
+const VK_F7: u32 = 0x76;
 const VK_SHIFT: i32 = 0x10;
 const VK_CONTROL: i32 = 0x11;
 const VK_MENU: i32 = 0x12;
@@ -70,6 +79,15 @@ pub fn key_for(vk: u32) -> Option<Key> {
     }
     let (shift, ctrl, alt) = (is_down(VK_SHIFT), is_down(VK_CONTROL), is_down(VK_MENU));
     if ctrl || alt {
+        // ⌃J / ⌃K: the Japanese reading as hiragana / katakana, when a phrase is showing
+        // (the session commits and passes them on otherwise).
+        if ctrl && !alt && !shift {
+            match vk {
+                VK_J => return Some(Key::Hiragana),
+                VK_K => return Some(Key::Katakana),
+                _ => {}
+            }
+        }
         return Some(Key::Other); // a shortcut: the word goes in, the app gets the key
     }
     Some(match vk {
@@ -83,6 +101,13 @@ pub fn key_for(vk: u32) -> Option<Key> {
         VK_ESCAPE if shift => Key::Cycle,
         VK_ESCAPE => Key::Escape,
         VK_RETURN => Key::Enter,
+        VK_LEFT => Key::Left,
+        VK_UP => Key::Up,
+        VK_RIGHT => Key::Right,
+        VK_DOWN => Key::Down,
+        VK_F7 => Key::Katakana,
+        VK_F6 => Key::Hiragana,
+        VK_SPACE if shift => Key::ShiftSpace,
         _ => match printable(vk, shift) {
             Some(c) => Key::Printable(c),
             None => Key::Other,

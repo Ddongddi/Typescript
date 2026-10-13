@@ -1,11 +1,12 @@
 # Typescript
 
-영어/한국어(두벌식) 자동 판별 입력기. Windows(TSF)와 Android(물리 키보드).
+영어/한국어(두벌식) 자동 판별 입력기. Windows(TSF)와 Android(물리 키보드). 일본어(로마자)는 설정에서 켠다 (아래 "일본어").
 
 ```
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
 dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 fltpssm ghkdlxld                    →  리센느 화이팅
+kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね   (일본어를 켰을 때)
 ```
 ## 설치
 PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켠다 (관리자 권한 확인창 1회).
@@ -47,14 +48,30 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 | 키 | 동작 |
 | --- | --- |
 | 글자 | 단어를 이어 간다. 점선 밑줄로 현재 판단을 보여 준다 |
-| Space, 구두점 | 단어를 확정하고 키는 앱이 그대로 받는다 |
-| Enter | 밑줄 단어를 확정만 한다 (다음 Enter가 앱의 것) |
-| Esc | 읽기를 순환: 영어 → 영어+조사 → 한국어 |
+| Space, 구두점 | 단어를 확정하고 키는 앱이 그대로 받는다. 일본어 단어에서는 Space가 변환을 연다 (아래 "일본어") |
+| Enter | 밑줄 단어를 확정만 한다 (다음 Enter가 앱의 것). 일본어 단어는 어느 설정에서도 확정만 한다 |
+| Esc | 읽기를 순환: 영어 → 영어+조사 → 한국어 → 일본어(켰을 때) |
 | Shift+Esc | 어느 앱에서나 읽기를 순환 |
 | 확정 직후 Esc | 방금 확정한 단어를 다음 읽기로 바꾼다. 같은 교정을 두 번 하면 학습한다 |
-| Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위 |
+| Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위, 일본어는 가나 한 글자 |
+| ⌃K / F7, ⌃J / F6 | (일본어) 읽기를 가타카나 / 히라가나로 보여 준다. Space로 둘을 뒤집고 Enter로 확정한다 |
 | Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성한다. 내가 친 단어가 먼저고, 없으면 내장 사전이다. 완성될 단어는 단어 아래의 작은 알약 모양 창에 `안녕하세요  Tab`으로 미리 보인다 (앱 테마에 맞춰 라이트/다크). 완성할 게 없으면 단어만 확정하고 Tab은 앱으로 간다 |
 | **한/영 키** | 이 텍스트 필드에서 Typescript를 끄고 켠다 (다른 칸으로 가면 다시 켜진다) |
+
+## 일본어 (설정에서 켠다)
+
+`settings.json` 의 `"japanese": true` 로 켠다. 공백 없이 친 로마자를 단어마다 일본어로 읽을지 판단해 가나로 보여 주고 (점선 밑줄), Esc 순환과 확정 규칙은 영어/한국어와 같다.
+
+```
+kyouhaiitenkidesune ⏎   →  きょうはいいてんきですね   (가나로 입력)
+kyouhagoogledekensaku ⏎ →  きょうはgoogleでけんさく   (문구 안 영어 단어는 그대로)
+```
+
+- Space가 변환을 연다: 후보를 Space/↓(다음), ↑(이전), 1–9, Enter(확정)로 고르고, Esc/Backspace는 가나 편집으로 돌아간다. ←/→는 첫 구절의 경계를 늘리고 줄인다.
+- **한자 변환 엔진은 아직 없다.** macOS판은 시스템 엔진(libmecabra)과 AzooKey 사전을 쓰는데 둘 다 macOS 전용이라, 이식판은 지금 읽기 자체(히라가나/가타카나)를 후보로 내놓는다. 엔진 자리는 `JapaneseConverter` 트레이트로 열어 두었다 (`crates/core/src/decide/convert.rs`): Windows용 엔진을 그 자리에 넣으면 한자·후보 순위·라이브 변환이 그대로 살아난다.
+- `"liveConversion": true` 면 치는 동안 첫 후보를 바로 보여 준다 (macOS판 라이브 변환). 지금 엔진으로는 가나가 그대로 보인다.
+- `"fullWidthDigits"`, `"fullWidthSpace"` (둘 다 기본 꺼짐): 일본어 뒤의 숫자와 공백을 전각으로 (０３－１２３４, 　). `apps.json` 의 `"fullWidth": false` 로 그 앱에서만 반각으로 둘 수 있다 (터미널).
+- 문구 안에서 `, . ? ! -` 는 、。？！ー 로 붙고, 일본어 뒤의 기호는 스스로 한 단어가 되어 Return이나 다음 단어가 확정한다.
 
 ## 설정 (`%APPDATA%\Typescript\`)
 
@@ -62,10 +79,12 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 
 `settings.json`
 ```json
-{ "returnConfirmsOnly": true, "pauseKey": "hangul", "autocomplete": true }
+{ "returnConfirmsOnly": true, "pauseKey": "hangul", "autocomplete": true,
+  "japanese": false, "liveConversion": false, "fullWidthDigits": false, "fullWidthSpace": false }
 ```
 `autocomplete`: `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다.
 `pauseKey`: `"hangul"`(한/영 키) 또는 `"off"`.
+`japanese`: 로마자 일본어 자동 판별 (위 "일본어"). `liveConversion`, `fullWidthDigits`, `fullWidthSpace` 도 거기서 설명한다.
 
 **단어 학습** — 자동완성 입력기에서 확정한 영어/한글 단어를 `user_history.json` 에 센다. **2번 이상 친 단어만** 제안한다 (한 번 친 비밀번호·오타는 나오지 않는다). 10단어마다, 그리고 입력칸을 옮길 때 파일에 쓰고 다시 읽으므로 다른 앱에서 배운 단어도 곧 제안된다. 숫자나 영한 섞인 토큰, 1글자는 기록하지 않는다.
 
@@ -79,6 +98,7 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 - `conversionThreshold` 기본 0.5. 0.97(엄격)은 터미널에서 짧은 명령이 한글로 바뀌는 것을 막는다
 - `escapeToApp: true` Esc를 앱에 넘기고 Shift+Esc로 읽기를 바꾼다 (에디터)
 - `useSystemIme: true` 그 앱에서는 시스템 한국어 입력기로 넘긴다 (한/영 키로 전환. 아래 "앱 호환")
+- `fullWidth: false` (일본어) 그 앱에서는 전각 숫자·공백을 반각으로 둔다 (터미널)
 
 `lexicon.json` — 교정으로 배운 단어 (직접 고쳐도 된다).
 
@@ -106,9 +126,9 @@ cargo clippy --all-targets -- -D warnings
 `crates/core` 는 OS 의존성이 없다. 모듈은 역할별로 나뉜다.
 | 모듈 | 내용 |
 | --- | --- |
-| `lang/` | 한글 조합(`hangul`), 한국어/영어 모델, 조사·어미 목록(`particles`) |
-| `decide/` | 판별 엔진 체인: 교정 학습(`learning`) → 영어+조사 분리(`mixed`) → 점수(`engine`) |
-| `session/` | 입력 상태 머신: `word`(치는 중인 단어), `preview`(밑줄 미리보기), `flip`(확정 직후 Esc), `client`/`key`(앱과의 경계) |
+| `lang/` | 한글 조합(`hangul`), 한국어/영어 모델, 조사·어미 목록(`particles`), 로마자→가나(`romaji`), 가나 트라이그램 모델(`japanese`) |
+| `decide/` | 판별 엔진 체인: 교정 학습(`learning`) → 영어+조사 분리(`mixed`) → 점수(`engine`); 문구 안 영어 분리(`segmenter`), 한자 변환 인터페이스(`convert`) |
+| `session/` | 입력 상태 머신: `word`(치는 중인 단어), `preview`(밑줄 미리보기), `flip`(확정 직후 Esc), `japanese`(일본어 문구·변환), `client`/`key`(앱과의 경계) |
 | `store/` | 디스크에 남는 것: 앱별 정책·설정(`policy`), 단어 기록(`history`) |
 
 `platforms/android/native` 는 코어를 JNI로 감싼 Rust 라이브러리(키와 캐럿 앞 텍스트를 받아 편집 명령을 돌려준다), `platforms/android/app` 은 그 결과를 `InputConnection` 에 적용하는 Java `InputMethodService` 다. 판별 로직은 전부 Rust에 있다.
@@ -122,4 +142,5 @@ cargo clippy --all-targets -- -D warnings
 - 한/영 키가 없는 키보드에서는 일시정지 키가 없다. 일시정지 상태를 보여 주는 표시도 Windows에는 아직 없다.
 - Android 화면 키보드는 한 번에 한 손가락만 인식한다 (프레임워크 `KeyboardView`의 한계). 아주 빠르게 칠 때 키를 놓칠 수 있다.
 - 자동완성 제안은 단어 아래 창으로만 보인다 (글자 안에 회색으로 붙이는 방식은 아님).
-- 데이터 라이선스는 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (`korean_vocabulary.txt` 는 CC BY-SA 4.0).
+- (일본어) 한자 변환 엔진이 아직 없어 읽기(히라가나/가타카나)까지다. 후보 창도 없이 단어 자리를 순환하며 보여 준다.
+- 데이터 라이선스는 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (`korean_vocabulary.txt` 는 CC BY-SA 4.0, `kana_trigrams.txt` 는 Tatoeba CC-BY 2.0 FR).
