@@ -150,22 +150,22 @@ pub fn make_engine(store_path: Option<PathBuf>, languages: &Languages) -> Arc<Le
 mod tests {
     use super::*;
 
+    fn local_app_data(profile: &str) -> PathBuf {
+        PathBuf::from(profile).join("AppData").join("Local")
+    }
+
     #[test]
     fn pack_dirs_cover_the_redirected_local_app_data() {
-        let dirs = pack_dirs_from(
-            Some(r"C:\Users\a\AppData\Local\Packages\pfn\AC".into()),
-            Some(r"C:\Users\a".into()),
-        );
+        let redirected = PathBuf::from("u").join("Packages").join("pfn").join("AC");
+        let dirs = pack_dirs_from(Some(redirected.into()), Some("u".into()));
         assert_eq!(dirs.len(), 2);
-        assert!(dirs[1].ends_with(r"AppData\Local\Typescript\packs"));
+        assert!(dirs[1].starts_with(local_app_data("u")));
+        assert!(dirs[1].ends_with("Typescript/packs"));
     }
 
     #[test]
     fn pack_dirs_do_not_repeat_the_usual_location() {
-        let dirs = pack_dirs_from(
-            Some(r"C:\Users\a\AppData\Local".into()),
-            Some(r"C:\Users\a".into()),
-        );
+        let dirs = pack_dirs_from(Some(local_app_data("u").into()), Some("u".into()));
         assert_eq!(dirs.len(), 1);
         assert!(pack_dirs_from(None, None).is_empty());
     }

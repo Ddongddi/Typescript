@@ -78,7 +78,7 @@ fn check(name: &str, actual: &str) {
     }
     let expected = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("{}: {e} (run with GOLDEN_WRITE=1 once)", path.display()));
-    if expected != actual {
+    if expected != actual && !same_up_to_libm(&expected, &actual) {
         let first = expected
             .lines()
             .zip(actual.lines())
@@ -87,6 +87,24 @@ fn check(name: &str, actual: &str) {
             .unwrap_or_else(|| "line count differs".to_string());
         panic!("{name} differs from the golden snapshot\n{first}");
     }
+}
+
+/// Windows (where the snapshots were taken) must match byte for byte. Elsewhere the math library
+/// rounds `exp`/`ln` a few digits differently, so numbers may differ by 1e-6; every other field
+/// (languages, text, flags) must still be identical.
+fn same_up_to_libm(expected: &str, actual: &str) -> bool {
+    if cfg!(windows) || expected.lines().count() != actual.lines().count() {
+        return false;
+    }
+    expected.lines().zip(actual.lines()).all(|(e, a)| {
+        let (e, a): (Vec<_>, Vec<_>) = (e.split('\t').collect(), a.split('\t').collect());
+        e.len() == a.len()
+            && e.iter().zip(&a).all(|(e, a)| {
+                e == a
+                    || matches!((e.parse::<f64>(), a.parse::<f64>()),
+                        (Ok(x), Ok(y)) if (x - y).abs() < 1e-6)
+            })
+    })
 }
 
 fn hangul_only(w: &str) -> bool {

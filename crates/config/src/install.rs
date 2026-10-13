@@ -540,4 +540,33 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn the_program_packages_of_every_system_unpack() {
+        let linux = [
+            "typescript",
+            "typescript-config",
+            "ibus-engine-typescript",
+            "typescript.xml.in",
+            "install.sh",
+            "VERSION",
+            "THIRD_PARTY_NOTICES.txt",
+        ];
+        let mac = [
+            "typescript",
+            "typescript-config",
+            "Typescript.app.tar",
+            "install.sh",
+            "VERSION",
+        ];
+        for (os, names) in [("linux", &linux[..]), ("macos", &mac[..])] {
+            let files: Vec<(&str, &[u8])> = names.iter().map(|n| (*n, &b"x"[..])).collect();
+            let dir = std::env::temp_dir().join(format!("ts-unpack-{os}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            unpack(&zip_of(&files), &dir).unwrap_or_else(|e| panic!("{os}: {e}"));
+            assert!(names.iter().all(|n| dir.join(n).is_file()), "{os}");
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
 }

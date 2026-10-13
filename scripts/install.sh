@@ -92,8 +92,7 @@ if [ "$OS" = linux ]; then
 else
   mkdir -p "$HOME/Library/Input Methods"
   rm -rf "$APP"
-  cp -R "$SRC/Typescript.app" "$APP"
-  chmod +x "$APP/Contents/MacOS/Typescript"
+  tar -xf "$SRC/Typescript.app.tar" -C "$HOME/Library/Input Methods"
   # Not signed or notarized: allow it once.
   xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 fi
