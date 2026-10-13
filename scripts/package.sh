@@ -14,7 +14,18 @@ mkdir -p dist
 rm -rf "$STAGE" "dist/$NAME.zip"
 mkdir -p "$STAGE"
 
-cp target/release/typescript target/release/typescript-config "$STAGE/"
+if [ "$OS" = macos ]; then
+  # Universal binaries: the same package runs on Apple silicon and Intel.
+  for arch in aarch64 x86_64; do
+    cargo build --release -p typescript-cli -p typescript-config --target "$arch-apple-darwin"
+  done
+  for bin in typescript typescript-config; do
+    lipo -create "target/aarch64-apple-darwin/release/$bin" "target/x86_64-apple-darwin/release/$bin" \
+      -output "$STAGE/$bin"
+  done
+else
+  cp target/release/typescript target/release/typescript-config "$STAGE/"
+fi
 cp THIRD_PARTY_NOTICES.txt scripts/install.sh "$STAGE/"
 echo "$VERSION" > "$STAGE/VERSION"
 if [ "$OS" = linux ]; then

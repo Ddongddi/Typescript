@@ -32,7 +32,42 @@ jobs:
           ./platforms/android/build.ps1 -Abi arm64-v8a
       - run: ./scripts/package.ps1
       - run: Copy-Item platforms/android/build/typescript.apk dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: dist/*
+
+  unix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - name: IBus headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev pkg-config zip
+      - run: cargo test --workspace --exclude typescript-tip
+      - run: cargo build --release -p typescript-cli -p typescript-config -p typescript-ffi
+      - run: ./scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ runner.os }}
+          path: dist/*
+
+  publish:
+    needs: [release, unix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$env:GITHUB_REF_NAME" dist/* --title "$env:GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

@@ -1,3 +1,10 @@
 # Built by tools/build_ipadic.py: not text, and not worth a diff.
 crates/core/data/ipadic_compact.bin binary linguist-generated
 crates/core/tests/golden/* -text -diff linguist-generated
+
+# Run on Linux and macOS: never CRLF.
+*.sh text eol=lf
+platforms/linux/Makefile text eol=lf
+platforms/linux/*.c text eol=lf
+platforms/linux/*.in text eol=lf
+platforms/macos/* text eol=lf

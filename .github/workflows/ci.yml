@@ -21,6 +21,31 @@ jobs:
       # The 32-bit text service loads into 32-bit apps, so it has to keep building.
       - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
 
+  # Linux and macOS: the engine, the tools and the C interface (the Windows text service does
+  # not build there), then the input method itself.
+  unix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - name: IBus headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev pkg-config zip
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --exclude typescript-tip --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude typescript-tip
+      - name: Package (builds the IBus engine / the macOS input method too)
+        run: |
+          cargo build --release -p typescript-cli -p typescript-config -p typescript-ffi
+          ./scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
+
   android:
     runs-on: windows-latest
     steps:
