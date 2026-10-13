@@ -60,6 +60,18 @@ fn typing_is_read_as_the_languages_that_are_on() {
         "separators are kept: {r}"
     );
 
+    // Every word says what each language that is on would make of it, so the page can show
+    // the road not taken.
+    let alts = words[0]["alts"].as_array().unwrap();
+    let alt = |lang: &str| {
+        alts.iter()
+            .find(|a| a["lang"] == lang)
+            .map(|a| a["out"].clone())
+    };
+    assert_eq!(alt("ko"), Some(json!("안녕하세요")), "{r}");
+    assert_eq!(alt("en"), Some(json!("dkssudgktpdy")), "{r}");
+    assert_eq!(alts.len(), 2, "only the languages that are on: {r}");
+
     // An app that wants a near-certain reading keeps a doubtful word as typed.
     let strict = post(
         &app,

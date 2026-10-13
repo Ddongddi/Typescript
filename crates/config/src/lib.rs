@@ -14,6 +14,7 @@ pub mod languages;
 pub mod setup;
 pub mod source;
 pub mod update;
+mod web;
 
 #[cfg(test)]
 mod testutil;

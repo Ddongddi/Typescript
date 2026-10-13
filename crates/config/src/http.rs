@@ -170,8 +170,11 @@ mod tests {
         let request =
             format!("GET {path} HTTP/1.1\r\nHost: {host}\r\n{token}Connection: close\r\n\r\n");
         stream.write_all(request.as_bytes()).unwrap();
-        let mut reply = String::new();
-        stream.read_to_string(&mut reply).unwrap();
+        // Bytes, not a string: a long page is sent in chunks, and a chunk's size line can land
+        // in the middle of a Korean letter (a browser joins the chunks first).
+        let mut raw = Vec::new();
+        stream.read_to_end(&mut raw).unwrap();
+        let reply = String::from_utf8_lossy(&raw).into_owned();
         let status = reply.split_whitespace().nth(1).unwrap().parse().unwrap();
         (status, reply)
     }

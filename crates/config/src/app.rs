@@ -21,7 +21,6 @@ use crate::update;
 pub const MAX_BODY: usize = 256 * 1024;
 /// The "try typing" box is for a sentence, not a document.
 const MAX_TRY_CHARS: usize = 2000;
-const PAGE: &str = include_str!("dashboard.html");
 /// The settings the page may change, and how each is checked.
 const BOOL_SETTINGS: [&str; 6] = [
     "returnConfirmsOnly",
@@ -263,7 +262,7 @@ impl App {
             ("GET", "/") => Response {
                 status: 200,
                 content_type: "text/html; charset=utf-8",
-                body: PAGE.as_bytes().to_vec(),
+                body: crate::web::page().as_bytes().to_vec(),
             },
             ("GET", "/api/state") => json_response(200, &self.state()),
             ("GET", "/api/update") => match self.update_info() {
@@ -363,6 +362,7 @@ impl App {
             .as_f64()
             .unwrap_or(AppPolicy::STANDARD.conversion_threshold);
         let engine = self.engine();
+        let on = languages::enabled(&self.env);
         let mut segments = Vec::new();
         let mut previous = None;
         let mut rest = text;
@@ -394,9 +394,15 @@ impl App {
                 (d.language, d.output)
             };
             previous = Some(language.sentence_language());
+            // What each language that is on would make of the word, whatever was chosen.
+            let alts: Vec<Value> = on
+                .iter()
+                .map(|l| json!({ "lang": l.id(), "out": engine.render(piece, l) }))
+                .collect();
             segments.push(json!({
                 "keys": piece, "out": out, "lang": language.id(),
                 "confidence": d.confidence, "kept": kept, "why": d.explanation,
+                "alts": alts, "runnerUp": d.runner_up.map(Language::id),
             }));
         }
         Ok(json!({ "segments": segments }))
