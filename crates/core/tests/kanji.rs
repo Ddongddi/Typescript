@@ -1,0 +1,98 @@
+//! The real dictionary through the typing session: Space opens the conversion, the paths and
+//! clause candidates come from IPADIC (decide/kanji.rs), and committing a candidate is learned.
+
+use std::sync::Arc;
+
+use typescript_core::session::testing::FakeTextField;
+use typescript_core::{
+    make_engine, AppPolicies, DictionaryConverter, InputSession, JapaneseConverter, Key, TextClient,
+};
+
+fn rig(name: &str) -> (InputSession, FakeTextField, Arc<DictionaryConverter>) {
+    let lexicon = std::env::temp_dir().join(format!(
+        "typescript-kanji-{name}-{}.json",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&lexicon);
+    let engine = make_engine(Some(lexicon), true);
+    let converter = Arc::new(DictionaryConverter::new(None));
+    let session = InputSession::new(engine, AppPolicies::default(), true)
+        .with_japanese(converter.clone(), false);
+    (session, FakeTextField::new(), converter)
+}
+
+fn type_keys(session: &mut InputSession, field: &mut FakeTextField, script: &str) {
+    for ch in script.chars() {
+        let handled = if ch.is_ascii_alphabetic() {
+            session.handle(Key::Letter(ch), field)
+        } else {
+            session.handle(Key::Printable(ch), field)
+        };
+        if !handled && !ch.is_ascii_alphabetic() {
+            field.insert_text(&ch.to_string(), None);
+        }
+    }
+}
+
+#[test]
+fn space_converts_with_the_dictionary() {
+    let (mut session, mut field, _) = rig("space");
+    type_keys(&mut session, &mut field, "kyouhaiitenkidesune");
+    assert_eq!(field.text(), "きょうはいいてんきですね"); // the preview is kana
+    assert!(session.handle(Key::Printable(' '), &mut field));
+    {
+        let conversion = session.conversion().expect("conversion open");
+        let texts: Vec<&str> = conversion
+            .candidates
+            .iter()
+            .take(3)
+            .map(|c| c.text.as_str())
+            .collect();
+        assert_eq!(texts[0], "今日はいい天気ですね", "{texts:?}");
+    }
+    assert!(session.handle(Key::Enter, &mut field));
+    assert_eq!(field.text(), "今日はいい天気ですね");
+}
+
+#[test]
+fn a_clause_candidate_keeps_converting_the_rest() {
+    let (mut session, mut field, _) = rig("clause");
+    type_keys(&mut session, &mut field, "kyouhaiitenkidesune");
+    session.handle(Key::Printable(' '), &mut field);
+    // ← to the first clause (きょうは: four kana).
+    for _ in 0..8 {
+        session.handle(Key::Left, &mut field);
+    }
+    let conversion = session.conversion().expect("still converting");
+    assert_eq!(conversion.current().kana_count, 4);
+    assert!(session.handle(Key::Enter, &mut field));
+    // The first clause went in; the rest keeps converting.
+    let rest = session.conversion().expect("rest continues");
+    assert_eq!(rest.kana, "いいてんきですね");
+    session.handle(Key::Enter, &mut field);
+    assert!(field.text().ends_with("いい天気ですね"), "{}", field.text());
+}
+
+#[test]
+fn a_chosen_candidate_is_first_next_time() {
+    let (mut session, mut field, converter) = rig("learn");
+    type_keys(&mut session, &mut field, "kyouhagoogledekensaku");
+    session.handle(Key::Printable(' '), &mut field);
+    let whole = "きょうはgoogleでけんさく".chars().count();
+    let index = {
+        let conversion = session.conversion().expect("conversion open");
+        conversion
+            .candidates
+            .iter()
+            .position(|c| c.kana_count == whole && c.text != conversion.candidates[0].text)
+            .expect("more than one whole-reading candidate")
+    };
+    for _ in 0..index {
+        session.handle(Key::Printable(' '), &mut field);
+    }
+    let chosen = session.conversion().unwrap().current().text.clone();
+    session.handle(Key::Enter, &mut field);
+    // Committing a candidate is remembered for the reading it covered.
+    let again = converter.candidates("きょうはgoogleでけんさく");
+    assert_eq!(again[0].text, chosen);
+}

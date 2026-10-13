@@ -4,6 +4,7 @@
 pub mod convert;
 pub mod converter;
 pub mod engine;
+pub mod kanji;
 pub mod learning;
 pub mod mixed;
 pub mod segmenter;

@@ -6,13 +6,17 @@
 //!   typescript --suggest < keys.txt                  "keys, language, shown, Tab completion" per line
 //!   typescript --decide < keys_prev.tsv            verdict for "keys<TAB>previous" lines
 //!                                                    (previous: english|korean|mixed|japanese|empty)
+//!   typescript --convert < kana.txt                kanji candidates per kana line
 //! Add --japanese to score romaji Japanese too (--decide, -v).
 
 use std::io::{self, BufRead};
 
 use typescript_core::lang::hangul::HangulComposer;
 use typescript_core::store::history::suggest;
-use typescript_core::{make_engine, DecisionContext, DecisionEngine, Language, TextConverter};
+use typescript_core::{
+    make_engine, DecisionContext, DecisionEngine, DictionaryConverter, JapaneseConverter, Language,
+    TextConverter,
+};
 
 fn lines() -> impl Iterator<Item = String> {
     io::stdin().lock().lines().map_while(Result::ok)
@@ -45,6 +49,19 @@ fn main() {
                 );
                 let suggestion = suggest(None, d.language, &d.output).unwrap_or_default();
                 println!("{keys}\t{}\t{}\t{suggestion}", d.language.name(), d.output);
+            }
+        }
+        Some("--convert") => {
+            // Kana → kanji candidates, for tuning and evaluation (no learning file).
+            let converter = DictionaryConverter::new(None);
+            for kana in lines() {
+                let candidates = converter.candidates(&kana);
+                let texts: Vec<String> = candidates
+                    .iter()
+                    .take(8)
+                    .map(|c| format!("{}:{}", c.text, c.kana_count))
+                    .collect();
+                println!("{kana}\t{}", texts.join(" | "));
             }
         }
         Some("--decide") => {

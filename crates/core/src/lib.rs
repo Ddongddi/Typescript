@@ -13,6 +13,7 @@ use std::sync::Arc;
 pub use decide::convert::{ConversionCandidate, JapaneseConverter, KanaConverter};
 pub use decide::converter::TextConverter;
 pub use decide::engine::{Decision, DecisionContext, DecisionEngine, HeuristicEngine, Language};
+pub use decide::kanji::{DictionaryConverter, KanjiDictionary};
 pub use decide::learning::LearningEngine;
 pub use decide::mixed::{MixedWord, SplittingEngine};
 pub use decide::segmenter::{JapaneseSegmenter, Segment};
