@@ -9,6 +9,7 @@ pub mod fetch;
 pub mod hash;
 pub mod install;
 pub mod languages;
+pub mod setup;
 pub mod source;
 
 #[cfg(test)]

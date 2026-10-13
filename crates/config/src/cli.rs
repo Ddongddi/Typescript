@@ -119,6 +119,7 @@ pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
             Some(list) => order(env, list),
             None => err("order: give the ids, e.g. order ko,en"),
         },
+        Some("setup") => crate::setup::run(&args[1..], env, source),
         Some("help") | Some("--help") | Some("-h") => Ok(format!("{USAGE}\n")),
         Some(other) => err(format!("unknown command '{other}'\n{USAGE}")),
         None => err(USAGE),
