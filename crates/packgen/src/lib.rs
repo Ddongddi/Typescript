@@ -248,6 +248,61 @@ fn korean(data: &Path) -> io::Result<Files> {
     ])
 }
 
+/// Zips the files of a pack folder flat, manifest.json first. Fixed timestamps, so the same
+/// input gives the same bytes.
+fn zip_flat(dir: &Path) -> io::Result<Vec<u8>> {
+    use std::io::Write;
+    let mut names: Vec<String> = fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n != "manifest.json")
+        .collect();
+    names.sort();
+    names.insert(0, "manifest.json".to_string());
+    let mut out = io::Cursor::new(Vec::new());
+    {
+        let mut writer = zip::ZipWriter::new(&mut out);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        for name in &names {
+            writer
+                .start_file(name.as_str(), options)
+                .map_err(io::Error::other)?;
+            writer.write_all(&fs::read(dir.join(name))?)?;
+        }
+        writer.finish().map_err(io::Error::other)?;
+    }
+    Ok(out.into_inner())
+}
+
+/// A release's language-pack assets in `out`: `typescript-pack-<id>-<version>.zip` for every
+/// pack, and `packs.json` listing them with their size and SHA-256 (what typescript-config reads).
+pub fn write_release(data: &Path, out: &Path) -> io::Result<()> {
+    fs::create_dir_all(out)?;
+    let work = out.join("work");
+    let mut listed = Vec::new();
+    for spec in PACKS {
+        let folder = work.join(spec.id);
+        write_pack(spec.id, data, &folder)?;
+        let zip = zip_flat(&folder)?;
+        let name = format!("typescript-pack-{}-{VERSION}.zip", spec.id);
+        fs::write(out.join(&name), &zip)?;
+        listed.push(serde_json::json!({
+            "id": spec.id,
+            "name": spec.name,
+            "version": VERSION,
+            "requires": spec.requires,
+            "size": zip.len(),
+            "sha256": sha256_hex(&zip),
+            "url": name,
+        }));
+    }
+    fs::remove_dir_all(&work)?;
+    let catalog = serde_json::json!({ "version": VERSION, "core": core_range(), "packs": listed });
+    let json = serde_json::to_vec_pretty(&catalog).map_err(io::Error::other)?;
+    fs::write(out.join("packs.json"), json)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,5 +383,68 @@ mod tests {
     #[test]
     fn unknown_pack_is_an_error() {
         assert!(write_pack("xx", &data(), &temp("xx")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod release_tests {
+    use super::*;
+    use std::io::Read;
+    use std::path::PathBuf;
+
+    fn data() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../core/data")
+    }
+
+    fn temp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ts-release-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn a_release_has_one_zip_per_pack_and_a_catalog_that_tells_the_truth() {
+        let out = temp("catalog");
+        write_release(&data(), &out).unwrap();
+        let catalog: serde_json::Value =
+            serde_json::from_slice(&fs::read(out.join("packs.json")).unwrap()).unwrap();
+        assert_eq!(catalog["version"], VERSION);
+        assert_eq!(catalog["core"], core_range());
+        let packs = catalog["packs"].as_array().unwrap();
+        assert_eq!(packs.len(), PACKS.len());
+        for p in packs {
+            let url = p["url"].as_str().unwrap();
+            let zip = fs::read(out.join(url)).unwrap();
+            assert_eq!(p["size"].as_u64().unwrap(), zip.len() as u64, "{url}");
+            assert_eq!(p["sha256"].as_str().unwrap(), sha256_hex(&zip), "{url}");
+            assert!(url.starts_with("typescript-pack-") && url.ends_with(".zip"));
+        }
+        let ko = packs.iter().find(|p| p["id"] == "ko").unwrap();
+        assert_eq!(ko["requires"], serde_json::json!(["en"]));
+        let _ = fs::remove_dir_all(&out);
+    }
+
+    #[test]
+    fn a_pack_zip_is_flat_with_its_manifest_first() {
+        let out = temp("flat");
+        write_release(&data(), &out).unwrap();
+        let zip = fs::read(out.join(format!("typescript-pack-en-{VERSION}.zip"))).unwrap();
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
+        let names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        assert_eq!(names[0], "manifest.json");
+        assert!(
+            names.iter().all(|n| !n.contains('/') && !n.contains('\\')),
+            "{names:?}"
+        );
+        let mut manifest = String::new();
+        archive
+            .by_name("manifest.json")
+            .unwrap()
+            .read_to_string(&mut manifest)
+            .unwrap();
+        assert!(manifest.contains("\"id\": \"en\""), "{manifest}");
+        let _ = fs::remove_dir_all(&out);
     }
 }
