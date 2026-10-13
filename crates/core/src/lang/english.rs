@@ -7,10 +7,12 @@
 
 use std::sync::LazyLock;
 
+use crate::decide::engine::Language;
+use crate::lang::pack;
 use crate::lang::sorted::SortedLines;
 
-const LEVELS: &str = include_str!(concat!(env!("OUT_DIR"), "/packs/en/english_levels.txt"));
-const TRIGRAMS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/packs/en/trigrams.bin"));
+static TRIGRAMS: LazyLock<&'static [u8]> =
+    LazyLock::new(|| pack::bytes(Language::English, "trigrams.bin"));
 
 // Symbols: 0 = word boundary, 1..=26 = a..z
 const SYMBOLS: usize = 27;
@@ -28,7 +30,7 @@ pub struct EnglishModel {
 }
 
 static SHARED: LazyLock<EnglishModel> = LazyLock::new(|| EnglishModel {
-    levels: SortedLines::new(LEVELS),
+    levels: SortedLines::new(pack::text(Language::English, "english_levels.txt")),
 });
 
 /// [^, ^, letters..., $] with ^ and $ both encoded as 0.
@@ -43,10 +45,11 @@ fn encode(word: &str) -> Vec<usize> {
     codes
 }
 
-/// Counts are stored trigrams first (27³), then contexts (27²).
+/// Counts are stored trigrams first (27³), then contexts (27²). Missing data counts 0.
 fn count(index: usize) -> f32 {
-    let b = &TRIGRAMS[index * 4..index * 4 + 4];
-    f32::from_le_bytes([b[0], b[1], b[2], b[3]])
+    TRIGRAMS
+        .get(index * 4..index * 4 + 4)
+        .map_or(0.0, |b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
 }
 
 impl EnglishModel {
@@ -161,5 +164,24 @@ impl EnglishModel {
     /// Everyday English (level ≤ 20): kept English even right after Korean.
     pub fn is_common_word(&self, token: &str) -> bool {
         self.level(token).is_some_and(|l| l <= COMMON_LEVEL)
+    }
+}
+
+#[cfg(test)]
+mod empty_data {
+    use super::*;
+
+    #[test]
+    fn out_of_range_trigrams_count_zero() {
+        assert_eq!(count(usize::MAX / 8), 0.0);
+    }
+
+    #[test]
+    fn empty_word_list_knows_nothing() {
+        let model = EnglishModel {
+            levels: SortedLines::new(""),
+        };
+        assert!(!model.is_known_word("hello"));
+        assert_eq!(model.word_count(), 0);
     }
 }

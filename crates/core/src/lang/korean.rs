@@ -4,21 +4,12 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+use crate::decide::engine::Language;
 use crate::lang::hangul::{is_consonant, Composed, HangulComposer, Unit};
+use crate::lang::pack;
 use crate::lang::particles::is_ending;
 use crate::lang::sorted::SortedLines;
 use crate::lang::syllables::{TIER1, TIER2, TIER3};
-
-const KOREAN_SYLLABLES: &str = include_str!("../../data/korean_syllables.txt");
-// Sorted and deduplicated by build.rs, searched in place.
-const KOREAN_WORDS: &str = include_str!(concat!(
-    env!("OUT_DIR"),
-    "/packs/ko/korean_words_sorted.txt"
-));
-const KOREAN_VOCABULARY: &str = include_str!(concat!(
-    env!("OUT_DIR"),
-    "/packs/ko/korean_vocab_sorted.txt"
-));
 
 pub const TIER1_LOGP: f64 = -5.0;
 pub const TIER2_LOGP: f64 = -6.5;
@@ -32,9 +23,11 @@ pub const CHAT_JAMO_LOGP: f64 = -4.0;
 const CHAT_JAMO: &str = "ㅋㅎㅠㅜㄷㅇㄱㅅㅂㄴ";
 
 /// Words seen in Korean sentences (korean_words.txt).
-static WORDS: LazyLock<SortedLines> = LazyLock::new(|| SortedLines::new(KOREAN_WORDS));
+static WORDS: LazyLock<SortedLines> =
+    LazyLock::new(|| SortedLines::new(pack::text(Language::Korean, "korean_words_sorted.txt")));
 
-static VOCABULARY: LazyLock<SortedLines> = LazyLock::new(|| SortedLines::new(KOREAN_VOCABULARY));
+static VOCABULARY: LazyLock<SortedLines> =
+    LazyLock::new(|| SortedLines::new(pack::text(Language::Korean, "korean_vocab_sorted.txt")));
 
 /// Where syllable probabilities come from.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -116,7 +109,7 @@ impl KoreanModel {
             }
         }
         if source != Source::Tiers {
-            let counts: Vec<(char, f64)> = KOREAN_SYLLABLES
+            let counts: Vec<(char, f64)> = pack::text(Language::Korean, "korean_syllables.txt")
                 .lines()
                 .filter_map(|l| {
                     let mut it = l.split('\t');

@@ -11,4 +11,4 @@ path = "src/main.rs"
 japanese = ["typescript-core/japanese"]
 
 [dependencies]
-typescript-core = { path = "../core" }
+typescript-core = { path = "../core", features = ["embedded-packs"] }

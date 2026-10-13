@@ -9,12 +9,9 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
+use crate::decide::engine::Language;
+use crate::lang::pack;
 use crate::lang::romaji::{ComposeResult, RomajiComposer};
-
-#[cfg(feature = "japanese")]
-const KANA_TRIGRAMS: &str = include_str!("../../data/kana_trigrams.txt");
-#[cfg(not(feature = "japanese"))]
-const KANA_TRIGRAMS: &str = ""; // built without Japanese: never read, see `crate::JAPANESE`
 
 const STRAY_LETTER_LOGP: f64 = -13.0;
 const PENDING_LOGP: f64 = -3.5;
@@ -35,7 +32,8 @@ pub struct JapaneseModel {
     vocabulary: f32,
 }
 
-static SHARED: LazyLock<JapaneseModel> = LazyLock::new(|| JapaneseModel::new(KANA_TRIGRAMS));
+static SHARED: LazyLock<JapaneseModel> =
+    LazyLock::new(|| JapaneseModel::new(pack::text(Language::Japanese, "kana_trigrams.txt")));
 
 impl JapaneseModel {
     /// One model per process, built lazily (Japanese is off by default; only a session with

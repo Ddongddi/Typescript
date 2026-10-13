@@ -9,6 +9,7 @@ pub mod japanese;
 mod ko;
 pub mod korean;
 pub mod module;
+pub mod pack;
 pub mod particles;
 pub mod registry;
 pub mod romaji;

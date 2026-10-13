@@ -19,6 +19,7 @@ pub use decide::mixed::{MixedWord, SplittingEngine};
 pub use decide::segmenter::{JapaneseSegmenter, Segment};
 pub use lang::english::EnglishModel;
 pub use lang::japanese::JapaneseModel;
+pub use lang::pack;
 pub use lang::romaji::RomajiComposer;
 pub use lang::set::Languages;
 pub use session::{Conversion, InputSession, Key, Range, TextClient};
@@ -32,6 +33,13 @@ pub const JAPANESE: bool = cfg!(feature = "japanese");
 /// `%APPDATA%\Typescript` (settings.json, apps.json, lexicon.json, user_history.json).
 pub fn support_dir() -> Option<PathBuf> {
     std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("Typescript"))
+}
+
+/// Where installed language packs live: `%LOCALAPPDATA%\Typescript\packs`. Not the roaming
+/// profile: AppContainer apps (which load the text service too) are granted read access to
+/// this folder by the installer.
+pub fn pack_dir() -> Option<PathBuf> {
+    std::env::var_os("LOCALAPPDATA").map(|d| PathBuf::from(d).join("Typescript").join("packs"))
 }
 
 /// The engine chain of the original `Runtime.makeEngine`:

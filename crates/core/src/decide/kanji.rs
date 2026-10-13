@@ -16,13 +16,11 @@ use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
 use crate::decide::convert::{ConversionCandidate, JapaneseConverter};
+use crate::decide::engine::Language;
+use crate::lang::pack;
 use crate::lang::romaji::RomajiComposer;
 use crate::support_dir;
 
-#[cfg(feature = "japanese")]
-const DICTIONARY: &[u8] = include_bytes!("../../data/ipadic_compact.bin");
-#[cfg(not(feature = "japanese"))]
-const DICTIONARY: &[u8] = &[]; // built without Japanese: never read, see `crate::JAPANESE`
 const MAGIC: &[u8; 8] = b"TSIPDIC2";
 
 /// No entry covers this character (a latin run, a stray mark): the path keeps it as typed.
@@ -53,7 +51,8 @@ pub struct KanjiDictionary {
     matrix: &'static [u8],
 }
 
-static SHARED: LazyLock<KanjiDictionary> = LazyLock::new(|| KanjiDictionary::new(DICTIONARY));
+static SHARED: LazyLock<KanjiDictionary> =
+    LazyLock::new(|| KanjiDictionary::new(pack::bytes(Language::Japanese, "ipadic_compact.bin")));
 
 fn u16_at(bytes: &[u8], at: usize) -> u16 {
     u16::from_le_bytes([bytes[at], bytes[at + 1]])

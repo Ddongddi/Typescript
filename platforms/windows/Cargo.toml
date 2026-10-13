@@ -9,10 +9,10 @@ crate-type = ["cdylib"]
 
 [features]
 # The "with Japanese" edition: carries the Japanese models (see typescript-core).
-japanese = ["typescript-core/japanese"]
+japanese = ["typescript-core/japanese", "typescript-core/embedded-ja"]
 
 [dependencies]
-typescript-core = { path = "../../crates/core" }
+typescript-core = { path = "../../crates/core", features = ["embedded-en", "embedded-ko"] }
 windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Foundation",

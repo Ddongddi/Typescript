@@ -59,6 +59,16 @@ impl Languages {
         false // never: `new` refuses an empty list
     }
 
+    /// The languages for which `usable` holds, in order; None when none does.
+    pub fn filtered(&self, usable: impl Fn(Language) -> bool) -> Option<Languages> {
+        Self::new(self.iter().filter(|l| usable(*l)))
+    }
+
+    /// The languages whose packs (and the packs they need) are loaded.
+    pub fn available(&self) -> Option<Languages> {
+        self.filtered(crate::lang::pack::available)
+    }
+
     pub fn ids(&self) -> Vec<&'static str> {
         self.0.iter().map(|l| l.id()).collect()
     }
@@ -111,5 +121,16 @@ mod tests {
         assert!(!Languages::new([English, Japanese]).unwrap().allows(Mixed));
         assert!(Languages::new([Korean]).unwrap().allows(Korean));
         assert!(!Languages::new([Korean]).unwrap().allows(English));
+    }
+
+    #[test]
+    fn filtered_keeps_order_and_drops_missing() {
+        let l = Languages::from_ids(&["ko", "en"]).unwrap();
+        let only_en = |x: Language| x == English;
+        assert_eq!(l.filtered(only_en).unwrap().ids(), vec!["en"]);
+        assert!(Languages::from_ids(&["ko"])
+            .unwrap()
+            .filtered(only_en)
+            .is_none());
     }
 }

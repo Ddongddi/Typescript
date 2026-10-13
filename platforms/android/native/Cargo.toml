@@ -8,5 +8,5 @@ name = "typescript_android"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-typescript-core = { path = "../../../crates/core" }
+typescript-core = { path = "../../../crates/core", features = ["embedded-en", "embedded-ko"] }
 jni = "0.21"
