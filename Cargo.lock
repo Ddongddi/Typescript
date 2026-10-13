@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-android"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "jni",
  "typescript-core",
@@ -214,14 +214,14 @@ dependencies = [
 
 [[package]]
 name = "typescript-cli"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "typescript-core",
 ]
 
 [[package]]
 name = "typescript-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -229,7 +229,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-tip"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "typescript-core",
  "windows",
