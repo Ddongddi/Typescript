@@ -33,7 +33,7 @@
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
 dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 fltpssm ghkdlxld                    →  리센느 화이팅
-kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね   (일본어 포함판)
+kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね   (일본어 팩)
 ```
 
 영어 자판 그대로 치면, **단어마다** 영어인지 한국어(두벌식)인지 일본어(로마자)인지 판단해서 바꿔 줍니다. 틀렸으면 Esc 한 번이면 다른 읽기로 바뀌고, 같은 교정을 두 번 하면 그 단어를 배웁니다.
@@ -45,7 +45,7 @@ kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね 
 - **Esc로 순환.** 영어 → 영어+조사(`github에`) → 한국어 → 일본어. 확정한 직후에도 Esc로 되돌립니다.
 - **섞어 쓰기.** `githubdp` → `github에` 처럼 영어 단어 뒤에 조사·어미를 붙여 씁니다.
 - **앱마다 다른 규칙.** 터미널에서는 엄격하게, 게임에서는 끄고, 에디터에서는 Esc를 앱에 넘깁니다 (`apps.json`).
-- **가볍게.** 모델 테이블은 빌드 때 구워서 넣고(앱마다 로드되는 DLL이라 실행 시 계산하지 않습니다), 기본판 DLL은 3.5MB입니다.
+- **가볍게.** 모델 테이블은 릴리스 때 미리 계산해 **언어 팩**으로 나눠 두고(앱마다 로드되는 DLL이라 실행 시 계산하지 않습니다), 입력기는 팩을 메모리 맵으로 읽습니다. DLL은 1MB 안쪽이고 언어는 필요한 팩만 받습니다.
 - **Windows와 Android가 같은 코어.** 판별 로직은 OS를 모르는 Rust 코어 하나이고, 플랫폼은 키를 넣고 편집 명령을 받아 적용합니다.
 
 | | Windows | Android |
@@ -54,33 +54,31 @@ kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね 
 | 입력 | 물리 키보드 | 화면 키보드 + 블루투스/USB 키보드 |
 | 영어·한국어 | 있음 | 있음 |
 | 자동완성(Tab)·단어 학습 | 있음 | 없음 (폰 키보드에 이미 있는 기능) |
-| 일본어 | **일본어 포함판** (`-Japanese`) | 없음 |
+| 일본어 | **일본어 팩** (`-Japanese`) | 없음 |
 
 ## 설치
 
 ### Windows
 
-PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 판이 둘이라 명령도 둘입니다.
-
-**기본 (영어 + 한국어)** — 약 3.5MB
+PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 언어는 팩으로 나뉘어 있고 영어 + 한국어가 기본입니다.
 
 ```powershell
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-**전체 (영어 + 한국어 + 일본어팩)** — 약 21MB (IPADIC 한자 사전 16MB 포함)
+일본어 팩(IPADIC 한자 사전 16MB 포함)까지 받으려면 `-Japanese` 를 붙입니다. 이미 설치했다면 같은 명령을 다시 실행하면 됩니다 (덮어 설치).
 
 ```powershell
 & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Japanese
 ```
 
-기본판에서 전체판으로 바꾸거나 그 반대로 돌아갈 때는 원하는 쪽 명령을 그냥 다시 실행하면 됩니다 (덮어 설치). 제거와 버전 지정은 스크립트 블록으로 부릅니다.
+팩은 `%LOCALAPPDATA%\Typescript\packs` 에 깔리고, 켜진 언어와 Esc 순서는 `settings.json` 의 `languages` (예 `["en","ko","ja"]`) 가 정합니다. 제거와 버전 지정은 스크립트 블록으로 부릅니다.
 
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
-& $i -Uninstall            # 제거 (설정은 %APPDATA%\Typescript 에 남는다)
-& $i -Version v0.3.0       # 특정 버전 (기본판)
-& $i -Japanese -Version v0.3.0   # 특정 버전 (전체판)
+& $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
+& $i -Version v0.4.0       # 특정 버전
+& $i -Japanese -Version v0.4.0   # 특정 버전 + 일본어 팩
 ```
 
 받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다.
@@ -89,7 +87,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 
 ```powershell
 .\scripts\install.ps1            # 빌드(x64 + x86) → 관리자 권한 요청(UAC 1회) → 등록
-.\scripts\install.ps1 -Japanese  # 일본어 포함판 (Cargo 기능 `japanese`)
+.\scripts\install.ps1 -Japanese  # 일본어 팩도 설치하고 켠다
 .\scripts\install.ps1 -Uninstall # 제거
 ```
 
@@ -143,9 +141,9 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 
 ## 일본어
 
-> **일본어 포함판**에서만 됩니다. 기본판에는 일본어 모델이 없어서 설정과 상관없이 동작하지 않습니다.
+> **일본어 팩**이 설치되어 있어야 됩니다. 팩이 없으면 `languages` 에 `"ja"` 가 있어도 그 언어는 빠지고 나머지로 동작합니다.
 
-일본어 포함판에서는 기본으로 켜져 있고, `settings.json` 의 `"japanese": false` 로 끌 수 있습니다. 공백 없이 친 로마자를 단어마다 일본어로 읽을지 판단해 가나로 보여 주고 (점선 밑줄), Esc 순환과 확정 규칙은 영어/한국어와 같습니다.
+일본어 팩을 설치하면 켜지고, `settings.json` 의 `languages` 에서 `"ja"` 를 빼면 꺼집니다. 공백 없이 친 로마자를 단어마다 일본어로 읽을지 판단해 가나로 보여 주고 (점선 밑줄), Esc 순환과 확정 규칙은 영어/한국어와 같습니다.
 
 ```
 kyouhaiitenkidesune ⏎   →  今日はいい天気ですね
@@ -168,14 +166,14 @@ JSON을 직접 편집합니다. 앱 간 전환할 때 다시 읽습니다.
 
 ```json
 { "returnConfirmsOnly": true, "pauseKey": "hangul", "autocomplete": true,
-  "japanese": false, "liveConversion": false, "fullWidthDigits": false, "fullWidthSpace": false }
+  "languages": ["en", "ko"], "liveConversion": false, "fullWidthDigits": false, "fullWidthSpace": false }
 ```
 
 | 키 | 뜻 |
 | --- | --- |
 | `autocomplete` | `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
 | `pauseKey` | `"hangul"`(한/영 키) 또는 `"off"` |
-| `japanese` | 로마자 일본어 자동 판별 ([일본어](#일본어)). 기본값은 판에 따라 다르다 (일본어 포함판 `true`, 기본판 `false` 이고 기본판에서는 켜도 무시된다) |
+| `languages` | 켜진 언어와 Esc 순환 순서. `"en"` `"ko"` `"ja"` 중 1개 이상, 자유 조합 (한국어만, 일본어만도 된다). 예전 `"japanese": true` 만 있는 파일은 `["en","ko","ja"]` 로 읽는다. 팩이 없는 언어는 빠진다 |
 | `liveConversion`, `fullWidthDigits`, `fullWidthSpace` | 일본어 절에서 설명한다 |
 
 **단어 학습** — 자동완성 입력기에서 확정한 영어/한글 단어를 `user_history.json` 에 셉니다. **2번 이상 친 단어만** 제안합니다 (한 번 친 비밀번호·오타는 나오지 않습니다). 10단어마다, 그리고 입력칸을 옮길 때 파일에 쓰고 다시 읽으므로 다른 앱에서 배운 단어도 곧 제안됩니다. 숫자나 영한 섞인 토큰, 1글자는 기록하지 않습니다.
@@ -224,31 +222,30 @@ flowchart LR
 
 | 모듈 | 내용 |
 | --- | --- |
-| `lang/` | 한글 조합(`hangul`), 한국어/영어 모델, 조사·어미 목록(`particles`), 로마자→가나(`romaji`), 가나 트라이그램 모델(`japanese`) |
+| `lang/` | 한글 조합(`hangul`), 한국어/영어 모델, 조사·어미 목록(`particles`), 로마자→가나(`romaji`), 가나 트라이그램 모델(`japanese`); 언어 모듈(`module`, `registry`, `en/` `ko/` `ja/`, 조합 읽기 `combo/`), 켜진 언어 집합(`set`), 언어 팩 로더(`pack`) |
 | `decide/` | 판별 엔진 체인: 교정 학습(`learning`) → 영어+조사 분리(`mixed`) → 점수(`engine`); 문구 안 영어 분리(`segmenter`), 한자 변환 인터페이스(`convert`)와 사전 엔진(`kanji`) |
 | `session/` | 입력 상태 머신: `word`(치는 중인 단어), `preview`(밑줄 미리보기), `flip`(확정 직후 Esc), `japanese`(일본어 문구·변환), `client`/`key`(앱과의 경계) |
 | `store/` | 디스크에 남는 것: 앱별 정책·설정(`policy`), 단어 기록(`history`) |
 
-- `platforms/windows` 가 TSF COM DLL입니다. 모델 테이블은 `build.rs` 가 빌드 때 구워서 DLL에 넣습니다.
+- `platforms/windows` 가 TSF COM DLL입니다. 언어 데이터는 설치된 팩(`%LOCALAPPDATA%\Typescript\packs`)에서 읽습니다.
 - `platforms/android/native` 는 코어를 JNI로 감싼 Rust 라이브러리(키와 캐럿 앞 텍스트를 받아 편집 명령을 돌려줍니다), `platforms/android/app` 은 그 결과를 `InputConnection` 에 적용하는 Java `InputMethodService` 입니다. 판별 로직은 전부 Rust에 있습니다.
-- 일본어 모델(IPADIC 사전, 가나 트라이그램)은 Cargo 기능 `japanese` 뒤에 있어서, 기능 없이 빌드하면 영어/한국어만 들어갑니다.
+- 언어 데이터(영어 단어·트라이그램, 한국어 단어 목록, 일본어 IPADIC·가나 트라이그램)는 `crates/packgen` 이 팩(`manifest.json` + 표 파일)으로 만듭니다. 테스트·CLI·Android 는 같은 표를 바이너리에 넣어 쓰고(`embedded-*` 기능), Windows 입력기는 설치된 팩을 읽습니다. 새 언어는 `lang/<id>/` 모듈과 `registry.rs` 한 줄, 그리고 팩입니다.
 
 ```powershell
 cargo test                                   # core 단위/통합 테스트 (원본 Swift 테스트 포팅)
 cargo run -p typescript-cli -- -v "dkssud hello"
 echo "dkssud\tenglish" | cargo run -p typescript-cli -- --decide
-echo "きょうはいいてんきですね" | cargo run -p typescript-cli -- --convert   # 한자 후보 (일본어 포함판 빌드에서만)
+echo "きょうはいいてんきですね" | cargo run -p typescript-cli --features japanese -- --convert   # 한자 후보 (일본어 팩을 설치했다면 --features 는 생략)
 cargo clippy --all-targets -- -D warnings
-# 일본어 포함판 (Cargo 기능 `japanese`, 사전 16MB 포함): 일본어 테스트는 이 기능이 있어야 돈다
-cargo test --workspace --features typescript-core/japanese,typescript-tip/japanese,typescript-cli/japanese
+cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs   # 릴리스 팩 (en, ko, ja)
 ```
 
 ### 릴리스
 
-`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드(기본판, 일본어 포함판) → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 합니다. 올라가는 파일은 기본판 `typescript-windows.zip`, 일본어 포함판 `typescript-windows-ja.zip`, 각각의 `.sha256`, `install.ps1`, `typescript.apk` 입니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 두 판 모두 돌립니다.
+`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 언어 팩 생성(`build-packs`) → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 합니다. 올라가는 파일은 `typescript-windows.zip`(입력기와 `packs\`), `.sha256`, `install.ps1`, `typescript.apk` 입니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌립니다.
 
 ```powershell
-git tag v0.3.0; git push origin v0.3.0
+git tag v0.4.0; git push origin v0.4.0
 ```
 
 ## 알려진 한계

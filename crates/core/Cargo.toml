@@ -18,6 +18,7 @@ serde_json = "1"
 
 [dev-dependencies]
 typescript-core = { path = ".", features = ["embedded-packs"] }
+typescript-packgen = { path = "../packgen" }
 
 [build-dependencies]
 typescript-packgen = { path = "../packgen" }

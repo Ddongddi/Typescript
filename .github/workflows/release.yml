@@ -18,12 +18,9 @@ jobs:
           targets: i686-pc-windows-msvc, aarch64-linux-android
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
-      - run: cargo test --workspace --features typescript-core/japanese,typescript-tip/japanese,typescript-cli/japanese
       - run: cargo build --release -p typescript-tip -p typescript-cli
       - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
-      # The edition with Japanese (English + Korean + Japanese): its own target dir, its own zip.
-      - run: cargo build --release -p typescript-tip -p typescript-cli --features typescript-tip/japanese,typescript-cli/japanese --target-dir target-ja
-      - run: cargo build --release -p typescript-tip --features typescript-tip/japanese --target i686-pc-windows-msvc --target-dir target-ja
+      - run: cargo run --release -p typescript-packgen --bin build-packs -- crates/core/data target/packs
       - run: cargo install cargo-ndk --locked
       - name: Build the APK (signed with the release key)
         env:

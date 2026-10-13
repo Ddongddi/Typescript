@@ -7,7 +7,7 @@
 //!   typescript --decide < keys_prev.tsv            verdict for "keys<TAB>previous" lines
 //!                                                    (previous: english|korean|mixed|japanese|empty)
 //!   typescript --convert < kana.txt                kanji candidates per kana line
-//! Add --japanese to score romaji Japanese too (--decide, -v).
+//! Add --japanese to score romaji Japanese too (--decide, -v); it needs the Japanese pack.
 
 use std::io::{self, BufRead};
 
@@ -25,7 +25,18 @@ fn lines() -> impl Iterator<Item = String> {
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // No lexicon: evaluation must not depend on (or change) what this user has learned.
+    // English and Korean are built in; Japanese comes from the installed pack (or a build with
+    // `--features japanese`).
+    if let Some(root) = typescript_core::pack_dir() {
+        typescript_core::pack::refresh(&root);
+    }
     let japanese = args.iter().any(|a| a == "--japanese");
+    if (japanese || args.first().is_some_and(|a| a == "--convert"))
+        && !typescript_core::pack::available(Language::Japanese)
+    {
+        eprintln!("no Japanese pack: install it (install.ps1 -Japanese) or build with --features japanese");
+        std::process::exit(1);
+    }
     let engine = make_engine(None, &Languages::legacy(japanese));
 
     match args.first().map(String::as_str) {

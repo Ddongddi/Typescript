@@ -9,8 +9,8 @@
     & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Version v0.2.0
 
   From a checkout (builds first; needs Rust + the i686-pc-windows-msvc target):
-    .\scripts\install.ps1              install or update (English + Korean)
-    .\scripts\install.ps1 -Japanese    the edition with Japanese too (English + Korean + Japanese)
+    .\scripts\install.ps1              install or update (English + Korean language packs)
+    .\scripts\install.ps1 -Japanese    also install and turn on the Japanese pack
     .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
@@ -21,8 +21,9 @@ param(
     [switch]$Uninstall,
     # Release tag to install (default: the latest release).
     [string]$Version = 'latest',
-    # The edition with Japanese (romaji -> kana -> kanji): English + Korean + Japanese. Without it
-    # you get English + Korean, which is much smaller (the Japanese dictionary is 16 MB).
+    # Also install and turn on the Japanese language pack (romaji -> kana -> kanji, a 16 MB
+    # dictionary). The packs go to %LOCALAPPDATA%\Typescript\packs; settings.json "languages"
+    # says which are on, in Esc order.
     [switch]$Japanese,
     # Internal: the elevated half of the script, and the folder it installs from.
     [switch]$Elevated,
@@ -129,12 +130,12 @@ function New-SourceStage {
     $repo = Split-Path -Parent $PSScriptRoot
     Push-Location $repo
     try {
-        $allFeatures = if ($Japanese) { @('--features', 'typescript-tip/japanese,typescript-cli/japanese') } else { @() }
-        $tipFeatures = if ($Japanese) { @('--features', 'typescript-tip/japanese') } else { @() }
-        & cargo build --release -p typescript-tip -p typescript-cli @allFeatures
+        & cargo build --release -p typescript-tip -p typescript-cli
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
-        & cargo build --release -p typescript-tip --target i686-pc-windows-msvc @tipFeatures
+        & cargo build --release -p typescript-tip --target i686-pc-windows-msvc
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
+        & cargo run --release -p typescript-packgen --bin build-packs -- crates\core\data target\packs
+        if ($LASTEXITCODE) { throw 'building the language packs failed' }
     } finally {
         Pop-Location
     }
@@ -142,6 +143,7 @@ function New-SourceStage {
     Copy-Item (Join-Path $repo 'target\release\typescript_tip.dll') $stage
     Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\typescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
     Copy-Item (Join-Path $repo 'target\release\typescript.exe') $stage
+    Copy-Item (Join-Path $repo 'target\packs') (Join-Path $stage 'packs') -Recurse
     Copy-Item (Join-Path $repo 'assets\typescript.ico') $stage
     Copy-Item (Join-Path $repo 'THIRD_PARTY_NOTICES.txt') $stage -ErrorAction SilentlyContinue
     Copy-Item $PSCommandPath $stage
@@ -154,13 +156,40 @@ function New-TempDirectory {
     return $dir
 }
 
+# Copies the language packs next to the user's settings and turns them on. Packs live in the
+# user's profile (no administrator needed to add one later); AppContainer apps (Store apps,
+# sandboxed browsers) load the text service too and must be able to read them.
+function Install-Packs([string]$from) {
+    $packRoot = Join-Path $env:LOCALAPPDATA 'Typescript\packs'
+    New-Item $packRoot -ItemType Directory -Force | Out-Null
+    $settingsPath = Join-Path $env:APPDATA 'Typescript\settings.json'
+    $settings = if (Test-Path $settingsPath) { Get-Content $settingsPath -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+    $hadJapanese = [bool]$settings.PSObject.Properties['japanese'] -and $settings.japanese -eq $true
+    $ids = @('en', 'ko')
+    if ($Japanese -or $hadJapanese) { $ids += 'ja' }
+    if ($settings.PSObject.Properties['languages']) {
+        $ids = @($settings.languages)
+        if ($Japanese -and $ids -notcontains 'ja') { $ids += 'ja' }
+    }
+    # Korean and Japanese need the English pack's word list, even with English turned off.
+    $need = @($ids) + @('en') | Select-Object -Unique
+    foreach ($id in $need) {
+        Get-ChildItem (Join-Path $from 'packs') -Directory -Filter "$id-*" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName $packRoot -Recurse -Force }
+    }
+    & icacls.exe $packRoot /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
+    $settings | Add-Member -NotePropertyName languages -NotePropertyValue $ids -Force
+    New-Item (Split-Path $settingsPath) -ItemType Directory -Force | Out-Null
+    $settings | ConvertTo-Json | Set-Content $settingsPath -Encoding utf8
+}
+
 # Downloads a release package, checks its SHA-256 and unpacks it.
 function Get-ReleaseStage {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" }
             else { "https://github.com/$GitHubRepo/releases/download/$Version" }
     $stage = New-TempDirectory
-    $name = if ($Japanese) { 'typescript-windows-ja.zip' } else { 'typescript-windows.zip' }
+    $name = 'typescript-windows.zip'
     $zip = Join-Path $stage $name
     Write-Host "Downloading Typescript ($Version)..."
     Invoke-WebRequest "$base/$name" -OutFile $zip -UseBasicParsing
@@ -202,8 +231,9 @@ try {
 
     if ($Uninstall) {
         Set-Keyboards $false
-        Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript.'
+        Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript, language packs in %LOCALAPPDATA%\Typescript.'
     } else {
+        Install-Packs $Source
         # Per user: switch the registered profile on.
         & rundll32.exe $dll64, EnableForUser
         Set-Keyboards $true
