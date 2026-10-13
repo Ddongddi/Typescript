@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Typescript</title>
+<style>
+:root {
+  --paper: #f4f1ea; --card: #fffdf8; --ink: #1b1a17; --muted: #6f6a60; --line: #e3ddd0;
+  --accent: #3a3fd1; --accent-ink: #fff; --accent-soft: #e6e7fb; --danger: #b3261e; --ok: #1f7a4d;
+  --shadow: 0 1px 0 rgba(27,26,23,.04), 0 8px 24px -12px rgba(27,26,23,.18);
+  --font: "Pretendard Variable", Pretendard, "Segoe UI Variable Text", "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131316; --card: #1b1b20; --ink: #efece4; --muted: #9c978b; --line: #2b2b32;
+    --accent: #8f94ff; --accent-ink: #11112b; --accent-soft: #25264a; --danger: #ff8a80; --ok: #6fd8a1;
+    --shadow: 0 1px 0 rgba(255,255,255,.03), 0 10px 28px -14px rgba(0,0,0,.7);
+  }
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--font); }
+body { margin: 0; min-height: 100vh; }
+main { max-width: 760px; margin: 0 auto; padding: 40px 20px 96px; }
+header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; }
+h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; font-weight: 750; }
+.ver { color: var(--muted); font: 13px var(--mono); }
+.link { margin-left: auto; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); transition: background .3s; }
+.dot.off { background: var(--danger); }
+[role=tablist] { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+[role=tab] {
+  appearance: none; background: none; border: 0; color: var(--muted); font: inherit; font-weight: 600;
+  padding: 10px 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+[role=tab][aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+[role=tab]:hover { color: var(--ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 32px 0 12px; font-weight: 700; }
+h2:first-child { margin-top: 0; }
+.note { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.row {
+  display: grid; grid-template-columns: 56px 1fr auto; gap: 16px; align-items: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+  box-shadow: var(--shadow); margin-bottom: 10px; transition: transform .2s, border-color .2s;
+}
+.row:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); transform: translateY(-1px); }
+.rank { font: 700 34px/1 var(--font); color: var(--accent); letter-spacing: -.04em; text-align: center; }
+.rank.off { color: var(--line); }
+.name { font-weight: 700; font-size: 16px; }
+.name small { font: 12px var(--mono); color: var(--muted); font-weight: 400; margin-left: 8px; }
+.meta { color: var(--muted); font-size: 13px; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+button.btn {
+  appearance: none; font: inherit; font-weight: 600; font-size: 13px; padding: 7px 12px; border-radius: 9px;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+button.btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+button.btn:active:not(:disabled) { transform: scale(.97); }
+button.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+button.btn.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: var(--danger); color: var(--danger); }
+button:disabled { opacity: .45; cursor: default; }
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  background: var(--ink); color: var(--paper); padding: 11px 16px; border-radius: 12px; max-width: 90vw;
+  transition: opacity .2s, transform .2s; box-shadow: var(--shadow); font-size: 14px;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.bad { background: var(--danger); color: #fff; }
+.banner { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; margin-bottom: 18px; font-size: 14px; }
+.banner.bad { background: color-mix(in srgb, var(--danger) 12%, var(--card)); }
+.setting { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.setting:last-child { border-bottom: 0; }
+.setting .text { flex: 1; }
+.setting .text b { display: block; font-weight: 650; }
+.setting .text span { color: var(--muted); font-size: 13px; }
+.switch { position: relative; width: 44px; height: 26px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch i { position: absolute; inset: 0; border-radius: 13px; background: var(--line); transition: background .2s; pointer-events: none; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(18px); }
+.switch input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+select, input[type=text] {
+  font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 650; padding: 0 8px 8px; }
+td { padding: 8px; border-top: 1px solid var(--line); vertical-align: middle; }
+td.exe { font-family: var(--mono); font-size: 13px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 18px; box-shadow: var(--shadow); }
+.card.pad { padding: 18px; overflow-x: auto; }
+.add { display: flex; gap: 8px; margin-top: 14px; }
+.add input { flex: 1; }
+.empty { color: var(--muted); padding: 18px 0; }
+@media (max-width: 560px) { .row { grid-template-columns: 40px 1fr; } .actions { grid-column: 1 / -1; justify-content: flex-start; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Typescript</h1><span class="ver" id="ver"></span>
+    <span class="link"><span class="dot" id="dot"></span><span id="linktext">연결됨</span></span>
+  </header>
+  <div role="tablist" aria-label="설정">
+    <button role="tab" id="t-lang" aria-controls="p-lang" aria-selected="true">언어</button>
+    <button role="tab" id="t-set" aria-controls="p-set" aria-selected="false" tabindex="-1">입력 설정</button>
+    <button role="tab" id="t-apps" aria-controls="p-apps" aria-selected="false" tabindex="-1">앱별 규칙</button>
+    <button role="tab" id="t-upd" aria-controls="p-upd" aria-selected="false" tabindex="-1">업데이트</button>
+  </div>
+  <section id="p-lang" role="tabpanel" aria-labelledby="t-lang"></section>
+  <section id="p-set" role="tabpanel" aria-labelledby="t-set" hidden></section>
+  <section id="p-apps" role="tabpanel" aria-labelledby="t-apps" hidden></section>
+  <section id="p-upd" role="tabpanel" aria-labelledby="t-upd" hidden></section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+const params = new URLSearchParams(location.search);
+let token = params.get("t") || sessionStorage.getItem("ts-token") || "";
+if (params.get("t")) { sessionStorage.setItem("ts-token", token); history.replaceState(null, "", "/"); }
+
+let state = null, busy = false, updateInfo = null;
+const $ = (id) => document.getElementById(id);
+
+// Every value from the server goes in as text, never as markup.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+
+let toastTimer;
+function toast(text, bad) {
+  const t = $("toast");
+  t.textContent = text; t.className = "toast show" + (bad ? " bad" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = "toast"; }, bad ? 6000 : 2500);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "X-Token": token, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* not JSON */ }
+  if (!res.ok) throw new Error(data.error || ("요청이 거부되었습니다 (" + res.status + ")"));
+  return data;
+}
+
+async function act(label, path, body) {
+  if (busy) return;
+  busy = true; render();
+  try { state = await api(path, body); if (label) toast(label); }
+  catch (e) { toast(e.message, true); }
+  busy = false; render();
+}
+
+const move = (id, delta) => {
+  const order = state.order.slice(), i = order.indexOf(id), j = i + delta;
+  if (j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  act("순서를 바꿨습니다", "/api/languages", { action: "order", ids: order });
+};
+
+const GLYPH = { en: "A", ko: "가", ja: "あ" };
+const mb = (n) => (n / 1048576).toFixed(1) + " MB";
+
+function langRow(l, position) {
+  const on = position != null;
+  const actions = [];
+  if (on) {
+    actions.push(h("button", { class: "btn", disabled: busy || position === 0, "aria-label": l.name + " 위로", onclick: () => move(l.id, -1) }, "↑"));
+    actions.push(h("button", { class: "btn", disabled: busy || position === state.order.length - 1, "aria-label": l.name + " 아래로", onclick: () => move(l.id, 1) }, "↓"));
+    actions.push(h("button", {
+      class: "btn danger", disabled: busy || state.order.length < 2, title: state.order.length < 2 ? "하나는 켜 두어야 합니다" : "",
+      onclick: () => act(l.name + "을(를) 껐습니다", "/api/languages", { action: "remove", id: l.id }),
+    }, "끄기"));
+  } else if (l.installed) {
+    actions.push(h("button", { class: "btn primary", disabled: busy, onclick: () => act(l.name + "을(를) 켰습니다", "/api/languages", { action: "add", id: l.id }) }, "켜기"));
+  } else {
+    actions.push(h("button", { class: "btn primary", disabled: busy, onclick: () => act(l.name + "을(를) 받았습니다", "/api/languages", { action: "add", id: l.id }) }, busy ? "받는 중…" : "받기 · " + mb(l.size)));
+  }
+  const status = on ? (l.installed ? "켜짐 · " + l.version : "팩이 없습니다") : (l.installed ? "받아 둠 · " + l.version : "받을 수 있음");
+  const needs = l.requiredBy.length ? " · " + l.requiredBy.join(", ") + "이(가) 이 데이터를 씁니다" : "";
+  return h("div", { class: "row" },
+    h("div", { class: "rank" + (on ? "" : " off") }, on ? position + 1 : GLYPH[l.id] || "·"),
+    h("div", {}, h("div", { class: "name" }, l.name, h("small", {}, l.id)), h("div", { class: "meta" }, status + needs)),
+    h("div", { class: "actions" }, actions));
+}
+
+function renderLang() {
+  const p = $("p-lang"); p.replaceChildren();
+  if (state.catalogError) p.append(h("div", { class: "banner bad" }, "릴리스 목록을 불러오지 못해서 설치된 언어만 보입니다. " + state.catalogError));
+  for (const why of state.problems) p.append(h("div", { class: "banner bad" }, "쓸 수 없는 팩: " + why));
+  p.append(h("h2", {}, "켜진 언어 · Esc 순서"));
+  p.append(h("p", { class: "note" }, "단어에서 Esc를 누르면 이 순서대로 읽기가 바뀝니다. 하나는 켜 두어야 합니다."));
+  const byId = Object.fromEntries(state.languages.map((l) => [l.id, l]));
+  state.order.forEach((id, i) => { if (byId[id]) p.append(langRow(byId[id], i)); });
+  const rest = state.languages.filter((l) => !state.order.includes(l.id));
+  p.append(h("h2", {}, "더 쓸 수 있는 언어"));
+  if (!rest.length) p.append(h("div", { class: "empty" }, "모두 켜져 있습니다."));
+  rest.forEach((l) => p.append(langRow(l, null)));
+}
+
+const SETTINGS = [
+  ["기본", [
+    ["returnConfirmsOnly", "Enter는 확정만", "밑줄 단어에서 Enter를 누르면 단어만 확정하고, 다음 Enter가 앱으로 갑니다."],
+    ["autocomplete", "Tab 자동완성과 단어 기록", "쓰는 중인 단어를 자주 쓴 단어로 완성하고, 확정한 단어를 셉니다."],
+    ["pauseKey", "일시정지 키", ""],
+  ]],
+  ["일본어", [
+    ["liveConversion", "치는 동안 바로 변환", "Space 전에도 첫 후보를 보여 줍니다.", "ja"],
+    ["fullWidthDigits", "일본어 뒤 숫자는 전각", "０３－１２３４처럼 입력합니다.", "ja"],
+    ["fullWidthSpace", "일본어 뒤 공백은 전각", "Shift+Space로 반대 폭을 씁니다.", "ja"],
+  ]],
+  ["업데이트", [["checkUpdates", "새 버전 확인", "대시보드나 명령을 실행할 때 하루에 한 번 새 릴리스가 있는지 봅니다."]]],
+];
+
+function setting(key, title, desc) {
+  const v = state.settings[key];
+  const control = key === "pauseKey"
+    ? h("select", { "aria-label": title, onchange: (e) => act(null, "/api/settings", { pauseKey: e.target.value }) },
+        h("option", { value: "hangul", selected: v === "hangul" }, "한/영 키"), h("option", { value: "off", selected: v === "off" }, "사용 안 함"))
+    : h("label", { class: "switch" },
+        h("input", { type: "checkbox", checked: v, "aria-label": title, onchange: (e) => act(null, "/api/settings", { [key]: e.target.checked }) }), h("i"));
+  return h("div", { class: "setting" }, h("div", { class: "text" }, h("b", {}, title), desc ? h("span", {}, desc) : null), control);
+}
+
+function renderSettings() {
+  const p = $("p-set"); p.replaceChildren();
+  for (const [group, items] of SETTINGS) {
+    const shown = items.filter((it) => !it[3] || state.order.includes(it[3]));
+    if (!shown.length) continue;
+    p.append(h("h2", {}, group), h("div", { class: "card" }, shown.map((it) => setting(it[0], it[1], it[2]))));
+  }
+}
+
+const TRI = [["", "기본"], ["true", "켜기"], ["false", "끄기"]];
+const tri = (v) => (v === true ? "true" : v === false ? "false" : "");
+const triVal = (s) => (s === "" ? undefined : s === "true");
+
+function saveApps(apps) { return act("저장했습니다", "/api/apps", apps); }
+
+function appRow(exe, rule) {
+  const edit = (patch) => {
+    const next = JSON.parse(JSON.stringify(state.apps));
+    const r = { ...(next[exe] || {}), ...patch };
+    for (const k of Object.keys(r)) if (r[k] === undefined) delete r[k];
+    next[exe] = r; saveApps(next);
+  };
+  const boolSel = (key, label) => h("select", { "aria-label": exe + " " + label, onchange: (e) => edit({ [key]: triVal(e.target.value) }) },
+    TRI.map(([v, t]) => h("option", { value: v, selected: tri(rule[key]) === v }, t)));
+  const th = rule.conversionThreshold;
+  const thSel = h("select", { "aria-label": exe + " 변환 기준", onchange: (e) => edit({ conversionThreshold: e.target.value === "" ? undefined : Number(e.target.value) }) },
+    h("option", { value: "", selected: th === undefined }, "기본 0.5"), h("option", { value: "0.97", selected: th === 0.97 }, "엄격 0.97"),
+    th !== undefined && th !== 0.97 ? h("option", { value: String(th), selected: true }, "직접 " + th) : null);
+  return h("tr", {},
+    h("td", { class: "exe" }, exe === "*" ? "모든 앱 (*)" : exe),
+    h("td", {}, boolSel("enabled", "사용")), h("td", {}, thSel), h("td", {}, boolSel("escapeToApp", "Esc는 앱에게")),
+    h("td", {}, boolSel("useSystemIme", "시스템 IME")), h("td", {}, boolSel("fullWidth", "전각")),
+    h("td", {}, exe === "*" ? null : h("button", { class: "btn danger", disabled: busy, "aria-label": exe + " 삭제", onclick: () => { const n = { ...state.apps }; delete n[exe]; saveApps(n); } }, "삭제")));
+}
+
+function renderApps() {
+  const p = $("p-apps"); p.replaceChildren();
+  p.append(h("p", { class: "note" }, "앱 실행 파일 이름(대소문자 무시)마다 규칙을 정합니다. ‘기본’은 모든 앱 항목을 따릅니다. 터미널은 변환 기준을 엄격하게, 게임은 끄는 식으로 씁니다."));
+  const exes = ["*", ...Object.keys(state.apps).filter((k) => k !== "*").sort()];
+  const input = h("input", { type: "text", placeholder: "예: windowsterminal.exe", "aria-label": "앱 실행 파일 이름" });
+  const add = () => {
+    const n = input.value.trim().toLowerCase();
+    if (!n) return;
+    if (state.apps[n]) { toast("이미 있는 앱입니다", true); return; }
+    saveApps({ ...state.apps, [n]: {} });
+  };
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+  p.append(h("div", { class: "card pad" },
+    h("table", {},
+      h("thead", {}, h("tr", {}, ["앱", "사용", "변환 기준", "Esc는 앱에게", "시스템 IME", "일본어 전각", ""].map((t) => h("th", {}, t)))),
+      h("tbody", {}, exes.map((e) => appRow(e, state.apps[e] || {})))),
+    h("div", { class: "add" }, input, h("button", { class: "btn primary", disabled: busy, onclick: add }, "추가"))));
+}
+
+function renderUpdate() {
+  const p = $("p-upd"); p.replaceChildren();
+  p.append(h("h2", {}, "현재 버전"), h("div", { class: "card pad" }, h("b", {}, "Typescript " + state.version)));
+  p.append(h("h2", {}, "새 버전"));
+  const box = h("div", { class: "card pad" });
+  if (!updateInfo) box.append(h("p", { class: "note" }, "GitHub 릴리스에서 새 버전과 언어 팩 갱신을 확인합니다."));
+  else if (updateInfo.error) box.append(h("p", { class: "note" }, updateInfo.error));
+  else if (!updateInfo.available) box.append(h("p", { class: "note" }, "최신 버전입니다."));
+  else {
+    box.append(h("b", {}, updateInfo.latest + " 이(가) 나왔습니다"));
+    if (updateInfo.notes) box.append(h("pre", { class: "note", style: "white-space:pre-wrap" }, updateInfo.notes));
+    box.append(h("button", { class: "btn primary", disabled: busy, onclick: applyUpdate }, updateInfo.coreChanged ? "업데이트 (관리자 확인창이 한 번 뜹니다)" : "언어 팩 업데이트"));
+  }
+  box.append(h("div", { style: "margin-top:14px" }, h("button", { class: "btn", disabled: busy, onclick: checkUpdate }, "지금 확인")));
+  p.append(box);
+}
+
+async function checkUpdate() {
+  busy = true; render();
+  try { updateInfo = await api("/api/update"); } catch (e) { updateInfo = { error: e.message }; }
+  busy = false; render();
+}
+async function applyUpdate() {
+  busy = true; render();
+  try { const r = await api("/api/update", { action: "apply" }); toast(r.message || "업데이트했습니다"); updateInfo = null; state = await api("/api/state"); }
+  catch (e) { toast(e.message, true); }
+  busy = false; render();
+}
+
+function render() {
+  if (!state) return;
+  $("ver").textContent = "v" + state.version;
+  renderLang(); renderSettings(); renderApps(); renderUpdate();
+}
+
+const tabs = ["t-lang", "t-set", "t-apps", "t-upd"], panels = ["p-lang", "p-set", "p-apps", "p-upd"];
+function select(i) {
+  tabs.forEach((t, k) => { $(t).setAttribute("aria-selected", k === i); $(t).tabIndex = k === i ? 0 : -1; $(panels[k]).hidden = k !== i; });
+  $(tabs[i]).focus();
+}
+tabs.forEach((t, i) => {
+  $(t).addEventListener("click", () => select(i));
+  $(t).addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") select((i + 1) % tabs.length);
+    if (e.key === "ArrowLeft") select((i + tabs.length - 1) % tabs.length);
+  });
+});
+
+async function beat() {
+  try { await api("/api/heartbeat", {}); $("dot").className = "dot"; $("linktext").textContent = "연결됨"; }
+  catch (e) { $("dot").className = "dot off"; $("linktext").textContent = "끊어짐 — 터미널에서 다시 여세요"; }
+}
+setInterval(beat, 5000);
+
+(async () => {
+  try { state = await api("/api/state"); render(); }
+  catch (e) { document.querySelector("main").append(h("div", { class: "banner bad" }, e.message + " 터미널에서 typescript-config 를 다시 실행해 주세요.")); }
+})();
+</script>
+</body>
+</html>

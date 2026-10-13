@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::error::{err, Error, Result};
 
-pub trait Fetch {
+pub trait Fetch: Send + Sync {
     /// The bytes at `url`, failing if there are more than `max`.
     fn get(&self, url: &str, max: usize) -> Result<Vec<u8>>;
 }

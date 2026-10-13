@@ -7,7 +7,12 @@ fn main() {
         std::process::exit(2);
     };
     let source = Source::detect();
-    match cli::run(&args, &env, &source) {
+    let result = if args.is_empty() {
+        typescript_config::http::run(env, source, true)
+    } else {
+        cli::run(&args, &env, &source)
+    };
+    match result {
         Ok(out) => print!("{out}"),
         Err(e) => {
             eprintln!("{e}");

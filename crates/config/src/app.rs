@@ -1,3 +1,308 @@
+//! The dashboard's brain: a request in, a response out. No sockets here, so every rule (token,
+//! Host, JSON only, size, validation) is tested directly.
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+use serde_json::{json, Map, Value};
+use typescript_core::store::policy::Override;
+use typescript_core::{pack, Language, Settings};
+
+use crate::env::Env;
+use crate::languages;
+use crate::source::Source;
+
+pub const MAX_BODY: usize = 256 * 1024;
+const PAGE: &str = include_str!("dashboard.html");
+/// The settings the page may change, and how each is checked.
+const BOOL_SETTINGS: [&str; 6] = [
+    "returnConfirmsOnly",
+    "autocomplete",
+    "liveConversion",
+    "fullWidthDigits",
+    "fullWidthSpace",
+    "checkUpdates",
+];
+
+pub struct Request {
+    pub method: String,
+    /// The path and query as sent.
+    pub path: String,
+    pub host: Option<String>,
+    /// The `X-Token` header.
+    pub token: Option<String>,
+    pub content_type: Option<String>,
+    pub body: Vec<u8>,
+}
+
+pub struct Response {
+    pub status: u16,
+    pub content_type: &'static str,
+    pub body: Vec<u8>,
+}
+
+fn json_response(status: u16, value: &Value) -> Response {
+    Response {
+        status,
+        content_type: "application/json; charset=utf-8",
+        body: value.to_string().into_bytes(),
+    }
+}
+
+fn fail(status: u16, message: &str) -> Response {
+    json_response(status, &json!({ "error": message }))
+}
+
+/// Compares without stopping at the first difference.
+fn same_token(a: &str, b: &str) -> bool {
+    a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |d, (x, y)| d | (x ^ y)) == 0
+}
+
+pub struct App {
+    env: Env,
+    source: Source,
+    token: String,
+    port: u16,
+    last_seen: Mutex<Instant>,
+    quit: AtomicBool,
+    /// One change at a time: two downloads at once would race on the same folders.
+    busy: Mutex<()>,
+}
+
+impl App {
+    pub fn new(env: Env, source: Source, token: String, port: u16) -> App {
+        App {
+            env,
+            source,
+            token,
+            port,
+            last_seen: Mutex::new(Instant::now()),
+            quit: AtomicBool::new(false),
+            busy: Mutex::new(()),
+        }
+    }
+
+    pub fn idle_for(&self) -> Duration {
+        self.last_seen
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .elapsed()
+    }
+
+    pub fn should_quit(&self) -> bool {
+        self.quit.load(Ordering::SeqCst)
+    }
+
+    fn touch(&self) {
+        *self.last_seen.lock().unwrap_or_else(|e| e.into_inner()) = Instant::now();
+    }
+
+    fn host_ok(&self, host: Option<&str>) -> bool {
+        let Some(host) = host else { return false };
+        host == format!("127.0.0.1:{}", self.port) || host == format!("localhost:{}", self.port)
+    }
+
+    pub fn handle(&self, req: &Request) -> Response {
+        // A page from another site can send requests here under a name it controls; the
+        // Host header is the name it used.
+        if !self.host_ok(req.host.as_deref()) {
+            return fail(403, "wrong host");
+        }
+        let (path, query) = req.path.split_once('?').unwrap_or((req.path.as_str(), ""));
+        let token = if path == "/" {
+            query.split('&').find_map(|kv| kv.strip_prefix("t="))
+        } else {
+            req.token.as_deref()
+        };
+        if !token.is_some_and(|t| same_token(t, &self.token)) {
+            return fail(401, "missing or wrong token");
+        }
+        self.touch();
+        match (req.method.as_str(), path) {
+            ("GET", "/") => Response {
+                status: 200,
+                content_type: "text/html; charset=utf-8",
+                body: PAGE.as_bytes().to_vec(),
+            },
+            ("GET", "/api/state") => json_response(200, &self.state()),
+            ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
+            ("POST", "/api/heartbeat") => json_response(200, &json!({})),
+            ("POST", "/api/quit") => {
+                self.quit.store(true, Ordering::SeqCst);
+                json_response(200, &json!({}))
+            }
+            ("POST", "/api/languages" | "/api/settings" | "/api/apps") => self.post(path, req),
+            (_, "/" | "/api/state" | "/api/apps" | "/api/heartbeat" | "/api/quit")
+            | (_, "/api/languages" | "/api/settings") => fail(405, "method not allowed"),
+            _ => fail(404, "not found"),
+        }
+    }
+
+    fn post(&self, path: &str, req: &Request) -> Response {
+        if req.body.len() > MAX_BODY {
+            return fail(413, "request too large");
+        }
+        let json_type = req
+            .content_type
+            .as_deref()
+            .is_some_and(|t| t.to_ascii_lowercase().starts_with("application/json"));
+        if !json_type {
+            return fail(415, "send application/json");
+        }
+        let Ok(body) = serde_json::from_slice::<Value>(&req.body) else {
+            return fail(400, "the body is not valid JSON");
+        };
+        let _one_at_a_time = self.busy.lock().unwrap_or_else(|e| e.into_inner());
+        let done = match path {
+            "/api/languages" => self.change_languages(&body),
+            "/api/settings" => self.change_settings(&body),
+            _ => self.change_apps(&body),
+        };
+        match done {
+            Ok(()) => json_response(200, &self.state()),
+            Err(message) => fail(400, &message),
+        }
+    }
+
+    fn change_languages(&self, body: &Value) -> Result<(), String> {
+        let id = body["id"].as_str().unwrap_or("");
+        match body["action"].as_str() {
+            Some("add") => {
+                let catalog = self.source.catalog().map_err(|e| e.to_string())?;
+                let fetch = self.source.fetch.as_ref();
+                languages::add_language(&self.env, fetch, &self.source.base, &catalog, id)
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            }
+            Some("remove") => languages::remove_language(&self.env, id)
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Some("order") => {
+                let ids: Vec<&str> = body["ids"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(Value::as_str).collect())
+                    .unwrap_or_default();
+                languages::reorder(&self.env, &ids)
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            }
+            _ => Err("action has to be add, remove or order".into()),
+        }
+    }
+
+    fn change_settings(&self, body: &Value) -> Result<(), String> {
+        let Some(changes) = body.as_object() else {
+            return Err("settings have to be an object".into());
+        };
+        for (key, value) in changes {
+            let ok = match key.as_str() {
+                "pauseKey" => matches!(value.as_str(), Some("hangul" | "off")),
+                k if BOOL_SETTINGS.contains(&k) => value.is_boolean(),
+                _ => return Err(format!("'{key}' is not a setting you can change here")),
+            };
+            if !ok {
+                return Err(format!("'{key}' has a value this setting does not take"));
+            }
+        }
+        let mut file = self.read_object(&self.env.settings);
+        let object = file
+            .as_object_mut()
+            .ok_or("settings.json is not an object")?;
+        for (key, value) in changes {
+            object.insert(key.clone(), value.clone());
+        }
+        self.write_json(&self.env.settings, &file)
+    }
+
+    fn change_apps(&self, body: &Value) -> Result<(), String> {
+        if !body.is_object() {
+            return Err("the app rules have to be an object".into());
+        }
+        let checked: Result<std::collections::BTreeMap<String, Override>, _> =
+            serde_json::from_value(body.clone());
+        if let Err(e) = checked {
+            return Err(format!("an app rule is not valid: {e}"));
+        }
+        self.write_json(&self.env.apps, body)
+    }
+
+    /// The file as a JSON object (BOM or not); empty when missing or broken.
+    fn read_object(&self, path: &std::path::Path) -> Value {
+        let bytes = std::fs::read(path).unwrap_or_default();
+        let bytes = bytes
+            .strip_prefix(&[0xEF, 0xBB, 0xBF][..])
+            .unwrap_or(&bytes);
+        match serde_json::from_slice::<Value>(bytes) {
+            Ok(v) if v.is_object() => v,
+            _ => Value::Object(Map::new()),
+        }
+    }
+
+    fn write_json(&self, path: &std::path::Path, value: &Value) -> Result<(), String> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+        std::fs::write(path, text).map_err(|e| format!("could not save: {e}"))
+    }
+
+    fn state(&self) -> Value {
+        let installed = pack::scan(&self.env.packs);
+        let on = languages::enabled(&self.env);
+        let catalog = self.source.catalog();
+        let mut ids: Vec<String> = installed
+            .packs
+            .iter()
+            .map(|f| f.manifest.id.clone())
+            .collect();
+        if let Ok(c) = &catalog {
+            ids.extend(c.packs.iter().map(|p| p.id.clone()));
+        }
+        ids.sort();
+        ids.dedup();
+        let mut rows = Vec::new();
+        for id in ids {
+            let Some(language) = Language::from_id(&id) else {
+                continue;
+            };
+            let have = installed.packs.iter().find(|f| f.manifest.id == id);
+            let listed = catalog.as_ref().ok().and_then(|c| c.pack(&id));
+            rows.push(json!({
+                "id": id,
+                "name": have.map(|f| f.manifest.name.clone())
+                    .or_else(|| listed.map(|p| p.name.clone())).unwrap_or_default(),
+                "installed": have.is_some(),
+                "version": have.map(|f| f.manifest.version.clone())
+                    .or_else(|| listed.map(|p| p.version.clone())),
+                "size": listed.map_or(0, |p| p.size),
+                "on": on.contains(language),
+                "requiredBy": crate::install::required_by(&self.env, &id),
+            }));
+        }
+        let loaded = Settings::load(Some(&self.env.settings));
+        let raw = self.read_object(&self.env.settings);
+        json!({
+            "languages": rows,
+            "order": on.ids(),
+            "problems": installed.problems.iter()
+                .map(|(dir, why)| format!("{}: {why}", dir.display())).collect::<Vec<_>>(),
+            "catalogError": catalog.as_ref().err().map(|e| e.to_string()),
+            "settings": {
+                "returnConfirmsOnly": loaded.return_confirms_only,
+                "pauseKey": loaded.pause_key,
+                "autocomplete": loaded.autocomplete,
+                "liveConversion": loaded.live_conversion,
+                "fullWidthDigits": loaded.full_width_digits,
+                "fullWidthSpace": loaded.full_width_space,
+                "checkUpdates": raw["checkUpdates"].as_bool().unwrap_or(true),
+            },
+            "apps": self.read_object(&self.env.apps),
+            "version": crate::catalog::CORE_VERSION,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,7 +423,10 @@ mod tests {
         assert_eq!(post(json!({"action": "remove", "id": "en"})).status, 200);
         let last = post(json!({"action": "remove", "id": "ko"}));
         assert_eq!(last.status, 400);
-        assert!(json_of(&last)["error"].as_str().unwrap().contains("at least one"));
+        assert!(json_of(&last)["error"]
+            .as_str()
+            .unwrap()
+            .contains("at least one"));
         assert_eq!(post(json!({"action": "explode"})).status, 400);
         assert_eq!(post(json!({"action": "add", "id": "xx"})).status, 400);
     }
@@ -146,7 +454,10 @@ mod tests {
         std::fs::write(&f.env.settings, r#"{ "somethingNew": 7 }"#).unwrap();
         let app = app(&f);
         let good = json!({"liveConversion": true, "pauseKey": "off"});
-        assert_eq!(app.handle(&req("POST", "/api/settings", Some(good))).status, 200);
+        assert_eq!(
+            app.handle(&req("POST", "/api/settings", Some(good))).status,
+            200
+        );
         let v: Value = serde_json::from_slice(&std::fs::read(&f.env.settings).unwrap()).unwrap();
         assert_eq!(v["liveConversion"], true);
         assert_eq!(v["pauseKey"], "off");
@@ -171,7 +482,11 @@ mod tests {
             "game.exe": {"enabled": false},
             "wt.exe": {"conversionThreshold": 0.97}
         });
-        assert_eq!(app.handle(&req("POST", "/api/apps", Some(rules.clone()))).status, 200);
+        assert_eq!(
+            app.handle(&req("POST", "/api/apps", Some(rules.clone())))
+                .status,
+            200
+        );
         assert_eq!(json_of(&app.handle(&req("GET", "/api/apps", None))), rules);
         let policies = typescript_core::AppPolicies::load(Some(&f.env.apps));
         assert!(!policies.policy(Some("game.exe")).enabled);
@@ -195,7 +510,11 @@ mod tests {
         app.handle(&req("POST", "/api/heartbeat", Some(json!({}))));
         assert!(app.idle_for() < std::time::Duration::from_millis(40));
         assert!(!app.should_quit());
-        assert_eq!(app.handle(&req("POST", "/api/quit", Some(json!({})))).status, 200);
+        assert_eq!(
+            app.handle(&req("POST", "/api/quit", Some(json!({}))))
+                .status,
+            200
+        );
         assert!(app.should_quit());
     }
 

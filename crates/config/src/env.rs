@@ -16,6 +16,16 @@ impl Env {
     /// The current user's real locations (Windows today; None elsewhere until those platforms
     /// are added).
     pub fn detect() -> Option<Env> {
+        // TYPESCRIPT_HOME: keep everything in one folder (trying the tool without touching the
+        // real settings and packs).
+        if let Some(home) = std::env::var_os("TYPESCRIPT_HOME") {
+            let home = PathBuf::from(home);
+            return Some(Env {
+                settings: home.join("settings.json"),
+                apps: home.join("apps.json"),
+                packs: home.join("packs"),
+            });
+        }
         Some(Env {
             settings: Settings::store_path()?,
             apps: AppPolicies::store_path()?,
