@@ -1,2 +1,3 @@
 # Built by tools/build_ipadic.py: not text, and not worth a diff.
 crates/core/data/ipadic_compact.bin binary linguist-generated
+crates/core/tests/golden/* -text -diff linguist-generated

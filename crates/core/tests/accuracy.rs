@@ -1,46 +1,14 @@
 //! Corpus accuracy of the language decision: Korean words typed on a 2-set layout must come out
 //! Korean, frequent English words English. Run with `--nocapture` to see the misses.
 
-use typescript_core::lang::hangul::DubeolsikLayout;
+mod common;
+
+use common::keys_of;
 use typescript_core::{DecisionContext, DecisionEngine, HeuristicEngine, Language};
 
 const KOREAN_WORDS: &str = include_str!("../data/korean_words.txt");
 const KOREAN_VOCAB: &str = include_str!("../data/korean_vocabulary.txt");
 const ENGLISH_FREQ: &str = include_str!("../data/english_frequency.txt");
-
-const CHO: &str = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
-const JUNG: [&str; 21] = [
-    "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅗㅏ", "ㅗㅐ", "ㅗㅣ", "ㅛ", "ㅜ",
-    "ㅜㅓ", "ㅜㅔ", "ㅜㅣ", "ㅠ", "ㅡ", "ㅡㅣ", "ㅣ",
-];
-const JONG: [&str; 28] = [
-    "", "ㄱ", "ㄲ", "ㄱㅅ", "ㄴ", "ㄴㅈ", "ㄴㅎ", "ㄷ", "ㄹ", "ㄹㄱ", "ㄹㅁ", "ㄹㅂ", "ㄹㅅ",
-    "ㄹㅌ", "ㄹㅍ", "ㄹㅎ", "ㅁ", "ㅂ", "ㅂㅅ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ",
-    "ㅎ",
-];
-
-fn key_of(jamo: char) -> char {
-    ('A'..='z')
-        .find(|k| {
-            DubeolsikLayout::jamo(*k) == Some(jamo) && (k.is_lowercase() || "QWERTOP".contains(*k))
-        })
-        .unwrap()
-}
-
-/// The keys that type `hangul` on a 2-set layout.
-fn keys_of(hangul: &str) -> String {
-    let mut keys = String::new();
-    for c in hangul.chars() {
-        let i = c as usize - '가' as usize;
-        let cho = CHO.chars().nth(i / 588).unwrap();
-        keys.push(key_of(cho));
-        JUNG[i % 588 / 28]
-            .chars()
-            .chain(JONG[i % 28].chars())
-            .for_each(|j| keys.push(key_of(j)));
-    }
-    keys
-}
 
 fn korean_words(text: &str, min_syllables: usize) -> Vec<String> {
     text.lines()
