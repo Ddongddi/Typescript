@@ -6,8 +6,10 @@ use typescript_core::{pack, Language};
 
 use crate::env::Env;
 use crate::error::{err, Result};
+use crate::fetch::Fetch;
 use crate::languages;
 use crate::source::Source;
+use crate::update;
 
 pub const USAGE: &str = "typescript-config [command]
   (none)            open the dashboard
@@ -103,6 +105,39 @@ pub fn order(env: &Env, list: &str) -> Result<String> {
     Ok(format!("Order: {}\n", on.ids().join(", ")))
 }
 
+pub fn check(env: &Env, api: &dyn Fetch, url: &str) -> Result<String> {
+    let info = update::check(env, api, url, update::now(), true)?;
+    Ok(if info.available {
+        let first = info.notes.lines().next().unwrap_or("");
+        format!(
+            "{} is out (you have {}). {first}
+Run: typescript-config update
+",
+            info.latest,
+            crate::catalog::CORE_VERSION
+        )
+    } else {
+        format!(
+            "typescript {} is the latest
+",
+            crate::catalog::CORE_VERSION
+        )
+    })
+}
+
+/// A one-line hint for after a command: only when checking is on, a day has passed, and there
+/// is something newer. Never an error.
+pub fn notice(env: &Env, api: &dyn Fetch, url: &str) -> Option<String> {
+    let info = update::check(env, api, url, update::now(), false).ok()?;
+    info.available.then(|| {
+        format!(
+            "typescript {} is out: typescript-config update
+",
+            info.latest
+        )
+    })
+}
+
 /// Runs one non-interactive command.
 pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
     match args.first().map(String::as_str) {
@@ -119,6 +154,14 @@ pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
             Some(list) => order(env, list),
             None => err("order: give the ids, e.g. order ko,en"),
         },
+        Some("check") => {
+            let (api, url) = update::api_from_env();
+            check(env, api.as_ref(), &url)
+        }
+        Some("update") => {
+            let (api, url) = update::api_from_env();
+            update::apply(env, source, api.as_ref(), &url, &update::launch_powershell)
+        }
         Some("setup") => crate::setup::run(&args[1..], env, source),
         Some("help") | Some("--help") | Some("-h") => Ok(format!("{USAGE}\n")),
         Some(other) => err(format!("unknown command '{other}'\n{USAGE}")),
@@ -167,6 +210,46 @@ mod tests {
         let out = run(&args("remove ja"), &f.env, &source).unwrap();
         assert!(out.contains("en, ko"), "{out}");
         assert!(run(&args("remove ja"), &f.env, &source).is_err());
+    }
+
+    #[test]
+    fn check_says_whether_there_is_something_newer() {
+        let f = fixture("cli-check");
+        let release = f.root.join("release");
+        let api = crate::fetch::Dir(release.clone());
+        let body = serde_json::json!({ "tag_name": "v9.0.0", "body": "first line
+second", "assets": [] });
+        std::fs::write(release.join("latest"), body.to_string()).unwrap();
+        let out = check(&f.env, &api, "https://x.test/latest").unwrap();
+        assert!(
+            out.contains("9.0.0 is out") && out.contains("first line") && !out.contains("second"),
+            "{out}"
+        );
+        let same = format!(
+            r#"{{ "tag_name": "v{}", "assets": [] }}"#,
+            crate::catalog::CORE_VERSION
+        );
+        std::fs::write(release.join("latest"), same).unwrap();
+        assert!(check(&f.env, &api, "https://x.test/latest")
+            .unwrap()
+            .contains("is the latest"));
+    }
+
+    #[test]
+    fn the_hint_after_a_command_is_quiet_when_there_is_nothing_or_no_network() {
+        let f = fixture("cli-notice");
+        let down = crate::fetch::Dir(f.root.join("nowhere"));
+        assert!(notice(&f.env, &down, "https://x.test/latest").is_none());
+        let release = f.root.join("release");
+        std::fs::write(
+            release.join("latest"),
+            r#"{ "tag_name": "v9.0.0", "assets": [] }"#,
+        )
+        .unwrap();
+        let api = crate::fetch::Dir(release);
+        assert!(notice(&f.env, &api, "https://x.test/latest")
+            .unwrap()
+            .contains("9.0.0"));
     }
 
     #[test]

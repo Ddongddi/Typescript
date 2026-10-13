@@ -10,8 +10,10 @@ use typescript_core::store::policy::Override;
 use typescript_core::{pack, Language, Settings};
 
 use crate::env::Env;
+use crate::fetch::Fetch;
 use crate::languages;
 use crate::source::Source;
+use crate::update;
 
 pub const MAX_BODY: usize = 256 * 1024;
 const PAGE: &str = include_str!("dashboard.html");
@@ -59,11 +61,29 @@ fn same_token(a: &str, b: &str) -> bool {
     a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |d, (x, y)| d | (x ^ y)) == 0
 }
 
+/// How the dashboard finds out about releases and starts the installer.
+pub struct Updates {
+    pub api: Box<dyn Fetch>,
+    pub url: String,
+    pub launch: Box<dyn Fn(&std::path::Path) -> crate::error::Result<()> + Send + Sync>,
+}
+
+impl Updates {
+    pub fn github() -> Updates {
+        Updates {
+            api: Box::new(crate::fetch::Http),
+            url: update::LATEST_API.to_string(),
+            launch: Box::new(update::launch_powershell),
+        }
+    }
+}
+
 pub struct App {
     env: Env,
     source: Source,
     token: String,
     port: u16,
+    updates: Updates,
     last_seen: Mutex<Instant>,
     quit: AtomicBool,
     /// One change at a time: two downloads at once would race on the same folders.
@@ -77,10 +97,17 @@ impl App {
             source,
             token,
             port,
+            updates: Updates::github(),
             last_seen: Mutex::new(Instant::now()),
             quit: AtomicBool::new(false),
             busy: Mutex::new(()),
         }
+    }
+
+    /// Where releases are looked up and how the installer is started (tests replace both).
+    pub fn with_updates(mut self, updates: Updates) -> App {
+        self.updates = updates;
+        self
     }
 
     pub fn idle_for(&self) -> Duration {
@@ -126,15 +153,23 @@ impl App {
                 body: PAGE.as_bytes().to_vec(),
             },
             ("GET", "/api/state") => json_response(200, &self.state()),
+            ("GET", "/api/update") => match self.update_info() {
+                Ok(v) => json_response(200, &v),
+                Err(message) => fail(502, &message),
+            },
             ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
             ("POST", "/api/heartbeat") => json_response(200, &json!({})),
             ("POST", "/api/quit") => {
                 self.quit.store(true, Ordering::SeqCst);
                 json_response(200, &json!({}))
             }
-            ("POST", "/api/languages" | "/api/settings" | "/api/apps") => self.post(path, req),
+            ("POST", "/api/languages" | "/api/settings" | "/api/apps" | "/api/update") => {
+                self.post(path, req)
+            }
             (_, "/" | "/api/state" | "/api/apps" | "/api/heartbeat" | "/api/quit")
-            | (_, "/api/languages" | "/api/settings") => fail(405, "method not allowed"),
+            | (_, "/api/languages" | "/api/settings" | "/api/update") => {
+                fail(405, "method not allowed")
+            }
             _ => fail(404, "not found"),
         }
     }
@@ -154,6 +189,15 @@ impl App {
             return fail(400, "the body is not valid JSON");
         };
         let _one_at_a_time = self.busy.lock().unwrap_or_else(|e| e.into_inner());
+        if path == "/api/update" {
+            if body["action"] != "apply" {
+                return fail(400, "action has to be apply");
+            }
+            return match self.apply_update() {
+                Ok(message) => json_response(200, &json!({ "message": message })),
+                Err(message) => fail(400, &message),
+            };
+        }
         let done = match path {
             "/api/languages" => self.change_languages(&body),
             "/api/settings" => self.change_settings(&body),
@@ -163,6 +207,41 @@ impl App {
             Ok(()) => json_response(200, &self.state()),
             Err(message) => fail(400, &message),
         }
+    }
+
+    fn update_info(&self) -> Result<Value, String> {
+        let info = update::check(
+            &self.env,
+            self.updates.api.as_ref(),
+            &self.updates.url,
+            update::now(),
+            true,
+        )
+        .map_err(|e| e.to_string())?;
+        let outdated = self
+            .source
+            .catalog()
+            .map(|c| update::outdated_packs(&self.env, &c))
+            .unwrap_or_default();
+        Ok(json!({
+            "available": info.available || !outdated.is_empty(),
+            "latest": info.latest,
+            "notes": info.notes,
+            "coreChanged": info.available,
+            "packsOutdated": outdated,
+        }))
+    }
+
+    fn apply_update(&self) -> Result<String, String> {
+        let launch = self.updates.launch.as_ref();
+        update::apply(
+            &self.env,
+            &self.source,
+            self.updates.api.as_ref(),
+            &self.updates.url,
+            launch,
+        )
+        .map_err(|e| e.to_string())
     }
 
     fn change_languages(&self, body: &Value) -> Result<(), String> {
@@ -526,5 +605,71 @@ mod tests {
         let s = json_of(&app.handle(&req("GET", "/api/state", None)));
         assert!(s["catalogError"].is_string());
         assert_eq!(s["order"], json!(["en", "ko"]));
+    }
+
+    #[test]
+    fn a_newer_release_is_reported_and_can_be_applied() {
+        use std::sync::{Arc, Mutex};
+        let f = fixture("app-update");
+        let release = f.root.join("release");
+        let zip = crate::testutil::zip_of(&[("install.ps1", b"# installer")]);
+        std::fs::write(release.join("typescript-windows.zip"), &zip).unwrap();
+        let sum = format!("{}  typescript-windows.zip", crate::hash::sha256_hex(&zip));
+        std::fs::write(release.join("typescript-windows.zip.sha256"), sum).unwrap();
+        let latest = json!({
+            "tag_name": "v9.0.0", "body": "big news",
+            "assets": [
+                {"name": "typescript-windows.zip", "browser_download_url": "https://x.test/typescript-windows.zip"},
+                {"name": "typescript-windows.zip.sha256", "browser_download_url": "https://x.test/typescript-windows.zip.sha256"},
+            ],
+        });
+        std::fs::write(release.join("latest"), latest.to_string()).unwrap();
+        let started = Arc::new(Mutex::new(None));
+        let seen = started.clone();
+        let updates = Updates {
+            api: Box::new(crate::fetch::Dir(release)),
+            url: "https://api.test/latest".into(),
+            launch: Box::new(move |script| {
+                *seen.lock().unwrap() = Some(script.to_path_buf());
+                Ok(())
+            }),
+        };
+        let app = app(&f).with_updates(updates);
+        let info = json_of(&app.handle(&req("GET", "/api/update", None)));
+        assert_eq!(info["available"], true);
+        assert_eq!(info["coreChanged"], true);
+        assert_eq!(info["latest"], "9.0.0");
+        assert_eq!(info["notes"], "big news");
+        let done = app.handle(&req(
+            "POST",
+            "/api/update",
+            Some(json!({"action": "apply"})),
+        ));
+        assert_eq!(done.status, 200, "{}", String::from_utf8_lossy(&done.body));
+        assert!(json_of(&done)["message"]
+            .as_str()
+            .unwrap()
+            .contains("installer"));
+        assert!(started.lock().unwrap().as_ref().unwrap().is_file());
+        let bad = app.handle(&req(
+            "POST",
+            "/api/update",
+            Some(json!({"action": "explode"})),
+        ));
+        assert_eq!(bad.status, 400);
+    }
+
+    #[test]
+    fn a_failing_release_lookup_is_reported_not_fatal() {
+        let f = fixture("app-update-down");
+        let updates = Updates {
+            api: Box::new(crate::fetch::Dir(f.root.join("nowhere"))),
+            url: "https://api.test/latest".into(),
+            launch: Box::new(|_| Ok(())),
+        };
+        let app = app(&f).with_updates(updates);
+        let r = app.handle(&req("GET", "/api/update", None));
+        assert_eq!(r.status, 502);
+        assert!(json_of(&r)["error"].is_string());
     }
 }

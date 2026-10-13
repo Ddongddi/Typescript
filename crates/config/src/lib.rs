@@ -13,6 +13,7 @@ pub mod install;
 pub mod languages;
 pub mod setup;
 pub mod source;
+pub mod update;
 
 #[cfg(test)]
 mod testutil;

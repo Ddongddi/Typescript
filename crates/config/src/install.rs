@@ -109,7 +109,7 @@ pub fn install_pack(
 
 /// Flat files only: a pack is a manifest and its tables, and a name that is not a plain file
 /// name (a path, `..`, a drive) is an attack, not a pack.
-fn unpack(bytes: &[u8], into: &Path) -> Result<()> {
+pub(crate) fn unpack(bytes: &[u8], into: &Path) -> Result<()> {
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes))?;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn removing_deletes_every_version_and_reports_what_it_could_not() {
-        let f = fixture("remove");
+        let f = fixture("inst-remove");
         let ko = f.catalog.pack("ko").unwrap();
         install_pack(&f.env, &f.source, base(), ko).unwrap();
         // An older version of the same pack from an earlier release.

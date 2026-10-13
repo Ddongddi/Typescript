@@ -29,7 +29,11 @@ fn a_real_release_installs_and_loads() {
     let found = pack::scan(&env.packs);
     assert!(found.problems.is_empty(), "{:?}", found.problems);
     let ids: Vec<&str> = found.packs.iter().map(|f| f.manifest.id.as_str()).collect();
-    assert_eq!(ids, vec!["en", "ja", "ko"], "ko and ja bring the English word list");
+    assert_eq!(
+        ids,
+        vec!["en", "ja", "ko"],
+        "ko and ja bring the English word list"
+    );
 
     let ja = found.packs.iter().find(|f| f.manifest.id == "ja").unwrap();
     let dictionary = std::fs::read(ja.dir.join("ipadic_compact.bin")).unwrap();
@@ -39,6 +43,9 @@ fn a_real_release_installs_and_loads() {
     assert_eq!(on, Languages::from_ids(&["ko", "ja"]).unwrap());
 
     cli::run(&args("remove ja"), &env, &source).unwrap();
-    assert!(pack::scan(&env.packs).packs.iter().all(|f| f.manifest.id != "ja"));
+    assert!(pack::scan(&env.packs)
+        .packs
+        .iter()
+        .all(|f| f.manifest.id != "ja"));
     let _ = std::fs::remove_dir_all(&root);
 }
