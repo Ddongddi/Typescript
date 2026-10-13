@@ -62,10 +62,13 @@ fn same_token(a: &str, b: &str) -> bool {
 }
 
 /// How the dashboard finds out about releases and starts the installer.
+/// Starts the downloaded installer script.
+pub type Launcher = Box<dyn Fn(&std::path::Path) -> crate::error::Result<()> + Send + Sync>;
+
 pub struct Updates {
     pub api: Box<dyn Fetch>,
     pub url: String,
-    pub launch: Box<dyn Fn(&std::path::Path) -> crate::error::Result<()> + Send + Sync>,
+    pub launch: Launcher,
 }
 
 impl Updates {

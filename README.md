@@ -11,6 +11,7 @@
 <p align="center">
   <a href="#설치"><b>설치</b></a> &bull;
   <a href="#쓰는-법"><b>쓰는 법</b></a> &bull;
+  <a href="#언어와-설정-관리"><b>관리</b></a> &bull;
   <a href="#일본어"><b>일본어</b></a> &bull;
   <a href="#설정-apptyped-typescript"><b>설정</b></a> &bull;
   <a href="#앱-호환"><b>앱 호환</b></a> &bull;
@@ -60,25 +61,25 @@ kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね 
 
 ### Windows
 
-PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 언어는 팩으로 나뉘어 있고 영어 + 한국어가 기본입니다.
+PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 설치 중에 **쓸 언어를 고르는 화면**이 나옵니다 (Space로 선택, 이어서 Esc로 넘기는 순서를 정합니다).
 
 ```powershell
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-일본어 팩(IPADIC 한자 사전 16MB 포함)까지 받으려면 `-Japanese` 를 붙입니다. 이미 설치했다면 같은 명령을 다시 실행하면 됩니다 (덮어 설치).
+화면 없이 바로 정하려면 `-Languages` 를 줍니다. 영어·한국어·일본어 중 1개 이상을 자유롭게 조합하고, 쓴 순서가 Esc 순환 순서입니다 (예: 한국어만, 일본어 → 영어).
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Japanese
+& ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Languages ko,en,ja
 ```
 
-팩은 `%LOCALAPPDATA%\Typescript\packs` 에 깔리고, 켜진 언어와 Esc 순서는 `settings.json` 의 `languages` (예 `["en","ko","ja"]`) 가 정합니다. 제거와 버전 지정은 스크립트 블록으로 부릅니다.
+언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어 0.5MB, 한국어 0.4MB, 일본어 6MB). 팩은 `%LOCALAPPDATA%\Typescript\packs` 에 깔리고, 켜진 언어와 순서는 `settings.json` 의 `languages` 가 정합니다. 설치 뒤의 관리는 아래 [언어와 설정 관리](#언어와-설정-관리)에서 합니다. 이미 설치했다면 같은 명령을 다시 실행해도 됩니다 (켜진 언어는 그대로). 제거와 버전 지정은 스크립트 블록으로 부릅니다.
 
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
 & $i -Version v0.4.0       # 특정 버전
-& $i -Japanese -Version v0.4.0   # 특정 버전 + 일본어 팩
+& $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
 받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다.
@@ -123,6 +124,29 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 직접 빌드하면 디버그 키로 서명되므로 릴리스 APK와는 덮어 설치되지 않습니다. 릴리스 키로 서명하려면 `TS_KEYSTORE`, `TS_KEYSTORE_PASS` 환경변수에 키스토어 경로와 비밀번호를 주세요 (별칭은 `typescript`). 릴리스 키는 GitHub Secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` 에 있습니다.
 
 </details>
+
+## 언어와 설정 관리
+
+설치 뒤에는 시작 메뉴의 **Typescript 설정** (또는 `C:\Program Files\Typescript\typescript-config.exe`)이 브라우저에 설정 페이지를 엽니다. 이 컴퓨터(127.0.0.1)에서만 열리고, 실행할 때마다 바뀌는 토큰이 주소에 들어 있어 다른 사이트는 접근할 수 없습니다. 탭을 닫으면 잠시 뒤 스스로 끝납니다.
+
+- **언어**: 켜기·끄기(끌 때 그 팩도 지웁니다, 마지막 하나는 못 끕니다), Esc 순서 바꾸기, 팩 받기. 새 언어는 레포의 릴리스에 올라오는 대로 목록에 나타납니다.
+- **입력 설정**: Enter 동작, 자동완성, 일시정지 키, 일본어 옵션 (일본어를 켰을 때만 보입니다).
+- **앱별 규칙**: `apps.json` 을 표로 편집합니다 (터미널은 변환 기준 엄격, 게임은 끄기 등).
+- **업데이트**: GitHub 릴리스에서 새 버전을 확인합니다. 언어 팩은 관리자 권한 없이 갱신되고, 프로그램 자체는 릴리스의 설치기를 실행합니다 (확인창 1회).
+
+같은 일을 명령으로도 할 수 있습니다.
+
+```powershell
+typescript-config list                 # 설치됨 / 받을 수 있음 / 켜짐 순서
+typescript-config add ja               # 일본어 팩을 받고 켠다
+typescript-config remove ja            # 끄고 팩을 지운다
+typescript-config order ko,en          # Esc 순서 (켜진 언어끼리만 바꿀 수 있다)
+typescript-config check                # 새 버전이 있는지
+typescript-config update               # 언어 팩 갱신 + 새 프로그램 설치기 실행
+typescript-config setup --languages ko,en   # 설치 때 쓰는 선택 (화면 없이)
+```
+
+받은 팩은 릴리스 목록(`packs.json`)의 SHA-256과 크기가 맞고, 안의 표 파일이 manifest의 해시와 맞을 때만 설치됩니다. 하루에 한 번 새 릴리스를 확인해 알려 주며(`settings.json` 의 `"checkUpdates": false` 로 끕니다), `TYPESCRIPT_RELEASE` 에 폴더나 주소를 주면 다른 릴리스(오프라인 설치)를 씁니다.
 
 ## 쓰는 법
 
@@ -173,6 +197,7 @@ JSON을 직접 편집합니다. 앱 간 전환할 때 다시 읽습니다.
 | --- | --- |
 | `autocomplete` | `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
 | `pauseKey` | `"hangul"`(한/영 키) 또는 `"off"` |
+| `checkUpdates` | `false`면 새 릴리스를 자동으로 확인하지 않는다 (기본 켜짐) |
 | `languages` | 켜진 언어와 Esc 순환 순서. `"en"` `"ko"` `"ja"` 중 1개 이상, 자유 조합 (한국어만, 일본어만도 된다). 예전 `"japanese": true` 만 있는 파일은 `["en","ko","ja"]` 로 읽는다. 팩이 없는 언어는 빠진다 |
 | `liveConversion`, `fullWidthDigits`, `fullWidthSpace` | 일본어 절에서 설명한다 |
 

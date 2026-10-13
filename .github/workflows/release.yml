@@ -18,9 +18,8 @@ jobs:
           targets: i686-pc-windows-msvc, aarch64-linux-android
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
-      - run: cargo build --release -p typescript-tip -p typescript-cli
+      - run: cargo build --release -p typescript-tip -p typescript-cli -p typescript-config
       - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
-      - run: cargo run --release -p typescript-packgen --bin build-packs -- crates/core/data target/packs
       - run: cargo install cargo-ndk --locked
       - name: Build the APK (signed with the release key)
         env:

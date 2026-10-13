@@ -25,6 +25,9 @@ param(
     # dictionary). The packs go to %LOCALAPPDATA%\Typescript\packs; settings.json "languages"
     # says which are on, in Esc order.
     [switch]$Japanese,
+    # The languages to turn on, in Esc order, e.g. ko,en,ja. Without it a new install asks
+    # (typescript-config setup) and an update keeps the languages already on.
+    [string]$Languages = '',
     # Internal: the elevated half of the script, and the folder it installs from.
     [switch]$Elevated,
     [string]$Source
@@ -108,6 +111,7 @@ if ($Elevated) {
             Install-File (Join-Path $Source 'typescript_tip.dll') $dll64
             Install-File (Join-Path $Source 'typescript_tip_x86.dll') $dll86
             Install-File (Join-Path $Source 'typescript.exe') (Join-Path $dest 'typescript.exe')
+            Install-File (Join-Path $Source 'typescript-config.exe') (Join-Path $dest 'typescript-config.exe')
             foreach ($extra in 'typescript.ico', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
                 Copy-Item (Join-Path $Source $extra) $dest -Force -ErrorAction SilentlyContinue
             }
@@ -130,7 +134,7 @@ function New-SourceStage {
     $repo = Split-Path -Parent $PSScriptRoot
     Push-Location $repo
     try {
-        & cargo build --release -p typescript-tip -p typescript-cli
+        & cargo build --release -p typescript-tip -p typescript-cli -p typescript-config
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
         & cargo build --release -p typescript-tip --target i686-pc-windows-msvc
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
@@ -143,6 +147,7 @@ function New-SourceStage {
     Copy-Item (Join-Path $repo 'target\release\typescript_tip.dll') $stage
     Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\typescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
     Copy-Item (Join-Path $repo 'target\release\typescript.exe') $stage
+    Copy-Item (Join-Path $repo 'target\release\typescript-config.exe') $stage
     Copy-Item (Join-Path $repo 'target\packs') (Join-Path $stage 'packs') -Recurse
     Copy-Item (Join-Path $repo 'assets\typescript.ico') $stage
     Copy-Item (Join-Path $repo 'THIRD_PARTY_NOTICES.txt') $stage -ErrorAction SilentlyContinue
@@ -193,13 +198,59 @@ function Install-Packs([string]$from) {
         }
     }
     Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
-    & icacls.exe $packRoot /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
+    # On the folder above, so the staging folder and every pack folder inherit it (a folder moved
+    # into place keeps the permissions it had).
+    & icacls.exe (Split-Path $packRoot) /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
     $settings | Add-Member -NotePropertyName languages -NotePropertyValue $ids -Force
     # The versions before language packs read this key; keep it true to what is on.
     $settings | Add-Member -NotePropertyName japanese -NotePropertyValue ($ids -contains 'ja') -Force
     New-Item (Split-Path $settingsPath) -ItemType Directory -Force | Out-Null
     # Not Set-Content -Encoding utf8: Windows PowerShell 5.1 writes a byte order mark with it.
     [IO.File]::WriteAllText($settingsPath, ($settings | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
+}
+
+# "Typescript <settings>" in Korean, built from code points: Windows PowerShell 5.1 reads a script
+# file without a byte order mark as ANSI, so this file stays ASCII.
+$settingsLabel = 'Typescript ' + [string][char]0xC124 + [char]0xC815
+
+# The Start menu entry that opens the settings page (typescript-config is not on PATH).
+function Set-SettingsShortcut([bool]$Present) {
+    $link = Join-Path $env:APPDATA ('Microsoft\Windows\Start Menu\Programs\' + $settingsLabel + '.lnk')
+    if (-not $Present) { Remove-Item $link -Force -ErrorAction SilentlyContinue; return }
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($link)
+    $shortcut.TargetPath = Join-Path $dest 'typescript-config.exe'
+    $shortcut.IconLocation = Join-Path $dest 'typescript.ico'
+    $shortcut.Description = 'Typescript: languages, settings, updates'
+    $shortcut.Save()
+}
+
+# The languages already on in settings.json, as a list (empty on a first install).
+function Get-ConfiguredLanguages {
+    $path = Join-Path $env:APPDATA 'Typescript\settings.json'
+    if (-not (Test-Path $path)) { return @() }
+    try { $s = Get-Content $path -Raw | ConvertFrom-Json } catch { return @() }
+    if ($s.PSObject.Properties['languages']) { return @($s.languages) }
+    if ($s.PSObject.Properties['japanese'] -and $s.japanese -eq $true) { return @('en', 'ko', 'ja') }
+    return @('en', 'ko')
+}
+
+# A release install: the packs come from the release through typescript-config, which asks
+# which languages when this is a first install.
+function Install-ReleasePacks {
+    $config = Join-Path $dest 'typescript-config.exe'
+    $localRoot = Join-Path $env:LOCALAPPDATA 'Typescript'
+    New-Item (Join-Path $localRoot 'packs') -ItemType Directory -Force | Out-Null
+    # Store apps and sandboxed processes read the packs; set before any pack exists so they inherit it.
+    & icacls.exe $localRoot /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
+    if ($Version -ne 'latest') { $env:TYPESCRIPT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
+    $wanted = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if (-not $wanted.Count) { $wanted = Get-ConfiguredLanguages }
+    if ($Japanese -and $wanted.Count -and $wanted -notcontains 'ja') { $wanted += 'ja' }
+    if ($wanted.Count) { & $config setup --languages ($wanted -join ',') }
+    elseif ($Japanese) { & $config setup --languages 'en,ko,ja' }
+    else { & $config setup }
+    if ($LASTEXITCODE) { throw "typescript-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: typescript-config setup" }
 }
 
 # Downloads a release package, checks its SHA-256 and unpacks it.
@@ -250,15 +301,18 @@ try {
 
     if ($Uninstall) {
         Set-Keyboards $false
+        Set-SettingsShortcut $false
         Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript, language packs in %LOCALAPPDATA%\Typescript.'
     } else {
-        Install-Packs $Source
+        if (Test-Path (Join-Path $Source 'packs')) { Install-Packs $Source } else { Install-ReleasePacks }
         # Per user: switch the registered profile on.
         & rundll32.exe $dll64, EnableForUser
         Set-Keyboards $true
+        Set-SettingsShortcut $true
         Write-Host 'Typescript installed.'
         Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
         Write-Host '  Pause key  -> the Han/Eng key (VK_HANGUL), per text field. Settings: %APPDATA%\Typescript\settings.json'
+        Write-Host ('  Languages and settings: Start menu > ' + $settingsLabel + ' (opens a page in your browser), or ' + (Join-Path $dest 'typescript-config.exe'))
         Write-Host '  Apps already running pick the new text service up when you reopen them.'
     }
 } finally {
