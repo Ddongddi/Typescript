@@ -127,12 +127,10 @@ impl Inner {
         if slot.is_none() {
             let policies = AppPolicies::load(AppPolicies::store_path().as_deref());
             let settings = self.settings.borrow();
-            let mut session = InputSession::new(
-                engine(settings.japanese),
-                policies,
-                settings.return_confirms_only,
-            );
-            if settings.japanese {
+            let japanese = settings.japanese && typescript_core::JAPANESE;
+            let mut session =
+                InputSession::new(engine(japanese), policies, settings.return_confirms_only);
+            if japanese {
                 session = session.with_japanese(converter(), settings.live_conversion);
             }
             session.set_full_width_digits(settings.full_width_digits);

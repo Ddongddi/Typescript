@@ -388,7 +388,7 @@ impl JapaneseSegmenter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "japanese"))]
 mod tests {
     use super::*;
 

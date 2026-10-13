@@ -168,7 +168,7 @@ impl Default for Settings {
             return_confirms_only: true,
             pause_key: "hangul".to_string(),
             autocomplete: true,
-            japanese: false,
+            japanese: crate::JAPANESE,
             live_conversion: false,
             full_width_digits: false,
             full_width_space: false,

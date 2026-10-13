@@ -19,7 +19,10 @@ use crate::decide::convert::{ConversionCandidate, JapaneseConverter};
 use crate::lang::romaji::RomajiComposer;
 use crate::support_dir;
 
+#[cfg(feature = "japanese")]
 const DICTIONARY: &[u8] = include_bytes!("../../data/ipadic_compact.bin");
+#[cfg(not(feature = "japanese"))]
+const DICTIONARY: &[u8] = &[]; // built without Japanese: never read, see `crate::JAPANESE`
 const MAGIC: &[u8; 8] = b"TSIPDIC2";
 
 /// No entry covers this character (a latin run, a stray mark): the path keeps it as typed.
@@ -474,7 +477,7 @@ impl JapaneseConverter for DictionaryConverter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "japanese"))]
 mod tests {
     use super::*;
 

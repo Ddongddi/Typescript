@@ -11,7 +11,10 @@ use std::sync::LazyLock;
 
 use crate::lang::romaji::{ComposeResult, RomajiComposer};
 
+#[cfg(feature = "japanese")]
 const KANA_TRIGRAMS: &str = include_str!("../../data/kana_trigrams.txt");
+#[cfg(not(feature = "japanese"))]
+const KANA_TRIGRAMS: &str = ""; // built without Japanese: never read, see `crate::JAPANESE`
 
 const STRAY_LETTER_LOGP: f64 = -13.0;
 const PENDING_LOGP: f64 = -3.5;
@@ -140,7 +143,7 @@ impl JapaneseModel {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "japanese"))]
 mod tests {
     use super::*;
 
