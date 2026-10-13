@@ -1,6 +1,6 @@
 # Typescript
 
-Windows용 영어/한국어(두벌식) 자동 판별 입력기.
+영어/한국어(두벌식) 자동 판별 입력기. Windows(TSF)와 Android(물리 키보드).
 
 ```
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
@@ -31,6 +31,15 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 | `Typescript` | 자동 판별만 (자동완성도, 단어 기록도 없다) |
 
 이미 떠 있는 앱은 다시 열어야 새 입력기를 읽는다. 아이콘은 `assets/icon.png` 를 바꾸고 `.\scripts\make-icon.ps1` 후 다시 설치하면 된다.
+
+### Android
+릴리스의 `typescript.apk` 를 받아 설치한다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Typescript** 를 켜고, 입력창에서 키보드로 고른다. 지금은 **블루투스/USB 물리 키보드**만 된다 (화면 키보드는 아직 없다). 한/영 판별, 밑줄 미리보기, Esc 순환, Tab 자동완성은 Windows와 같은 코어가 처리한다.
+```powershell
+.\platforms\android\build.ps1                 # platforms\android\build\typescript.apk (arm64 + x86_64)
+.\platforms\android\build.ps1 -Abi arm64-v8a  # 폰용만
+adb install -r platforms\android\build\typescript.apk
+```
+Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-linux-android x86_64-linux-android`, `cargo install cargo-ndk` 가 필요하다. Gradle은 쓰지 않는다. 서명은 디버그 키라서 키가 다른 빌드끼리는 덮어 설치되지 않는다.
 
 ## 쓰는 법
 
@@ -80,7 +89,7 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 - `cargo run -p typescript-tip --example richedit_lab -- --ts` (또는 `--ms`) 는 RichEdit 창에 실제 키를 보내 결과와 앱이 받는 IME 메시지를 찍는다 (카카오톡과 같은 컨트롤).
 
 ## 릴리스
-`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 한다. 올라가는 파일은 `typescript-windows.zip`, `typescript-windows.zip.sha256`, `install.ps1` 이다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌린다.
+`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 한다. 올라가는 파일은 `typescript-windows.zip`, `typescript-windows.zip.sha256`, `install.ps1`, `typescript.apk` 이다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌린다.
 ```powershell
 git tag v0.2.0; git push origin v0.2.0
 ```
@@ -100,6 +109,8 @@ cargo clippy --all-targets -- -D warnings
 | `decide/` | 판별 엔진 체인: 교정 학습(`learning`) → 영어+조사 분리(`mixed`) → 점수(`engine`) |
 | `session/` | 입력 상태 머신: `word`(치는 중인 단어), `preview`(밑줄 미리보기), `flip`(확정 직후 Esc), `client`/`key`(앱과의 경계) |
 | `store/` | 디스크에 남는 것: 앱별 정책·설정(`policy`), 단어 기록(`history`) |
+
+`platforms/android/native` 는 코어를 JNI로 감싼 Rust 라이브러리(키와 캐럿 앞 텍스트를 받아 편집 명령을 돌려준다), `platforms/android/app` 은 그 결과를 `InputConnection` 에 적용하는 Java `InputMethodService` 다. 판별 로직은 전부 Rust에 있다.
 
 `platforms/windows` 가 TSF COM DLL이다. 모델 테이블은 `build.rs` 가 빌드 때 구워서 DLL에 넣는다 (앱마다 로드되므로 실행 시 계산하지 않는다).
 

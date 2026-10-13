@@ -20,3 +20,14 @@ jobs:
       - run: cargo test --workspace
       # The 32-bit text service loads into 32-bit apps, so it has to keep building.
       - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+
+  android:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-ndk --locked
+      - run: ./platforms/android/build.ps1
