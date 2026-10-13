@@ -61,19 +61,28 @@ try {
     }
 } finally { $zip.Dispose() }
 
-# Align and sign. The debug key is created once; a release key replaces it when there is one.
+# Align and sign. With TS_KEYSTORE and TS_KEYSTORE_PASS set (the release key, alias "typescript")
+# the apk can be updated over earlier releases; without them a debug key is created once.
 $aligned = Join-Path $build 'aligned.apk'
 $apk = Join-Path $build 'typescript.apk'
 Run 'zipalign' { & "$($tools.FullName)\zipalign.exe" -f -p 4 $unsigned $aligned }
-$keystore = Join-Path $build 'debug.keystore'
-if (-not (Test-Path $keystore)) {
-    Run 'keytool' {
-        keytool -genkeypair -keystore $keystore -storepass android -keypass android -alias debug `
-            -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Typescript Debug'
+if ($env:TS_KEYSTORE) {
+    $keystore = $env:TS_KEYSTORE
+    $pass = $env:TS_KEYSTORE_PASS
+    if (-not (Test-Path $keystore) -or -not $pass) { throw 'TS_KEYSTORE needs an existing file and TS_KEYSTORE_PASS' }
+} else {
+    $keystore = Join-Path $build 'debug.keystore'
+    $pass = 'android'
+    if (-not (Test-Path $keystore)) {
+        Run 'keytool' {
+            keytool -genkeypair -keystore $keystore -storepass $pass -keypass $pass -alias debug `
+                -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Typescript Debug'
+        }
     }
 }
+$env:TS_SIGN_PASS = $pass
 Run 'apksigner' {
-    & "$($tools.FullName)\apksigner.bat" sign --ks $keystore --ks-pass pass:android --key-pass pass:android `
+    & "$($tools.FullName)\apksigner.bat" sign --ks $keystore --ks-pass env:TS_SIGN_PASS --key-pass env:TS_SIGN_PASS `
         --out $apk $aligned
 }
 Write-Host ("built {0} ({1:N0} KB)" -f $apk, ((Get-Item $apk).Length / 1KB))

@@ -40,7 +40,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 .\platforms\android\build.ps1 -Abi arm64-v8a  # 폰용만
 adb install -r platforms\android\build\typescript.apk
 ```
-Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-linux-android x86_64-linux-android`, `cargo install cargo-ndk` 가 필요하다. Gradle은 쓰지 않는다. 서명은 디버그 키라서 키가 다른 빌드끼리는 덮어 설치되지 않는다.
+Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-linux-android x86_64-linux-android`, `cargo install cargo-ndk` 가 필요하다. Gradle은 쓰지 않는다. 릴리스 APK는 고정된 릴리스 키로 서명돼서 새 버전을 덮어 설치할 수 있다 (키는 GitHub Secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`). 직접 빌드하면 디버그 키로 서명되므로 릴리스 APK와는 덮어 설치되지 않는다. 직접 빌드를 릴리스 키로 서명하려면 `TS_KEYSTORE`, `TS_KEYSTORE_PASS` 환경변수에 키스토어 경로와 비밀번호를 준다 (별칭은 `typescript`).
 
 ## 쓰는 법
 
