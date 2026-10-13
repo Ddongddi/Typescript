@@ -664,6 +664,7 @@ name = "typescript-ffi"
 version = "0.4.1"
 dependencies = [
  "typescript-android",
+ "typescript-core",
 ]
 
 [[package]]

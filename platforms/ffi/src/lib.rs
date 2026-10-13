@@ -11,6 +11,10 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use typescript_android::ime::Ime;
+use typescript_core::store::policy::Override;
+use typescript_core::{
+    make_engine, AppPolicies, DictionaryConverter, InputSession, Language, LearningEngine, Settings,
+};
 
 /// The instance behind a handle from `ts_new`.
 pub struct Handle(Mutex<Ime>);
@@ -39,12 +43,64 @@ fn reply(s: String) -> *mut c_char {
     CString::new(s.replace('\0', "")).map_or(std::ptr::null_mut(), CString::into_raw)
 }
 
-/// A new input method whose settings, apps and lexicon live in `dir`. NULL on failure.
+/// The typing session the way the Windows text service builds it: the languages from
+/// settings.json whose packs are installed, the app rules, the kana→kanji converter. With no
+/// language available every key goes through as typed.
+fn session_in(dir: &std::path::Path) -> InputSession {
+    for root in typescript_core::pack_dirs() {
+        typescript_core::pack::refresh(&root);
+    }
+    let settings = Settings::load(Some(&dir.join("settings.json")));
+    let mut policies = AppPolicies::load(Some(&dir.join("apps.json")));
+    let lexicon = Some(dir.join("lexicon.json"));
+    let (languages, engine) = match settings.languages.available() {
+        Some(languages) => {
+            let engine: std::sync::Arc<LearningEngine> = make_engine(lexicon, &languages);
+            (languages, engine)
+        }
+        None => {
+            policies = AppPolicies::new([(
+                AppPolicies::DEFAULT_KEY.to_string(),
+                Override {
+                    enabled: Some(false),
+                    ..Override::default()
+                },
+            )]);
+            let languages = typescript_core::Languages::legacy(false);
+            (languages.clone(), make_engine(None, &languages))
+        }
+    };
+    let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
+    if languages.contains(Language::Japanese)
+        && typescript_core::pack::available(Language::Japanese)
+    {
+        let learning = Some(dir.join("kanji_learning.json"));
+        session = session.with_japanese(
+            std::sync::Arc::new(DictionaryConverter::new(learning)),
+            settings.live_conversion,
+        );
+    }
+    session.set_full_width_digits(settings.full_width_digits);
+    session.set_full_width_space(settings.full_width_space);
+    session
+}
+
+/// A new input method over the settings, apps and lexicon in `dir` (NULL or "": the user's
+/// usual folder). NULL on failure.
 #[no_mangle]
 pub extern "C" fn ts_new(dir: *const c_char) -> *mut Handle {
-    let dir = PathBuf::from(text(dir));
-    catch_unwind(|| Box::into_raw(Box::new(Handle(Mutex::new(Ime::new(&dir))))))
-        .unwrap_or(std::ptr::null_mut())
+    let dir = Some(text(dir))
+        .filter(|d| !d.is_empty())
+        .map(PathBuf::from)
+        .or_else(typescript_core::support_dir);
+    let Some(dir) = dir else {
+        return std::ptr::null_mut();
+    };
+    catch_unwind(|| {
+        let ime = Ime::with_session(session_in(&dir));
+        Box::into_raw(Box::new(Handle(Mutex::new(ime))))
+    })
+    .unwrap_or(std::ptr::null_mut())
 }
 
 #[no_mangle]

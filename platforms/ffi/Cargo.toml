@@ -10,3 +10,4 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
 typescript-android = { path = "../android/native" }
+typescript-core = { path = "../../crates/core", features = ["embedded-en", "embedded-ko"] }

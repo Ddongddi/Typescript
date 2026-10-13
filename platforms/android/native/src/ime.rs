@@ -124,6 +124,11 @@ impl Ime {
         let policies = AppPolicies::load(Some(&dir.join("apps.json")));
         // No word history and no Tab completion: the phone's keyboards have their own suggestions.
         let session = InputSession::new(engine, policies, settings.return_confirms_only);
+        Self::with_session(session)
+    }
+
+    /// An input method over a session the caller built (the desktop text services).
+    pub fn with_session(session: InputSession) -> Self {
         Self {
             session,
             composing: String::new(),
