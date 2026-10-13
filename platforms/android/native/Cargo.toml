@@ -1,0 +1,12 @@
+[package]
+name = "typescript-android"
+version = "0.1.1"
+edition = "2021"
+
+[lib]
+name = "typescript_android"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+typescript-core = { path = "../../../crates/core" }
+jni = "0.21"

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/cli", "platforms/windows"]
+members = ["crates/core", "crates/cli", "platforms/windows", "platforms/android/native"]
 resolver = "2"
 
 [profile.release]
