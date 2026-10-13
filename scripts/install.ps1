@@ -9,7 +9,8 @@
     & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Version v0.2.0
 
   From a checkout (builds first; needs Rust + the i686-pc-windows-msvc target):
-    .\scripts\install.ps1              install or update
+    .\scripts\install.ps1              install or update (English + Korean)
+    .\scripts\install.ps1 -Japanese    the edition with Japanese too (English + Korean + Japanese)
     .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
@@ -20,6 +21,9 @@ param(
     [switch]$Uninstall,
     # Release tag to install (default: the latest release).
     [string]$Version = 'latest',
+    # The edition with Japanese (romaji -> kana -> kanji): English + Korean + Japanese. Without it
+    # you get English + Korean, which is much smaller (the Japanese dictionary is 16 MB).
+    [switch]$Japanese,
     # Internal: the elevated half of the script, and the folder it installs from.
     [switch]$Elevated,
     [string]$Source
@@ -125,9 +129,11 @@ function New-SourceStage {
     $repo = Split-Path -Parent $PSScriptRoot
     Push-Location $repo
     try {
-        & cargo build --release -p typescript-tip -p typescript-cli
+        $allFeatures = if ($Japanese) { @('--features', 'typescript-tip/japanese,typescript-cli/japanese') } else { @() }
+        $tipFeatures = if ($Japanese) { @('--features', 'typescript-tip/japanese') } else { @() }
+        & cargo build --release -p typescript-tip -p typescript-cli @allFeatures
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
-        & cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+        & cargo build --release -p typescript-tip --target i686-pc-windows-msvc @tipFeatures
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
     } finally {
         Pop-Location
@@ -154,12 +160,13 @@ function Get-ReleaseStage {
     $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" }
             else { "https://github.com/$GitHubRepo/releases/download/$Version" }
     $stage = New-TempDirectory
-    $zip = Join-Path $stage 'typescript-windows.zip'
+    $name = if ($Japanese) { 'typescript-windows-ja.zip' } else { 'typescript-windows.zip' }
+    $zip = Join-Path $stage $name
     Write-Host "Downloading Typescript ($Version)..."
-    Invoke-WebRequest "$base/typescript-windows.zip" -OutFile $zip -UseBasicParsing
+    Invoke-WebRequest "$base/$name" -OutFile $zip -UseBasicParsing
     # To a file, not .Content: Windows PowerShell 5.1 returns bytes for an octet-stream.
     $sumFile = "$zip.sha256"
-    Invoke-WebRequest "$base/typescript-windows.zip.sha256" -OutFile $sumFile -UseBasicParsing
+    Invoke-WebRequest "$base/$name.sha256" -OutFile $sumFile -UseBasicParsing
     $expected = ((Get-Content $sumFile -Raw) -split '\s+')[0].Trim()
     $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
     if ($actual -ne $expected) { throw "Checksum mismatch for $zip (expected $expected, got $actual)" }

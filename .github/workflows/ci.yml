@@ -18,8 +18,12 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      # The edition with Japanese carries 17 MB of models and has its own tests.
+      - run: cargo clippy --workspace --all-targets --features typescript-core/japanese,typescript-tip/japanese,typescript-cli/japanese -- -D warnings
+      - run: cargo test --workspace --features typescript-core/japanese,typescript-tip/japanese,typescript-cli/japanese
       # The 32-bit text service loads into 32-bit apps, so it has to keep building.
       - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+      - run: cargo build --release -p typescript-tip --features typescript-tip/japanese --target i686-pc-windows-msvc --target-dir target-ja
 
   android:
     runs-on: windows-latest

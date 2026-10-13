@@ -1,6 +1,6 @@
 # Typescript
 
-영어/한국어(두벌식) 자동 판별 입력기. Windows(TSF)와 Android(물리 키보드). 일본어(로마자)는 설정에서 켠다 (아래 "일본어").
+영어/한국어(두벌식) 자동 판별 입력기. Windows(TSF)와 Android(물리 키보드). 일본어(로마자)는 **일본어 포함판**에서만 된다 (아래 "일본어").
 
 ```
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
@@ -13,6 +13,11 @@ PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기
 ```powershell
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
+판이 둘이다. 기본판은 영어/한국어만 들어 있어 가볍다 (약 3.5MB). **일본어 포함판**은 영어/한국어/일본어이고, 일본어 모델과 IPADIC 한자 사전(16MB) 때문에 약 21MB다. 일본어 포함판은 `-Japanese` 로 설치하고, 기본판으로 돌아가려면 그 스위치 없이 다시 설치한다.
+```powershell
+$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
+& $i -Japanese             # 영어 + 한국어 + 일본어
+```
 받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치한다. 제거와 버전 지정은 스크립트 블록으로 부른다.
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
@@ -22,6 +27,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 소스에서 직접 빌드해 설치하려면 (Rust와 `rustup target add i686-pc-windows-msvc` 필요):
 ```powershell
 .\scripts\install.ps1            # 빌드(x64 + x86) → 관리자 권한 요청(UAC 1회) → 등록
+.\scripts\install.ps1 -Japanese  # 일본어 포함판 (Cargo 기능 `japanese`)
 .\scripts\install.ps1 -Uninstall # 제거
 ```
 설치 후 **Win+Space** 로 입력기를 고른다. 언어 목록에서는 **영어(미국)** 아래에 있다 (없으면 설치가 영어(미국)을 추가한다). 한국어 아래에 두면 카카오톡 같은 IMM32 앱에서 Windows가 조합을 한 글자로 잘라 버려서다 (아래 "앱 호환"). 두 가지가 있다.
@@ -58,9 +64,9 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 | Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성한다. 내가 친 단어가 먼저고, 없으면 내장 사전이다. 완성될 단어는 단어 아래의 작은 알약 모양 창에 `안녕하세요  Tab`으로 미리 보인다 (앱 테마에 맞춰 라이트/다크). 완성할 게 없으면 단어만 확정하고 Tab은 앱으로 간다 |
 | **한/영 키** | 이 텍스트 필드에서 Typescript를 끄고 켠다 (다른 칸으로 가면 다시 켜진다) |
 
-## 일본어 (설정에서 켠다)
+## 일본어 (일본어 포함판)
 
-`settings.json` 의 `"japanese": true` 로 켠다. 공백 없이 친 로마자를 단어마다 일본어로 읽을지 판단해 가나로 보여 주고 (점선 밑줄), Esc 순환과 확정 규칙은 영어/한국어와 같다.
+일본어 포함판에서는 기본으로 켜져 있고, `settings.json` 의 `"japanese": false` 로 끌 수 있다. 기본판에는 일본어 모델이 없어서 설정과 상관없이 동작하지 않는다. 공백 없이 친 로마자를 단어마다 일본어로 읽을지 판단해 가나로 보여 주고 (점선 밑줄), Esc 순환과 확정 규칙은 영어/한국어와 같다.
 
 ```
 kyouhaiitenkidesune ⏎   →  今日はいい天気ですね
@@ -86,7 +92,7 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 ```
 `autocomplete`: `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다.
 `pauseKey`: `"hangul"`(한/영 키) 또는 `"off"`.
-`japanese`: 로마자 일본어 자동 판별 (위 "일본어"). `liveConversion`, `fullWidthDigits`, `fullWidthSpace` 도 거기서 설명한다.
+`japanese`: 로마자 일본어 자동 판별 (위 "일본어"). 기본값은 판에 따라 다르다 (일본어 포함판 `true`, 기본판 `false` 이고 기본판에서는 켜도 무시된다). `liveConversion`, `fullWidthDigits`, `fullWidthSpace` 도 거기서 설명한다.
 
 **단어 학습** — 자동완성 입력기에서 확정한 영어/한글 단어를 `user_history.json` 에 센다. **2번 이상 친 단어만** 제안한다 (한 번 친 비밀번호·오타는 나오지 않는다). 10단어마다, 그리고 입력칸을 옮길 때 파일에 쓰고 다시 읽으므로 다른 앱에서 배운 단어도 곧 제안된다. 숫자나 영한 섞인 토큰, 1글자는 기록하지 않는다.
 
@@ -112,7 +118,7 @@ JSON을 직접 편집한다. 앱 간 전환할 때 다시 읽는다.
 - `cargo run -p typescript-tip --example richedit_lab -- --ts` (또는 `--ms`) 는 RichEdit 창에 실제 키를 보내 결과와 앱이 받는 IME 메시지를 찍는다 (카카오톡과 같은 컨트롤).
 
 ## 릴리스
-`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 한다. 올라가는 파일은 `typescript-windows.zip`, `typescript-windows.zip.sha256`, `install.ps1`, `typescript.apk` 이다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌린다.
+`v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 한다. 올라가는 파일은 기본판 `typescript-windows.zip`, 일본어 포함판 `typescript-windows-ja.zip`, 각각의 `.sha256`, `install.ps1`, `typescript.apk` 이다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌린다.
 ```powershell
 git tag v0.2.0; git push origin v0.2.0
 ```
@@ -124,6 +130,8 @@ cargo run -p typescript-cli -- -v "dkssud hello"
 echo "dkssud\tenglish" | cargo run -p typescript-cli -- --decide
 echo "きょうはいいてんきですね" | cargo run -p typescript-cli -- --convert   # 한자 후보
 cargo clippy --all-targets -- -D warnings
+# 일본어 포함판 (Cargo 기능 `japanese`, 사전 16MB 포함): 일본어 테스트는 이 기능이 있어야 돈다
+cargo test --workspace --features typescript-core/japanese,typescript-tip/japanese,typescript-cli/japanese
 ```
 
 `crates/core` 는 OS 의존성이 없다. 모듈은 역할별로 나뉜다.
