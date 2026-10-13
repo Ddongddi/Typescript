@@ -8,6 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use typescript_core::session::testing::FakeTextField;
+use typescript_core::session::NoopClient;
 use typescript_core::{
     make_engine, AppPolicies, History, InputSession, Key, LearningEngine, Range, Settings,
     TextClient,
@@ -142,6 +143,9 @@ impl Ime {
         before: &str,
         f: impl FnOnce(&mut InputSession, &mut Recorder) -> bool,
     ) -> String {
+        if !before.ends_with(&self.composing) {
+            self.reset(); // the caret moved away from the word: the app ended the composition
+        }
         let mut rec = Recorder::new(before, &self.composing);
         let consumed = f(&mut self.session, &mut rec);
         self.composing = rec.composing();
@@ -152,12 +156,10 @@ impl Ime {
         self.run(before, |s, c| s.handle(key_for(kind, ch), c))
     }
 
-    /// Commits what is being typed (focus left, the caret was moved).
-    pub fn commit(&mut self, before: &str) -> String {
-        self.run(before, |s, c| {
-            s.commit_for_new_context(c);
-            false
-        })
+    /// Forgets the word in progress; the app already ended its composition (focus or caret moved).
+    pub fn reset(&mut self) {
+        self.session.commit_for_new_context(&mut NoopClient);
+        self.composing.clear();
     }
 
     /// Pauses or resumes Typescript in this text field.

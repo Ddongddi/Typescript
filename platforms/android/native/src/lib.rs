@@ -83,15 +83,12 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeKey(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeCommit(
-    mut env: JNIEnv,
+pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeReset(
+    _: JNIEnv,
     _: JClass,
     handle: jlong,
-    before: JString,
-) -> jstring {
-    let before = text(&mut env, &before);
-    let out = with(handle, "0".to_string(), |ime| ime.commit(&before));
-    reply(&env, &out)
+) {
+    with(handle, (), |ime| ime.reset());
 }
 
 #[no_mangle]

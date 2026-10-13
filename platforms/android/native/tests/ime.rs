@@ -115,3 +115,14 @@ fn text_already_in_the_field_is_left_alone() {
     e.type_str("dkssud ");
     assert_eq!(e.shown(), "메모: 안녕 ");
 }
+
+#[test]
+fn a_caret_moved_away_from_the_word_starts_a_new_one() {
+    let mut e = Editor::new("moved");
+    e.type_str("dkss");
+    // The user taps elsewhere: the app commits the underlined text and the caret is elsewhere.
+    e.composing = 0;
+    e.text = "다른 글 ".chars().collect();
+    e.type_str("hello ");
+    assert_eq!(e.shown(), "다른 글 hello ");
+}
