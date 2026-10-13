@@ -26,21 +26,91 @@ pub use session::{Conversion, InputSession, Key, Range, TextClient};
 pub use store::history::History;
 pub use store::policy::{AppPolicies, AppPolicy, Settings};
 
-/// `%APPDATA%\Typescript` (settings.json, apps.json, lexicon.json, user_history.json).
-pub fn support_dir() -> Option<PathBuf> {
-    std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("Typescript"))
+/// The systems the per-user folders differ on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Os {
+    Windows,
+    Mac,
+    Linux,
 }
 
-/// Where installed language packs live: `%LOCALAPPDATA%\Typescript\packs`, and the same path
-/// under the user profile. In an AppContainer process (a Store app, a sandboxed browser) the
-/// first is usually redirected to the package's own folder, which has no packs; the second is
-/// where the installer put them. Both are scanned. The folder is in the user's local profile,
-/// not the roaming one, so the installer can grant AppContainer read access to it.
-pub fn pack_dirs() -> Vec<PathBuf> {
-    pack_dirs_from(
-        std::env::var_os("LOCALAPPDATA"),
-        std::env::var_os("USERPROFILE"),
+impl Os {
+    pub fn current() -> Os {
+        if cfg!(windows) {
+            Os::Windows
+        } else if cfg!(target_os = "macos") {
+            Os::Mac
+        } else {
+            Os::Linux
+        }
+    }
+}
+
+type Var<'a> = &'a dyn Fn(&str) -> Option<std::ffi::OsString>;
+
+fn var(name: &str) -> Option<std::ffi::OsString> {
+    std::env::var_os(name).filter(|v| !v.is_empty())
+}
+
+fn mac_support(get: Var) -> Option<PathBuf> {
+    let home = PathBuf::from(get("HOME")?);
+    Some(
+        home.join("Library")
+            .join("Application Support")
+            .join("Typescript"),
     )
+}
+
+/// Settings and learned data: `%APPDATA%\Typescript` on Windows, `~/Library/Application
+/// Support/Typescript` on macOS, `$XDG_CONFIG_HOME/Typescript` (else `~/.config/Typescript`)
+/// elsewhere. Holds settings.json, apps.json, lexicon.json, user_history.json.
+pub fn support_dir() -> Option<PathBuf> {
+    support_dir_for(Os::current(), &var)
+}
+
+fn support_dir_for(os: Os, get: Var) -> Option<PathBuf> {
+    match os {
+        Os::Windows => get("APPDATA").map(|d| PathBuf::from(d).join("Typescript")),
+        Os::Mac => mac_support(get),
+        Os::Linux => match get("XDG_CONFIG_HOME") {
+            Some(d) => Some(PathBuf::from(d).join("Typescript")),
+            None => Some(
+                PathBuf::from(get("HOME")?)
+                    .join(".config")
+                    .join("Typescript"),
+            ),
+        },
+    }
+}
+
+/// Where installed language packs live. Windows: `%LOCALAPPDATA%\Typescript\packs`, and the
+/// same path under the user profile. In an AppContainer process (a Store app, a sandboxed
+/// browser) the first is usually redirected to the package's own folder, which has no packs;
+/// the second is where the installer put them. Both are scanned. The folder is in the user's
+/// local profile, not the roaming one, so the installer can grant AppContainer read access to
+/// it. macOS: next to the settings. Elsewhere: `$XDG_DATA_HOME/Typescript/packs` (else
+/// `~/.local/share/Typescript/packs`).
+pub fn pack_dirs() -> Vec<PathBuf> {
+    pack_dirs_for(Os::current(), &var)
+}
+
+fn pack_dirs_for(os: Os, get: Var) -> Vec<PathBuf> {
+    match os {
+        Os::Windows => pack_dirs_from(get("LOCALAPPDATA"), get("USERPROFILE")),
+        Os::Mac => mac_support(get)
+            .map(|d| d.join("packs"))
+            .into_iter()
+            .collect(),
+        Os::Linux => {
+            let base = match get("XDG_DATA_HOME") {
+                Some(d) => Some(PathBuf::from(d)),
+                None => get("HOME").map(|h| PathBuf::from(h).join(".local").join("share")),
+            };
+            base.map(|b| b.join("Typescript").join("packs"))
+                .into_iter()
+                .collect()
+        }
+    }
 }
 
 fn pack_dirs_from(
@@ -98,5 +168,63 @@ mod tests {
         );
         assert_eq!(dirs.len(), 1);
         assert!(pack_dirs_from(None, None).is_empty());
+    }
+
+    fn vars(
+        pairs: &'static [(&'static str, &'static str)],
+    ) -> impl Fn(&str) -> Option<std::ffi::OsString> {
+        move |k| {
+            pairs
+                .iter()
+                .find(|(n, _)| *n == k)
+                .map(|(_, v)| (*v).into())
+        }
+    }
+
+    #[test]
+    fn folders_follow_each_systems_convention() {
+        let linux = vars(&[("HOME", "/home/a")]);
+        assert_eq!(
+            support_dir_for(Os::Linux, &linux),
+            Some(PathBuf::from("/home/a/.config/Typescript"))
+        );
+        assert_eq!(
+            pack_dirs_for(Os::Linux, &linux),
+            vec![PathBuf::from("/home/a/.local/share/Typescript/packs")]
+        );
+        let xdg = vars(&[
+            ("HOME", "/h"),
+            ("XDG_CONFIG_HOME", "/c"),
+            ("XDG_DATA_HOME", "/d"),
+        ]);
+        assert_eq!(
+            support_dir_for(Os::Linux, &xdg),
+            Some(PathBuf::from("/c/Typescript"))
+        );
+        assert_eq!(
+            pack_dirs_for(Os::Linux, &xdg),
+            vec![PathBuf::from("/d/Typescript/packs")]
+        );
+        let mac = vars(&[("HOME", "/Users/a")]);
+        assert_eq!(
+            support_dir_for(Os::Mac, &mac),
+            Some(PathBuf::from(
+                "/Users/a/Library/Application Support/Typescript"
+            ))
+        );
+        assert_eq!(
+            pack_dirs_for(Os::Mac, &mac),
+            vec![PathBuf::from(
+                "/Users/a/Library/Application Support/Typescript/packs"
+            )]
+        );
+        let none = vars(&[]);
+        assert_eq!(support_dir_for(Os::Linux, &none), None);
+        assert!(pack_dirs_for(Os::Mac, &none).is_empty());
+        let win = vars(&[("APPDATA", "C:/A")]);
+        assert_eq!(
+            support_dir_for(Os::Windows, &win),
+            Some(PathBuf::from("C:/A/Typescript"))
+        );
     }
 }

@@ -1,0 +1,12 @@
+[package]
+name = "typescript-ffi"
+version = "0.4.1"
+edition = "2021"
+description = "C interface of the input method for the macOS and Linux text services"
+
+[lib]
+name = "typescript_ffi"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+typescript-android = { path = "../android/native" }

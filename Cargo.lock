@@ -660,6 +660,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "typescript-ffi"
+version = "0.4.1"
+dependencies = [
+ "typescript-android",
+]
+
+[[package]]
 name = "typescript-packgen"
 version = "0.4.1"
 dependencies = [
