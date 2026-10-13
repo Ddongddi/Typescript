@@ -9,8 +9,8 @@ use std::sync::LazyLock;
 
 use crate::lang::sorted::SortedLines;
 
-const LEVELS: &str = include_str!(concat!(env!("OUT_DIR"), "/english_levels.txt"));
-const TRIGRAMS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/trigrams.bin"));
+const LEVELS: &str = include_str!(concat!(env!("OUT_DIR"), "/packs/en/english_levels.txt"));
+const TRIGRAMS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/packs/en/trigrams.bin"));
 
 // Symbols: 0 = word boundary, 1..=26 = a..z
 const SYMBOLS: usize = 27;

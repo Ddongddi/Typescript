@@ -11,8 +11,14 @@ use crate::lang::syllables::{TIER1, TIER2, TIER3};
 
 const KOREAN_SYLLABLES: &str = include_str!("../../data/korean_syllables.txt");
 // Sorted and deduplicated by build.rs, searched in place.
-const KOREAN_WORDS: &str = include_str!(concat!(env!("OUT_DIR"), "/korean_words_sorted.txt"));
-const KOREAN_VOCABULARY: &str = include_str!(concat!(env!("OUT_DIR"), "/korean_vocab_sorted.txt"));
+const KOREAN_WORDS: &str = include_str!(concat!(
+    env!("OUT_DIR"),
+    "/packs/ko/korean_words_sorted.txt"
+));
+const KOREAN_VOCABULARY: &str = include_str!(concat!(
+    env!("OUT_DIR"),
+    "/packs/ko/korean_vocab_sorted.txt"
+));
 
 pub const TIER1_LOGP: f64 = -5.0;
 pub const TIER2_LOGP: f64 = -6.5;

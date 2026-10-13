@@ -1,0 +1,15 @@
+[package]
+name = "typescript-packgen"
+version = "0.4.0"
+edition = "2021"
+
+[lib]
+name = "typescript_packgen"
+
+[[bin]]
+name = "build-packs"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
