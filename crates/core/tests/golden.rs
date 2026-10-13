@@ -16,7 +16,7 @@ use typescript_core::session::testing::FakeTextField;
 use typescript_core::session::Range;
 use typescript_core::{
     make_engine, AppPolicies, DecisionContext, DecisionEngine, History, InputSession, Key,
-    Language, LearningEngine, TextClient,
+    Language, Languages, LearningEngine, TextClient,
 };
 
 const ENGLISH_FREQ: &str = include_str!("../data/english_frequency.txt");
@@ -130,7 +130,7 @@ fn cycle(start: Language, keys: &str, japanese: bool) -> String {
     let mut seen = vec![start];
     let mut current = start;
     for _ in 0..6 {
-        current = current.next(keys, japanese);
+        current = current.next(keys, &Languages::legacy(japanese));
         if current == start {
             break;
         }

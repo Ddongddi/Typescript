@@ -55,6 +55,7 @@ use crate::decide::segmenter::JapaneseSegmenter;
 use crate::lang::english::EnglishModel;
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::romaji::RomajiComposer;
+use crate::lang::set::Languages;
 use crate::store::history::{self, History};
 use crate::store::policy::{AppPolicies, AppPolicy};
 
@@ -391,7 +392,8 @@ impl InputSession {
             Some(l) => l,
             None => self.decide(true).language,
         };
-        self.word.forced = Some(shown.next(&self.word.keys, self.japanese_enabled));
+        self.word.forced =
+            Some(shown.next(&self.word.keys, &Languages::legacy(self.japanese_enabled)));
         self.word.forced_by_user = true;
         self.word.pinned = None;
         if self.word.forced != Some(Language::Japanese) {

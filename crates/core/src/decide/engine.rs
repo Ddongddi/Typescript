@@ -2,13 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::decide::mixed::MixedWord;
 use crate::decide::segmenter::{JapaneseSegmenter, Segment};
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
-use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
+use crate::lang::hangul::DubeolsikLayout;
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::korean::{KoreanModel, KoreanScore};
-use crate::lang::romaji::RomajiComposer;
+use crate::lang::registry;
+use crate::lang::set::Languages;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -70,34 +70,17 @@ impl Language {
         }
     }
 
-    /// What Esc switches to: english → mixed (when the keys split) → korean → japanese
-    /// (when enabled) → english. Readings that can't exist for these keys are skipped
-    /// (no Korean for "ra-men", no Japanese when it is off), and so are garbled ones
-    /// (dkssud as Japanese: dkっすd) as long as a clean alternative exists — a typo can still
-    /// be forced into its language when nothing reads cleanly.
-    pub fn next(self, keys: &str, japanese: bool) -> Language {
-        let order = [
-            Language::English,
-            Language::Mixed,
-            Language::Korean,
-            Language::Japanese,
-        ];
-        let composed = HangulComposer::compose(keys);
-        let japanese_composed = RomajiComposer::compose(keys, false);
-        let available: Vec<Language> = order
+    /// What Esc switches to: the enabled languages in the user's order, the English + Korean
+    /// reading right after English. Readings that can't exist for these keys are skipped
+    /// (no Korean for "ra-men"), and so are garbled ones (dkssud as Japanese: dkっすd) as long
+    /// as a clean alternative exists — a typo can still be forced into its language when
+    /// nothing reads cleanly.
+    pub fn next(self, keys: &str, languages: &Languages) -> Language {
+        let available: Vec<Language> = registry::cycle_order(languages)
             .into_iter()
-            .filter(|l| match l {
-                Language::English => true,
-                Language::Mixed => MixedWord::split(keys).is_some(),
-                Language::Korean => composed.is_some(),
-                Language::Japanese => japanese,
-            })
+            .filter(|l| registry::reading(*l, keys).is_some())
             .collect();
-        let clean = |l: &Language| match l {
-            Language::English | Language::Mixed => true,
-            Language::Korean => composed.as_ref().is_some_and(|c| c.stray_jamo().is_empty()),
-            Language::Japanese => japanese_composed.is_clean(),
-        };
+        let clean = |l: &Language| registry::is_clean(*l, keys);
         let clean_count = available.iter().filter(|l| clean(l)).count();
         let cycle: Vec<Language> = if clean_count >= 2 {
             available
@@ -110,7 +93,7 @@ impl Language {
         };
         match cycle.iter().position(|l| *l == self) {
             Some(i) => cycle[(i + 1) % cycle.len()],
-            None => cycle.first().copied().unwrap_or(Language::English),
+            None => cycle.first().copied().unwrap_or(languages.first()),
         }
     }
 }
@@ -141,24 +124,14 @@ pub trait DecisionEngine: Send + Sync {
 
     /// Renders `keys` in a given language regardless of what the engine would pick.
     fn render(&self, keys: &str, language: Language) -> String {
-        match language {
-            Language::English => keys.to_string(),
-            Language::Korean => HangulComposer::compose(keys)
-                .map(|c| c.text())
-                .unwrap_or_else(|| keys.to_string()),
-            Language::Mixed => {
-                // The engine's own split (hello월드, github에); the particle split for engines without one.
-                let decision = self.decide(keys, &DecisionContext::default());
-                if decision.language == Language::Mixed {
-                    decision.output
-                } else {
-                    MixedWord::split(keys)
-                        .map(|m| m.text())
-                        .unwrap_or_else(|| keys.to_string())
-                }
+        if language == Language::Mixed {
+            // The engine's own split (hello월드, github에); the particle split for engines without one.
+            let decision = self.decide(keys, &DecisionContext::default());
+            if decision.language == Language::Mixed {
+                return decision.output;
             }
-            Language::Japanese => RomajiComposer::compose(keys, false).text,
         }
+        registry::reading(language, keys).unwrap_or_else(|| keys.to_string())
     }
 }
 

@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use typescript_core::EnglishModel;
 use typescript_core::{
-    make_engine, DecisionContext, DecisionEngine, HeuristicEngine, Language, LearningEngine,
-    SplittingEngine, TextConverter,
+    make_engine, DecisionContext, DecisionEngine, HeuristicEngine, Language, Languages,
+    LearningEngine, SplittingEngine, TextConverter,
 };
 
 fn temp_lexicon(name: &str) -> PathBuf {
@@ -226,18 +226,45 @@ fn leaves_whole_words_alone() {
 
 #[test]
 fn esc_cycles_through_readings() {
-    assert_eq!(Language::English.next("githubdp", false), Language::Mixed);
-    assert_eq!(Language::Mixed.next("githubdp", false), Language::English); // 햐소ㅕㅠ에 is garbled: skipped
-    assert_eq!(Language::Korean.next("githubdp", false), Language::English);
-    assert_eq!(Language::English.next("dkssud", false), Language::Korean);
+    assert_eq!(
+        Language::English.next("githubdp", &Languages::legacy(false)),
+        Language::Mixed
+    );
+    assert_eq!(
+        Language::Mixed.next("githubdp", &Languages::legacy(false)),
+        Language::English
+    ); // 햐소ㅕㅠ에 is garbled: skipped
+    assert_eq!(
+        Language::Korean.next("githubdp", &Languages::legacy(false)),
+        Language::English
+    );
+    assert_eq!(
+        Language::English.next("dkssud", &Languages::legacy(false)),
+        Language::Korean
+    );
     // No split available: english ↔ korean.
-    assert_eq!(Language::English.next("hello", false), Language::Korean);
+    assert_eq!(
+        Language::English.next("hello", &Languages::legacy(false)),
+        Language::Korean
+    );
     // With Japanese on it joins the cycle where the keys read cleanly.
-    assert_eq!(Language::Korean.next("sushi", true), Language::Japanese);
-    assert_eq!(Language::Korean.next("sushi", false), Language::English);
-    assert_eq!(Language::Japanese.next("sushi", true), Language::English);
+    assert_eq!(
+        Language::Korean.next("sushi", &Languages::legacy(true)),
+        Language::Japanese
+    );
+    assert_eq!(
+        Language::Korean.next("sushi", &Languages::legacy(false)),
+        Language::English
+    );
+    assert_eq!(
+        Language::Japanese.next("sushi", &Languages::legacy(true)),
+        Language::English
+    );
     // No Korean reading for "ra-men".
-    assert_eq!(Language::English.next("ra-men", true), Language::Japanese);
+    assert_eq!(
+        Language::English.next("ra-men", &Languages::legacy(true)),
+        Language::Japanese
+    );
 }
 
 #[test]
