@@ -62,14 +62,42 @@ impl Drop for Staged {
     }
 }
 
+/// The folder holding `id` at `version`, whatever it is called (a folder a running app would
+/// not let go of can force the next install into `-r1`).
+pub fn installed_folder(env: &Env, id: &str, version: &str) -> Option<PathBuf> {
+    pack::scan(&env.packs)
+        .packs
+        .into_iter()
+        .find(|f| f.manifest.id == id && f.manifest.version == version)
+        .map(|f| f.dir)
+}
+
+/// Where a new pack goes: its usual folder, or the first free `-rN` when something is stuck there.
+fn free_folder(env: &Env, pack: &CatalogPack) -> Result<PathBuf> {
+    let usual = env.pack_folder(&pack.id, &pack.version);
+    if !usual.exists() {
+        return Ok(usual);
+    }
+    for n in 1..=20 {
+        let next = env.packs.join(format!("{}-{}-r{n}", pack.id, pack.version));
+        if !next.exists() {
+            return Ok(next);
+        }
+    }
+    err(format!(
+        "{}: too many leftover folders in {}",
+        pack.id,
+        env.packs.display()
+    ))
+}
+
 pub fn install_pack(
     env: &Env,
     fetch: &dyn Fetch,
     base: &str,
     pack: &CatalogPack,
 ) -> Result<Installed> {
-    let target = env.pack_folder(&pack.id, &pack.version);
-    if target.join("manifest.json").is_file() {
+    if installed_folder(env, &pack.id, &pack.version).is_some() {
         return Ok(Installed::Already);
     }
     clean_staging(env, STALE_AFTER);
@@ -96,21 +124,43 @@ pub fn install_pack(
     verify(&stage, pack)?;
 
     fs::create_dir_all(&env.packs)?;
+    let target = free_folder(env, pack)?;
     match fs::rename(&stage, &target) {
         Ok(()) => {
             std::mem::forget(staged); // moved: nothing left to clean
             Ok(Installed::New)
         }
         // Someone installed the same pack between our check and now: theirs is as good.
-        Err(_) if target.join("manifest.json").is_file() => Ok(Installed::Already),
+        Err(_) if installed_folder(env, &pack.id, &pack.version).is_some() => {
+            Ok(Installed::Already)
+        }
         Err(e) => err(format!("{}: could not move into place: {e}", pack.id)),
     }
+}
+
+/// A pack is a handful of files.
+const MAX_ENTRIES: usize = 64;
+
+/// Names Windows treats specially: a drive or stream (`a:b`), a device (`CON`, `aux.txt`,
+/// `COM1`), a trailing dot or space.
+fn ordinary_name(name: &str) -> bool {
+    if name.contains(':') || name.ends_with('.') || name.ends_with(' ') {
+        return false;
+    }
+    let stem = name.split('.').next().unwrap_or("").to_ascii_uppercase();
+    let numbered = (stem.starts_with("COM") || stem.starts_with("LPT"))
+        && stem.len() == 4
+        && stem.as_bytes()[3].is_ascii_digit();
+    !(matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered)
 }
 
 /// Flat files only: a pack is a manifest and its tables, and a name that is not a plain file
 /// name (a path, `..`, a drive) is an attack, not a pack.
 pub(crate) fn unpack(bytes: &[u8], into: &Path) -> Result<()> {
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes))?;
+    if archive.len() > MAX_ENTRIES {
+        return err("the pack has too many files");
+    }
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
         if entry.is_dir() {
@@ -121,7 +171,7 @@ pub(crate) fn unpack(bytes: &[u8], into: &Path) -> Result<()> {
             .file_name()
             .and_then(|n| n.to_str())
             .is_some_and(|n| n == name && n != ".." && n != ".");
-        if !plain || entry.enclosed_name().is_none() {
+        if !plain || entry.enclosed_name().is_none() || !ordinary_name(&name) {
             return err(format!("the pack contains an unsafe path: {name}"));
         }
         let mut out = fs::File::create(into.join(&name))?;
@@ -189,12 +239,37 @@ pub fn remove_pack(env: &Env, id: &str) -> Result<RemoveReport> {
         if !is_ours {
             continue;
         }
-        match fs::remove_dir_all(&path) {
+        match remove_pack_folder(&path) {
             Ok(()) => report.removed.push(name),
             Err(e) => report.kept.push((name, e.to_string())),
         }
     }
     Ok(report)
+}
+
+/// Deletes a pack folder, the tables first and manifest.json last: a table an app still has
+/// mapped can't be deleted, and then the folder stays a whole pack (with its manifest) instead
+/// of a manifest-less stump that blocks the next install.
+pub(crate) fn remove_pack_folder(path: &Path) -> std::io::Result<()> {
+    let mut stuck: Option<std::io::Error> = None;
+    for entry in fs::read_dir(path)?.flatten() {
+        if entry.file_name() == "manifest.json" {
+            continue;
+        }
+        let gone = if entry.path().is_file() {
+            fs::remove_file(entry.path())
+        } else {
+            Err(std::io::Error::other("unexpected folder inside a pack"))
+        };
+        if let Err(e) = gone {
+            stuck.get_or_insert(e);
+        }
+    }
+    if let Some(e) = stuck {
+        return Err(e);
+    }
+    fs::remove_file(path.join("manifest.json"))?;
+    fs::remove_dir(path)
 }
 
 /// Ids of the installed packs that need `id`.
@@ -400,5 +475,69 @@ mod tests {
         let en = f.catalog.pack("en").unwrap();
         assert!(install_pack(&f.env, &nowhere, base(), en).is_err());
         assert!(!f.env.pack_folder("en", "0.4.0").exists());
+    }
+
+    #[test]
+    fn a_folder_a_running_app_left_behind_does_not_block_a_reinstall() {
+        let f = fixture("inst-leftover");
+        // What a failed delete leaves: the folder is there, its manifest is gone.
+        let stuck = f.env.pack_folder("ko", "0.4.0");
+        std::fs::create_dir_all(&stuck).unwrap();
+        std::fs::write(stuck.join("table.txt"), b"mapped by an app").unwrap();
+        let ko = f.catalog.pack("ko").unwrap();
+        assert_eq!(
+            install_pack(&f.env, &f.source, base(), ko).unwrap(),
+            Installed::New
+        );
+        let found = typescript_core::pack::scan(&f.env.packs);
+        assert!(
+            found.packs.iter().any(|p| p.manifest.id == "ko"),
+            "{:?}",
+            found.problems
+        );
+        assert_eq!(
+            install_pack(&f.env, &f.source, base(), ko).unwrap(),
+            Installed::Already
+        );
+    }
+
+    #[test]
+    fn deleting_keeps_the_manifest_until_the_tables_are_gone() {
+        let f = fixture("inst-order");
+        let ko = f.catalog.pack("ko").unwrap();
+        install_pack(&f.env, &f.source, base(), ko).unwrap();
+        let folder = f.env.pack_folder("ko", "0.4.0");
+        // A table that cannot be deleted (a directory standing in for a locked file).
+        std::fs::remove_file(folder.join("table.txt")).unwrap();
+        std::fs::create_dir(folder.join("table.txt")).unwrap();
+        std::fs::write(folder.join("table.txt").join("inner"), b"x").unwrap();
+        let report = remove_pack(&f.env, "ko").unwrap();
+        assert!(
+            folder.join("manifest.json").is_file(),
+            "the manifest goes last"
+        );
+        assert!(report.removed.is_empty() && !report.kept.is_empty());
+    }
+
+    #[test]
+    fn names_windows_treats_specially_are_refused() {
+        let f = fixture("inst-names");
+        for name in ["CON", "aux.txt", "a:b", "stream.txt:hidden", "NUL", "com1"] {
+            let zip = zip_of(&[("manifest.json", b"{}"), (name, b"x")]);
+            std::fs::write(f.root.join("release").join("n.zip"), &zip).unwrap();
+            let pack = crate::catalog::CatalogPack {
+                id: "nn".into(),
+                name: "nn".into(),
+                version: "1".into(),
+                requires: vec![],
+                size: zip.len() as u64,
+                sha256: crate::hash::sha256_hex(&zip),
+                url: "n.zip".into(),
+            };
+            assert!(
+                install_pack(&f.env, &f.source, base(), &pack).is_err(),
+                "{name}"
+            );
+        }
     }
 }

@@ -20,7 +20,7 @@ fn main() {
             let about_updates =
                 matches!(args.first().map(String::as_str), Some("check" | "update"));
             if !args.is_empty() && !about_updates {
-                let (api, url) = typescript_config::update::api_from_env();
+                let (api, url) = typescript_config::update::api_from_env(true);
                 if let Some(hint) = typescript_config::cli::notice(&hint_env, api.as_ref(), &url) {
                     eprint!("{hint}");
                 }

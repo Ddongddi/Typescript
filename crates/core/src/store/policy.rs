@@ -277,7 +277,7 @@ impl Settings {
         }
         let json = serde_json::to_vec_pretty(&serde_json::Value::Object(object))
             .map_err(std::io::Error::other)?;
-        fs::write(path, json)
+        super::write_atomic(path, &json)
     }
 }
 

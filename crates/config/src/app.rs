@@ -74,7 +74,7 @@ pub struct Updates {
 impl Updates {
     pub fn github() -> Updates {
         Updates {
-            api: Box::new(crate::fetch::Http),
+            api: Box::new(crate::fetch::Http::default()),
             url: update::LATEST_API.to_string(),
             launch: Box::new(update::launch_powershell),
         }
@@ -139,13 +139,15 @@ impl App {
         if !self.host_ok(req.host.as_deref()) {
             return fail(403, "wrong host");
         }
-        let (path, query) = req.path.split_once('?').unwrap_or((req.path.as_str(), ""));
-        let token = if path == "/" {
-            query.split('&').find_map(|kv| kv.strip_prefix("t="))
-        } else {
-            req.token.as_deref()
-        };
-        if !token.is_some_and(|t| same_token(t, &self.token)) {
+        let path = req.path.split('?').next().unwrap_or("/");
+        // The page is static and holds nothing private, so a reload (which drops the token from
+        // the address) still works; everything it asks of the program needs the token.
+        let token_ok = path == "/"
+            || req
+                .token
+                .as_deref()
+                .is_some_and(|t| same_token(t, &self.token));
+        if !token_ok {
             return fail(401, "missing or wrong token");
         }
         self.touch();
@@ -301,12 +303,12 @@ impl App {
         if !body.is_object() {
             return Err("the app rules have to be an object".into());
         }
-        let checked: Result<std::collections::BTreeMap<String, Override>, _> =
-            serde_json::from_value(body.clone());
-        if let Err(e) = checked {
-            return Err(format!("an app rule is not valid: {e}"));
-        }
-        self.write_json(&self.env.apps, body)
+        let rules: std::collections::BTreeMap<String, Override> =
+            serde_json::from_value(body.clone())
+                .map_err(|e| format!("an app rule is not valid: {e}"))?;
+        // What is saved is what was understood: unknown fields do not get in.
+        let clean = serde_json::to_value(&rules).map_err(|e| e.to_string())?;
+        self.write_json(&self.env.apps, &clean)
     }
 
     /// The file as a JSON object (BOM or not); empty when missing or broken.
@@ -322,11 +324,9 @@ impl App {
     }
 
     fn write_json(&self, path: &std::path::Path, value: &Value) -> Result<(), String> {
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
         let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-        std::fs::write(path, text).map_err(|e| format!("could not save: {e}"))
+        typescript_core::store::write_atomic(path, text.as_bytes())
+            .map_err(|e| format!("could not save: {e}"))
     }
 
     fn state(&self) -> Value {
@@ -450,19 +450,20 @@ mod tests {
     }
 
     #[test]
-    fn the_page_needs_the_token_in_its_address() {
+    fn the_page_itself_needs_no_token_so_a_reload_works() {
         let f = fixture("app-page");
         let app = app(&f);
-        let mut r = req("GET", "/?t=tok-123", None);
+        let mut r = req("GET", "/", None);
         r.token = None;
         let page = app.handle(&r);
         assert_eq!(page.status, 200);
         assert!(page.content_type.starts_with("text/html"));
         assert!(String::from_utf8_lossy(&page.body).contains("Typescript"));
-        r.path = "/?t=nope".into();
-        assert_eq!(app.handle(&r).status, 401);
-        r.path = "/".into();
-        assert_eq!(app.handle(&r).status, 401);
+        r.host = Some("evil.test".into());
+        assert_eq!(app.handle(&r).status, 403, "still only for this host");
+        let mut api = req("GET", "/api/state", None);
+        api.token = None;
+        assert_eq!(app.handle(&api).status, 401);
     }
 
     #[test]
@@ -674,5 +675,18 @@ mod tests {
         let r = app.handle(&req("GET", "/api/update", None));
         assert_eq!(r.status, 502);
         assert!(json_of(&r)["error"].is_string());
+    }
+
+    #[test]
+    fn only_known_app_rule_fields_are_saved() {
+        let f = fixture("app-apps-clean");
+        let app = app(&f);
+        let rules = json!({"a.exe": {"enabled": false, "surprise": 1}});
+        assert_eq!(
+            app.handle(&req("POST", "/api/apps", Some(rules))).status,
+            200
+        );
+        let saved: Value = serde_json::from_slice(&std::fs::read(&f.env.apps).unwrap()).unwrap();
+        assert_eq!(saved, json!({"a.exe": {"enabled": false}}));
     }
 }

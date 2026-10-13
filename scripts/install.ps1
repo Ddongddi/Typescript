@@ -239,17 +239,28 @@ function Get-ConfiguredLanguages {
 # which languages when this is a first install.
 function Install-ReleasePacks {
     $config = Join-Path $dest 'typescript-config.exe'
+    if (-not (Test-Path $config)) {
+        # A release from before typescript-config (-Version): it has no language packs to fetch.
+        Write-Warning 'This release has no typescript-config, so no language packs were installed. Install a newer release to choose languages.'
+        return
+    }
     $localRoot = Join-Path $env:LOCALAPPDATA 'Typescript'
     New-Item (Join-Path $localRoot 'packs') -ItemType Directory -Force | Out-Null
     # Store apps and sandboxed processes read the packs; set before any pack exists so they inherit it.
     & icacls.exe $localRoot /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
+    $previousRelease = $env:TYPESCRIPT_RELEASE
     if ($Version -ne 'latest') { $env:TYPESCRIPT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
     $wanted = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     if (-not $wanted.Count) { $wanted = Get-ConfiguredLanguages }
     if ($Japanese -and $wanted.Count -and $wanted -notcontains 'ja') { $wanted += 'ja' }
-    if ($wanted.Count) { & $config setup --languages ($wanted -join ',') }
-    elseif ($Japanese) { & $config setup --languages 'en,ko,ja' }
-    else { & $config setup }
+    try {
+        if ($wanted.Count) { & $config setup --languages ($wanted -join ',') }
+        elseif ($Japanese) { & $config setup --languages 'en,ko,ja' }
+        else { & $config setup }
+    } finally {
+        # Do not leave the pin in the user's shell (this runs inside `irm | iex`).
+        if ($null -eq $previousRelease) { Remove-Item Env:\TYPESCRIPT_RELEASE -ErrorAction SilentlyContinue } else { $env:TYPESCRIPT_RELEASE = $previousRelease }
+    }
     if ($LASTEXITCODE) { throw "typescript-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: typescript-config setup" }
 }
 

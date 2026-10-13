@@ -45,14 +45,21 @@ pub fn now() -> u64 {
 
 /// The release lookup: GitHub, unless `TYPESCRIPT_RELEASE_API` names a URL or a folder holding
 /// a `latest` file (testing an update by hand).
-pub fn api_from_env() -> (Box<dyn Fetch>, String) {
+pub fn api_from_env(quick: bool) -> (Box<dyn Fetch>, String) {
+    let http = || -> Box<dyn Fetch> {
+        Box::new(if quick {
+            crate::fetch::Http::quick()
+        } else {
+            crate::fetch::Http::default()
+        })
+    };
     match std::env::var("TYPESCRIPT_RELEASE_API") {
-        Ok(spec) if spec.contains("://") => (Box::new(crate::fetch::Http), spec),
+        Ok(spec) if spec.contains("://") => (http(), spec),
         Ok(spec) if !spec.is_empty() => (
             Box::new(crate::fetch::Dir(spec.into())),
             "latest".to_string(),
         ),
-        _ => (Box::new(crate::fetch::Http), LATEST_API.to_string()),
+        _ => (http(), LATEST_API.to_string()),
     }
 }
 
@@ -163,8 +170,8 @@ fn prune_old(env: &Env, id: &str, keep: &str) {
         let manifest: Option<pack::Manifest> = std::fs::read(path.join("manifest.json"))
             .ok()
             .and_then(|d| serde_json::from_slice(&d).ok());
-        if manifest.is_some_and(|m| m.id == id && m.version != keep) {
-            let _ = std::fs::remove_dir_all(&path);
+        if manifest.is_some_and(|m| m.id == id && is_newer(keep, &m.version)) {
+            let _ = crate::install::remove_pack_folder(&path);
         }
     }
 }
@@ -209,6 +216,17 @@ pub fn update_packs(
     Ok(updated)
 }
 
+/// The hosts GitHub serves release files from.
+pub fn trusted_download(url: &str) -> bool {
+    [
+        "https://github.com/",
+        "https://objects.githubusercontent.com/",
+        "https://api.github.com/",
+    ]
+    .iter()
+    .any(|prefix| url.starts_with(prefix))
+}
+
 fn asset<'a>(release: &'a Release, name: &str) -> Result<&'a str> {
     match release.assets.iter().find(|(n, _)| n == name) {
         Some((_, url)) => Ok(url),
@@ -218,14 +236,22 @@ fn asset<'a>(release: &'a Release, name: &str) -> Result<&'a str> {
 
 /// Downloads the release's installer package, checks its SHA-256, unpacks it and hands its
 /// install.ps1 to `launch`. Nothing is started unless the checksum matches.
+///
+/// The checksum comes from the same release as the program, so it catches a damaged download,
+/// not a bad release. What the program is trusted for is where it comes from: over the network
+/// only github.com hosts are accepted.
 pub fn run_installer(
     env: &Env,
     fetch: &dyn Fetch,
     release: &Release,
     launch: &dyn Fn(&Path) -> Result<()>,
 ) -> Result<()> {
-    let zip = fetch.get(asset(release, INSTALLER_ZIP)?, INSTALLER_MAX)?;
+    let zip_url = asset(release, INSTALLER_ZIP)?;
     let sum_url = asset(release, &format!("{INSTALLER_ZIP}.sha256"))?;
+    if fetch.is_remote() && !(trusted_download(zip_url) && trusted_download(sum_url)) {
+        return err("the program is offered from a host other than GitHub, not installing");
+    }
+    let zip = fetch.get(zip_url, INSTALLER_MAX)?;
     let sum = String::from_utf8_lossy(&fetch.get(sum_url, 4096)?).into_owned();
     let expected = sum.split_whitespace().next().unwrap_or("");
     if !crate::hash::sha256_hex(&zip).eq_ignore_ascii_case(expected) {
@@ -485,5 +511,40 @@ mod tests {
         });
         assert!(refused.is_err());
         assert!(!never.get());
+    }
+
+    #[test]
+    fn pruning_removes_older_versions_only() {
+        let f = fixture("upd-prune");
+        for v in ["0.3.0", "0.4.0", "0.5.0"] {
+            let dir = f.env.pack_folder("ko", v);
+            std::fs::create_dir_all(&dir).unwrap();
+            let manifest = format!(
+                r#"{{"id":"ko","name":"ko","version":"{v}","core":">=0.1.0","files":{{}}}}"#
+            );
+            std::fs::write(dir.join("manifest.json"), manifest).unwrap();
+        }
+        prune_old(&f.env, "ko", "0.4.0");
+        assert!(!f.env.pack_folder("ko", "0.3.0").exists());
+        assert!(f.env.pack_folder("ko", "0.4.0").exists());
+        assert!(
+            f.env.pack_folder("ko", "0.5.0").exists(),
+            "a newer version is not ours to delete"
+        );
+    }
+
+    #[test]
+    fn only_github_hosts_may_serve_the_program() {
+        assert!(trusted_download(
+            "https://github.com/o/r/releases/download/v1/typescript-windows.zip"
+        ));
+        assert!(trusted_download(
+            "https://objects.githubusercontent.com/x/y"
+        ));
+        assert!(!trusted_download(
+            "https://evil.test/typescript-windows.zip"
+        ));
+        assert!(!trusted_download("https://github.com.evil.test/x"));
+        assert!(!trusted_download("http://github.com/x"));
     }
 }

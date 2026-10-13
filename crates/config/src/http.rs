@@ -2,6 +2,7 @@
 //! page gets in its address. It stops when the page has been silent for a while or asks to quit.
 
 use std::io::Read;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -13,8 +14,12 @@ use crate::env::Env;
 use crate::error::{err, Error, Result};
 use crate::source::Source;
 
-/// How long the dashboard stays up without hearing from its page (which pings every 5 s).
-pub const IDLE: Duration = Duration::from_secs(60);
+/// How long the dashboard stays up without hearing from its page (which pings every 5 s, but
+/// a browser slows a background tab's timers to about once a minute).
+pub const IDLE: Duration = Duration::from_secs(180);
+
+/// Requests handled at the same moment, at most.
+const MAX_AT_ONCE: usize = 16;
 
 pub struct Running {
     /// What to open in the browser, token included.
@@ -92,12 +97,24 @@ pub fn start(env: Env, source: Source, idle: Duration) -> Result<Running> {
     let url = format!("http://127.0.0.1:{port}/?t={token}");
     let app = Arc::new(App::new(env, source, token, port));
     let shared = app.clone();
+    let working = Arc::new(AtomicUsize::new(0));
     let thread = std::thread::spawn(move || {
         while !shared.should_quit() && shared.idle_for() < idle {
             match server.recv_timeout(Duration::from_millis(100)) {
                 Ok(Some(http)) => {
-                    let app = shared.clone();
-                    std::thread::spawn(move || answer(&app, http));
+                    // A local program that opens connections endlessly gets turned away
+                    // instead of taking every thread and byte.
+                    if working.fetch_add(1, Ordering::SeqCst) >= MAX_AT_ONCE {
+                        working.fetch_sub(1, Ordering::SeqCst);
+                        let _ =
+                            http.respond(HttpResponse::from_string("busy").with_status_code(503));
+                        continue;
+                    }
+                    let (app, working) = (shared.clone(), working.clone());
+                    std::thread::spawn(move || {
+                        answer(&app, http);
+                        working.fetch_sub(1, Ordering::SeqCst);
+                    });
                 }
                 Ok(None) => {}
                 Err(_) => break,

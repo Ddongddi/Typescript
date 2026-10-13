@@ -32,8 +32,13 @@ impl Catalog {
     pub fn parse(bytes: &[u8]) -> Result<Catalog> {
         let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF][..]).unwrap_or(bytes);
         let catalog: Catalog = serde_json::from_slice(bytes)?;
-        if catalog.packs.iter().any(|p| !valid_id(&p.id)) {
-            return err("packs.json: a pack has an invalid id");
+        for p in &catalog.packs {
+            if !valid_id(&p.id) || !valid_version(&p.version) {
+                return err("packs.json: a pack has an invalid id or version");
+            }
+            if p.size == 0 || p.size > MAX_PACK_BYTES {
+                return err(format!("packs.json: {} has an unreasonable size", p.id));
+            }
         }
         Ok(catalog)
     }
@@ -70,6 +75,21 @@ impl Catalog {
         out.push(pack);
         Ok(())
     }
+}
+
+/// The most a single pack download may be (the largest real one is a few MB).
+pub const MAX_PACK_BYTES: u64 = 256 * 1024 * 1024;
+
+/// A version becomes part of a folder name too: digits, letters, dots, dashes, no `..`.
+pub fn valid_version(version: &str) -> bool {
+    !version.is_empty()
+        && version.len() <= 32
+        && version
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'))
+        && !version.contains("..")
+        && !version.starts_with('.')
+        && !version.ends_with('.')
 }
 
 /// Pack ids become folder names: lowercase letters and digits only.
@@ -146,5 +166,29 @@ mod tests {
           { "id": "b", "name": "b", "version": "1", "requires": ["a"], "size": 1, "sha256": "x", "url": "b.zip" } ] }"#;
         let c = Catalog::parse(looped.as_bytes()).unwrap();
         assert!(c.with_requirements("a").is_err());
+    }
+
+    #[test]
+    fn a_version_that_could_leave_the_packs_folder_is_refused() {
+        for version in ["1/../../x", "..", "1\u{5c}2", "a b", "", "1.0.0/", "C:x"] {
+            let bad = json("").replace(
+                r#""version": "0.4.0", "size": 10, "sha256": "aa""#,
+                &format!(
+                    r#""version": {}, "size": 10, "sha256": "aa""#,
+                    serde_json::to_string(version).unwrap()
+                ),
+            );
+            assert!(Catalog::parse(bad.as_bytes()).is_err(), "{version}");
+        }
+        assert!(valid_version("0.4.0") && valid_version("1.2.3-rc.1"));
+    }
+
+    #[test]
+    fn a_pack_cannot_claim_a_huge_download() {
+        let big = json("").replace(
+            r#""size": 10, "sha256": "aa""#,
+            r#""size": 99999999999, "sha256": "aa""#,
+        );
+        assert!(Catalog::parse(big.as_bytes()).is_err());
     }
 }

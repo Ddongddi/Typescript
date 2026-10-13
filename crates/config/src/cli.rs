@@ -155,11 +155,11 @@ pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
             None => err("order: give the ids, e.g. order ko,en"),
         },
         Some("check") => {
-            let (api, url) = update::api_from_env();
+            let (api, url) = update::api_from_env(false);
             check(env, api.as_ref(), &url)
         }
         Some("update") => {
-            let (api, url) = update::api_from_env();
+            let (api, url) = update::api_from_env(false);
             update::apply(env, source, api.as_ref(), &url, &update::launch_powershell)
         }
         Some("setup") => crate::setup::run(&args[1..], env, source),

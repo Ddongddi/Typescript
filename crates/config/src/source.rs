@@ -31,7 +31,7 @@ impl Source {
                 format!("{spec}/")
             };
             Source {
-                fetch: Box::new(Http),
+                fetch: Box::new(Http::default()),
                 base: format!("{dir}{CATALOG_NAME}"),
             }
         } else {

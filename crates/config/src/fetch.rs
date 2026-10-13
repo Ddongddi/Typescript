@@ -1,19 +1,56 @@
 //! Where bytes come from: the release on GitHub, or a folder (tests, offline installs).
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use crate::error::{err, Error, Result};
 
 pub trait Fetch: Send + Sync {
+    /// Bytes come over the network (so hosts are worth checking), not from a folder.
+    fn is_remote(&self) -> bool {
+        false
+    }
+
     /// The bytes at `url`, failing if there are more than `max`.
     fn get(&self, url: &str, max: usize) -> Result<Vec<u8>>;
 }
 
-pub struct Http;
+/// HTTPS downloads that give up: a connection that hangs must not hang the program with it.
+pub struct Http {
+    /// The whole request, connection to last byte.
+    pub total: Duration,
+}
+
+impl Default for Http {
+    fn default() -> Self {
+        Http {
+            total: Duration::from_secs(120),
+        }
+    }
+}
+
+impl Http {
+    /// For the once-a-day look for news, which must never hold a command up.
+    pub fn quick() -> Http {
+        Http {
+            total: Duration::from_secs(8),
+        }
+    }
+}
 
 impl Fetch for Http {
+    fn is_remote(&self) -> bool {
+        true
+    }
+
     fn get(&self, url: &str, max: usize) -> Result<Vec<u8>> {
-        let mut response = ureq::get(url)
+        let config = ureq::Agent::config_builder()
+            .timeout_connect(Some(Duration::from_secs(15)))
+            .timeout_global(Some(self.total))
+            .build();
+        let agent = ureq::Agent::new_with_config(config);
+        let mut response = agent
+            .get(url)
             .header("User-Agent", "typescript-config")
             .call()
             .map_err(|e| Error(format!("download of {url} failed: {e}")))?;
