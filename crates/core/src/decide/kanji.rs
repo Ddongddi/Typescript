@@ -31,6 +31,11 @@ const UNKNOWN_COST: i32 = 15_000;
 const FULL_CANDIDATES: usize = 8;
 /// Clause boundaries of the best path, offered as first-clause candidates.
 const PREFIX_CANDIDATES: usize = 4;
+/// A reading no real word covers comes out as an odd multi-piece path (よーそろー → よー粗ロー at
+/// 14124, きょうはよーそろー at 17168); readings that do have words, latin runs and phrases with
+/// their unknown cost removed stay under 12000 in measurements (きょうはgoogleでけんさく 9019,
+/// さよならはるかぜのきせつ 11287). Above this the reading's plain forms lead.
+const PLAIN_FORMS_LEAD_COST: i32 = 13_000;
 /// Texts remembered per reading (`AppleJapaneseConverter` keeps five).
 const LEARNED_PER_READING: usize = 5;
 
@@ -181,6 +186,7 @@ struct Node {
     rc: u16,
     wcost: i32,
     text: String,
+    unknown: bool,
 }
 
 impl KanjiDictionary {
@@ -216,6 +222,7 @@ impl KanjiDictionary {
                         rc,
                         wcost,
                         text: surface.to_string(),
+                        unknown: false,
                     });
                     let id = nodes.len() - 1;
                     starts[i].push(id);
@@ -229,6 +236,7 @@ impl KanjiDictionary {
                 rc: 0,
                 wcost: UNKNOWN_COST,
                 text: chars[i].to_string(),
+                unknown: true,
             });
             let id = nodes.len() - 1;
             starts[i].push(id);
@@ -375,7 +383,22 @@ impl KanjiDictionary {
             }
         }
 
+        // A reading no real word covers reads as an odd multi-piece path (よーそろー → よー粗ロー);
+        // then the kana forms lead instead of trailing the noise. Unknown characters don't
+        // count: a latin run inside a phrase (google) is not a sign of a missing word.
+        let plain_forms_lead = match full.first() {
+            Some((cost, ids)) => {
+                let unknown = ids.iter().filter(|&&v| nodes[v].unknown).count() as i32;
+                *cost - unknown * UNKNOWN_COST >= PLAIN_FORMS_LEAD_COST
+            }
+            None => false,
+        };
+
         let mut out: Vec<ConversionCandidate> = Vec::new();
+        if plain_forms_lead {
+            out.push(ConversionCandidate::new(kana.to_string(), n));
+            out.push(ConversionCandidate::new(RomajiComposer::katakana(kana), n));
+        }
         for (_, ids) in &full {
             let text: String = ids.iter().map(|&v| nodes[v].text.as_str()).collect();
             out.push(ConversionCandidate::new(text, n));
@@ -391,9 +414,11 @@ impl KanjiDictionary {
             }
         }
         // The reading itself, in hiragana and katakana, is always available.
-        for plain in [kana.to_string(), RomajiComposer::katakana(kana)] {
-            if !out.iter().any(|c| c.text == plain && c.kana_count == n) {
-                out.push(ConversionCandidate::new(plain, n));
+        if !plain_forms_lead {
+            for plain in [kana.to_string(), RomajiComposer::katakana(kana)] {
+                if !out.iter().any(|c| c.text == plain && c.kana_count == n) {
+                    out.push(ConversionCandidate::new(plain, n));
+                }
             }
         }
         // One row per text (the better-ranked coverage).
@@ -585,5 +610,15 @@ mod tests {
         let candidates = converter().candidates("ぬるぽです");
         let all = texts(&candidates, candidates.len());
         assert!(all.contains(&"ぬるぽです"), "{all:?}");
+    }
+
+    /// A reading no word covers (a katakana word IPADIC lacks): the plain forms lead instead of
+    /// the odd path pieces (よー粗ロー), and a latin run inside a phrase does not count as junk.
+    #[test]
+    fn plain_forms_lead_when_no_word_covers_the_reading() {
+        let candidates = converter().candidates("よーそろー");
+        assert_eq!(texts(&candidates, 2), ["よーそろー", "ヨーソロー"]);
+        let candidates = converter().candidates("きょうはgoogleでけんさく");
+        assert_eq!(candidates[0].text, "今日はgoogleで検索");
     }
 }

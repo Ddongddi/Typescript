@@ -91,6 +91,12 @@ def load_entries(ipadic_dir: str, zipf: dict):
                 if not reading or reading == "*":
                     reading = surface
                 lemma = feats[6] if len(feats) > 6 and feats[6] != "*" else surface
+                # 記号 whose reading is kana (δ = デルタ, Ｎ = エヌ, ρ = ロー) exist so MeCab can
+                # read symbols; from kana input they are noise that outranks the word itself
+                # (よーそろー → よーソΡ, のーと → ノー＆). Keep self-reading symbols only.
+                if feats[0] == "記号" and kata_to_hira(reading) != surface:
+                    skipped += 1
+                    continue
                 z = max(zipf.get(surface, 0.0), zipf.get(lemma, 0.0))
                 if z > 0 and len(surface) >= ZIPF_MIN_CHARS:
                     adjust = max(-ZIPF_CLAMP, min(ZIPF_CLAMP, (4.0 - z) * ZIPF_SCALE))
