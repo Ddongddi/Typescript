@@ -117,7 +117,7 @@ pub struct Ime {
 impl Ime {
     /// `dir`: where the app keeps settings.json, apps.json, lexicon.json.
     pub fn new(dir: &Path) -> Self {
-        let engine: Arc<LearningEngine> = make_engine(Some(dir.join("lexicon.json")));
+        let engine: Arc<LearningEngine> = make_engine(Some(dir.join("lexicon.json")), false);
         let settings = Settings::load(Some(&dir.join("settings.json")));
         let policies = AppPolicies::load(Some(&dir.join("apps.json")));
         // No word history and no Tab completion: the phone's keyboards have their own suggestions.
