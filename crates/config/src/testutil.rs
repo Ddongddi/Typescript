@@ -95,3 +95,15 @@ pub fn fixture(name: &str) -> Fixture {
         root,
     }
 }
+
+/// Writes the fixture's catalog as the release's packs.json and returns a source for it.
+pub fn publish(f: &Fixture) -> crate::source::Source {
+    let json = serde_json::json!({
+        "version": f.catalog.version, "core": f.catalog.core,
+        "packs": f.catalog.packs.iter().map(|p| serde_json::json!({
+            "id": p.id, "name": p.name, "version": p.version, "requires": p.requires,
+            "size": p.size, "sha256": p.sha256, "url": p.url })).collect::<Vec<_>>(),
+    });
+    std::fs::write(f.root.join("release").join("packs.json"), json.to_string()).unwrap();
+    crate::source::Source::from_spec(f.root.join("release").to_str().unwrap())
+}
