@@ -2,12 +2,15 @@
 //! Host, JSON only, size, validation) is tested directly.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 use typescript_core::store::policy::Override;
-use typescript_core::{pack, Language, Settings};
+use typescript_core::{
+    make_engine, pack, AppPolicy, DecisionContext, DecisionEngine, Language, Languages,
+    LearningEngine, Settings,
+};
 
 use crate::env::Env;
 use crate::fetch::Fetch;
@@ -16,6 +19,8 @@ use crate::source::Source;
 use crate::update;
 
 pub const MAX_BODY: usize = 256 * 1024;
+/// The "try typing" box is for a sentence, not a document.
+const MAX_TRY_CHARS: usize = 2000;
 const PAGE: &str = include_str!("dashboard.html");
 /// The settings the page may change, and how each is checked.
 const BOOL_SETTINGS: [&str; 6] = [
@@ -81,6 +86,35 @@ impl Updates {
     }
 }
 
+/// File names of the programs running now (for picking the app a rule is for), sorted and
+/// lowercase. Windows only; elsewhere, or if the list can't be read, it is empty.
+fn running_apps() -> Vec<String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const NO_WINDOW: u32 = 0x0800_0000;
+        let Ok(out) = std::process::Command::new("tasklist")
+            .args(["/fo", "csv", "/nh"])
+            .creation_flags(NO_WINDOW)
+            .output()
+        else {
+            return Vec::new();
+        };
+        let text = String::from_utf8_lossy(&out.stdout);
+        let mut names: Vec<String> = text
+            .lines()
+            .filter_map(|l| l.strip_prefix('"')?.split('"').next())
+            .map(str::to_lowercase)
+            .filter(|n| n.ends_with(".exe"))
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
 pub struct App {
     env: Env,
     source: Source,
@@ -91,6 +125,8 @@ pub struct App {
     quit: AtomicBool,
     /// One change at a time: two downloads at once would race on the same folders.
     busy: Mutex<()>,
+    /// The engine the "try typing" box reads with, for the languages that were on when it was built.
+    engine: Mutex<Option<(Languages, Arc<LearningEngine>)>>,
 }
 
 impl App {
@@ -104,6 +140,7 @@ impl App {
             last_seen: Mutex::new(Instant::now()),
             quit: AtomicBool::new(false),
             busy: Mutex::new(()),
+            engine: Mutex::new(None),
         }
     }
 
@@ -162,17 +199,23 @@ impl App {
                 Ok(v) => json_response(200, &v),
                 Err(message) => fail(502, &message),
             },
+            ("GET", "/api/processes") => json_response(200, &json!({ "apps": running_apps() })),
             ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
             ("POST", "/api/heartbeat") => json_response(200, &json!({})),
             ("POST", "/api/quit") => {
                 self.quit.store(true, Ordering::SeqCst);
                 json_response(200, &json!({}))
             }
-            ("POST", "/api/languages" | "/api/settings" | "/api/apps" | "/api/update") => {
-                self.post(path, req)
-            }
-            (_, "/" | "/api/state" | "/api/apps" | "/api/heartbeat" | "/api/quit")
-            | (_, "/api/languages" | "/api/settings" | "/api/update") => {
+            (
+                "POST",
+                "/api/languages" | "/api/settings" | "/api/apps" | "/api/update" | "/api/try",
+            ) => self.post(path, req),
+            (
+                _,
+                "/" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
+                | "/api/quit",
+            )
+            | (_, "/api/languages" | "/api/settings" | "/api/update" | "/api/try") => {
                 fail(405, "method not allowed")
             }
             _ => fail(404, "not found"),
@@ -193,7 +236,15 @@ impl App {
         let Ok(body) = serde_json::from_slice::<Value>(&req.body) else {
             return fail(400, "the body is not valid JSON");
         };
+        if path == "/api/try" {
+            return match self.try_typing(&body) {
+                Ok(v) => json_response(200, &v),
+                Err(message) => fail(400, &message),
+            };
+        }
         let _one_at_a_time = self.busy.lock().unwrap_or_else(|e| e.into_inner());
+        // Packs or the language set may change below: the box must read with what is there after.
+        *self.engine.lock().unwrap_or_else(|e| e.into_inner()) = None;
         if path == "/api/update" {
             if body["action"] != "apply" {
                 return fail(400, "action has to be apply");
@@ -212,6 +263,72 @@ impl App {
             Ok(()) => json_response(200, &self.state()),
             Err(message) => fail(400, &message),
         }
+    }
+
+    /// The engine for the languages that are on now (packs are read from this user's folder).
+    fn engine(&self) -> Arc<LearningEngine> {
+        let on = languages::enabled(&self.env);
+        let mut slot = self.engine.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((built_for, engine)) = slot.as_ref() {
+            if *built_for == on {
+                return engine.clone();
+            }
+        }
+        pack::refresh(&self.env.packs);
+        let engine = make_engine(None, &on);
+        *slot = Some((on, engine.clone()));
+        engine
+    }
+
+    /// Reads `text` as typed on a QWERTY keyboard, word by word, as the input method would:
+    /// the languages that are on, the word before as context, and `threshold` (an app's
+    /// "convert only when sure" setting) deciding whether a doubtful word stays as typed.
+    fn try_typing(&self, body: &Value) -> Result<Value, String> {
+        let text = body["text"].as_str().ok_or("text has to be a string")?;
+        if text.chars().count() > MAX_TRY_CHARS {
+            return Err(format!("try at most {MAX_TRY_CHARS} characters"));
+        }
+        let threshold = body["threshold"]
+            .as_f64()
+            .unwrap_or(AppPolicy::STANDARD.conversion_threshold);
+        let engine = self.engine();
+        let mut segments = Vec::new();
+        let mut previous = None;
+        let mut rest = text;
+        while !rest.is_empty() {
+            let split = |c: char| {
+                c.is_ascii_alphabetic() != rest.starts_with(|f: char| f.is_ascii_alphabetic())
+            };
+            let end = rest.find(split).unwrap_or(rest.len());
+            let (piece, tail) = rest.split_at(end);
+            rest = tail;
+            if !piece.starts_with(|c: char| c.is_ascii_alphabetic()) {
+                if piece.contains(char::from(10)) {
+                    previous = None;
+                }
+                segments.push(json!({ "text": piece }));
+                continue;
+            }
+            let d = engine.decide(
+                piece,
+                &DecisionContext {
+                    previous_language: previous,
+                    partial: false,
+                },
+            );
+            let kept = d.language != Language::English && d.confidence < threshold;
+            let (language, out) = if kept {
+                (Language::English, piece.to_string())
+            } else {
+                (d.language, d.output)
+            };
+            previous = Some(language.sentence_language());
+            segments.push(json!({
+                "keys": piece, "out": out, "lang": language.id(),
+                "confidence": d.confidence, "kept": kept, "why": d.explanation,
+            }));
+        }
+        Ok(json!({ "segments": segments }))
     }
 
     fn update_info(&self) -> Result<Value, String> {
@@ -362,6 +479,7 @@ impl App {
                 "requiredBy": crate::install::required_by(&self.env, &id),
             }));
         }
+        let defaults = Settings::default();
         let loaded = Settings::load(Some(&self.env.settings));
         let raw = self.read_object(&self.env.settings);
         json!({
@@ -378,6 +496,15 @@ impl App {
                 "fullWidthDigits": loaded.full_width_digits,
                 "fullWidthSpace": loaded.full_width_space,
                 "checkUpdates": raw["checkUpdates"].as_bool().unwrap_or(true),
+            },
+            "defaults": {
+                "returnConfirmsOnly": defaults.return_confirms_only,
+                "pauseKey": defaults.pause_key,
+                "autocomplete": defaults.autocomplete,
+                "liveConversion": defaults.live_conversion,
+                "fullWidthDigits": defaults.full_width_digits,
+                "fullWidthSpace": defaults.full_width_space,
+                "checkUpdates": true,
             },
             "apps": self.read_object(&self.env.apps),
             "version": crate::catalog::CORE_VERSION,
@@ -688,5 +815,39 @@ mod tests {
         );
         let saved: Value = serde_json::from_slice(&std::fs::read(&f.env.apps).unwrap()).unwrap();
         assert_eq!(saved, json!({"a.exe": {"enabled": false}}));
+    }
+
+    #[test]
+    fn running_apps_come_as_sorted_lowercase_exe_names() {
+        let f = fixture("app-processes");
+        let app = app(&f);
+        let r = app.handle(&req("GET", "/api/processes", None));
+        assert_eq!(r.status, 200);
+        let names: Vec<String> = json_of(&r)["apps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        assert!(names
+            .iter()
+            .all(|n| n.ends_with(".exe") && *n == n.to_lowercase()));
+        assert!(
+            names.windows(2).all(|w| w[0] < w[1]),
+            "sorted, no duplicates"
+        );
+        if cfg!(windows) {
+            assert!(!names.is_empty());
+        }
+    }
+
+    #[test]
+    fn state_tells_the_defaults_so_the_page_can_mark_changed_settings() {
+        let f = fixture("app-defaults");
+        let app = app(&f);
+        let s = json_of(&app.handle(&req("GET", "/api/state", None)));
+        assert_eq!(s["defaults"]["returnConfirmsOnly"], true);
+        assert_eq!(s["defaults"]["pauseKey"], "hangul");
+        assert_eq!(s["defaults"]["checkUpdates"], true);
     }
 }

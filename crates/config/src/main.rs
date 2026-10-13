@@ -9,7 +9,9 @@ fn main() {
     let source = Source::detect();
     let hint_env = env.clone();
     let result = if args.is_empty() {
-        typescript_config::http::run(env, source, true)
+        // TYPESCRIPT_NO_BROWSER: print the address only (headless runs, browser tests).
+        let open = std::env::var_os("TYPESCRIPT_NO_BROWSER").is_none();
+        typescript_config::http::run(env, source, open)
     } else {
         cli::run(&args, &env, &source)
     };
