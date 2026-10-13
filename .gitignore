@@ -3,3 +3,5 @@ target/
 dist/
 platforms/android/build/
 target-*/
+docs/superpowers/
+.superpowers/
