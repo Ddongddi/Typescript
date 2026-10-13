@@ -78,7 +78,7 @@ fn check(name: &str, actual: &str) {
     }
     let expected = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("{}: {e} (run with GOLDEN_WRITE=1 once)", path.display()));
-    if expected != actual && !same_up_to_libm(&expected, &actual) {
+    if expected != actual && !same_up_to_libm(&expected, actual) {
         let first = expected
             .lines()
             .zip(actual.lines())

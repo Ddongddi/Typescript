@@ -13,8 +13,7 @@ pub struct Env {
 }
 
 impl Env {
-    /// The current user's real locations (Windows today; None elsewhere until those platforms
-    /// are added).
+    /// The current user's real locations (None when the system gives no home folder).
     pub fn detect() -> Option<Env> {
         // TYPESCRIPT_HOME: keep everything in one folder (trying the tool without touching the
         // real settings and packs).

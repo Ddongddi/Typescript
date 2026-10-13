@@ -568,6 +568,7 @@ impl App {
                 "fullWidthSpace": loaded.full_width_space,
                 "checkUpdates": raw["checkUpdates"].as_bool().unwrap_or(true),
             },
+            "os": std::env::consts::OS,
             "defaults": {
                 "returnConfirmsOnly": defaults.return_confirms_only,
                 "pauseKey": defaults.pause_key,
@@ -932,6 +933,7 @@ bash
         let s = json_of(&app.handle(&req("GET", "/api/state", None)));
         assert_eq!(s["defaults"]["returnConfirmsOnly"], true);
         assert_eq!(s["defaults"]["pauseKey"], "hangul");
+        assert_eq!(s["os"], std::env::consts::OS);
         assert_eq!(s["defaults"]["checkUpdates"], true);
     }
 }
