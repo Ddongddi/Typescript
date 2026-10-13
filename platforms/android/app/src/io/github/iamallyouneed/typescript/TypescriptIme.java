@@ -1,23 +1,46 @@
 package io.github.iamallyouneed.typescript;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.inputmethodservice.InputMethodService;
+import android.inputmethodservice.Keyboard;
+import android.inputmethodservice.KeyboardView;
 import android.text.InputType;
+import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.util.HashSet;
 import java.util.Set;
 
-/** Hardware-keyboard input for now: keys go to Rust, its edit commands come back here. */
-public class TypescriptIme extends InputMethodService {
+/**
+ * Input from a hardware keyboard and from the on-screen one: keys go to Rust, its edit
+ * commands come back here. The on-screen keyboard is the framework's (deprecated, but in every
+ * Android version since 1.5 and not a dependency).
+ */
+@SuppressWarnings("deprecation")
+public class TypescriptIme extends InputMethodService implements KeyboardView.OnKeyboardActionListener {
     private static final int BEFORE_CARET = 64;
+    private static final int CODE_CYCLE = -100;
+    private static final int CODE_PAUSE = -101;
+    private static final int CODE_SYMBOLS = -102;
+    private static final int CODE_LETTERS = -103;
 
     private long ime;
     private boolean active;
     /** Keys whose down event was consumed: their up event is too. */
     private final Set<Integer> swallowed = new HashSet<>();
+
+    private KeyboardView keyboardView;
+    private Keyboard letters;
+    private Keyboard symbols;
+    private TextView suggestion;
 
     @Override
     public void onCreate() {
@@ -33,11 +56,51 @@ public class TypescriptIme extends InputMethodService {
     }
 
     @Override
+    public View onCreateInputView() {
+        letters = new Keyboard(this, R.xml.qwerty);
+        symbols = new Keyboard(this, R.xml.symbols);
+        keyboardView = new DualKeyboardView(this);
+        keyboardView.setOnKeyboardActionListener(this);
+        keyboardView.setPreviewEnabled(false);
+        keyboardView.setKeyboard(letters);
+
+        suggestion = new TextView(this);
+        suggestion.setGravity(Gravity.CENTER_VERTICAL);
+        suggestion.setTextSize(17);
+        suggestion.setTypeface(Typeface.DEFAULT_BOLD);
+        suggestion.setTextColor(Color.DKGRAY);
+        suggestion.setBackgroundColor(Color.rgb(0xE8, 0xE8, 0xEC));
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        suggestion.setPadding(pad, 0, pad, 0);
+        suggestion.setOnClickListener(v -> {
+            if (suggestion.getText().length() > 0) soft(Native.TAB, 0, KeyEvent.KEYCODE_TAB);
+        });
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int strip = (int) (40 * getResources().getDisplayMetrics().density);
+        root.addView(suggestion, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, strip));
+        root.addView(keyboardView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        return root;
+    }
+
+    @Override
     public void onStartInput(EditorInfo info, boolean restarting) {
         super.onStartInput(info, restarting);
         active = ime != 0 && isTextField(info);
         swallowed.clear();
         if (active) Native.nativeActivate(ime, info.packageName);
+    }
+
+    @Override
+    public void onStartInputView(EditorInfo info, boolean restarting) {
+        super.onStartInputView(info, restarting);
+        if (keyboardView != null) {
+            letters.setShifted(false);
+            keyboardView.setKeyboard(letters);
+        }
+        refresh();
     }
 
     @Override
@@ -62,33 +125,22 @@ public class TypescriptIme extends InputMethodService {
         }
     }
 
+    // MARK: - Hardware keyboard
+
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         InputConnection ic = getCurrentInputConnection();
         if (!active || ic == null || isModifier(keyCode)) return super.onKeyDown(keyCode, event);
 
-        int kind = Native.OTHER;
-        int ch = 0;
-        String reply;
+        boolean consumed;
         if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH) {
-            reply = Native.nativeTogglePause(ime, before(ic));
-        } else {
-            kind = kindOf(keyCode, event);
-            ch = charOf(keyCode, event, kind);
-            reply = Native.nativeKey(ime, kind, ch, before(ic));
-        }
-        boolean consumed = apply(ic, reply);
-        // A word just went in and the app is to get the key: the app would act on it before our
-        // edit arrives (and put the caret before it), so the key follows the word on the same
-        // connection instead.
-        if (!consumed && reply.indexOf('\u0001') >= 0) {
-            if (kind == Native.PRINTABLE) {
-                ic.commitText(new String(Character.toChars(ch)), 1);
-            } else {
-                sendDownUpKeyEvents(keyCode);
-            }
+            apply(ic, Native.nativeTogglePause(ime, before(ic)));
             consumed = true;
+        } else {
+            int kind = kindOf(keyCode, event);
+            consumed = send(ic, kind, charOf(keyCode, event, kind), keyCode, false);
         }
+        refresh();
         if (consumed) {
             swallowed.add(keyCode);
             return true;
@@ -150,9 +202,149 @@ public class TypescriptIme extends InputMethodService {
         return kind == Native.PRINTABLE ? event.getUnicodeChar() : 0;
     }
 
+    // MARK: - On-screen keyboard
+
+    @Override
+    public void onKey(int code, int[] keyCodes) {
+        switch (code) {
+            case Keyboard.KEYCODE_SHIFT:
+                letters.setShifted(!letters.isShifted());
+                keyboardView.invalidateAllKeys();
+                return;
+            case CODE_SYMBOLS:
+                keyboardView.setKeyboard(symbols);
+                refresh();
+                return;
+            case CODE_LETTERS:
+                keyboardView.setKeyboard(letters);
+                refresh();
+                return;
+            case CODE_PAUSE:
+                InputConnection ic = getCurrentInputConnection();
+                if (ic != null && active) apply(ic, Native.nativeTogglePause(ime, before(ic)));
+                refresh();
+                return;
+            case Keyboard.KEYCODE_DELETE:
+                soft(Native.DELETE, 0, KeyEvent.KEYCODE_DEL);
+                return;
+            case 10:
+                soft(Native.ENTER, 0, KeyEvent.KEYCODE_ENTER);
+                return;
+            case CODE_CYCLE:
+                soft(Native.CYCLE, 0, 0);
+                return;
+            default:
+                break;
+        }
+        char c = (char) code;
+        if (Character.isLetter(c)) {
+            boolean shifted = keyboardView.getKeyboard() == letters && letters.isShifted();
+            soft(Native.LETTER, shifted ? Character.toUpperCase(c) : c, 0);
+            if (shifted) {
+                letters.setShifted(false); // one capital at a time
+                keyboardView.invalidateAllKeys();
+            }
+        } else {
+            soft(Native.PRINTABLE, c, 0);
+        }
+    }
+
+    private void soft(int kind, int ch, int keyCode) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        if (active) {
+            send(ic, kind, ch, keyCode, true);
+        } else {
+            passThrough(ic, kind, ch, keyCode); // passwords and the like: no input method logic
+        }
+        refresh();
+    }
+
+    @Override
+    public void onPress(int primaryCode) {}
+
+    @Override
+    public void onRelease(int primaryCode) {}
+
+    @Override
+    public void onText(CharSequence text) {}
+
+    @Override
+    public void swipeLeft() {}
+
+    @Override
+    public void swipeRight() {}
+
+    @Override
+    public void swipeDown() {}
+
+    @Override
+    public void swipeUp() {}
+
+    /** The suggestion strip and the Han/Eng key show what Rust knows. */
+    private void refresh() {
+        if (keyboardView == null || ime == 0) return;
+        suggestion.setText(active ? Native.nativeSuggestion(ime) : "");
+        String label = active && Native.nativePaused(ime) ? "OFF" : "한/영";
+        for (Keyboard board : new Keyboard[] {letters, symbols}) {
+            for (Keyboard.Key key : board.getKeys()) {
+                if (key.codes[0] == CODE_PAUSE) key.label = label;
+            }
+        }
+        keyboardView.invalidateAllKeys();
+    }
+
+    // MARK: - Shared
+
     private static String before(InputConnection ic) {
         CharSequence text = ic.getTextBeforeCursor(BEFORE_CARET, 0);
         return text == null ? "" : text.toString();
+    }
+
+    /**
+     * One key through Rust. True if it was handled here; false (hardware keys only) when the app
+     * is to handle it itself.
+     */
+    private boolean send(InputConnection ic, int kind, int ch, int keyCode, boolean soft) {
+        String reply = Native.nativeKey(ime, kind, ch, before(ic));
+        if (apply(ic, reply)) return true;
+        // A word just went in and the app is to get the key: the app would act on it before our
+        // edit arrives (and put the caret before it), so the key follows the word on the same
+        // connection instead.
+        boolean wordWentIn = reply.indexOf('\u0001') >= 0;
+        if (!soft && !wordWentIn) return false;
+        passThrough(ic, kind, ch, keyCode);
+        return true;
+    }
+
+    /** What the key does when the input method has no use for it. */
+    private void passThrough(InputConnection ic, int kind, int ch, int keyCode) {
+        switch (kind) {
+            case Native.LETTER:
+            case Native.PRINTABLE:
+                ic.commitText(new String(Character.toChars(ch)), 1);
+                break;
+            case Native.ENTER:
+                enter(ic);
+                break;
+            default:
+                if (keyCode != 0) sendDownUpKeyEvents(keyCode);
+                break;
+        }
+    }
+
+    private void enter(InputConnection ic) {
+        EditorInfo info = getCurrentInputEditorInfo();
+        int action = info == null ? EditorInfo.IME_ACTION_NONE : info.imeOptions & EditorInfo.IME_MASK_ACTION;
+        boolean plain = info == null
+                || (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+                || action == EditorInfo.IME_ACTION_NONE
+                || action == EditorInfo.IME_ACTION_UNSPECIFIED;
+        if (plain) {
+            sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
+        } else {
+            ic.performEditorAction(action);
+        }
     }
 
     /** Applies Rust's edit commands; true if the key was consumed. */

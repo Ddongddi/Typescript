@@ -36,15 +36,15 @@ $base = Join-Path $build 'base.apk'
 Run 'aapt2 compile' { & "$($tools.FullName)\aapt2.exe" compile --dir (Join-Path $app 'res') -o $res }
 Run 'aapt2 link' {
     & "$($tools.FullName)\aapt2.exe" link -o $base -I $androidJar --manifest (Join-Path $app 'AndroidManifest.xml') `
-        --min-sdk-version $MinSdk --target-sdk-version $TargetSdk $res
+        --min-sdk-version $MinSdk --target-sdk-version $TargetSdk --java (Join-Path $build 'gen') $res
 }
 
 # Java -> classes -> classes.dex
 $classes = Join-Path $build 'classes'
 $dex = Join-Path $build 'dex'
 New-Item -ItemType Directory -Force $classes, $dex | Out-Null
-$sources = Get-ChildItem (Join-Path $app 'src') -Recurse -Filter *.java | ForEach-Object FullName
-Run 'javac' { javac -Xlint:-options -source 8 -target 8 -classpath $androidJar -d $classes @sources }
+$sources = @(Join-Path $app 'src'; Join-Path $build 'gen') | ForEach-Object { Get-ChildItem $_ -Recurse -Filter *.java } | ForEach-Object FullName
+Run 'javac' { javac -encoding UTF-8 -Xlint:-options -source 8 -target 8 -classpath $androidJar -d $classes @sources }
 $classFiles = Get-ChildItem $classes -Recurse -Filter *.class | ForEach-Object FullName
 Run 'd8' { & "$($tools.FullName)\d8.bat" --release --min-api $MinSdk --lib $androidJar --output $dex @classFiles }
 
