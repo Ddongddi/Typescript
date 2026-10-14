@@ -130,5 +130,5 @@ cargo run -p typescript-tip --example richedit_lab -- --ms
 ### Q: Pressing Esc right after typing a word doesn't flip it.
 **A:** Post-commit undo/flip requires that the host application permits the input method to inspect preceding text. Terminals or sandboxed input boxes that deny caret-reading permissions pass `Esc` straight to the app.
 
-### Q: The pause hotkey (Hangul key) doesn't respond.
-**A:** On certain laptop keyboards, the Hangul key sends Right Alt (`VK_RMENU`). Check the `"pauseKey"` setting in `settings.json`. On macOS, use **Option + Space**. On Linux, use the **Hangul** or **Pause** key.
+### Q: The Hangul key (language switch) or Alt+Hangul (pause) doesn't respond.
+**A:** On certain laptop keyboards, the Hangul key sends Right Alt (`VK_RMENU`). In the dashboard settings under "Key assignment", press `＋ 키 추가` and then the key you actually use. On macOS, use **Option + Space**. On Linux, use the **Hangul** or **Pause** key.

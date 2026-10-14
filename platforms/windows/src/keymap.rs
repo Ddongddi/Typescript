@@ -1,5 +1,6 @@
 //! Virtual keys → the session's `Key`. Assumes a US QWERTY keyboard, like the original.
 
+use typescript_core::store::keys::{ChordKey, Mods};
 use typescript_core::Key;
 use windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState;
 
@@ -25,6 +26,40 @@ const VK_CAPITAL: i32 = 0x14;
 fn is_down(vk: i32) -> bool {
     // SAFETY: plain Win32 query.
     unsafe { GetKeyState(vk) < 0 }
+}
+
+/// The modifiers held right now.
+pub fn held_mods() -> Mods {
+    Mods {
+        ctrl: is_down(VK_CONTROL),
+        alt: is_down(VK_MENU),
+        shift: is_down(VK_SHIFT),
+    }
+}
+
+/// The assignable key a key event is; `lparam` tells the right Ctrl/Alt/Shift from the left.
+pub fn chord_key(vk: u32, lparam: isize) -> Option<ChordKey> {
+    let extended = (lparam >> 24) & 1 == 1;
+    let scan = (lparam >> 16) & 0xFF;
+    Some(match vk {
+        VK_ESCAPE => ChordKey::Esc,
+        VK_HANGUL => ChordKey::Hangul,
+        0x19 => ChordKey::Hanja,
+        0x14 => ChordKey::CapsLock,
+        0x13 => ChordKey::Pause,
+        0x91 => ChordKey::ScrollLock,
+        VK_SPACE => ChordKey::Space,
+        0x70..=0x87 => ChordKey::F((vk - 0x6F) as u8),
+        0x41..=0x5A => ChordKey::Letter(vk as u8 as char),
+        0x30..=0x39 => ChordKey::Digit((vk - 0x30) as u8),
+        0x10 | 0xA0 | 0xA1 if vk == 0xA1 || (vk == 0x10 && scan == 0x36) => ChordKey::RShift,
+        0x10 | 0xA0 | 0xA1 => ChordKey::Shift,
+        0x11 | 0xA2 | 0xA3 if vk == 0xA3 || (vk == 0x11 && extended) => ChordKey::RCtrl,
+        0x11 | 0xA2 | 0xA3 => ChordKey::Ctrl,
+        0x12 | 0xA4 | 0xA5 if vk == 0xA5 || (vk == 0x12 && extended) => ChordKey::RAlt,
+        0x12 | 0xA4 | 0xA5 => ChordKey::Alt,
+        _ => return None,
+    })
 }
 
 /// The characters of a US QWERTY keyboard, which is what the original assumes too.
@@ -113,4 +148,28 @@ pub fn key_for(vk: u32) -> Option<Key> {
             None => Key::Other,
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keys_become_assignable_keys() {
+        assert_eq!(chord_key(0x15, 0), Some(ChordKey::Hangul));
+        assert_eq!(chord_key(0x1B, 0), Some(ChordKey::Esc));
+        assert_eq!(chord_key(0x70, 0), Some(ChordKey::F(1)));
+        assert_eq!(chord_key(0x41, 0), Some(ChordKey::Letter('A')));
+        assert_eq!(chord_key(0x0D, 0), None);
+    }
+
+    #[test]
+    fn modifiers_tell_left_from_right() {
+        assert_eq!(chord_key(0x11, 0), Some(ChordKey::Ctrl));
+        assert_eq!(chord_key(0x11, 1 << 24), Some(ChordKey::RCtrl));
+        assert_eq!(chord_key(0xA3, 0), Some(ChordKey::RCtrl));
+        assert_eq!(chord_key(0x12, 1 << 24), Some(ChordKey::RAlt));
+        assert_eq!(chord_key(0x10, 0x36 << 16), Some(ChordKey::RShift));
+        assert_eq!(chord_key(0x10, 0x2A << 16), Some(ChordKey::Shift));
+    }
 }

@@ -62,7 +62,7 @@ kyouhaiitenkidesune                 →  きょうはいいてんきですね   
 | 영어·한국어 | 있음 | 있음 | 있음 | 있음 |
 | 자동완성(Tab)·단어 학습 | 있음 | 없음 (폰 키보드에 이미 있는 기능) | 없음 | 없음 |
 | 일본어 | **일본어 팩** (`-Japanese`) | 없음 | **일본어 팩** (`--languages ko,en,ja`) | **일본어 팩** (`--languages ko,en,ja`) |
-| 일시정지 키 | 한/영 | `한/영` 키 | Option+Space | 한/영 (Hangul), Pause |
+| 일시정지 키 | Alt+한/영 (바꿀 수 있음) | `한/영` 키 | Option+Space | 한/영 (Hangul), Pause |
 
 ## 설치
 
@@ -211,14 +211,15 @@ JSON을 직접 편집합니다. 앱 간 전환할 때 다시 읽습니다.
 `settings.json`
 
 ```json
-{ "returnConfirmsOnly": true, "pauseKey": "hangul", "autocomplete": true,
+{ "returnConfirmsOnly": true, "flipKeys": ["Esc", "Hangul"], "pauseKeys": ["Alt+Hangul"], "autocomplete": true,
   "languages": ["en", "ko"], "liveConversion": false, "fullWidthDigits": false, "fullWidthSpace": false }
 ```
 
 | 키 | 뜻 |
 | --- | --- |
 | `autocomplete` | `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
-| `pauseKey` | `"hangul"`(한/영 키) 또는 `"off"` |
+| `flipKeys` | 단어의 언어를 바꾸는 키 목록 (기본 `["Esc", "Hangul"]`). `"Ctrl+Space"` 같은 조합도 되고 `[]`이면 끈다 |
+| `pauseKeys` | 일시정지 키 목록 (기본 `["Alt+Hangul"]`). 형식은 같고 두 목록에 같은 키를 쓸 수 없다 |
 | `checkUpdates` | `false`면 새 릴리스를 자동으로 확인하지 않는다 (기본 켜짐) |
 | `languages` | 켜진 언어와 Esc 순환 순서. `"en"` `"ko"` `"ja"` 중 1개 이상, 자유 조합 (한국어만, 일본어만도 된다). 예전 `"japanese": true` 만 있는 파일은 `["en","ko","ja"]` 로 읽는다. 팩이 없는 언어는 빠진다 |
 | `liveConversion`, `fullWidthDigits`, `fullWidthSpace` | 일본어 절에서 설명한다 |
@@ -301,7 +302,7 @@ git tag v0.5.2; git push origin v0.5.2
 - Linux는 IBus만 지원하고(GNOME 기본), 앱 이름을 알 수 없어 앱별 규칙이 적용되지 않습니다. 확정한 글자를 되돌리는 동작(Esc, 순환)은 IBus 입력 중인 단어에서만 됩니다.
 - 영어(미국) 아래에 등록되므로 작업 표시줄의 언어 표시는 `ENG` 다.
 - TSF 동작은 앱마다 다르다. 확정 직후 Esc(되돌리기)는 캐럿 뒤 텍스트를 읽을 수 있는 앱에서만 되고, 읽지 못하면 Esc는 앱에 전달된다.
-- 한/영 키가 없는 키보드에서는 일시정지 키가 없다. 일시정지 상태를 보여 주는 표시도 Windows에는 아직 없다.
+- Windows는 키 지정으로 한/영 키가 없는 키보드에서도 일시정지 키를 정할 수 있다. 다른 플랫폼은 한/영 키가 없으면 일시정지 키가 없다. 일시정지 상태를 보여 주는 표시도 Windows에는 아직 없다.
 - Android 화면 키보드는 한 번에 한 손가락만 인식한다 (프레임워크 `KeyboardView`의 한계). 아주 빠르게 칠 때 키를 놓칠 수 있다.
 - 자동완성 제안은 단어 아래 창으로만 보인다 (글자 안에 회색으로 붙이는 방식은 아님).
 - (일본어) 한자 후보의 순위는 IPADIC+빈도 보정 수준이라 Mozc·Apple 엔진보다 낮다. 후보 창 없이 단어 자리를 순환하며 보여 준다.

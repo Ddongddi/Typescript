@@ -79,7 +79,8 @@ Configuration files are formatted in standard JSON and can be edited in any text
 {
   "languages": ["en", "ko"],
   "returnConfirmsOnly": true,
-  "pauseKey": "hangul",
+  "flipKeys": ["Esc", "Hangul"],
+  "pauseKeys": ["Alt+Hangul"],
   "autocomplete": true,
   "checkUpdates": true,
   "liveConversion": false,
@@ -92,12 +93,15 @@ Configuration files are formatted in standard JSON and can be edited in any text
 | --- | --- | --- | --- |
 | `languages` | `string[]` | `["en", "ko"]` | Active languages and `Esc` rotation order. Supports `"en"`, `"ko"`, `"ja"`. |
 | `returnConfirmsOnly` | `bool` | `true` | When `true`, pressing `Enter` on a composing word only commits the underlined text without inserting a newline in the app. |
-| `pauseKey` | `string` | `"hangul"` | Hotkey to pause/resume Typescript in the focused text field. Set to `"hangul"` or `"off"`. |
+| `flipKeys` | `string[]` | `["Esc", "Hangul"]` | Keys that switch the word being typed (or just typed) to its next language. Combinations such as `"Ctrl+Space"` work; a lone modifier such as `"Ctrl"` or `"RCtrl"` acts when released without another key. Up to 8; `[]` turns it off. Also editable under "Key assignment" in the dashboard settings. |
+| `pauseKeys` | `string[]` | `["Alt+Hangul"]` | Keys that pause/resume Typescript. Same format as `flipKeys`; a key can't be in both lists. The old `pauseKey` is read and moved (`"off"` becomes `[]`). |
 | `autocomplete` | `bool` | `true` | Enables `Tab` autocomplete and word frequency learning in `Typescript (Autocomplete)`. |
 | `checkUpdates` | `bool` | `true` | Automatically checks GitHub Releases once a day for new versions. |
 | `liveConversion` | `bool` | `false` | (Japanese) Displays ranked Kanji candidate conversions in real-time during typing. |
 | `fullWidthDigits` | `bool` | `false` | (Japanese) Converts digits following Japanese phrases to full-width (`０３-１２３４`). |
 | `fullWidthSpace` | `bool` | `false` | (Japanese) Inserts full-width space characters (`　`) following Japanese phrases. |
+
+Key names: `Esc`, `Hangul`, `Hanja`, `CapsLock`, `Pause`, `ScrollLock`, `Space`, `F1`–`F24`, letters (`A`–`Z`) and digits (`0`–`9`); modifiers are `Ctrl`, `Alt`, `Shift` (right side only: `RCtrl`, `RAlt`, `RShift`). Not allowed: combinations with the Windows key, letters/digits/`Space` without Ctrl or Alt, common shortcuts such as `Ctrl+C` and `Ctrl+V`, and `Alt+F4`.
 
 ---
 

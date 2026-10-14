@@ -323,7 +323,7 @@ try {
         Set-SettingsShortcut $true
         Write-Host 'Typescript installed.'
         Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
-        Write-Host '  Pause key  -> the Han/Eng key (VK_HANGUL), per text field. Settings: %APPDATA%\Typescript\settings.json'
+        Write-Host '  Switch word language -> Esc or Han/Eng; Pause -> Alt+Han/Eng, per text field. Keys: dashboard settings, or %APPDATA%\Typescript\settings.json'
         Write-Host ('  Languages and settings: Start menu > ' + $settingsLabel + ' (opens a page in your browser), or ' + (Join-Path $dest 'typescript-config.exe'))
         Write-Host '  Apps already running pick the new text service up when you reopen them.'
     }

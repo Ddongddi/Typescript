@@ -10,6 +10,7 @@ use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
+use typescript_core::store::keys::{ChordKey, KeyAction, Mods};
 use typescript_core::store::policy::Override;
 use typescript_core::{
     make_engine, AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
@@ -18,7 +19,7 @@ use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, VK_RETURN,
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, VIRTUAL_KEY,
 };
 use windows::Win32::UI::TextServices::*;
 
@@ -26,7 +27,7 @@ use crate::client::{EditSession, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
-use crate::keymap::{key_for, VK_HANGUL};
+use crate::keymap::{chord_key, held_mods, key_for};
 use crate::shared::{converter, engine, history, refresh_packs, reload_engines};
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
@@ -99,6 +100,9 @@ pub struct Inner {
     cookie: Cell<u32>,
     /// A key handled in OnTestKeyDown (OnKeyDown then only confirms it).
     eaten_in_test: Cell<Option<u32>>,
+    /// A modifier that went down alone and has not been joined by another key (it is an
+    /// assigned key when released).
+    pending_modifier: Cell<Option<ChordKey>>,
     exe: String,
     stamps: Cell<Stamps>,
 }
@@ -122,6 +126,7 @@ impl Inner {
             last_focus: Cell::new(0),
             cookie: Cell::new(0),
             eaten_in_test: Cell::new(None),
+            pending_modifier: Cell::new(None),
             exe,
             stamps: Cell::new(Stamps::read()),
         }
@@ -208,20 +213,33 @@ impl Inner {
         }
     }
 
-    fn is_pause_key(&self, vk: u32) -> bool {
-        vk == VK_HANGUL && self.settings.borrow().pause_key == "hangul"
+    /// The assigned action of this key event, for keys other than lone modifiers (those act
+    /// when released, see `key_up`).
+    fn key_action(&self, vk: u32, lparam: isize) -> Option<KeyAction> {
+        let key = chord_key(vk, lparam).filter(|k| !k.is_modifier())?;
+        self.settings.borrow().key_action(held_mods(), key)
+    }
+
+    /// Notes whether a modifier went down alone (it acts on release if nothing joins it).
+    fn note_key_down(&self, vk: u32, lparam: isize) {
+        let alone = chord_key(vk, lparam).filter(|k| k.is_modifier() && held_mods().count() == 1);
+        self.pending_modifier.set(alone);
     }
 
     /// Whether the key is ours to look at (TSF asks before it delivers).
-    fn wants(&self, vk: u32) -> bool {
-        if self.is_pause_key(vk) {
+    fn wants(&self, vk: u32, lparam: isize) -> bool {
+        let action = self.key_action(vk, lparam);
+        if action == Some(KeyAction::Pause) {
             return true;
         }
-        let Some(key) = key_for(vk) else { return false };
         let session = self.session();
         if !session.policy().enabled || session.paused() {
             return false;
         }
+        if action == Some(KeyAction::Flip) {
+            return session.is_composing() || session.has_flip_window();
+        }
+        let Some(key) = key_for(vk) else { return false };
         matches!(key, Key::Letter(_))
             || session.is_composing()
             || session.has_flip_window()
@@ -233,11 +251,14 @@ impl Inner {
     /// right here, because an app that talks IMM32 (KakaoTalk, any RichEdit) never gets back a
     /// key we said we'd take: the answer has to be final now.
     fn test_key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
+        self.note_key_down(vk, lparam);
         self.eaten_in_test.set(None);
-        if !self.wants(vk) {
+        if !self.wants(vk, lparam) {
             return false;
         }
-        if self.is_pause_key(vk) || matches!(key_for(vk), Some(Key::Letter(_))) {
+        if self.key_action(vk, lparam) == Some(KeyAction::Pause)
+            || matches!(key_for(vk), Some(Key::Letter(_)))
+        {
             return true;
         }
         let eaten = self.key_down(context, vk, lparam);
@@ -246,14 +267,29 @@ impl Inner {
     }
 
     fn key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
-        let pause = self.is_pause_key(vk);
+        self.note_key_down(vk, lparam);
+        let action = self.key_action(vk, lparam);
+        let pause = action == Some(KeyAction::Pause);
         if pause && (lparam >> 30) & 1 == 1 {
             return true; // auto-repeat of the pause key
         }
-        if !pause && !self.wants(vk) {
+        if !pause && !self.wants(vk, lparam) {
             return false;
         }
-        let key = if pause { None } else { key_for(vk) };
+        let key = match action {
+            Some(KeyAction::Pause) => None,
+            // Esc keeps its own behavior; every other switch key always switches.
+            Some(KeyAction::Flip) => Some(match key_for(vk) {
+                Some(Key::Escape) => Key::Escape,
+                _ => Key::Cycle,
+            }),
+            // An Esc that is not assigned goes to the app like any other key.
+            None => key_for(vk).map(|k| if k == Key::Escape { Key::Other } else { k }),
+        };
+        let by_assignment = action == Some(KeyAction::Flip);
+        if let Some(action) = action {
+            self.trace(&format!("key action: {action:?}"));
+        }
         let resend = Rc::new(Cell::new(false));
         let (flag, transitory) = (resend.clone(), is_transitory(context));
         let eaten = run_edit(self, context, move |inner, client| {
@@ -262,12 +298,13 @@ impl Inner {
                 Some(key) => {
                     let composing = session.is_composing();
                     let handled = session.handle(key, client);
-                    // Return that confirms the word and also goes to the app (returnConfirmsOnly
-                    // off): an IMM32 app (KakaoTalk) that gets it while the composition it just
-                    // saw end is still being wound up sends the message and then puts what is
-                    // typed next over its placeholder. Take this Return and send a fresh one,
-                    // which reaches the app after the confirmed word, as a second Return would.
-                    let again = transitory && composing && !handled && key == Key::Enter;
+                    // A key that confirms the word and also goes to the app (Space, punctuation,
+                    // Return with returnConfirmsOnly off): an IMM32 app gets the confirmed word
+                    // as messages posted behind that key, so a plain edit (File Explorer's
+                    // rename box) puts the space or dot before the word, and KakaoTalk sends the
+                    // message before the word lands. Take the key and send a fresh one, which
+                    // reaches the app after the confirmed word.
+                    let again = transitory && composing && !handled && !by_assignment;
                     flag.set(again);
                     handled || again
                 }
@@ -280,9 +317,50 @@ impl Inner {
             handled
         });
         if resend.get() {
-            press_return();
+            press(vk);
         }
         eaten
+    }
+
+    /// A modifier released with nothing pressed in between is itself an assigned key.
+    fn key_up(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
+        let Some(key) = chord_key(vk, lparam).filter(|k| k.is_modifier()) else {
+            return false;
+        };
+        if self.pending_modifier.take() != Some(key) {
+            return false;
+        }
+        let action = self.settings.borrow().key_action(Mods::NONE, key);
+        action.is_some_and(|action| self.act_on(context, action))
+    }
+
+    fn act_on(self: &Rc<Self>, context: &ITfContext, action: KeyAction) -> bool {
+        let key = match action {
+            KeyAction::Pause => None,
+            KeyAction::Flip => {
+                let session = self.session();
+                if !session.policy().enabled
+                    || session.paused()
+                    || !(session.is_composing() || session.has_flip_window())
+                {
+                    return false;
+                }
+                Some(Key::Cycle)
+            }
+        };
+        self.trace(&format!("key action: {action:?}"));
+        run_edit(self, context, move |inner, client| {
+            let mut session = inner.session();
+            let handled = match key {
+                Some(key) => session.handle(key, client),
+                None => {
+                    session.toggle_pause(client);
+                    true
+                }
+            };
+            client.show_hint(session.suggestion().as_deref());
+            handled
+        })
     }
 
     /// The text field changed: what was being composed stays as shown, the sentence context
@@ -318,14 +396,14 @@ fn is_transitory(context: &ITfContext) -> bool {
     unsafe { context.GetStatus() }.is_ok_and(|s| s.dwStaticFlags & TS_SS_TRANSITORY != 0)
 }
 
-/// Queues a Return key press behind the messages already waiting for the app. Only the press:
-/// the user's own key release follows.
-fn press_return() {
+/// Queues a press of `vk` behind the messages already waiting for the app. Only the press:
+/// the user's own key release follows, and held modifiers (Shift for `?`) still apply.
+fn press(vk: u32) {
     let input = INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 {
             ki: KEYBDINPUT {
-                wVk: VK_RETURN,
+                wVk: VIRTUAL_KEY(vk as u16),
                 ..Default::default()
             },
         },
@@ -529,8 +607,11 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         Ok(guard_bool(|| self.inner.key_down(context, vk, lparam.0)))
     }
 
-    fn OnKeyUp(&self, _pic: Ref<ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
-        Ok(BOOL(0))
+    fn OnKeyUp(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
+        if let Ok(context) = pic.ok() {
+            let _ = guard_bool(|| self.inner.key_up(context, wparam.0 as u32, lparam.0));
+        }
+        Ok(BOOL(0)) // the app still gets the release
     }
 
     fn OnPreservedKey(&self, _pic: Ref<ITfContext>, _guid: *const GUID) -> Result<BOOL> {
