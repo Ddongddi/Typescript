@@ -1,6 +1,7 @@
 //! Kana trigram model for judging how Japanese a romaji string reads. Counts come
 //! from Japanese sentences (Tatoeba, CC-BY 2.0 FR) turned into the romaji people
-//! type and back into kana with `RomajiComposer` (tools/build_kana_model.py).
+//! type and back into kana with `RomajiComposer`; tools/build_kana_table.py packs
+//! the counted table.
 //!
 //! Clean romaji isn't enough: "hello" composes to へっぉ, which this model scores
 //! as very un-Japanese (っぉ essentially never occurs).
@@ -12,6 +13,7 @@ use crate::decide::engine::Language;
 use crate::lang::pack::{self, PackLazy};
 use crate::lang::romaji::{ComposeResult, RomajiComposer};
 
+const MAGIC: &[u8; 8] = b"TSKANA01";
 const STRAY_LETTER_LOGP: f64 = -13.0;
 const PENDING_LOGP: f64 = -3.5;
 
@@ -32,34 +34,49 @@ pub struct JapaneseModel {
 }
 
 static SHARED: PackLazy<JapaneseModel> = PackLazy::new(Language::Japanese, || {
-    JapaneseModel::new(pack::text(Language::Japanese, "kana_trigrams.txt"))
+    JapaneseModel::new(pack::bytes(Language::Japanese, "kana_trigrams.bin"))
 });
 
-/// Feeds each usable line of the table (`three characters TAB count`) to `add` and returns the
-/// total count; anything else is skipped. Shared by `new` and `valid`, so the check and the
-/// build cannot drift apart.
-fn fold_lines(text: &str, mut add: impl FnMut(char, char, char, f32)) -> f32 {
+/// The packed table's character list, or `None` when the bytes are not that table.
+fn table(bytes: &[u8]) -> Option<Vec<char>> {
+    if bytes.len() < 12 || &bytes[..8] != MAGIC {
+        return None;
+    }
+    let n_chars = u16::from_le_bytes([bytes[8], bytes[9]]) as usize;
+    if n_chars == 0 || n_chars > 256 || 12 + 2 * n_chars + 5 > bytes.len() {
+        return None;
+    }
+    let mut chars = Vec::with_capacity(n_chars);
+    for i in 0..n_chars {
+        let at = 12 + 2 * i;
+        chars.push(char::from_u32(
+            u16::from_le_bytes([bytes[at], bytes[at + 1]]) as u32,
+        )?);
+    }
+    Some(chars)
+}
+
+/// Feeds every record of the packed table to `add` and returns the total count; `None` when a
+/// record is cut short or a code is outside the character table. Shared by `new` and `valid`,
+/// so the check and the build cannot drift apart.
+fn fold_records(bytes: &[u8], mut add: impl FnMut(char, char, char, f32)) -> Option<f32> {
+    let chars = table(bytes)?;
+    let at = 12 + 2 * chars.len();
+    if bytes.len() == at || !(bytes.len() - at).is_multiple_of(5) {
+        return None;
+    }
     let mut total = 0f32;
-    for line in text.lines() {
-        let mut parts = line.split('\t');
-        let (Some(field), Some(count)) = (parts.next(), parts.next()) else {
-            continue;
-        };
-        if parts.next().is_some() {
-            continue;
+    let (records, _) = bytes[at..].as_chunks::<5>();
+    for record in records {
+        let (a, b, c) = (record[0] as usize, record[1] as usize, record[2] as usize);
+        if a >= chars.len() || b >= chars.len() || c >= chars.len() {
+            return None;
         }
-        let Ok(count) = count.trim().parse::<f32>() else {
-            continue;
-        };
-        let chars: Vec<char> = field.chars().collect();
-        if chars.len() != 3 {
-            continue;
-        }
-        let (a, b, c) = (chars[0], chars[1], chars[2]);
-        add(a, b, c, count);
+        let count = u16::from_le_bytes([record[3], record[4]]) as f32;
+        add(chars[a], chars[b], chars[c], count);
         total += count;
     }
-    total
+    Some(total)
 }
 
 impl JapaneseModel {
@@ -69,29 +86,31 @@ impl JapaneseModel {
         SHARED.get()
     }
 
-    /// The bytes are a table the model can be built from: whole UTF-8 with at least one usable
-    /// line (what `new` asserts). A pack is only registered when this holds, so a damaged
-    /// file costs the Japanese pack, not the text service.
+    /// The bytes are a table the model can be built from: the packed layout, every code
+    /// inside the character table, at least one count (what `new` asserts). A pack is only
+    /// registered when this holds, so a damaged file costs the Japanese pack, not the text
+    /// service.
     pub fn valid(bytes: &[u8]) -> bool {
-        std::str::from_utf8(bytes).is_ok_and(|text| fold_lines(text, |_, _, _, _| {}) > 0.0)
+        fold_records(bytes, |_, _, _, _| {}).is_some_and(|total| total > 0.0)
     }
 
-    fn new(text: &str) -> Self {
+    fn new(bytes: &'static [u8]) -> Self {
         let mut trigrams: HashMap<(char, char, char), f32> = HashMap::new();
         let mut bigrams: HashMap<(char, char), f32> = HashMap::new();
         let mut unigrams: HashMap<char, f32> = HashMap::new();
         let mut bigram_contexts: HashMap<char, f32> = HashMap::new();
         let mut trigram_contexts: HashMap<(char, char), f32> = HashMap::new();
         let mut symbols: HashSet<char> = HashSet::new();
-        let total = fold_lines(text, |a, b, c, count| {
+        let total = fold_records(bytes, |a, b, c, count| {
             *trigrams.entry((a, b, c)).or_default() += count;
             *trigram_contexts.entry((a, b)).or_default() += count;
             *bigrams.entry((b, c)).or_default() += count;
             *bigram_contexts.entry(b).or_default() += count;
             *unigrams.entry(c).or_default() += count;
             symbols.extend([a, b, c]);
-        });
-        assert!(total > 0.0, "data/kana_trigrams.txt is empty or unreadable");
+        })
+        .expect("data/kana_trigrams.bin is unreadable");
+        assert!(total > 0.0, "data/kana_trigrams.bin has no counts");
         Self {
             trigrams,
             bigrams,
@@ -164,21 +183,53 @@ mod tests {
 
     #[test]
     fn a_table_the_model_cannot_read_is_refused_by_valid() {
-        let good = "^^あ\t11602\n^^い\t6284\n";
-        assert!(JapaneseModel::valid(good.as_bytes()));
-        for (what, table) in [
-            ("empty", ""),
-            ("no fields", "not a table\n"),
-            ("a count that is not a number", "^^あ\tx\n"),
-            ("a field that is not three characters", "^^\t7\n"),
-            ("a line with a third field", "^^あ\t7\tx\n"),
-        ] {
-            assert!(
-                !JapaneseModel::valid(table.as_bytes()),
-                "{what} must fail valid()"
-            );
+        fn packed(records: &[(&str, u16)]) -> Vec<u8> {
+            let mut chars: Vec<char> = records.iter().flat_map(|(f, _)| f.chars()).collect();
+            chars.sort_unstable();
+            chars.dedup();
+            let mut out = Vec::new();
+            out.extend(MAGIC);
+            out.extend((chars.len() as u16).to_le_bytes());
+            out.extend([0u8; 2]);
+            for c in &chars {
+                out.extend((*c as u16).to_le_bytes());
+            }
+            for (field, count) in records {
+                out.extend(
+                    field
+                        .chars()
+                        .map(|c| chars.binary_search(&c).unwrap() as u8),
+                );
+                out.extend(count.to_le_bytes());
+            }
+            out
         }
-        assert!(!JapaneseModel::valid(&[0xFF, 0xFE]), "not UTF-8");
+        let good = packed(&[("^^あ", 11602), ("^^い", 6284)]);
+        assert!(JapaneseModel::valid(&good));
+        let mut outside = good.clone();
+        let last = outside.len() - 5;
+        outside[last] = 200;
+        let mut not_a_character = packed(&[("^^あ", 7)]);
+        not_a_character[12] = 0x00;
+        not_a_character[13] = 0xD8;
+        for (what, bytes) in [
+            ("empty", Vec::new()),
+            ("no records", packed(&[])),
+            ("a bad magic", {
+                let mut b = good.clone();
+                b[0] = b'X';
+                b
+            }),
+            ("every count zero", packed(&[("^^あ", 0)])),
+            (
+                "a record that is cut short",
+                good[..good.len() - 1].to_vec(),
+            ),
+            ("a code outside the character table", outside),
+            ("a code point that is not a character", not_a_character),
+        ] {
+            assert!(!JapaneseModel::valid(&bytes), "{what} must fail valid()");
+        }
     }
 
     #[test]

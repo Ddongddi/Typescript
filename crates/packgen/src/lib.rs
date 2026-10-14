@@ -65,8 +65,8 @@ pub fn write_pack(id: &str, data: &Path, dir: &Path) -> io::Result<()> {
         "ko" => korean(data)?,
         "ja" => vec![
             (
-                "kana_trigrams.txt",
-                fs::read(data.join("kana_trigrams.txt"))?,
+                "kana_trigrams.bin",
+                fs::read(data.join("kana_trigrams.bin"))?,
             ),
             (
                 "ipadic_compact.bin",

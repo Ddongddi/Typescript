@@ -123,7 +123,7 @@ Because Typescript runs as an in-process DLL loaded into every active applicatio
 
 - **Zero-Copy Binary Tables**: Trigram frequencies and lexical indices are precompiled into contiguous binary tables by `crates/packgen`.
 - **Memory Mapping (`mmap`)**: Packs are mapped directly into virtual memory. Multiple processes concurrently running Typescript share the same underlying physical memory pages.
-- **Modular Packaging**: Large dictionaries (such as the ~16MB Japanese IPADIC pack) are decoupled from the base binaries and only loaded if the user enables the language.
+- **Modular Packaging**: Large dictionaries (such as the ~10MB Japanese IPADIC pack) are decoupled from the base binaries and only loaded if the user enables the language.
 
 ---
 
