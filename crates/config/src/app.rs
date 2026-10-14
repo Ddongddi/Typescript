@@ -58,6 +58,9 @@ fn key_names(list: &[Chord]) -> Vec<String> {
     list.iter().map(ToString::to_string).collect()
 }
 
+/// The change log of this build, shown on the update tab.
+const CHANGELOG: &str = include_str!("../../../CHANGELOG.md");
+
 fn json_response(status: u16, value: &Value) -> Response {
     Response {
         status,
@@ -283,6 +286,7 @@ impl App {
                 Ok(v) => json_response(200, &v),
                 Err(message) => fail(502, &message),
             },
+            ("GET", "/api/changelog") => json_response(200, &json!({ "text": CHANGELOG })),
             ("GET", "/api/processes") => json_response(200, &json!({ "apps": running_apps() })),
             ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
             ("POST", "/api/heartbeat") => json_response(200, &crate::ime::status()),
@@ -298,7 +302,7 @@ impl App {
             (
                 _,
                 "/" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
-                | "/api/quit",
+                | "/api/quit" | "/api/changelog",
             )
             | (_, "/api/languages" | "/api/settings" | "/api/update" | "/api/try" | "/api/play") => {
                 fail(405, "method not allowed")
@@ -1000,6 +1004,17 @@ mod tests {
             let r = app.handle(&req("POST", "/api/apps", Some(bad.clone())));
             assert_eq!(r.status, 400, "{bad}");
         }
+    }
+
+    #[test]
+    fn the_change_log_of_this_build_is_served() {
+        let f = fixture("app-changelog");
+        let app = app(&f);
+        let text = json_of(&app.handle(&req("GET", "/api/changelog", None)))["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(text.contains(&format!("## [{}]", env!("CARGO_PKG_VERSION"))));
     }
 
     #[test]

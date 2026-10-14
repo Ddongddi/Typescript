@@ -45,9 +45,20 @@ async function loadEsc() {
   drawEsc();
 }
 
+// The Esc keycap on the page sinks while the real key is held down.
+const escCap = () => document.querySelector(".esc .key");
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !e.repeat && !$("p-lang").hidden && !openDd && !editable(e.target)) pressEsc();
+  if (e.key !== "Escape" || $("p-lang").hidden || openDd || editable(e.target)) return;
+  const cap = escCap();
+  if (cap) cap.classList.add("down");
+  if (!e.repeat) pressEsc();
 });
+document.addEventListener("keyup", (e) => {
+  if (e.key !== "Escape") return;
+  const cap = escCap();
+  if (cap) cap.classList.remove("down");
+});
+window.addEventListener("blur", () => { const cap = escCap(); if (cap) cap.classList.remove("down"); });
 
 function langActions(l, position) {
   const on = position != null, working = pending === "lang-" + l.id;

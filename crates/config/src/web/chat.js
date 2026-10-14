@@ -56,7 +56,7 @@ async function playKey(key) {
   } else {
     chat.keys = keys;
     chat.draft = played;
-    chat.hint = key === "Enter" && played.text ? "확정했습니다. 아직 전송되지 않았습니다 — 한 번 더 Enter" : "";
+    chat.hint = key === "Enter" && played.text ? "confirmed" : "";
   }
   drawChat();
 }
@@ -78,7 +78,17 @@ function drawChat() {
   const shown = [text.slice(0, at), len ? h("u", {}, text.slice(at, at + len)) : "", h("i", { class: "caret" })];
   input.replaceChildren(...shown);   // (never null: it would be written as the word "null")
   input.classList.toggle("empty", !text);
-  $("chat-hint").textContent = chat.hint;
+  const hint = $("chat-hint");
+  if (chat.hint === "confirmed") {
+    if (!hint.firstChild || !hint.dataset.confirmed) {
+      hint.replaceChildren("확정했습니다. 전송은 한 번 더 Enter. ",
+        h("button", { type: "button", class: "hint-link", onclick: showEnterSetting }, "한 번에 보내려면 설정 바꾸기"));
+    }
+    hint.dataset.confirmed = "1";
+  } else {
+    delete hint.dataset.confirmed;
+    hint.textContent = chat.hint;
+  }
 }
 
 // A message: the words it was read as are underlined on hover, as long as the confidence.
@@ -130,6 +140,19 @@ function typeIntoChat(e) {
   $("chat-in").focus();
   chat.queue = chat.queue.then(() => playKey(key));
   return true;
+}
+
+// Takes the user to the "Enter는 확정만" switch (입력 설정) and points at it.
+function showEnterSetting() {
+  selectTab(TABS.indexOf("set"), false);
+  const box = document.querySelector('[data-f="returnConfirmsOnly"]');
+  if (!box) return;
+  box.focus({ preventScroll: true });
+  const row = box.closest(".setting");
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+  row.classList.remove("flash");
+  void row.offsetWidth;
+  row.classList.add("flash");
 }
 
 function clearChat() {

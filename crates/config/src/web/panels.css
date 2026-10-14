@@ -11,7 +11,7 @@
 .esc { display: flex; align-items: center; gap: 14px; flex-basis: 100%; margin-top: 8px; }
 .esc .key { appearance: none; font: 500 12px var(--mono); color: var(--soft); background: transparent; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 5px; padding: 6px 12px; cursor: pointer; transition: transform .08s, border-color .15s; }
 .esc .key:hover { border-color: var(--acc); color: var(--fg); }
-.esc .key:active { transform: translateY(2px); border-bottom-width: 1px; }
+.esc .key:active, .esc .key.down { transform: translateY(2px); border-bottom-width: 1px; border-color: var(--acc); color: var(--fg); background: #ffffff0d; }
 .esc .typed { font: 13px var(--mono); color: var(--mute); }
 .esc .shown { min-width: 8ch; font: 400 28px/1.2 var(--serif); animation: rise .2s ease both; }
 
@@ -77,3 +77,20 @@
   .actions { grid-column: 1 / -1; justify-content: flex-start; }
   .setting { flex-wrap: wrap; }
 }
+
+/* the change log on the update tab */
+.log { margin-top: 10px; }
+.log details { border-top: 1px solid var(--line); padding: 2px 0; }
+.log summary { display: flex; align-items: baseline; gap: 12px; padding: 12px 0; cursor: pointer; list-style: none; color: var(--soft); transition: color .15s; }
+.log summary::-webkit-details-marker { display: none; }
+.log summary::before { content: "›"; color: var(--mute); transition: transform .2s; }
+.log details[open] > summary::before { transform: rotate(90deg); }
+.log summary:hover { color: var(--fg); }
+.log summary b { font: 500 14px var(--mono); color: var(--fg); }
+.log summary span { font: 12px var(--mono); color: var(--mute); }
+.log summary em { font: 11px var(--mono); font-style: normal; color: var(--acc); }
+.log .body { padding: 0 0 14px 20px; color: #c0c9c3; font-size: 14px; line-height: 1.7; animation: rise .2s ease both; }
+.log h4 { margin: 14px 0 4px; font: 500 12px var(--sans); color: var(--mute); }
+.log ul { margin: 0; padding-left: 18px; }
+.log li { margin: 3px 0; }
+.log code { font: 12.5px var(--mono); color: var(--soft); background: #ffffff0f; padding: 1px 5px; border-radius: 4px; }
