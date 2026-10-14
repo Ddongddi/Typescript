@@ -7,6 +7,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-14
+
 ### 추가
 - 한/영 키에 단축키 지정: 대시보드 "키" 탭에서 `한/영 → ?`로 정합니다. 단어 언어 전환(기본), 아무것도 안 함, 또는 `Ctrl+C`·`Win+L` 같은 단축키 보내기 중에서 고릅니다. 단축키는 목록에서 고르거나 키를 눌러 지정하고, Win은 버튼으로 함께 고릅니다. (Windows, `hangulAction`)
 - 채팅의 메시지에 마우스를 올리면 단어마다 읽은 언어와 확신도를 밑줄로 보여 줍니다(색은 언어, 길이는 확신도). 단어에 올리면 어떻게 읽었는지와 차선도 보입니다.
@@ -18,6 +20,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ### 수정
 - 대시보드: 입력 설정 탭의 채팅 입력에서 숫자를 치면 탭이 바뀌던 문제.
+- Windows: 한/영 키에 지정한 단축키(`Win+D` 등)가 텍스트 입력창에서만 되던 문제. 이제 바탕화면·작업표시줄·이미 켜 둔 앱을 포함해 어디서든 동작합니다. 한/영 키가 오른쪽 Alt로 들어오는 노트북도 같습니다. 설치하면 로그인할 때 키 감시(`rundll32 typescript_tip.dll,KeyHook`)가 함께 시작됩니다. 관리자 권한으로 실행한 창이 앞에 있을 때는 동작하지 않습니다.
 
 ## [0.6.0] - 2026-10-14
 
@@ -132,7 +135,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/iamallyouneed/Typescript/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...v0.5.1
