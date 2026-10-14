@@ -35,11 +35,9 @@ main { max-width: 1240px; margin: 0 auto; padding: 56px 28px 110px; }
 h1 { margin: 0; font: 400 clamp(40px, 6vw, 64px) / 1 var(--serif); letter-spacing: -0.03em; }
 .tagline { order: 3; flex-basis: 100%; margin: 6px 0 0; color: var(--mute); font-size: 15px; }
 .ver { font: 12px var(--mono); color: var(--mute); }
-.link { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: 9px; padding: 5px 13px 5px 11px; border: 1px solid var(--hair); border-radius: 999px; background: #ffffff08; font: 500 12px var(--sans); color: var(--soft); }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px #6fd08c26; transition: background .3s, box-shadow .3s; animation: breathe 2.8s ease-in-out infinite; }
-.dot.off { background: var(--bad); box-shadow: 0 0 0 3px #ef6a5b26; animation: none; }
-@keyframes breathe { 50% { box-shadow: 0 0 0 5px #6fd08c0d; } }
-@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+.link { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: 7px; font: 12px var(--sans); color: var(--mute); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); transition: background .3s; }
+.dot.off { background: var(--bad); }
 
 .skip { position: absolute; left: -999px; top: 8px; background: #fff; color: #000; padding: 8px 14px; border-radius: 4px; z-index: 9; }
 .skip:focus { left: 12px; }
