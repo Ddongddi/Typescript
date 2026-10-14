@@ -1,6 +1,7 @@
 //! What the user keeps on disk under `%APPDATA%\Typescript`: per-app policies, settings, word history.
 
 pub mod history;
+pub mod keys;
 pub mod policy;
 
 /// Writes `bytes` to `path` all at once: into a temporary file next to it, then renamed over it.
