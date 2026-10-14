@@ -106,8 +106,9 @@ mod tests {
     use super::*;
 
     fn json(extra: &str) -> String {
+        let core = typescript_packgen::core_range();
         format!(
-            r#"{{ "version": "0.4.0", "core": ">=0.4.0, <0.5.0", "packs": [
+            r#"{{ "version": "0.4.0", "core": "{core}", "packs": [
               {{ "id": "en", "name": "English", "version": "0.4.0", "size": 10, "sha256": "aa", "url": "en.zip" }},
               {{ "id": "ko", "name": "한국어", "version": "0.4.0", "requires": ["en"], "size": 10, "sha256": "bb", "url": "ko.zip" }}
               {extra} ] }}"#
@@ -146,7 +147,12 @@ mod tests {
 
     #[test]
     fn a_catalog_for_another_core_is_incompatible() {
-        let c = Catalog::parse(json("").replace("<0.5.0", "<0.4.0").as_bytes()).unwrap();
+        let c = Catalog::parse(
+            json("")
+                .replace(&typescript_packgen::core_range(), ">=99.0.0")
+                .as_bytes(),
+        )
+        .unwrap();
         assert!(!c.compatible());
     }
 

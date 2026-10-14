@@ -81,7 +81,7 @@ pub fn fixture(name: &str) -> Fixture {
     }
     let catalog = Catalog {
         version: "0.4.0".into(),
-        core: ">=0.4.0, <0.5.0".into(),
+        core: typescript_packgen::core_range(),
         packs,
     };
     Fixture {
