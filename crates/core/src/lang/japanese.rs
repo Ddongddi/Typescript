@@ -35,11 +35,45 @@ static SHARED: PackLazy<JapaneseModel> = PackLazy::new(Language::Japanese, || {
     JapaneseModel::new(pack::text(Language::Japanese, "kana_trigrams.txt"))
 });
 
+/// Feeds each usable line of the table (`three characters TAB count`) to `add` and returns the
+/// total count; anything else is skipped. Shared by `new` and `valid`, so the check and the
+/// build cannot drift apart.
+fn fold_lines(text: &str, mut add: impl FnMut(char, char, char, f32)) -> f32 {
+    let mut total = 0f32;
+    for line in text.lines() {
+        let mut parts = line.split('\t');
+        let (Some(field), Some(count)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        if parts.next().is_some() {
+            continue;
+        }
+        let Ok(count) = count.trim().parse::<f32>() else {
+            continue;
+        };
+        let chars: Vec<char> = field.chars().collect();
+        if chars.len() != 3 {
+            continue;
+        }
+        let (a, b, c) = (chars[0], chars[1], chars[2]);
+        add(a, b, c, count);
+        total += count;
+    }
+    total
+}
+
 impl JapaneseModel {
     /// One model per process, built lazily (Japanese is off by default; only a session with
     /// Japanese enabled pays for this).
     pub fn shared() -> &'static JapaneseModel {
         SHARED.get()
+    }
+
+    /// The bytes are a table the model can be built from: whole UTF-8 with at least one usable
+    /// line (what `new` asserts). A pack is only registered when this holds, so a damaged
+    /// file costs the Japanese pack, not the text service.
+    pub fn valid(bytes: &[u8]) -> bool {
+        std::str::from_utf8(bytes).is_ok_and(|text| fold_lines(text, |_, _, _, _| {}) > 0.0)
     }
 
     fn new(text: &str) -> Self {
@@ -49,31 +83,14 @@ impl JapaneseModel {
         let mut bigram_contexts: HashMap<char, f32> = HashMap::new();
         let mut trigram_contexts: HashMap<(char, char), f32> = HashMap::new();
         let mut symbols: HashSet<char> = HashSet::new();
-        let mut total = 0f32;
-        for line in text.lines() {
-            let mut parts = line.split('\t');
-            let (Some(field), Some(count)) = (parts.next(), parts.next()) else {
-                continue;
-            };
-            if parts.next().is_some() {
-                continue;
-            }
-            let Ok(count) = count.trim().parse::<f32>() else {
-                continue;
-            };
-            let chars: Vec<char> = field.chars().collect();
-            if chars.len() != 3 {
-                continue;
-            }
-            let (a, b, c) = (chars[0], chars[1], chars[2]);
+        let total = fold_lines(text, |a, b, c, count| {
             *trigrams.entry((a, b, c)).or_default() += count;
             *trigram_contexts.entry((a, b)).or_default() += count;
             *bigrams.entry((b, c)).or_default() += count;
             *bigram_contexts.entry(b).or_default() += count;
             *unigrams.entry(c).or_default() += count;
-            total += count;
-            symbols.extend(chars);
-        }
+            symbols.extend([a, b, c]);
+        });
         assert!(total > 0.0, "data/kana_trigrams.txt is empty or unreadable");
         Self {
             trigrams,
@@ -144,6 +161,25 @@ impl JapaneseModel {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_table_the_model_cannot_read_is_refused_by_valid() {
+        let good = "^^あ\t11602\n^^い\t6284\n";
+        assert!(JapaneseModel::valid(good.as_bytes()));
+        for (what, table) in [
+            ("empty", ""),
+            ("no fields", "not a table\n"),
+            ("a count that is not a number", "^^あ\tx\n"),
+            ("a field that is not three characters", "^^\t7\n"),
+            ("a line with a third field", "^^あ\t7\tx\n"),
+        ] {
+            assert!(
+                !JapaneseModel::valid(table.as_bytes()),
+                "{what} must fail valid()"
+            );
+        }
+        assert!(!JapaneseModel::valid(&[0xFF, 0xFE]), "not UTF-8");
+    }
 
     #[test]
     fn loads_and_scores() {

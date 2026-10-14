@@ -205,14 +205,22 @@ impl Registry {
     }
 }
 
-/// A pack whose data can't be used is left out like a missing one (the Japanese dictionary is
-/// checked because the converter would panic on a damaged file).
+/// A pack whose data can't be used is left out like a missing one (the Japanese tables are
+/// checked, walking them as the readers will, because a damaged file would otherwise panic
+/// the first conversion).
 fn usable(language: Language, files: &[(String, &'static [u8])]) -> bool {
     language != Language::Japanese
-        || files
+        || ["ipadic_compact.bin", "kana_trigrams.txt"]
             .iter()
-            .find(|(name, _)| name == "ipadic_compact.bin")
-            .is_some_and(|(_, bytes)| crate::decide::kanji::KanjiDictionary::valid(bytes))
+            .all(|name| {
+                files
+                    .iter()
+                    .find(|(n, _)| n == name)
+                    .is_some_and(|(_, bytes)| match *name {
+                        "ipadic_compact.bin" => crate::decide::kanji::KanjiDictionary::valid(bytes),
+                        _ => crate::lang::japanese::JapaneseModel::valid(bytes),
+                    })
+            })
 }
 
 /// Maps a file for the rest of the process.
@@ -495,6 +503,34 @@ mod tests {
         assert!(
             !registry.has(Language::Japanese),
             "a damaged dictionary must not load"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_japanese_pack_with_an_unreadable_trigram_table_is_not_registered() {
+        let dir = temp("badtrigram");
+        write(&dir, "en", "0.4.0", &any_core());
+        let pack = dir.join("ja-0.4.0");
+        std::fs::create_dir_all(&pack).unwrap();
+        std::fs::write(pack.join("kana_trigrams.txt"), "not a table\n").unwrap();
+        // A whole dictionary (the one the build ships): the trigram table is what is broken.
+        let dictionary =
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("data/ipadic_compact.bin"))
+                .unwrap();
+        std::fs::write(pack.join("ipadic_compact.bin"), dictionary).unwrap();
+        let manifest = serde_json::json!({
+            "id": "ja", "name": "ja", "version": "0.4.0", "core": any_core(),
+            "requires": ["en"],
+            "files": { "kana_trigrams.txt": "x", "ipadic_compact.bin": "x" },
+        });
+        std::fs::write(pack.join("manifest.json"), manifest.to_string()).unwrap();
+        let mut registry = Registry::default();
+        registry.add_scan(scan(&dir));
+        assert!(registry.has(Language::English));
+        assert!(
+            !registry.has(Language::Japanese),
+            "an unreadable trigram table must not load"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
