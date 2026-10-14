@@ -294,7 +294,7 @@ impl App {
             return fail(401, "missing or wrong token");
         }
         self.touch();
-        match (req.method.as_str(), path) {
+        let response = match (req.method.as_str(), path) {
             ("GET", "/") => Response {
                 status: 200,
                 content_type: "text/html; charset=utf-8",
@@ -348,7 +348,12 @@ impl App {
                 | "/api/learning",
             ) => fail(405, "method not allowed"),
             _ => fail(404, "not found"),
-        }
+        };
+        // The answer ends the idle time too: a slow one (asking the system which input method
+        // is selected, a download) is not time the page was silent. Only requests that passed the
+        // checks above get here, so nobody without the token can keep the program alive.
+        self.touch();
+        response
     }
 
     fn post(&self, path: &str, req: &Request) -> Response {
@@ -1182,11 +1187,11 @@ mod tests {
     fn the_page_stays_alive_while_it_talks_and_quits_on_request() {
         let f = fixture("app-alive");
         let app = app(&f);
-        // The heartbeat asks Windows which input method is selected, which can take a while on a
-        // loaded machine: leave room, and compare with the idle time before it.
         std::thread::sleep(std::time::Duration::from_millis(600));
         let idle = app.idle_for();
         assert!(idle >= std::time::Duration::from_millis(600));
+        // The heartbeat asks Windows which input method is selected, which takes seconds on a
+        // loaded machine: the idle time restarts when the answer is done, however long it took.
         app.handle(&req("POST", "/api/heartbeat", Some(json!({}))));
         assert!(app.idle_for() < idle);
         assert!(!app.should_quit());
