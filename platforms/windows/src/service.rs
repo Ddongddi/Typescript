@@ -17,6 +17,9 @@ use typescript_core::{
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, VK_RETURN,
+};
 use windows::Win32::UI::TextServices::*;
 
 use crate::client::{EditSession, TsfClient};
@@ -230,6 +233,7 @@ impl Inner {
     /// right here, because an app that talks IMM32 (KakaoTalk, any RichEdit) never gets back a
     /// key we said we'd take: the answer has to be final now.
     fn test_key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
+        self.eaten_in_test.set(None);
         if !self.wants(vk) {
             return false;
         }
@@ -250,10 +254,23 @@ impl Inner {
             return false;
         }
         let key = if pause { None } else { key_for(vk) };
-        run_edit(self, context, move |inner, client| {
+        let resend = Rc::new(Cell::new(false));
+        let (flag, transitory) = (resend.clone(), is_transitory(context));
+        let eaten = run_edit(self, context, move |inner, client| {
             let mut session = inner.session();
             let handled = match key {
-                Some(key) => session.handle(key, client),
+                Some(key) => {
+                    let composing = session.is_composing();
+                    let handled = session.handle(key, client);
+                    // Return that confirms the word and also goes to the app (returnConfirmsOnly
+                    // off): an IMM32 app (KakaoTalk) that gets it while the composition it just
+                    // saw end is still being wound up sends the message and then puts what is
+                    // typed next over its placeholder. Take this Return and send a fresh one,
+                    // which reaches the app after the confirmed word, as a second Return would.
+                    let again = transitory && composing && !handled && key == Key::Enter;
+                    flag.set(again);
+                    handled || again
+                }
                 None => {
                     session.toggle_pause(client);
                     true
@@ -261,7 +278,11 @@ impl Inner {
             };
             client.show_hint(session.suggestion().as_deref());
             handled
-        })
+        });
+        if resend.get() {
+            press_return();
+        }
+        eaten
     }
 
     /// The text field changed: what was being composed stays as shown, the sentence context
@@ -290,6 +311,27 @@ impl Inner {
             session.activate(Some(&self.exe));
         }
     }
+}
+
+/// A text field of an app that talks IMM32 (TSF builds a transitory document for it).
+fn is_transitory(context: &ITfContext) -> bool {
+    unsafe { context.GetStatus() }.is_ok_and(|s| s.dwStaticFlags & TS_SS_TRANSITORY != 0)
+}
+
+/// Queues a Return key press behind the messages already waiting for the app. Only the press:
+/// the user's own key release follows.
+fn press_return() {
+    let input = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VK_RETURN,
+                ..Default::default()
+            },
+        },
+    };
+    // SAFETY: one fully initialized INPUT and its size.
+    unsafe { SendInput(&[input], std::mem::size_of::<INPUT>() as i32) };
 }
 
 /// Runs `work` in a synchronous read/write edit session on `context`. False when the app
