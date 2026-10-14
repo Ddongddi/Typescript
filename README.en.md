@@ -271,6 +271,9 @@ The dashboard covers everything below, but the JSON is yours to edit. Location: 
 | `escapeToApp: true` | Esc goes to the app; Shift+Esc cycles the reading (editors) |
 | `useSystemIme: true` | Hand this app to the system Korean IME (switch with Han/Eng; see [App compatibility](#app-compatibility)) |
 | `fullWidth: false` | (Japanese) keep half-width digits/space in this app (terminals) |
+| `returnConfirmsOnly` | Per-app Enter behavior. `false`: one Enter both commits and sends (chat apps) |
+
+**Built-in rules.** Without you writing anything, terminals (Windows Terminal, cmd, PowerShell, …) use threshold 0.97, editors (VS Code, Cursor, JetBrains, …) use `escapeToApp`, and chat apps (Slack, Discord, Teams, Telegram, LINE, KakaoTalk) use `returnConfirmsOnly: false`. To change one, list that app in `apps.json`; your value wins.
 
 `user_history.json` holds the words autocomplete counted (only words typed 2+ times are suggested; numbers, mixed-script tokens and single characters are never recorded). `lexicon.json` holds words learned from your corrections.
 

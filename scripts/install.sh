@@ -74,6 +74,11 @@ else
     ACTUAL=$(shasum -a 256 "$SRC/$NAME" | cut -d' ' -f1)
   fi
   [ "$ACTUAL" = "$EXPECTED" ] || { echo "Checksum mismatch, not installing." >&2; exit 1; }
+  # Nothing in the archive may land outside the folder it is unpacked into.
+  if unzip -Z1 "$SRC/$NAME" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    echo "The archive has paths outside its folder, not installing." >&2
+    exit 1
+  fi
   unzip -q -o "$SRC/$NAME" -d "$SRC"
 fi
 
@@ -92,6 +97,10 @@ if [ "$OS" = linux ]; then
 else
   mkdir -p "$HOME/Library/Input Methods"
   rm -rf "$APP"
+  if tar -tf "$SRC/Typescript.app.tar" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    echo "The app archive has paths outside its folder, not installing." >&2
+    exit 1
+  fi
   tar -xf "$SRC/Typescript.app.tar" -C "$HOME/Library/Input Methods"
   # Not signed or notarized: allow it once.
   xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true

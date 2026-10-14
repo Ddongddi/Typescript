@@ -32,6 +32,9 @@ pub struct AppPolicy {
     /// Full-width digits and spaces after Japanese (when turned on in the settings) apply here;
     /// false keeps them half-width in this app (a terminal, a code editor).
     pub full_width: bool,
+    /// Return on an underlined word only confirms it (true) or goes to the app too (false) in
+    /// this app; None follows the `returnConfirmsOnly` setting. Chat apps send on one Return.
+    pub return_confirms_only: Option<bool>,
 }
 
 impl AppPolicy {
@@ -45,6 +48,7 @@ impl AppPolicy {
         escape_to_app: false,
         use_system_ime: false,
         full_width: true,
+        return_confirms_only: None,
     };
 }
 
@@ -68,6 +72,8 @@ pub struct Override {
     pub use_system_ime: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub full_width: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_confirms_only: Option<bool>,
 }
 
 impl Override {
@@ -80,6 +86,7 @@ impl Override {
             escape_to_app: self.escape_to_app.unwrap_or(base.escape_to_app),
             use_system_ime: self.use_system_ime.unwrap_or(base.use_system_ime),
             full_width: self.full_width.unwrap_or(base.full_width),
+            return_confirms_only: self.return_confirms_only.or(base.return_confirms_only),
         }
     }
 }
@@ -88,6 +95,76 @@ impl Override {
 pub struct AppPolicies {
     /// Keys are lowercase.
     pub overrides: BTreeMap<String, Override>,
+}
+
+/// Terminals: short commands (`ls`, `git`) collide with Hangul, so convert only when sure.
+const TERMINALS: &[&str] = &[
+    "windowsterminal.exe",
+    "cmd.exe",
+    "powershell.exe",
+    "pwsh.exe",
+    "conhost.exe",
+    "wezterm-gui.exe",
+    "alacritty.exe",
+    "mintty.exe",
+    "terminal",
+    "iterm2",
+];
+/// Editors where Esc belongs to the app (vim, normal mode in VS Code).
+const EDITORS: &[&str] = &[
+    "code.exe",
+    "code - insiders.exe",
+    "cursor.exe",
+    "windsurf.exe",
+    "devenv.exe",
+    "idea64.exe",
+    "pycharm64.exe",
+    "webstorm64.exe",
+    "clion64.exe",
+    "sublime_text.exe",
+    "gvim.exe",
+    "nvim-qt.exe",
+    "vscode",
+    "cursor",
+    "sublime_text",
+];
+
+/// Chat apps: one Return sends the message, so it must not be spent on confirming the word.
+const MESSENGERS: &[&str] = &[
+    "slack.exe",
+    "discord.exe",
+    "ms-teams.exe",
+    "teams.exe",
+    "telegram.exe",
+    "line.exe",
+    "kakaotalk.exe",
+    "slack",
+    "discord",
+    "telegram",
+    "line",
+];
+
+/// What we know about an app without the user saying anything. The user's own entry for the
+/// app is applied on top, so any of this can be turned off in `apps.json`.
+fn builtin(id: &str) -> Option<Override> {
+    if TERMINALS.contains(&id) {
+        return Some(Override {
+            conversion_threshold: Some(AppPolicy::STRICT_THRESHOLD),
+            full_width: Some(false),
+            ..Override::default()
+        });
+    }
+    if MESSENGERS.contains(&id) {
+        return Some(Override {
+            return_confirms_only: Some(false),
+            ..Override::default()
+        });
+    }
+    EDITORS.contains(&id).then(|| Override {
+        escape_to_app: Some(true),
+        full_width: Some(false),
+        ..Override::default()
+    })
 }
 
 /// The file's bytes without a leading UTF-8 byte order mark: Windows PowerShell and Notepad
@@ -151,6 +228,7 @@ impl AppPolicies {
         if id == Self::DEFAULT_KEY {
             return base;
         }
+        let base = builtin(&id).map_or(base, |o| o.applied_to(base));
         self.overrides.get(&id).map_or(base, |o| o.applied_to(base))
     }
 }
@@ -372,12 +450,31 @@ mod tests {
     #[test]
     fn every_app_starts_at_the_default() {
         let policies = AppPolicies::default();
-        assert_eq!(
-            policies.policy(Some("windowsterminal.exe")),
-            AppPolicy::STANDARD
-        );
+        assert_eq!(policies.policy(Some("notepad.exe")), AppPolicy::STANDARD);
         assert_eq!(policies.policy(None), AppPolicy::STANDARD);
         assert!(policies.apps().is_empty());
+    }
+
+    #[test]
+    fn terminals_and_editors_have_sensible_rules_the_user_can_override() {
+        let none = AppPolicies::default();
+        let terminal = none.policy(Some("WindowsTerminal.exe"));
+        assert_eq!(terminal.conversion_threshold, AppPolicy::STRICT_THRESHOLD);
+        assert!(!terminal.escape_to_app && !terminal.full_width);
+        let chat = none.policy(Some("Slack.exe"));
+        assert_eq!(chat.return_confirms_only, Some(false));
+        assert_eq!(none.policy(Some("notepad.exe")).return_confirms_only, None);
+        let editor = none.policy(Some("Code.exe"));
+        assert!(editor.escape_to_app && editor.enabled);
+        assert_eq!(editor.conversion_threshold, 0.5);
+        let mine = AppPolicies::new([(
+            "code.exe".to_string(),
+            Override {
+                escape_to_app: Some(false),
+                ..Override::default()
+            },
+        )]);
+        assert!(!mine.policy(Some("code.exe")).escape_to_app);
     }
 
     #[test]
@@ -393,6 +490,7 @@ mod tests {
         let strict = AppPolicy {
             conversion_threshold: 0.97,
             escape_to_app: true,
+            full_width: false, // a terminal's own rule
             ..AppPolicy::STANDARD
         };
         assert_eq!(policies.policy(Some("WINDOWSTERMINAL.EXE")), strict);

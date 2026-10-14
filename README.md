@@ -286,6 +286,9 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 | `escapeToApp: true` | Esc를 앱에 넘기고 Shift+Esc로 읽기를 바꾼다 (에디터) |
 | `useSystemIme: true` | 그 앱에서는 시스템 한국어 입력기로 넘긴다 (한/영 키로 전환. [앱 호환](#앱-호환)) |
 | `fullWidth: false` | (일본어) 그 앱에서는 전각 숫자·공백을 반각으로 둔다 (터미널) |
+| `returnConfirmsOnly` | 그 앱에서만 Enter 동작을 정한다. `false`면 Enter 한 번에 확정과 전송이 같이 된다 (메신저) |
+
+**기본으로 들어 있는 규칙.** 적어 주지 않아도 터미널(Windows Terminal, cmd, PowerShell …)은 변환 기준 0.97, 에디터(VS Code, Cursor, JetBrains …)는 `escapeToApp`, 메신저(Slack, Discord, Teams, Telegram, LINE, 카카오톡)는 `returnConfirmsOnly: false` 입니다. 바꾸려면 그 앱을 `apps.json` 에 적으세요. 적은 값이 우선합니다.
 
 `user_history.json` 은 자동완성 입력기가 센 단어(2번 이상 친 것만 제안, 숫자·영한 섞인 토큰·1글자는 기록 안 함), `lexicon.json` 은 교정으로 배운 단어입니다. 직접 고쳐도 됩니다.
 

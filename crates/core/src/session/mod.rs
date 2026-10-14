@@ -500,7 +500,10 @@ impl InputSession {
         // a Japanese phrase, which is only confirmed either way.
         let japanese = self.current_language() == Some(Language::Japanese);
         self.commit(client);
-        self.return_confirms_only || japanese
+        self.policy
+            .return_confirms_only
+            .unwrap_or(self.return_confirms_only)
+            || japanese
     }
 
     fn on_tab(&mut self, client: &mut dyn TextClient) -> bool {
