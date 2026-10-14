@@ -15,9 +15,6 @@
 .chipl b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #ffffff10; font: 400 19px/1 var(--serif); }
 
 .esc { display: flex; align-items: center; gap: 14px; flex-basis: 100%; margin-top: 8px; }
-.esc .key { appearance: none; font: 500 12px var(--mono); color: var(--soft); background: transparent; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 5px; padding: 6px 12px; cursor: pointer; transition: transform .08s, border-color .15s; }
-.esc .key:hover { border-color: var(--acc); color: var(--fg); }
-.esc .key:active { transform: translateY(2px); border-bottom-width: 1px; }
 .esc .typed { font: 13px var(--mono); color: var(--mute); }
 .esc .shown { min-width: 8ch; font: 400 28px/1.2 var(--serif); animation: rise .2s ease both; }
 

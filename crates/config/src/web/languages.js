@@ -119,7 +119,6 @@ function renderLang() {
   flow.append(
     h("span", { class: "cap" }, "단어에서 Esc를 누를 때마다 이 순서로 읽기가 바뀝니다. 칩을 끌어 순서를 바꾸세요. 하나는 켜 두어야 합니다."),
     h("div", { class: "esc" },
-      h("button", { class: "key", type: "button", onclick: pressEsc, "aria-label": "Esc 눌러 보기" }, "Esc"),
       h("span", { class: "typed" }, ESC_WORD),
       h("span", { id: "esc-shown", class: "shown", "aria-live": "polite" }, "…")));
   p.append(flow);

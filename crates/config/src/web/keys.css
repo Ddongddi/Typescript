@@ -1,49 +1,21 @@
-/* 키 tab: keycaps drawn in CSS (a face on a base, with travel when pressed), one colour per role. */
+/* 키 tab: one card per role, a colour per role. */
 .r-han { --role: var(--acc); }
 .r-flip { --role: var(--info); }
 .r-pause { --role: var(--ok); }
 
-.pickbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-bottom: 14px; }
-.picking { font-size: 14px; color: var(--mute); }
-.picking b { color: var(--role); font-weight: 600; }
-.modbar { display: flex; align-items: center; gap: 8px; color: var(--mute); font-size: 13px; }
-.pill { appearance: none; font: 500 12px var(--mono); padding: 4px 14px; min-height: 32px; border-radius: 999px; border: 1px solid var(--hair); background: transparent; color: var(--soft); cursor: pointer; transition: background .15s, color .15s; }
-.pill:hover:not(:disabled) { background: #ffffff12; }
-.pill[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; }
-
-.kb { --u: 46px; --g: 6px; overflow-x: auto; padding: 24px 22px 20px; border: 1px solid var(--line); border-radius: 12px; background: radial-gradient(120% 90% at 50% 0, #131c19, #0a0f0d); box-shadow: inset 0 1px 0 #ffffff10, 0 30px 50px -36px #000; }
-.kb-row { display: flex; gap: var(--g); margin: 0 auto var(--g); width: max-content; }
-.gap, .cap { flex: none; width: calc(var(--w, 1) * (var(--u) + var(--g)) - var(--g)); }
-.gap { height: var(--u); }
-
-.cap { position: relative; height: calc(var(--u) + 6px); padding: 0; border: 0; border-radius: 8px; background: none; font: 500 12px var(--sans); color: #d4dcd7; cursor: pointer; }
-.cap::before { content: ""; position: absolute; inset: 0; border-radius: 8px; background: linear-gradient(#141b18, #0b100e); box-shadow: 0 0 0 1px #000a, 0 4px 8px #000b, inset 0 1px 0 #ffffff14; }
-.cap .top { position: absolute; left: 3px; right: 3px; top: 2px; bottom: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; background: linear-gradient(180deg, #3c4844 0%, #2b3431 55%, #252d2a 100%); box-shadow: inset 0 1px 0 #ffffff30, inset 0 -3px 4px #0006, 0 1px 0 #0008; transition: transform .08s, filter .15s, box-shadow .15s; }
-.cap .legend { font-size: 13px; line-height: 1; text-shadow: 0 1px 0 #0009; }
-.cap small { margin-top: 2px; font-size: 9px; color: var(--mute); }
-.cap:hover:not(:disabled):not(.dead) .top { filter: brightness(1.2); }
-.cap:active:not(:disabled):not(.dead) .top { transform: translateY(3px); box-shadow: inset 0 1px 0 #ffffff20, inset 0 -1px 2px #0006; }
-.cap:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
-.cap:disabled { cursor: progress; }
-.cap.on .top { color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--role) 58%, #3c4844), color-mix(in srgb, var(--role) 32%, #252d2a)); box-shadow: inset 0 1px 0 #ffffff55, inset 0 -3px 4px #0005, 0 0 14px color-mix(in srgb, var(--role) 45%, transparent); }
-.cap.dead { cursor: default; opacity: .34; }
-
-.badge { display: inline-grid; place-items: center; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--role); color: #07090a; font: 700 9px/1 var(--sans); font-style: normal; }
-.cap .badge { position: absolute; right: -4px; top: -5px; z-index: 1; box-shadow: 0 0 0 2px #0a0f0d; }
-.cap .badge + .badge { right: 12px; }
-.badge.mod { background: #0a0f0d; color: var(--role); border: 1.5px dashed var(--role); }
-
-.legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 14px 2px 0; color: var(--soft); font-size: 13px; }
-.legend-row span { display: inline-flex; align-items: center; gap: 6px; }
-.legend-row .dim { color: var(--mute); }
-
-.roles { display: grid; gap: 14px; }
-.role { padding: 16px 18px; border: 1px solid var(--line); border-left: 3px solid var(--role); border-radius: 6px; transition: background .15s, border-color .15s; }
-.role.picked { background: #ffffff08; border-color: color-mix(in srgb, var(--role) 50%, var(--line)); border-left-color: var(--role); }
-.role-pick { appearance: none; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: var(--fg); font: 500 16px var(--sans); cursor: pointer; }
-.role-pick .tag { font-size: 12px; }
-.role p { margin: 6px 0 10px; color: var(--mute); font-size: 14px; }
+.roles { display: grid; gap: 16px; }
+.role { padding: 18px 20px; border: 1px solid var(--line); border-left: 3px solid var(--role); border-radius: 6px; }
+.role-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.role-head b { font: 500 16px var(--sans); }
+.role-head .btn { margin-left: auto; }
+.badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--role); color: #07090a; font: 700 10px/1 var(--sans); font-style: normal; }
+.role p { margin: 8px 0 12px; color: var(--mute); font-size: 14px; }
 .role .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.role .chips em { color: var(--mute); font-size: 13px; }
-
-@media (max-width: 600px) { .kb { padding: 16px 12px 12px; } }
+.role .chips em, .role .actions em { color: var(--mute); font-size: 13px; }
+.chip .hint { color: var(--mute); font-size: 12px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 14px; }
+.keypick { min-height: 40px; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: transparent; color: var(--soft); font: 500 13px var(--sans); cursor: pointer; }
+.keypick:hover:not(:disabled) { border-color: var(--hair-strong); }
+.keypick option { background: #0c1110; color: var(--fg); }
+.keycap { display: inline-block; min-width: 42px; padding: 6px 12px; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 6px; background: linear-gradient(#ffffff10, #ffffff05); color: var(--fg); font: 500 13px var(--mono); text-align: center; box-shadow: 0 1px 0 #0008; }
+.chip .plus { color: var(--mute); font-size: 13px; }

@@ -17,7 +17,8 @@ const $ = (id) => document.getElementById(id);
 const GLYPH = { en: "A", ko: "가", ja: "あ" };
 const mb = (n) => (n / 1048576).toFixed(1) + " MB";
 const langName = (id) => (state && state.languages.find((l) => l.id === id) || {}).name || (id === "mixed" ? "혼합" : id);
-const editable = (el) => el && (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.isContentEditable);
+// A field keys are typed into: the chat boxes are divs with role=textbox.
+const editable = (el) => el && (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.isContentEditable || (el.getAttribute && el.getAttribute("role") === "textbox"));
 const copy = (value) => JSON.parse(JSON.stringify(value));
 
 // Builds an element. Every value from the server goes in as text, never as markup.
