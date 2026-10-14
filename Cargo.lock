@@ -619,7 +619,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "typescript-android"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "jni",
  "typescript-core",
@@ -627,14 +627,14 @@ dependencies = [
 
 [[package]]
 name = "typescript-cli"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "typescript-core",
 ]
 
 [[package]]
 name = "typescript-config"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "dialoguer",
  "getrandom 0.3.4",
@@ -650,7 +650,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-core"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "memmap2",
  "serde",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-ffi"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "typescript-android",
  "typescript-core",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-packgen"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "serde_json",
  "sha2",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "typescript-tip"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "typescript-core",
  "windows",

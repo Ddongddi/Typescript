@@ -7,6 +7,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-14
+
 ### 추가
 - **키 탭**: 대시보드에 키보드를 그려 놓고 키를 정하는 "키" 탭이 생겼습니다. 한영키로 쓸 키(`hangulKey`, 기본 `한/영`), 단어의 언어를 바꾸는 키(`flipKeys`, 기본 `Esc`와 한영키), 일시정지 키(`pauseKeys`, 기본 `Alt`+한영키)를 정합니다. 한영키를 바꾸면 나머지 둘의 "한영키"도 따라갑니다. `Ctrl+Space` 같은 조합과 `Ctrl` 단독 키도 되고, 칸은 8개까지 늘릴 수 있습니다. Win 키 조합이나 `Ctrl+C` 같은 흔한 단축키, 두 동작에 겹치는 키는 거절합니다. (Windows)
 
@@ -15,6 +17,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ### 수정
 - Windows: 파일 탐색기 이름 바꾸기처럼 IMM32로 통신하는 입력창에서 단어 뒤의 공백·마침표가 단어 앞으로 가던 문제. 단어를 확정하는 키는 이제 확정이 끝난 뒤 앱에 전달됩니다.
+- Windows: 파일 탐색기 이름 바꾸기처럼 글자가 선택된 입력창에서, 옛 이름이 단어를 다 칠 때까지 남아 있다가 마지막에야 바뀌던 문제. 이제 첫 글자를 치는 순간 선택된 글자가 지워집니다.
 
 ## [0.5.2] - 2026-10-14
 
@@ -117,7 +120,9 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/iamallyouneed/Typescript/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/iamallyouneed/Typescript/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/iamallyouneed/Typescript/compare/v0.4.0...v0.4.1
