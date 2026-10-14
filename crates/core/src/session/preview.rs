@@ -65,7 +65,7 @@ impl InputSession {
     /// what you see is what you get.
     pub(super) fn committed_language(&mut self) -> Language {
         let d = self.decide(false);
-        match self.word.engine_preview {
+        match self.word.engine_preview() {
             Some(shown) if shown != d.language && !self.is_weak_flip_allowed(&d, shown) => shown,
             _ => d.language,
         }
@@ -84,11 +84,10 @@ impl InputSession {
 
     pub(super) fn update_preview(&mut self, client: &mut dyn TextClient) {
         if self.word.is_empty() {
-            self.word.preview_language = None;
-            self.word.engine_preview = None;
+            self.word.forget_preview();
             client.set_marked_text("");
         } else if let Some(forced) = self.word.override_language() {
-            self.word.preview_language = Some(forced);
+            self.word.show(forced);
             let text = match forced {
                 Language::Japanese => self.japanese_display(),
                 Language::Korean => self.word.hangul().unwrap_or_else(|| self.word.keys.clone()),
@@ -102,7 +101,7 @@ impl InputSession {
             let mut language = decision.language;
             // Hysteresis: a weak flip on one keystroke isn't shown, except into a dictionary
             // English word, which is what Space/Return will commit.
-            if let Some(shown) = self.word.preview_language {
+            if let Some(shown) = self.word.preview_language() {
                 if shown != language
                     && char_count(&self.word.keys) > 1
                     && !self.is_weak_flip_allowed(&decision, shown)
@@ -110,8 +109,7 @@ impl InputSession {
                     language = shown;
                 }
             }
-            self.word.preview_language = Some(language);
-            self.word.engine_preview = Some(language);
+            self.word.show_engine(language);
             let text = if language == Language::Japanese {
                 self.japanese_display()
             } else {
@@ -165,8 +163,7 @@ impl InputSession {
             self.word.keys = back;
             self.word.syllable_start = None;
             self.previous_language = Some(Language::Korean);
-            self.word.preview_language = None;
-            self.word.engine_preview = None;
+            self.word.forget_preview();
             return;
         }
     }

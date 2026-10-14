@@ -52,8 +52,7 @@ impl InputSession {
         self.last_recorded = None;
         self.live_suppressed = false;
         self.word.keys = ch.to_string();
-        self.word.forced = Some(Language::Japanese);
-        self.word.forced_by_user = false;
+        self.word.force(Language::Japanese, false);
         self.update_preview(client);
     }
 
@@ -99,9 +98,9 @@ impl InputSession {
             if !self.digits_full_width() {
                 return false;
             }
-            return self.word.forced == Some(Language::Japanese)
-                || (self.word.forced.is_none()
-                    && self.word.preview_language == Some(Language::Japanese)
+            return self.word.forced() == Some(Language::Japanese)
+                || (self.word.forced().is_none()
+                    && self.word.preview_language() == Some(Language::Japanese)
                     && matches!(
                         RomajiComposer::compose(&self.word.keys, true)
                             .pending
@@ -112,12 +111,12 @@ impl InputSession {
         if !RomajiComposer::is_in_phrase_symbol(ch) {
             return false;
         }
-        if self.word.forced == Some(Language::Japanese) {
+        if self.word.forced() == Some(Language::Japanese) {
             return true;
         }
         // A letter still waiting for its vowel says the word may not be Japanese after all
         // (baz) is baz), not ばz）); a final n is ん (nihon. is にほん。).
-        if self.word.preview_language == Some(Language::Japanese) {
+        if self.word.preview_language() == Some(Language::Japanese) {
             return ch == '-'
                 || ch == '\''
                 || matches!(
@@ -133,9 +132,9 @@ impl InputSession {
         // is what keeps them typable. An English compound whose reading is clean kana
         // (to-do → とーど) leans Japanese now; Esc reads it back. (macOS Seamtype keeps the
         // word English here; this port re-decides instead.)
-        if self.word.forced.is_none()
+        if self.word.forced().is_none()
             && (ch == '-' || ch == '\'')
-            && self.word.preview_language == Some(Language::English)
+            && self.word.preview_language() == Some(Language::English)
             && (ch == '-' || !EnglishModel::shared().is_known_word(&self.word.keys))
             && RomajiComposer::compose(&self.word.keys, true).stray_letters == 0
         {
@@ -260,7 +259,8 @@ impl InputSession {
         if self.converter.is_none() || kana.is_empty() {
             return;
         }
-        let user_forced = self.word.forced == Some(Language::Japanese) && self.word.forced_by_user;
+        let user_forced =
+            self.word.forced() == Some(Language::Japanese) && self.word.forced_by_user();
         if user_forced {
             let keys = self.word.keys.clone();
             let engine_choice = self.committed_language();
@@ -293,11 +293,8 @@ impl InputSession {
             selected,
             user_forced,
         });
-        self.word.forced = None;
-        self.word.forced_by_user = false;
-        self.word.pinned = None;
+        self.word.release();
         self.word.syllable_start = None;
-        self.word.engine_preview = None;
         self.previous_language = Some(Language::Japanese);
         let display = self
             .conversion
@@ -335,11 +332,8 @@ impl InputSession {
             user_forced: false,
         });
         self.word.keys.clear();
-        self.word.forced = None;
-        self.word.forced_by_user = false;
-        self.word.pinned = None;
+        self.word.release();
         self.word.syllable_start = None;
-        self.word.engine_preview = None;
         self.previous_language = Some(Language::Japanese);
         let display = self
             .conversion
@@ -479,8 +473,7 @@ impl InputSession {
                     self.added_n_marker = true;
                 }
                 self.word.keys = keys;
-                self.word.forced = Some(Language::Japanese);
-                self.word.forced_by_user = conversion.user_forced;
+                self.word.force(Language::Japanese, conversion.user_forced);
                 self.update_preview(client);
                 true
             }
@@ -739,10 +732,8 @@ impl InputSession {
             self.word.keys = back;
             self.word.syllable_start = None;
             self.previous_language = Some(Language::Japanese);
-            self.word.forced = Some(Language::Korean);
-            self.word.forced_by_user = false;
-            self.word.preview_language = None;
-            self.word.engine_preview = None;
+            self.word.force(Language::Korean, false);
+            self.word.forget_preview();
             return;
         }
     }

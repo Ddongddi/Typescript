@@ -352,7 +352,7 @@ impl InputSession {
             self.live_suppressed = false;
         }
         self.added_n_marker = false;
-        self.word.pinned = None;
+        self.word.unpin();
         self.word.keys.push(ch);
         self.update_preview(client);
         true
@@ -363,8 +363,8 @@ impl InputSession {
             return false;
         }
         let shown = self.word.shown_language();
-        if self.word.forced.is_none() {
-            self.word.pinned = shown;
+        if self.word.forced().is_none() {
+            self.word.pin(shown);
         }
         match shown {
             Some(Language::Japanese) => self.delete_kana(),
@@ -393,7 +393,7 @@ impl InputSession {
         }
         // A live-converted phrase goes back to its kana first.
         if self.is_live()
-            && self.word.forced.or(self.word.preview_language) == Some(Language::Japanese)
+            && self.word.forced().or(self.word.preview_language()) == Some(Language::Japanese)
         {
             self.live_suppressed = true;
             self.update_preview(client);
@@ -404,10 +404,10 @@ impl InputSession {
             Some(l) => l,
             None => self.decide(true).language,
         };
-        self.word.forced = Some(self.next_language(shown, &self.word.keys));
-        self.word.forced_by_user = true;
-        self.word.pinned = None;
-        if self.word.forced != Some(Language::Japanese) {
+        self.word
+            .force(self.next_language(shown, &self.word.keys), true);
+        self.word.unpin();
+        if self.word.forced() != Some(Language::Japanese) {
             self.drop_n_marker();
         }
         self.update_preview(client);
@@ -425,9 +425,8 @@ impl InputSession {
         if self.japanese_enabled() && self.belongs_to_japanese_phrase(ch) {
             self.word.keys.push(ch);
             // Digits don't read as anything: the phrase stays Japanese, as it was shown.
-            if ch.is_numeric() && self.word.forced.is_none() {
-                self.word.forced = Some(Language::Japanese);
-                self.word.forced_by_user = false;
+            if ch.is_numeric() && self.word.forced().is_none() {
+                self.word.force(Language::Japanese, false);
             }
             self.update_preview(client);
             return true;
@@ -532,8 +531,8 @@ impl InputSession {
     fn on_kana_form(&mut self, katakana: bool, client: &mut dyn TextClient) -> bool {
         if self.word.keys.is_empty()
             || !self.japanese_enabled()
-            || !(self.word.forced == Some(Language::Japanese)
-                || self.word.preview_language == Some(Language::Japanese))
+            || !(self.word.forced() == Some(Language::Japanese)
+                || self.word.preview_language() == Some(Language::Japanese))
         {
             self.commit(client);
             return false;
@@ -608,14 +607,14 @@ impl InputSession {
         }
         // "Back to kana" without the user's Esc, or a reading kept while deleting, isn't a
         // correction: report it as the engine's.
-        let decided = if (self.word.forced.is_some() && !self.word.forced_by_user)
-            || (self.word.forced.is_none() && self.word.pinned.is_some())
+        let decided = if (self.word.forced().is_some() && !self.word.forced_by_user())
+            || (self.word.forced().is_none() && self.word.pinned().is_some())
         {
             language
         } else {
             engine_choice
         };
-        if self.word.forced.is_some() && self.word.forced_by_user {
+        if self.word.forced().is_some() && self.word.forced_by_user() {
             self.record(&self.word.keys.clone(), language, decided);
         }
         let text = match language {

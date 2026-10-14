@@ -6,17 +6,19 @@ use crate::lang::hangul::{HangulComposer, Unit};
 #[derive(Default)]
 pub(super) struct WordState {
     pub keys: String,
+    // The reading's steering is private: it changes only through the transitions below, so
+    // `forced_by_user` can never outlive `forced`.
     /// The reading chosen with Esc.
-    pub forced: Option<Language>,
+    forced: Option<Language>,
     /// Whether `forced` is the user's choice (Esc) rather than "back to kana" after converting
     /// a phrase the engine read as Japanese anyway: only the user's choices are corrections.
-    pub forced_by_user: bool,
+    forced_by_user: bool,
     /// The language shown when Delete was pressed, held until the next letter.
-    pub pinned: Option<Language>,
+    pinned: Option<Language>,
     /// The reading currently on screen.
-    pub preview_language: Option<Language>,
+    preview_language: Option<Language>,
     /// The language the engine itself showed last, before any Esc.
-    pub engine_preview: Option<Language>,
+    engine_preview: Option<Language>,
     /// Where the Korean syllable being typed starts once Delete was used in the word.
     pub syllable_start: Option<usize>,
 }
@@ -24,6 +26,57 @@ pub(super) struct WordState {
 impl WordState {
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
+    }
+
+    pub fn forced(&self) -> Option<Language> {
+        self.forced
+    }
+    /// The forced reading is the user's own choice (Esc), not "back to kana" after a conversion.
+    pub fn forced_by_user(&self) -> bool {
+        self.forced.is_some() && self.forced_by_user
+    }
+    pub fn pinned(&self) -> Option<Language> {
+        self.pinned
+    }
+    pub fn preview_language(&self) -> Option<Language> {
+        self.preview_language
+    }
+    pub fn engine_preview(&self) -> Option<Language> {
+        self.engine_preview
+    }
+
+    /// The reading is fixed to `language` (by the user's Esc, or by the session).
+    pub fn force(&mut self, language: Language, by_user: bool) {
+        self.forced = Some(language);
+        self.forced_by_user = by_user;
+    }
+    /// Keeps the language shown when Delete was pressed, until the next letter.
+    pub fn pin(&mut self, shown: Option<Language>) {
+        self.pinned = shown;
+    }
+    pub fn unpin(&mut self) {
+        self.pinned = None;
+    }
+    /// Shows `language` on screen as a fixed reading (the engine did not choose it).
+    pub fn show(&mut self, language: Language) {
+        self.preview_language = Some(language);
+    }
+    /// Shows `language`, which the engine itself picked.
+    pub fn show_engine(&mut self, language: Language) {
+        self.preview_language = Some(language);
+        self.engine_preview = Some(language);
+    }
+    /// Nothing is on screen for this word any more.
+    pub fn forget_preview(&mut self) {
+        self.preview_language = None;
+        self.engine_preview = None;
+    }
+    /// The word became a Japanese phrase being converted: no steering is left over.
+    pub fn release(&mut self) {
+        self.forced = None;
+        self.forced_by_user = false;
+        self.pinned = None;
+        self.engine_preview = None;
     }
 
     /// A reading the user chose or kept, which the engine doesn't get to change.
