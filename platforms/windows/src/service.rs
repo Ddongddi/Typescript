@@ -392,7 +392,7 @@ impl Inner {
 }
 
 /// A text field of an app that talks IMM32 (TSF builds a transitory document for it).
-fn is_transitory(context: &ITfContext) -> bool {
+pub(crate) fn is_transitory(context: &ITfContext) -> bool {
     unsafe { context.GetStatus() }.is_ok_and(|s| s.dwStaticFlags & TS_SS_TRANSITORY != 0)
 }
 

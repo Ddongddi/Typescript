@@ -6,12 +6,16 @@ use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 
 use typescript_core::session::{Range, TextClient, NOT_FOUND};
-use windows::core::{implement, Error, Interface, Result, BOOL};
-use windows::Win32::Foundation::{E_FAIL, RECT};
+use windows::core::{implement, w, Error, Interface, Result, BOOL};
+use windows::Win32::Foundation::{E_FAIL, LPARAM, RECT, WPARAM};
+use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::TextServices::*;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetClassNameW, GetGUIThreadInfo, SendMessageW, GUITHREADINFO,
+};
 
-use crate::service::Inner;
+use crate::service::{is_transitory, Inner};
 
 type Work = Box<dyn FnOnce(u32)>;
 
@@ -38,6 +42,36 @@ impl ITfEditSession_Impl for EditSession_Impl {
                 .map_err(|_| Error::from(E_FAIL))?;
         }
         Ok(())
+    }
+}
+
+/// Deletes the selected text of the focused edit box of this thread (EM_REPLACESEL with nothing),
+/// as typing over a selection does. False when the focus is not a plain Edit/RichEdit control.
+fn delete_focused_selection() -> bool {
+    const EM_REPLACESEL: u32 = 0x00C2;
+    // SAFETY: plain Win32 queries about this thread's own windows; the string outlives the call.
+    unsafe {
+        let mut info = GUITHREADINFO {
+            cbSize: std::mem::size_of::<GUITHREADINFO>() as u32,
+            ..Default::default()
+        };
+        if GetGUIThreadInfo(GetCurrentThreadId(), &mut info).is_err() || info.hwndFocus.0.is_null()
+        {
+            return false;
+        }
+        let mut name = [0u16; 32];
+        let len = GetClassNameW(info.hwndFocus, &mut name).max(0) as usize;
+        let class = String::from_utf16_lossy(&name[..len]).to_lowercase();
+        if class != "edit" && !class.starts_with("richedit") {
+            return false;
+        }
+        SendMessageW(
+            info.hwndFocus,
+            EM_REPLACESEL,
+            Some(WPARAM(1)),
+            Some(LPARAM(w!("").as_ptr() as isize)),
+        );
+        true
     }
 }
 
@@ -164,16 +198,25 @@ impl TsfClient<'_> {
         if slot.is_none() {
             let insert: ITfInsertAtSelection =
                 self.logged("cast ITfInsertAtSelection", self.context.cast())?;
-            let at = self.logged("query selection", unsafe {
-                insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[])
-            })?;
-            // Typing over a selection (File Explorer's rename box selects the old name) replaces it:
-            // a composition started on a non-empty range would leave that text in place.
+            let query = || {
+                self.logged("query selection", unsafe {
+                    insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[])
+                })
+            };
+            let mut at = query()?;
+            // Typing over a selection (File Explorer's rename box selects the old name) replaces it
+            // at the first key: a composition started on a non-empty range would leave that text in
+            // place. An IMM32 edit box only shows the composition and keeps the selected text until
+            // the word is confirmed, so there the box itself drops the selection.
             if !self
                 .logged("IsEmpty", unsafe { at.IsEmpty(self.ec) })?
                 .as_bool()
             {
-                self.logged("clear selection", unsafe { at.SetText(self.ec, 0, &[]) })?;
+                if is_transitory(self.context) && delete_focused_selection() {
+                    at = query()?;
+                } else {
+                    self.logged("clear selection", unsafe { at.SetText(self.ec, 0, &[]) })?;
+                }
             }
             let composing: ITfContextComposition =
                 self.logged("cast ITfContextComposition", self.context.cast())?;
