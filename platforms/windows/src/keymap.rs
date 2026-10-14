@@ -103,14 +103,32 @@ fn key_event(vk: u16, extended: bool, up: bool) -> INPUT {
             ki: KEYBDINPUT {
                 wVk: VIRTUAL_KEY(vk),
                 dwFlags: flags,
+                dwExtraInfo: SENT_BY_US,
                 ..Default::default()
             },
         },
     }
 }
 
+/// Marks the keys `send_shortcut` presses, so the text service lets them through to the app
+/// (it would otherwise type the C of a Ctrl+C: Ctrl does not show as held to it yet).
+pub(crate) const SENT_BY_US: usize = 0x5459_5053; // "TYPS"
+
+/// Whether the key message being handled is one `send_shortcut` pressed.
+pub fn sent_by_us() -> bool {
+    // SAFETY: plain Win32 query about the current message.
+    unsafe { windows::Win32::UI::WindowsAndMessaging::GetMessageExtraInfo() }.0 as usize
+        == SENT_BY_US
+}
+
 /// Presses `shortcut` in the focused app: the modifiers down, the key, then everything released.
 pub fn send_shortcut(shortcut: &Shortcut) {
+    // Windows does not take Win+L from SendInput (the L would just be typed): lock directly.
+    if shortcut.win && shortcut.mods == Mods::NONE && shortcut.key == ShortcutKey::Letter('L') {
+        // SAFETY: plain Win32 call.
+        let _ = unsafe { windows::Win32::System::Shutdown::LockWorkStation() };
+        return;
+    }
     let mut held: Vec<u16> = Vec::new();
     if shortcut.win {
         held.push(0x5B);

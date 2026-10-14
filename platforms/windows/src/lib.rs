@@ -1,6 +1,6 @@
 //! Typescript as a Windows text service (TSF): a COM DLL that Windows loads into every
 //! application the user types in. The DLL exports the usual COM entry points plus
-//! `EnableForUser` for `rundll32`.
+//! `EnableForUser` and `KeyHook` for `rundll32`.
 //!
 //! Rules of this crate: nothing panics across the COM boundary (see `guard` in service.rs;
 //! the release profile keeps `panic = "unwind"` for that), and nothing heavy runs before the
@@ -12,7 +12,9 @@ mod client;
 mod delegate;
 mod display;
 mod ghost;
+mod global;
 mod guids;
+mod hook;
 mod keymap;
 mod registry;
 mod service;
@@ -117,6 +119,13 @@ pub extern "system" fn EnableForUser(
     _show: i32,
 ) {
     let _ = catch_unwind(AssertUnwindSafe(registry::enable_for_user));
+}
+
+/// `rundll32 typescript_tip.dll,KeyHook`: the Han/Eng key's shortcut, everywhere (started at
+/// sign-in; runs until the session ends).
+#[no_mangle]
+pub extern "system" fn KeyHook(_hwnd: HWND, _instance: HMODULE, _command_line: PCSTR, _show: i32) {
+    let _ = catch_unwind(AssertUnwindSafe(global::run));
 }
 
 #[implement(IClassFactory)]

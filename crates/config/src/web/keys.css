@@ -1,16 +1,39 @@
-/* 키 tab: the Han/Eng key, what it does, and the shortcut it sends. */
-.hangul { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; padding: 6px 0 14px; }
-.hangul .to { color: var(--mute); font-size: 24px; }
-.send { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; flex-basis: 100%; }
-.send em { color: var(--mute); font-size: 14px; }
-.mods { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.keycap { display: inline-block; min-width: 42px; padding: 6px 12px; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 6px; background: linear-gradient(#ffffff10, #ffffff05); color: var(--fg); font: 500 13px var(--mono); text-align: center; box-shadow: 0 1px 0 #0008; }
-.keycap.big { min-width: 88px; padding: 16px 26px; border-bottom-width: 4px; border-radius: 9px; font-size: 22px; }
+/* 키 tab: the Han/Eng key, what it does, and the shortcut it sends. Hairlines, no boxes. */
+.hangul { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 0 0 26px; }
+.hangul .ask { flex: 1; min-width: 160px; }
+.hangul .ask b { display: block; font: 500 17px var(--sans); }
+.hangul .ask span { color: var(--mute); font-size: 13px; }
+
+/* the three actions: rows, the chosen one marked by the accent */
+.acts { display: grid; border-top: 1px solid var(--line); }
+.act { appearance: none; position: relative; display: flex; align-items: baseline; gap: 16px; padding: 16px 4px 16px 24px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--soft); text-align: left; cursor: pointer; transition: background .15s, color .15s; }
+.act::before { content: ""; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; border: 1px solid var(--hair-strong); transition: background .15s, border-color .15s; }
+.act b { font: 500 15px var(--sans); color: inherit; }
+.act span { font-size: 13px; color: var(--mute); }
+.act:hover:not(:disabled) { color: var(--fg); background: #ffffff05; }
+.act[aria-checked=true] { color: var(--fg); }
+.act[aria-checked=true]::before { border-color: var(--acc); background: var(--acc); }
+.act:disabled { opacity: .5; cursor: not-allowed; }
+
+/* the shortcut it sends */
+.send { display: grid; gap: 14px; padding: 22px 0 6px 24px; }
+.send .now { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; min-height: 48px; }
+.send em { color: var(--mute); font: normal 14px var(--sans); }
+.send .own { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.lbl { color: var(--mute); font-size: 12px; }
+.mods, .presets { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+
+.keycap { display: inline-block; min-width: 40px; padding: 5px 11px; border: 1px solid var(--hair-strong); border-bottom-width: 2px; border-radius: 5px; color: var(--fg); font: 500 13px var(--mono); text-align: center; }
+.now .keycap { min-width: 48px; padding: 8px 14px; font-size: 16px; }
+.keycap.big { min-width: 84px; padding: 14px 24px; border-bottom-width: 3px; border-radius: 8px; font-size: 21px; }
 .chip .plus { color: var(--mute); font-size: 13px; }
-.keypick { min-height: 40px; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: transparent; color: var(--soft); font: 500 13px var(--sans); cursor: pointer; }
-.keypick:hover:not(:disabled) { border-color: var(--hair-strong); }
-.keypick option { background: #0c1110; color: var(--fg); }
-.keypick.wide { min-height: 48px; padding: 10px 14px; font-size: 15px; color: var(--fg); }
-.pill { appearance: none; padding: 4px 14px; min-height: 36px; border: 1px solid var(--hair); border-radius: 999px; background: transparent; color: var(--soft); font: 500 12px var(--mono); cursor: pointer; }
-.pill:hover:not(:disabled) { background: #ffffff12; }
-.pill[aria-pressed=true] { border-color: #fff; background: #fff; color: #000; }
+
+.mod, .preset { appearance: none; padding: 4px 10px; min-height: 32px; border: 0; border-radius: 4px; background: none; color: var(--mute); font: 500 12px var(--mono); cursor: pointer; transition: color .15s, background .15s; }
+.mod:hover:not(:disabled), .preset:hover:not(:disabled) { color: var(--fg); background: #ffffff0d; }
+.mod[aria-pressed=true], .preset[aria-pressed=true] { color: var(--acc); background: #f4a26114; }
+.mod:disabled, .preset:disabled { opacity: .5; cursor: not-allowed; }
+
+.keys-foot { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); max-width: 64ch; color: var(--mute); font-size: 13px; line-height: 1.7; }
+.keys-foot p { margin: 0 0 6px; }
+.keys-foot a { color: inherit; font-weight: 600; text-underline-offset: 3px; }
+.keys-foot a:hover { color: var(--fg); }

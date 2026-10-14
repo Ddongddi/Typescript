@@ -258,6 +258,16 @@ fn main() {
             let _ = ImmReleaseContext(edit, himc);
         }
         pump(Duration::from_millis(400));
+        // LAB_RALT=1: the right Alt alone, as laptops send the Han/Eng key (see debug.log).
+        if std::env::var("LAB_RALT").is_ok() {
+            let mut inputs = [key(VK_RMENU.0, false), key(VK_RMENU.0, true)];
+            for input in &mut inputs {
+                input.Anonymous.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+            }
+            SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+            pump(Duration::from_millis(400));
+            println!("{which}: after the right Alt: {:?}", text_of(edit));
+        }
         let installed =
             GetModuleHandleW(w!(r"C:\Program Files\Typescript\typescript_tip.dll")).is_ok();
         println!("{which}: installed DLL loaded: {installed}");

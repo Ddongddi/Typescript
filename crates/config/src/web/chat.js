@@ -65,7 +65,7 @@ function drawChat() {
   const log = $("chat-log"), input = $("chat-in");
   if (!log) return;
   log.replaceChildren(...chat.messages.map(bubble));
-  if (!chat.messages.length) log.append(h("p", { class: "idle" }, "메시지를 보내 보세요. dkssud 를 치고 Enter."));
+  if (!chat.messages.length) log.append(h("p", { class: "idle" }, h("b", {}, "dkssud"), " 를 치고 Enter"));
   log.scrollTop = log.scrollHeight;
   const { text, marked } = chat.draft;
   const [at, len] = marked || [text.length, 0];
@@ -113,19 +113,32 @@ function showWhy(m, el) {
     second ? "  ·  차선 " + langName(s.runnerUp) + " " + second.out : "");
 }
 
+function clearChat() {
+  chat.messages = []; chat.keys = []; chat.draft = { text: "", marked: null }; chat.hint = "";
+  drawChat();
+  const box = $("chat-in");
+  if (box) box.focus();
+}
+
 function chatBox() {
+  const send = (key) => { chat.queue = chat.queue.then(() => playKey(key)); const box = $("chat-in"); if (box) box.focus(); };
   const box = h("section", { class: "chat", "aria-label": "채팅으로 체험" },
+    h("div", { class: "chat-head" },
+      h("b", {}, "체험"), h("span", {}),
+      h("button", { type: "button", class: "btn quiet", "data-f": "chat-clear", onclick: clearChat }, "지우기")),
     h("div", { id: "chat-log", class: "chat-log", role: "log", "aria-live": "polite" }),
     h("p", { id: "chat-why", class: "chat-why", "aria-live": "polite" }),
-    h("div", {
-      id: "chat-in", class: "chat-in", role: "textbox", tabindex: "0", "data-f": "chat-in", "aria-label": "메시지 입력 (영문 자판)",
-      onkeydown: (e) => {
-        const key = chatKey(e);
-        if (!key) return;
-        e.preventDefault();
-        chat.queue = chat.queue.then(() => playKey(key));
-      },
-    }),
+    h("div", { class: "chat-row" },
+      h("div", {
+        id: "chat-in", class: "chat-in", role: "textbox", tabindex: "0", "data-f": "chat-in", "aria-label": "메시지 입력 (영문 자판)",
+        onkeydown: (e) => {
+          const key = chatKey(e);
+          if (!key) return;
+          e.preventDefault();
+          chat.queue = chat.queue.then(() => playKey(key));
+        },
+      }),
+      h("button", { type: "button", class: "chat-send", "aria-label": "Enter", onclick: () => send("Enter") }, "↵")),
     h("p", { id: "chat-hint", class: "chat-hint", "aria-live": "polite" }));
   queueMicrotask(drawChat);
   return box;

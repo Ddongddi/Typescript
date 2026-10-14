@@ -17,7 +17,7 @@ function render(focusKey) {
 }
 
 function selectTab(index, focus) {
-  stopCapture();
+  stopCapture(); stopHangulCapture();
   TABS.forEach((name, k) => {
     tabOf(name).setAttribute("aria-selected", k === index);
     tabOf(name).tabIndex = k === index ? 0 : -1;

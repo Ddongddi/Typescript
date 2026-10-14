@@ -590,6 +590,13 @@ impl App {
             .any(|name| changes.contains_key(*name))
         {
             let current = Settings::load(Some(&self.env.settings));
+            let hangul = changes
+                .get("hangulKey")
+                .and_then(Value::as_str)
+                .map_or_else(|| current.hangul_key.to_string(), str::to_string);
+            let new_hangul = keys::parse_hangul(&hangul)?;
+            // A list not given keeps its keys, minus those the new Han/Eng key can't take
+            // (Alt+HangulKey once the Han/Eng key is RAlt).
             let list = |name: &str, now: &[Chord]| -> Vec<String> {
                 match changes.get(name).and_then(Value::as_array) {
                     Some(given) => given
@@ -597,13 +604,16 @@ impl App {
                         .filter_map(Value::as_str)
                         .map(str::to_string)
                         .collect(),
-                    None => key_names(now),
+                    None => {
+                        let kept: Vec<Chord> = now
+                            .iter()
+                            .copied()
+                            .filter(|c| c.resolve(&new_hangul).is_ok())
+                            .collect();
+                        key_names(&kept)
+                    }
                 }
             };
-            let hangul = changes
-                .get("hangulKey")
-                .and_then(Value::as_str)
-                .map_or_else(|| current.hangul_key.to_string(), str::to_string);
             let saved = keys::validate(
                 &hangul,
                 &list("flipKeys", &current.flip_keys),
@@ -938,9 +948,23 @@ mod tests {
         assert_eq!(post(json!({"hangulAction": "Ctrl+Hangul"})).status, 400);
         assert_eq!(post(json!({"hangulAction": 3})).status, 400);
         assert_eq!(post(json!({"hangulAction": "none"})).status, 200);
-        // a modifier key can't take part in Alt+HangulKey
-        let bad = post(json!({"hangulKey": "RCtrl"}));
+        // a modifier key can't take part in Alt+HangulKey: given explicitly, that is refused
+        let bad = post(json!({"hangulKey": "RCtrl", "pauseKeys": ["Alt+HangulKey"]}));
         assert_eq!(bad.status, 400);
+        // the Han/Eng key alone becomes RAlt (laptops that send it as right Alt): the pause
+        // key that can't follow is dropped, the switch key follows
+        let ralt = post(json!({"hangulKey": "RAlt"}));
+        assert_eq!(ralt.status, 200);
+        assert_eq!(json_of(&ralt)["settings"]["hangulKey"], "RAlt");
+        assert_eq!(json_of(&ralt)["settings"]["pauseKeys"], json!([]));
+        assert_eq!(
+            json_of(&ralt)["settings"]["flipKeys"],
+            json!(["Esc", "HangulKey"])
+        );
+        assert_eq!(
+            post(json!({"hangulKey": "Hangul", "pauseKeys": ["Alt+HangulKey"]})).status,
+            200
+        );
         assert!(json_of(&bad)["error"]
             .as_str()
             .unwrap()

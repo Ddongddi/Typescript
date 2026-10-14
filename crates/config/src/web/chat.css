@@ -1,18 +1,27 @@
 /* The chat on the right of every tab (chat.js). */
 
 .chat { padding: 0; }
+.chat-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.chat-head b { font: 500 13px var(--sans); color: var(--mute); }
+.chat-head span { flex: 1; color: var(--mute); font-size: 12px; }
+.chat-row { display: flex; align-items: flex-end; gap: 4px; border-bottom: 1px solid var(--hair); transition: border-color .15s; }
+.chat-row:hover { border-color: var(--hair-strong); }
+.chat-row:focus-within { border-color: var(--acc); }
+.chat-row .chat-in { flex: 1; min-width: 0; }
+.chat-send { appearance: none; flex: none; width: 40px; height: 44px; border: 0; background: none; color: var(--mute); font: 18px var(--sans); cursor: pointer; transition: color .15s; }
+.chat-send:hover { color: var(--acc); }
 
 .chat-log { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; height: 420px; padding: 4px 4px 16px; overflow-y: auto; }
-.chat-log .idle { margin: auto; align-self: center; }
-.bubble { display: flex; align-items: baseline; gap: 12px; max-width: 80%; padding: 8px 14px; border-radius: 14px 14px 3px 14px; background: #f4a2611f; border: 1px solid #f4a26144; animation: rise .2s ease both; }
+.chat-log .idle { margin: auto; align-self: center; color: var(--mute); font-size: 14px; }
+.chat-log .idle b { color: var(--acc); font: 500 14px var(--mono); }
+.bubble { display: flex; align-items: baseline; gap: 12px; max-width: 85%; padding: 2px 0; animation: rise .2s ease both; }
 .bubble .said { font: 400 22px/1.3 var(--serif); overflow-wrap: anywhere; white-space: pre-wrap; }
 .bubble .sent { flex: none; font: 11px var(--mono); color: var(--mute); }
 .bubble .sent.two { color: var(--acc); }
 
-.chat-in { position: relative; min-height: 48px; padding: 10px 14px; border: 1px solid var(--hair); border-radius: 24px; font: 400 22px/1.5 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; transition: border-color .15s; }
-.chat-in:hover { border-color: var(--hair-strong); }
-.chat-in:focus, .chat-in:focus-visible { outline: none; border-color: var(--acc); }
-.chat-in.empty::before { content: "영문 자판으로 치고 Enter"; color: #3a4541; font: 15px var(--sans); position: absolute; top: 13px; }
+.chat-in { position: relative; min-height: 48px; padding: 8px 2px; border: 0; font: 400 22px/1.5 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+.chat-in:focus, .chat-in:focus-visible { outline: none; }
+.chat-in.empty::before { content: "영문 자판으로 치고 Enter"; color: #3a4541; font: 15px var(--sans); position: absolute; top: 12px; }
 .chat-in u { text-decoration-color: var(--acc); text-underline-offset: 4px; }
 .caret { display: inline-block; width: 1px; height: 1.1em; margin-left: 1px; background: var(--acc); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
 .chat-in:not(:focus) .caret { visibility: hidden; }
@@ -33,3 +42,4 @@
 .chat-why { min-height: 2.6em; margin: 8px 6px 0; font: 12px/1.6 var(--mono); color: var(--mute); }
 .chat-why b { color: var(--soft); font-weight: 500; }
 .chat-why b.o { font: 400 18px var(--serif); color: var(--fg); }
+.chat-log > .bubble:first-child { margin-top: auto; }

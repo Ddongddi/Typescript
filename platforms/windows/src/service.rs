@@ -27,7 +27,7 @@ use crate::client::{EditSession, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
-use crate::keymap::{chord_key, held_mods, key_for, send_shortcut};
+use crate::keymap::{chord_key, held_mods, key_for, send_shortcut, sent_by_us};
 use crate::shared::{converter, engine, history, refresh_packs, reload_engines};
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
@@ -222,7 +222,20 @@ impl Inner {
 
     /// Notes whether a modifier went down alone (it acts on release if nothing joins it).
     fn note_key_down(&self, vk: u32, lparam: isize) {
-        let alone = chord_key(vk, lparam).filter(|k| k.is_modifier() && held_mods().count() == 1);
+        // Only the other modifiers count: whether this key already shows as held depends on
+        // when the system updated the key state.
+        let alone = chord_key(vk, lparam).filter(|&k| {
+            let mut others = held_mods();
+            match k {
+                ChordKey::Ctrl | ChordKey::RCtrl => others.ctrl = false,
+                ChordKey::Alt | ChordKey::RAlt => others.alt = false,
+                _ => others.shift = false,
+            }
+            k.is_modifier() && others.count() == 0
+        });
+        if alone.is_some() && self.pending_modifier.get().is_none() {
+            self.trace("modifier down alone");
+        }
         self.pending_modifier.set(alone);
     }
 
@@ -251,6 +264,9 @@ impl Inner {
     /// right here, because an app that talks IMM32 (KakaoTalk, any RichEdit) never gets back a
     /// key we said we'd take: the answer has to be final now.
     fn test_key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
+        if sent_by_us() {
+            return false; // a shortcut we pressed: the app's
+        }
         self.note_key_down(vk, lparam);
         self.eaten_in_test.set(None);
         if !self.wants(vk, lparam) {
@@ -269,6 +285,9 @@ impl Inner {
     }
 
     fn key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
+        if sent_by_us() {
+            return false; // a shortcut we pressed: the app's
+        }
         self.note_key_down(vk, lparam);
         let action = self.key_action(vk, lparam);
         if action == Some(KeyAction::Send) {
@@ -339,7 +358,35 @@ impl Inner {
             return false;
         }
         let action = self.settings.borrow().key_action(Mods::NONE, key);
+        self.trace(&format!("modifier up alone: {action:?}"));
         action.is_some_and(|action| self.act_on(context, action))
+    }
+
+    /// The right Alt went down or up on this thread (`hook`). True: it is an assigned key,
+    /// and the app must not see it (a lone Alt would open the menu bar); its release acts.
+    pub(crate) fn right_alt(self: &Rc<Self>, up: bool) -> bool {
+        let Ok(settings) = self.settings.try_borrow() else {
+            return false;
+        };
+        let Some(action) = settings.key_action(Mods::NONE, ChordKey::RAlt) else {
+            return false;
+        };
+        drop(settings);
+        if up {
+            self.trace(&format!("right Alt: {action:?}"));
+            let context = self.thread_mgr.borrow().as_ref().and_then(|tm| {
+                // SAFETY: plain COM calls on a live thread manager.
+                unsafe { tm.GetFocus().and_then(|doc| doc.GetTop()) }.ok()
+            });
+            match (action, context) {
+                (KeyAction::Send, _) => self.send_hangul_shortcut(),
+                (_, Some(context)) => {
+                    self.act_on(&context, action);
+                }
+                (_, None) => {}
+            }
+        }
+        true
     }
 
     /// The Han/Eng key was pressed and is set to send a shortcut: send it.
@@ -497,6 +544,7 @@ impl TextService_Impl {
         let key_sink: ITfKeyEventSink = self.to_interface();
         // SAFETY: plain COM calls with live interface pointers.
         unsafe { keys.AdviseKeyEventSink(tid, &key_sink, true)? };
+        crate::hook::install(inner);
 
         let source: ITfSource = tm.cast()?;
         let thread_sink: ITfThreadMgrEventSink = self.to_interface();
@@ -540,6 +588,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         guard(|| {
             let inner = &self.inner;
             inner.ghost.destroy();
+            crate::hook::remove();
             if let Ok(mut slot) = inner.session.try_borrow_mut() {
                 if let Some(session) = slot.as_mut() {
                     session.commit_for_new_context(&mut NoopClient);
@@ -613,7 +662,13 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         }))
     }
 
-    fn OnTestKeyUp(&self, _pic: Ref<ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+    fn OnTestKeyUp(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
+        // TSF calls OnKeyUp only for a release we say we take, and we never take one (the app
+        // has to see it): a lone modifier that is an assigned key (RAlt as the Han/Eng key) acts
+        // here. `pending_modifier` makes sure it acts once if OnKeyUp follows anyway.
+        if let Ok(context) = pic.ok() {
+            let _ = guard_bool(|| self.inner.key_up(context, wparam.0 as u32, lparam.0));
+        }
         Ok(BOOL(0))
     }
 

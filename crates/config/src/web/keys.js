@@ -4,7 +4,7 @@
 
 const SEND_PRESETS = ["Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+Space", "Win+D", "Win+L"];
 const SEND_MODS = ["Ctrl", "Alt", "Shift", "Win"];
-const KEY_LABELS = { Hangul: "한/영", Hanja: "한자" };
+const KEY_LABELS = { Hangul: "한/영", Hanja: "한자", RAlt: "오른쪽 Alt", RCtrl: "오른쪽 Ctrl", RShift: "오른쪽 Shift" };
 const HELD_CODES = ["ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"];
 
 let capture = false;   // a shortcut is being waited for
@@ -58,45 +58,97 @@ function onCaptureDown(e) {
 }
 
 function startCapture() {
+  stopHangulCapture();
   capture = true;
   document.addEventListener("keydown", onCaptureDown, true);
   render("capture-cancel");
 }
+
+// Which physical key is the Han/Eng key. Many laptops send it as the right Alt, not as Hangul:
+// pressing it here finds out. event.code -> the name settings.json takes, or null.
+let hangulCapture = false;
+function hangulKeyName(code) {
+  const fixed = { Lang1: "Hangul", HangulMode: "Hangul", Lang2: "Hanja", HanjaMode: "Hanja", AltRight: "RAlt", ControlRight: "RCtrl", ShiftRight: "RShift", CapsLock: "CapsLock", ScrollLock: "ScrollLock", Pause: "Pause" };
+  if (fixed[code]) return fixed[code];
+  return /^F(\d{1,2})$/.test(code) ? code : null;
+}
+function onHangulDown(e) {
+  e.preventDefault(); e.stopPropagation();
+  if (e.repeat) return;
+  const name = hangulKeyName(e.code);
+  if (!name) { toast("이 키는 한/영 키로 쓸 수 없습니다", true); return; }
+  stopHangulCapture();
+  saveKeys({ hangulKey: name }, "한/영 키를 " + (KEY_LABELS[name] || name) + "(으)로 지정했습니다", { hangulKey: state.settings.hangulKey, pauseKeys: state.settings.pauseKeys });
+}
+function stopHangulCapture() {
+  if (!hangulCapture) return;
+  hangulCapture = false;
+  document.removeEventListener("keydown", onHangulDown, true);
+}
+function startHangulCapture() {
+  stopCapture();
+  hangulCapture = true;
+  document.addEventListener("keydown", onHangulDown, true);
+  render("hangul-cancel");
+}
+
+// The three things the Han/Eng key can do.
+const ACTIONS = [
+  ["flip", "단어 언어 전환", "누를 때마다 영·한·일을 돌려 가며 바꿉니다"],
+  ["send", "단축키 보내기", "한/영 키 대신 고른 단축키를 앱에 보냅니다"],
+  ["none", "아무것도 안 함", "눌러도 아무 일도 없습니다"],
+];
 
 // The Han/Eng key and what it does.
 function renderKeys() {
   const action = state.settings.hangulAction;
   const kind = action === "flip" || action === "none" ? action : "send";
   const shownKind = sendDraft ? "send" : kind;
-  const choose = (e) => {
-    const v = e.target.value;
+  const pick = (v) => {
+    if (busy || v === shownKind) return;
     sendDraft = v === "send";
-    if (v === "send") render("hangul-action");
+    if (v === "send") render("act-send");
     else saveKeys({ hangulAction: v }, "저장했습니다", { hangulAction: action });
   };
-  const select = h("select", { class: "keypick wide", "data-f": "hangul-action", disabled: busy, "aria-label": "한/영 키를 누르면", onchange: choose },
-    [["flip", "단어 언어 전환"], ["none", "아무것도 안 함"], ["send", "단축키 보내기"]].map(([v, l]) => h("option", { value: v, selected: v === shownKind }, l)));
-  const preset = h("select", {
-    class: "keypick", "data-f": "send-preset", disabled: busy, "aria-label": "자주 쓰는 단축키",
-    onchange: (e) => { const v = e.target.value; e.target.value = ""; if (v) setShortcut(v); },
-  }, h("option", { value: "" }, "자주 쓰는 단축키"), SEND_PRESETS.map((v) => h("option", { value: v }, v)));
-  const press = capture
-    ? h("span", { class: "chip waiting", role: "status" }, "키를 누르세요…",
-        h("button", { type: "button", class: "chip-x", "data-f": "capture-cancel", onclick: () => { stopCapture(); render("send-capture"); } }, "취소"))
-    : h("button", { type: "button", class: "btn", "data-f": "send-capture", disabled: busy, onclick: startCapture }, "키 눌러 지정");
-  const mods = h("span", { class: "mods", role: "group", "aria-label": "함께 누를 키" },
-    SEND_MODS.map((m) => h("button", {
-      type: "button", class: "pill", "aria-pressed": sendMods[m], "data-f": "mod-" + m, disabled: busy,
-      onclick: () => { sendMods[m] = !sendMods[m]; render("mod-" + m); },
-    }, m)));
-  const send = shownKind === "send"
-    ? h("div", { class: "send" },
-        kind === "send" ? h("span", { class: "chip" }, keyCaps(action)) : h("em", {}, "보낼 단축키를 고르세요"),
-        preset, mods, press)
-    : null;
+  const cards = h("div", { class: "acts", role: "radiogroup", "aria-label": "한/영 키를 누르면" },
+    ACTIONS.map(([v, title, hint]) => h("button", {
+      type: "button", class: "act", role: "radio", "aria-checked": v === shownKind, "data-f": "act-" + v, disabled: busy,
+      onclick: () => pick(v),
+    }, h("b", {}, title), h("span", {}, hint))));
+
+  let send = null;
+  if (shownKind === "send") {
+    const now = kind === "send" ? action : "";
+    const presets = h("div", { class: "presets", role: "group", "aria-label": "자주 쓰는 단축키" },
+      SEND_PRESETS.map((v) => h("button", { type: "button", class: "preset", "aria-pressed": v === now, "data-f": "preset-" + v, disabled: busy, onclick: () => setShortcut(v) }, v)));
+    const mods = h("div", { class: "mods", role: "group", "aria-label": "함께 누를 키" },
+      SEND_MODS.map((m) => h("button", {
+        type: "button", class: "mod", "aria-pressed": sendMods[m], "data-f": "mod-" + m, disabled: busy,
+        onclick: () => { sendMods[m] = !sendMods[m]; render("mod-" + m); },
+      }, m)));
+    const press = capture
+      ? h("span", { class: "chip waiting", role: "status" }, "키를 누르세요…",
+          h("button", { type: "button", class: "chip-x", "data-f": "capture-cancel", onclick: () => { stopCapture(); render("send-capture"); } }, "취소"))
+      : h("button", { type: "button", class: "btn", "data-f": "send-capture", disabled: busy, onclick: startCapture }, "키 눌러 지정");
+    send = h("div", { class: "send" },
+      h("div", { class: "now" }, h("span", { class: "lbl" }, "보내는 단축키"),
+        now ? h("span", { class: "chip" }, keyCaps(now)) : h("em", {}, "아직 고르지 않았습니다")),
+      h("div", { class: "own" }, press, h("span", { class: "lbl" }, "함께 누를 키"), mods),
+      h("span", { class: "lbl" }, "또는 골라서 지정"), presets);
+  }
+
   $("p-keys").replaceChildren(
     h("div", { class: "hangul" },
       h("kbd", { class: "keycap big" }, KEY_LABELS[state.settings.hangulKey] || state.settings.hangulKey),
-      h("span", { class: "to", "aria-hidden": "true" }, "→"), select, send),
-    h("p", { class: "note" }, "한/영 키를 누르면 일어날 일을 고릅니다. 단축키를 보내면 한/영 키는 그 단축키를 앱에 보내고 단어 언어 전환은 하지 않습니다. Win은 키보드로 누를 수 없어서 버튼으로 함께 고릅니다. 텍스트를 입력하는 창에서 동작합니다."));
+      h("div", { class: "ask" }, h("b", {}, "이 키를 누르면"), h("span", {}, "텍스트를 입력하는 창에서 동작합니다")),
+      hangulCapture
+        ? h("span", { class: "chip waiting", role: "status" }, "한/영 키를 누르세요…",
+            h("button", { type: "button", class: "chip-x", "data-f": "hangul-cancel", onclick: () => { stopHangulCapture(); render("hangul-capture"); } }, "취소"))
+        : h("button", { type: "button", class: "btn quiet", "data-f": "hangul-capture", disabled: busy, onclick: startHangulCapture }, "다른 키로 인식될 때")),
+    cards, send,
+    h("div", { class: "keys-foot" },
+      h("p", {}, "Win은 키보드로 누를 수 없어서 버튼으로 함께 고릅니다. 한/영 키가 오른쪽 Alt로 들어오는 노트북이면 “다른 키로 인식될 때”를 눌러 한/영 키를 한 번 누르세요."),
+      h("p", {}, "더 많은 키 매핑을 하고 싶다면 ",
+        h("a", { href: "https://github.com/iamallyouneed/KeyZen", target: "_blank", rel: "noopener noreferrer" }, "KeyZen"),
+        "을 확인하세요.")));
 }

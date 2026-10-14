@@ -226,6 +226,23 @@ function Set-SettingsShortcut([bool]$Present) {
     $shortcut.Save()
 }
 
+# The Han/Eng key's shortcut works everywhere (desktop, taskbar, any app) through a keyboard
+# hook in its own process, started at sign-in: `rundll32 typescript_tip.dll,KeyHook`.
+function Stop-KeyHook {
+    Get-CimInstance Win32_Process -Filter "Name='rundll32.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like '*typescript_tip*KeyHook*' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+function Set-KeyHook([bool]$Present) {
+    $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    Stop-KeyHook
+    if (-not $Present) { Remove-ItemProperty $run -Name 'Typescript keys' -ErrorAction SilentlyContinue; return }
+    $command = "rundll32.exe `"$dll64`",KeyHook"
+    Set-ItemProperty $run -Name 'Typescript keys' -Value $command
+    Start-Process rundll32.exe -ArgumentList "`"$dll64`",KeyHook"
+}
+
 # The languages already on in settings.json, as a list (empty on a first install).
 function Get-ConfiguredLanguages {
     $path = Join-Path $env:APPDATA 'Typescript\settings.json'
@@ -302,6 +319,8 @@ try {
     }
     $script = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $Source 'install.ps1' }
 
+    # Its process holds the DLL (and the folder an uninstall removes): stop it first.
+    Stop-KeyHook
     $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Elevated', '-Source', "`"$Source`"")
     if ($Uninstall) { $arguments += '-Uninstall' }
     Write-Host 'Asking for administrator rights to register the text service...'
@@ -314,6 +333,7 @@ try {
     if ($Uninstall) {
         Set-Keyboards $false
         Set-SettingsShortcut $false
+        Set-KeyHook $false
         Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript, language packs in %LOCALAPPDATA%\Typescript.'
     } else {
         if (Test-Path (Join-Path $Source 'packs')) { Install-Packs $Source } else { Install-ReleasePacks }
@@ -321,6 +341,7 @@ try {
         & rundll32.exe $dll64, EnableForUser
         Set-Keyboards $true
         Set-SettingsShortcut $true
+        Set-KeyHook $true
         Write-Host 'Typescript installed.'
         Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
         Write-Host '  Switch word language -> Esc or Han/Eng; Pause -> Alt+Han/Eng, per text field. Keys: dashboard settings, or %APPDATA%\Typescript\settings.json'
