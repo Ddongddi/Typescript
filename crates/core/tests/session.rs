@@ -448,12 +448,12 @@ fn esc_while_typing_is_learned_the_second_time() {
     r.session.activate(Some("com.apple.TextEdit"));
     r.type_("so⎋ ");
     assert_eq!(r.text(), "내 ");
-    r.type_("x so⎋ ");
+    r.type_("the so⎋ ");
     assert_eq!(
         r.session.engine().learned().get("so"),
         Some(&typescript_core::Language::Korean)
     );
-    r.type_("x so ");
+    r.type_("the so ");
     assert!(r.text().ends_with("내 "), "{}", r.text());
 }
 

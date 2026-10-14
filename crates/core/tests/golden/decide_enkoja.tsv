@@ -34818,8 +34818,8 @@ a	-	false	english	a	0.9999525069566815	japanese	english,japanese
 a	-	true	english	a	0.8581489350995123	korean	english,japanese
 a	english	false	english	a	0.9999904109564586	japanese	english,japanese
 a	english	true	english	a	0.9677045353015494	korean	english,japanese
-a	korean	false	english	a	0.9999525069566815	japanese	english,japanese
-a	korean	true	english	a	0.8021838885585817	korean	english,japanese
+a	korean	false	korean	ㅁ	0.95	english	korean,japanese,english,japanese,english,japanese,english
+a	korean	true	korean	ㅁ	0.95	english	korean,japanese,english,japanese,english,japanese,english
 a	japanese	false	english	a	0.9999291503599351	japanese	english,japanese
 a	japanese	true	english	a	0.8581489350995123	korean	english,japanese
 abkhas	-	false	english	abkhas	0.999952973737273	japanese	english,korean,japanese
@@ -41514,8 +41514,8 @@ a	-	false	english	a	0.9999525069566815	japanese	english,japanese
 a	-	true	english	a	0.8581489350995123	korean	english,japanese
 a	english	false	english	a	0.9999904109564586	japanese	english,japanese
 a	english	true	english	a	0.9677045353015494	korean	english,japanese
-a	korean	false	english	a	0.9999525069566815	japanese	english,japanese
-a	korean	true	english	a	0.8021838885585817	korean	english,japanese
+a	korean	false	korean	ㅁ	0.95	english	korean,japanese,english,japanese,english,japanese,english
+a	korean	true	korean	ㅁ	0.95	english	korean,japanese,english,japanese,english,japanese,english
 a	japanese	false	english	a	0.9999291503599351	japanese	english,japanese
 a	japanese	true	english	a	0.8581489350995123	korean	english,japanese
 i	-	false	english	i	0.9993543477611078	japanese	english,japanese

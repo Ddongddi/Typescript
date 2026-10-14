@@ -26114,8 +26114,8 @@ a	-	false	english	a	0.9999999990738639	korean	english,korean
 a	-	true	english	a	0.8581489350995123	korean	english,korean
 a	english	false	english	a	0.9999999998130165	korean	english,korean
 a	english	true	english	a	0.9677045353015494	korean	english,korean
-a	korean	false	english	a	0.9999999986183674	korean	english,korean
-a	korean	true	english	a	0.8021838885585817	korean	english,korean
+a	korean	false	korean	ㅁ	0.95	english	korean,english
+a	korean	true	korean	ㅁ	0.95	english	korean,english
 abkhas	-	false	english	abkhas	0.9999994470431244	korean	english,korean
 abkhas	-	true	english	abkhas	0.9999868794613831	korean	english,korean
 abkhas	english	false	english	abkhas	0.9999998883598828	korean	english,korean
@@ -31136,8 +31136,8 @@ a	-	false	english	a	0.9999999990738639	korean	english,korean
 a	-	true	english	a	0.8581489350995123	korean	english,korean
 a	english	false	english	a	0.9999999998130165	korean	english,korean
 a	english	true	english	a	0.9677045353015494	korean	english,korean
-a	korean	false	english	a	0.9999999986183674	korean	english,korean
-a	korean	true	english	a	0.8021838885585817	korean	english,korean
+a	korean	false	korean	ㅁ	0.95	english	korean,english
+a	korean	true	korean	ㅁ	0.95	english	korean,english
 i	-	false	english	i	0.9999999990738639	korean	english,korean
 i	-	true	english	i	0.9999999990738639	korean	english,korean
 i	english	false	english	i	0.9999999998130165	korean	english,korean
