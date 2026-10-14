@@ -154,6 +154,12 @@ const NON_LETTER_PENALTY: f64 = 3.0;
 const CAPITALISED_ENGLISH_CONFIDENCE: f64 = 0.99;
 /// A single consonant key typed inside Korean text (ㅇ for d): it is the jamo, not an English letter.
 const LONE_CONSONANT_CONFIDENCE: f64 = 0.95;
+/// A common two-letter English word needs to beat a one-syllable Korean word's floor by this.
+const COMMON_SHORT_WORD_MARGIN: f64 = 0.1;
+/// With no second reading to compare with, the best one is taken to lead by this much.
+const NO_RUNNER_UP_MARGIN: f64 = 5.0;
+/// Steepness of the margin → confidence curve (a logistic: margin 0 is a coin flip).
+const CONFIDENCE_SLOPE: f64 = 2.0;
 
 /// Scores the same keystrokes as English (character trigrams + word list), Korean
 /// (2-set syllables) and, when enabled, Japanese (romaji → kana trigrams), each as
@@ -261,7 +267,7 @@ impl HeuristicEngine {
             // to, so, go, do: everyday English just above a one-syllable Korean word (새, 내,
             // 해, 애), so they stay English unless the previous word was Korean.
             if count == 2 && self.english.is_common_word(keys) {
-                floor = self.korean_known_floor_short + 0.1;
+                floor = self.korean_known_floor_short + COMMON_SHORT_WORD_MARGIN;
             }
             if self.english.level(keys).unwrap_or(0) > EXTRA_LEVEL {
                 floor -= self.rare_word_floor_penalty;
@@ -440,8 +446,8 @@ impl DecisionEngine for HeuristicEngine {
 
         let (language, best) = scores[0];
         let runner_up = scores.get(1).copied();
-        let margin = best - runner_up.map_or(best - 5.0, |r| r.1);
-        let confidence = 1.0 / (1.0 + (-margin * 2.0).exp());
+        let margin = best - runner_up.map_or(best - NO_RUNNER_UP_MARGIN, |r| r.1);
+        let confidence = 1.0 / (1.0 + (-margin * CONFIDENCE_SLOPE).exp());
         let output = match language {
             Language::Korean => k
                 .as_ref()

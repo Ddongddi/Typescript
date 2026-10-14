@@ -75,39 +75,31 @@ cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/pac
 3. 데이터는 `crates/core/data/<lang>/` 폴더에 배치합니다.
 4. **주의:** [라이선스 준수](#5-데이터-라이선스-요건)를 반드시 확인해야 합니다.
 
-### 2단계: 코어 언어 모듈 구현 (`crates/core/src/lang/<id>/`)
-`LanguageModule` 트레이트를 구현합니다:
+### 2단계: 언어 모듈 구현 (`crates/core/src/lang/<id>/`)
+`LanguageModule`(`crates/core/src/lang/module.rs`)을 구현합니다. 키 입력에 대해 두 가지를 답합니다. 이 언어로 치면 어떤 글자가 되는지, 그 읽기가 깨끗한지입니다.
 
 ```rust
-use crate::lang::module::LanguageModule;
+pub struct French;
 
-pub struct FrenchModel {
-    // 트라이그램 테이블 및 사전 핸들
-}
-
-impl LanguageModule for FrenchModel {
-    fn id(&self) -> &'static str { "fr" }
-    fn score(&self, word: &str) -> f64 {
-        // 트라이그램 로그 우도 및 사전 매칭 점수 계산
-    }
-    fn compose(&self, input: &str) -> String {
-        // 악센트/특수문자 조합 로직이 필요하다면 작성 (없으면 원형 반환)
-        input.to_string()
-    }
+impl LanguageModule for French {
+    fn language(&self) -> Language { Language::French }
+    /// 이 키들이 만드는 글자. 만들 수 없으면 None.
+    fn compose(&self, keys: &str) -> Option<String> { /* … */ }
+    /// 흩어진 조각이 없는가: 깨끗한 읽기가 있으면 Esc는 깨끗하지 않은 읽기를 건너뜁니다.
+    fn is_clean(&self, keys: &str) -> bool { /* … */ }
 }
 ```
 
-### 3단계: 레지스트리 등록 (`crates/core/src/lang/registry.rs`)
-언어 식별자를 등록하고 팩 로더와 연결합니다:
+### 3단계: 연결하기
+새 언어는 **한 줄로 끝나지 않습니다.** 언어 이름이 등장하는 곳은 아래와 같습니다 (만나게 되는 순서).
 
-```rust
-pub fn register_builtin_languages(reg: &mut Registry) {
-    reg.register("en", Box::new(EnglishModel::load));
-    reg.register("ko", Box::new(KoreanModel::load));
-    reg.register("ja", Box::new(JapaneseModel::load));
-    reg.register("fr", Box::new(FrenchModel::load)); // 신규 등록
-}
-```
+1. `decide/engine.rs`: `Language` 변형과 `name` / `id` / `from_id` / `parse` / `sentence_language`.
+2. `lang/registry.rs`: `MODULES`에 모듈 추가.
+3. `decide/engine.rs` (`HeuristicEngine::decide`): 그 언어의 점수와 보정 필드. 언어마다 달라서, 아직 공통 점수기 트레잇은 없습니다.
+4. `lib.rs` (`make_engine`)와 `lang/set.rs`: 켜진 언어 조합으로 엔진을 만들고 기본 순서를 정합니다.
+5. `lang/pack.rs` (`embedded()`): 팩 파일과 `requires`(필요한 다른 팩). 손상된 파일이 읽기에서 패닉을 낼 수 있으면 `usable()` 검사도 추가합니다.
+6. `session/`: 읽기 이상이 필요한 언어만 (일본어는 변환 창이 있어 `session/japanese.rs` 가 따로 있습니다).
+7. 해당되면 Tab 자동완성(`store/history.rs` 의 `suggest`)과 대시보드 언어 목록.
 
 ### 4단계: `packgen` 빌더 등록
 `crates/packgen/src/main.rs`에 해당 언어의 원시 데이터를 바이너리 테이블로 컴파일하는 규칙을 추가합니다.

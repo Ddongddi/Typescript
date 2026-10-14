@@ -142,6 +142,23 @@ fn flipped_choice_is_remembered_the_second_time() {
     assert_eq!(r.text(), format!("{flipped}{flipped}{flipped}"));
 }
 
+/// Only where the word ends up is a correction: an Esc loop that comes back to the engine's own
+/// choice, however many times it is done, teaches nothing.
+#[test]
+fn esc_loops_back_to_the_start_teach_nothing() {
+    let mut r = Rig::new("loop");
+    for _ in 0..3 {
+        r.type_("rjtm ");
+        let shown = r.text();
+        r.key(Key::Escape);
+        r.key(Key::Escape); // two readings: back where it started
+        assert_eq!(r.text(), shown);
+        r.type_("x "); // closes the undo window
+    }
+    assert!(r.session.engine().learned().is_empty());
+    assert!(r.session.engine().pending().is_empty());
+}
+
 #[test]
 fn flip_only_applies_to_the_word_before_the_caret() {
     let mut r = Rig::new("caret");

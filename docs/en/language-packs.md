@@ -75,39 +75,31 @@ To introduce a new language module (e.g., French `fr` or German `de`):
 3. Place raw files under `crates/core/data/<lang>/`.
 4. **Important**: Verify [data licensing requirements](#5-dataset-licensing-compliance).
 
-### Step 2: Implement Core Trait (`crates/core/src/lang/<id>/`)
-Implement the `LanguageModule` trait:
+### Step 2: Implement the Language Module (`crates/core/src/lang/<id>/`)
+Implement `LanguageModule` (`crates/core/src/lang/module.rs`). It answers two questions about a run of keys: what do they type in this language, and does that reading look clean?
 
 ```rust
-use crate::lang::module::LanguageModule;
+pub struct French;
 
-pub struct FrenchModel {
-    // Trigram table and dictionary handles
-}
-
-impl LanguageModule for FrenchModel {
-    fn id(&self) -> &'static str { "fr" }
-    fn score(&self, word: &str) -> f64 {
-        // Compute trigram log-likelihood and dictionary match score
-    }
-    fn compose(&self, input: &str) -> String {
-        // Accent/diacritic composition logic, or pass-through
-        input.to_string()
-    }
+impl LanguageModule for French {
+    fn language(&self) -> Language { Language::French }
+    /// The text these keys type; None when they can't.
+    fn compose(&self, keys: &str) -> Option<String> { /* … */ }
+    /// No stray pieces: Esc skips unclean readings while clean ones exist.
+    fn is_clean(&self, keys: &str) -> bool { /* … */ }
 }
 ```
 
-### Step 3: Register in Core Registry (`crates/core/src/lang/registry.rs`)
-Link the new module identifier to the pack loader:
+### Step 3: Wire It In
+A new language is **not** a one-line change. These are the places that name languages, in the order you will meet them:
 
-```rust
-pub fn register_builtin_languages(reg: &mut Registry) {
-    reg.register("en", Box::new(EnglishModel::load));
-    reg.register("ko", Box::new(KoreanModel::load));
-    reg.register("ja", Box::new(JapaneseModel::load));
-    reg.register("fr", Box::new(FrenchModel::load)); // Newly registered
-}
-```
+1. `decide/engine.rs`: the `Language` variant and `name` / `id` / `from_id` / `parse` / `sentence_language`.
+2. `lang/registry.rs`: add the module to `MODULES`.
+3. `decide/engine.rs` (`HeuristicEngine::decide`): the language's score and its bias fields. This is the part that is specific to each language; there is no generic scorer yet.
+4. `lib.rs` (`make_engine`) and `lang/set.rs`: build the engine for the enabled set and the default order.
+5. `lang/pack.rs` (`embedded()`): the pack's files and which packs it `requires`, plus `usable()` if a damaged file could panic a reader.
+6. `session/`: only if the language needs more than a reading (Japanese has a conversion window; see `session/japanese.rs`).
+7. `store/history.rs` (`suggest`) for Tab completion, and the dashboard's language list, if they apply.
 
 ### Step 4: Add `packgen` Compiler Rule
 Add a builder recipe in `crates/packgen/src/main.rs` to compile the new raw dataset into the binary pack format.

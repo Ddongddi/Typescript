@@ -310,7 +310,7 @@ flowchart LR
 ```
 
 - `crates/core` — the engine (`lang/`, `decide/`, `session/`, `store/`). `crates/config` — the dashboard (`typescript-config`; its web page lives in `src/web/`). `crates/packgen` — builds language packs. `platforms/` — Windows TSF DLL, Android, macOS, Linux adapters.
-- A new language is a `lang/<id>/` module, one line in `registry.rs`, and a pack.
+- A new language needs a `lang/<id>/` module, a `registry.rs` entry, engine scoring, and a pack (checklist: [docs/en/language-packs.md](docs/en/language-packs.md)).
 - Deeper docs: [docs/](docs/README.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```powershell

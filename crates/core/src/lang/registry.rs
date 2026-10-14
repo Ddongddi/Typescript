@@ -1,5 +1,6 @@
-//! Every language module and combination rule this build knows. A new language: a folder
-//! under `lang/`, a `Language` variant, and a line here.
+//! Every language module and combination rule this build knows. Adding a language starts with a
+//! folder under `lang/`, a `Language` variant and a line here, but is not finished there: the
+//! checklist in docs/en/language-packs.md lists every other place that names languages.
 
 use crate::decide::engine::Language;
 use crate::lang::module::{ComboRule, LanguageModule};

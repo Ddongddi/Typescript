@@ -333,7 +333,7 @@ flowchart LR
 
 - `crates/config` 가 대시보드(`typescript-config`)입니다. 웹 페이지(`src/web/`)를 바이너리에 넣어 로컬 서버로 엽니다.
 - `platforms/windows` 가 TSF COM DLL이고 언어 데이터는 설치된 팩(`%LOCALAPPDATA%\Typescript\packs`)에서 읽습니다. `platforms/android` 는 코어를 JNI로 감싼 Rust 라이브러리와 Java `InputMethodService` 입니다.
-- 언어 데이터는 `crates/packgen` 이 팩(`manifest.json` + 표 파일)으로 만듭니다. 새 언어는 `lang/<id>/` 모듈과 `registry.rs` 한 줄, 그리고 팩입니다.
+- 언어 데이터는 `crates/packgen` 이 팩(`manifest.json` + 표 파일)으로 만듭니다. 새 언어는 `lang/<id>/` 모듈, `registry.rs` 등록, 엔진 점수, 팩 등록이 필요합니다 (목록은 [docs/ko/language-packs.md](docs/ko/language-packs.md)).
 - 더 깊은 설명은 [docs/](docs/README.md) 에 있습니다. 기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```powershell

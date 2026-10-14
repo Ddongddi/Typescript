@@ -12,6 +12,10 @@ use crate::store::policy::AppPolicy;
 
 /// The preview only switches language mid-word when the new reading is at least this likely.
 const PREVIEW_FLIP_CONFIDENCE: f64 = 0.7;
+/// Romaji is shown as kana while typing only when the engine is this sure, and the word is at
+/// least this many keys long.
+const LIVE_KANA_CONFIDENCE: f64 = 0.9;
+const LIVE_KANA_MIN_KEYS: usize = 4;
 
 pub(super) static KOREAN: PackLazy<KoreanModel> =
     PackLazy::new(Language::Korean, KoreanModel::default);
@@ -182,7 +186,10 @@ impl InputSession {
             }
             Language::Mixed => true,
             Language::Japanese => {
-                if !self.japanese_enabled() || decision.confidence < 0.9 || char_count(keys) < 4 {
+                if !self.japanese_enabled()
+                    || decision.confidence < LIVE_KANA_CONFIDENCE
+                    || char_count(keys) < LIVE_KANA_MIN_KEYS
+                {
                     return false;
                 }
                 let romaji = RomajiComposer::compose(keys, true);
