@@ -17,6 +17,7 @@ typedef struct { IBusEngineClass parent; } TsEngineClass;
 
 static Handle *ime;
 static GString *composing; /* the preedit shown now */
+static gboolean secure;    /* the focused field is a password / PIN field: keys go to the app */
 
 G_DEFINE_TYPE(TsEngine, ts_engine, IBUS_TYPE_ENGINE)
 
@@ -75,7 +76,7 @@ static int kind_of(guint keyval, guint32 *ch) {
 }
 
 static gboolean process_key(IBusEngine *e, guint keyval, guint keycode, guint state) {
-  if (state & IBUS_RELEASE_MASK) return FALSE;
+  if (state & IBUS_RELEASE_MASK || secure) return FALSE;
   /* The pause key (한/영) turns Typescript off and on in this text field. */
   if (keyval == IBUS_KEY_Hangul || keyval == IBUS_KEY_Pause)
     return apply(e, ts_toggle_pause(ime, composing->str));
@@ -100,6 +101,11 @@ static void focus_in(IBusEngine *e) {
   g_string_truncate(composing, 0);
 }
 static void focus_out(IBusEngine *e) { forget(e); }
+/* The app tells what the field is for; a password is never read, counted or learned. */
+static void set_content_type(IBusEngine *e, guint purpose, guint hints) {
+  secure = purpose == IBUS_INPUT_PURPOSE_PASSWORD || purpose == IBUS_INPUT_PURPOSE_PIN;
+  if (secure) forget(e);
+}
 static void reset(IBusEngine *e) { forget(e); }
 static void disable(IBusEngine *e) { forget(e); }
 
@@ -108,6 +114,7 @@ static void ts_engine_class_init(TsEngineClass *klass) {
   c->process_key_event = process_key;
   c->focus_in = focus_in;
   c->focus_out = focus_out;
+  c->set_content_type = set_content_type;
   c->reset = reset;
   c->disable = disable;
 }

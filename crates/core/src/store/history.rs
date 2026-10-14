@@ -22,6 +22,9 @@ const MIN_COUNT: u32 = 2;
 /// Written to disk after this many new words, and when the text field changes.
 const FLUSH_EVERY: u32 = 10;
 const MAX_WORD_CHARS: usize = 32;
+/// The file never holds more words than this: past it the least typed ones go, so a flood of
+/// distinct words cannot grow it (and every rewrite of it) without bound.
+const MAX_WORDS: usize = 20_000;
 
 #[derive(Default, Serialize, Deserialize)]
 struct Store {
@@ -52,6 +55,21 @@ fn is_recordable(word: &str) -> bool {
     (2..=MAX_WORD_CHARS).contains(&n)
         && (word.chars().all(|c| ('가'..='힣').contains(&c))
             || word.chars().all(|c| c.is_ascii_alphabetic()))
+}
+
+/// Keeps the `MAX_WORDS` most typed words (ties: the alphabetically first).
+fn prune(store: &mut Store) {
+    if store.words.len() <= MAX_WORDS {
+        return;
+    }
+    let mut ranked: Vec<(&String, &u32)> = store.words.iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+    let keep: std::collections::BTreeSet<String> = ranked
+        .into_iter()
+        .take(MAX_WORDS)
+        .map(|(w, _)| w.clone())
+        .collect();
+    store.words.retain(|w, _| keep.contains(w));
 }
 
 impl History {
@@ -102,6 +120,7 @@ impl History {
         for (word, n) in &s.fresh {
             *merged.words.entry(word.clone()).or_default() += n;
         }
+        prune(&mut merged);
         let Ok(json) = serde_json::to_vec_pretty(&merged) else {
             return;
         };
@@ -164,6 +183,18 @@ pub fn suggest(history: Option<&History>, language: Language, prefix: &str) -> O
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_file_is_capped_and_keeps_the_most_typed_words() {
+        let mut store = Store::default();
+        for i in 0..MAX_WORDS + 50 {
+            store.words.insert(format!("w{i:06}"), 2);
+        }
+        store.words.insert("favourite".into(), 9);
+        prune(&mut store);
+        assert_eq!(store.words.len(), MAX_WORDS);
+        assert!(store.words.contains_key("favourite"));
+    }
+
     use super::*;
 
     fn temp(name: &str) -> PathBuf {

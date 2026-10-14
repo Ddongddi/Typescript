@@ -8,8 +8,9 @@ use std::mem::ManuallyDrop;
 use typescript_core::session::{Range, TextClient, NOT_FOUND};
 use windows::core::{implement, w, Error, Interface, Result, BOOL};
 use windows::Win32::Foundation::{E_FAIL, LPARAM, RECT, WPARAM};
+use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Threading::GetCurrentThreadId;
-use windows::Win32::System::Variant::VARIANT;
+use windows::Win32::System::Variant::{VARIANT, VT_UNKNOWN};
 use windows::Win32::UI::TextServices::*;
 use windows::Win32::UI::WindowsAndMessaging::{
     GetClassNameW, GetGUIThreadInfo, SendMessageW, GUITHREADINFO,
@@ -110,6 +111,41 @@ impl TsfClient<'_> {
             return Err(E_FAIL.into());
         }
         ManuallyDrop::into_inner(first.range).ok_or_else(|| Error::from(E_FAIL))
+    }
+
+    /// Whether the text field says it is a password field (its TSF input scope). Browsers and
+    /// modern apps declare it; a field that doesn't is treated as ordinary text.
+    pub fn is_password(&self) -> bool {
+        let Ok(range) = self.selection() else {
+            return false;
+        };
+        // SAFETY: the property value is a VARIANT that owns its interface (cleared on drop);
+        // the scope list is CoTaskMem memory we free after reading it.
+        unsafe {
+            let Ok(property) = self.context.GetProperty(&GUID_PROP_INPUTSCOPE) else {
+                return false;
+            };
+            let Ok(value) = property.GetValue(self.ec, &range) else {
+                return false;
+            };
+            let inner = &value.Anonymous.Anonymous;
+            if inner.vt != VT_UNKNOWN {
+                return false;
+            }
+            let Some(unknown) = inner.Anonymous.punkVal.as_ref() else {
+                return false;
+            };
+            let Ok(scope) = unknown.cast::<ITfInputScope>() else {
+                return false;
+            };
+            let (mut list, mut count) = (std::ptr::null_mut(), 0u32);
+            if scope.GetInputScopes(&mut list, &mut count).is_err() || list.is_null() {
+                return false;
+            }
+            let found = std::slice::from_raw_parts(list, count as usize).contains(&IS_PASSWORD);
+            CoTaskMemFree(Some(list as *const _));
+            found
+        }
     }
 
     fn extent(range: &ITfRange) -> Result<(i32, i32)> {

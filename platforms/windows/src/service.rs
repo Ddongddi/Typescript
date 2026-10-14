@@ -320,6 +320,10 @@ impl Inner {
         let resend = Rc::new(Cell::new(false));
         let (flag, transitory) = (resend.clone(), is_transitory(context));
         let eaten = run_edit(self, context, move |inner, client| {
+            if client.is_password() {
+                // A password field: nothing typed there is looked at, counted or learned.
+                return false;
+            }
             let mut session = inner.session();
             let handled = match key {
                 Some(key) => {

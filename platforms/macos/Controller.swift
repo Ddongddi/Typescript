@@ -1,5 +1,6 @@
 import Cocoa
 import InputMethodKit
+import Carbon.HIToolbox
 
 /// Key kinds, as in typescript.h.
 private enum Kind: Int32 {
@@ -36,6 +37,11 @@ class TypescriptController: IMKInputController {
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let ime = ime, let event = event, event.type == .keyDown,
               let client = sender as? IMKTextInput else { return false }
+        // A password field turns on secure event input: nothing typed there is read, counted or learned.
+        if IsSecureEventInputEnabled() {
+            ts_reset(ime)
+            return false
+        }
         let before = textBeforeCaret(client)
         // Option+Space pauses Typescript in this text field (macOS has no 한/영 key to catch).
         if event.modifierFlags.contains(.option), event.keyCode == 49 {
