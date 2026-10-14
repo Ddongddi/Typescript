@@ -27,6 +27,8 @@ $files = @(
     @('target\release\typescript.exe', 'typescript.exe'),
     @('target\release\typescript-config.exe', 'typescript-config.exe'),
     @('assets\typescript.ico', 'typescript.ico'),
+    @('LICENSE', 'LICENSE'),
+    @('NOTICE', 'NOTICE'),
     @('THIRD_PARTY_NOTICES.txt', 'THIRD_PARTY_NOTICES.txt'),
     @('scripts\install.ps1', 'install.ps1')
 )

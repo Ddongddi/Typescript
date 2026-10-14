@@ -129,11 +129,11 @@ int main(int argc, char **argv) {
     ibus_bus_request_name(bus, "io.github.iamallyouneed.Typescript", 0);
   } else {
     IBusComponent *component = ibus_component_new(
-        "io.github.iamallyouneed.Typescript", "Typescript", "0", "MIT", "iamallyouneed",
+        "io.github.iamallyouneed.Typescript", "Typescript", "0", "AGPL-3.0-only", "Necessity",
         "https://github.com/iamallyouneed/Typescript", "", "ibus-typescript");
     ibus_component_add_engine(component,
         ibus_engine_desc_new(ENGINE_NAME, "Typescript", "English / Korean / Japanese by word",
-                             "en", "MIT", "iamallyouneed", "", "us"));
+                             "en", "AGPL-3.0-only", "Necessity", "", "us"));
     ibus_bus_register_component(bus, component);
   }
   ibus_main();

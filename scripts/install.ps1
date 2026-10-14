@@ -112,7 +112,7 @@ if ($Elevated) {
             Install-File (Join-Path $Source 'typescript_tip_x86.dll') $dll86
             Install-File (Join-Path $Source 'typescript.exe') (Join-Path $dest 'typescript.exe')
             Install-File (Join-Path $Source 'typescript-config.exe') (Join-Path $dest 'typescript-config.exe')
-            foreach ($extra in 'typescript.ico', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
+            foreach ($extra in 'typescript.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
                 Copy-Item (Join-Path $Source $extra) $dest -Force -ErrorAction SilentlyContinue
             }
             # Store apps and sandboxed processes load the DLL only if these groups can read it.
@@ -150,7 +150,7 @@ function New-SourceStage {
     Copy-Item (Join-Path $repo 'target\release\typescript-config.exe') $stage
     Copy-Item (Join-Path $repo 'target\packs') (Join-Path $stage 'packs') -Recurse
     Copy-Item (Join-Path $repo 'assets\typescript.ico') $stage
-    Copy-Item (Join-Path $repo 'THIRD_PARTY_NOTICES.txt') $stage -ErrorAction SilentlyContinue
+    foreach ($notice in 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt') { Copy-Item (Join-Path $repo $notice) $stage -ErrorAction SilentlyContinue }
     Copy-Item $PSCommandPath $stage
     return $stage
 }

@@ -4,16 +4,16 @@
   <description>Typescript: English, Korean and Japanese by word</description>
   <exec>@EXEC@ --ibus</exec>
   <version>@VERSION@</version>
-  <author>iamallyouneed</author>
-  <license>MIT</license>
+  <author>Necessity</author>
+  <license>AGPL-3.0-only</license>
   <homepage>https://github.com/iamallyouneed/Typescript</homepage>
   <textdomain>typescript</textdomain>
   <engines>
     <engine>
       <name>typescript</name>
       <language>en</language>
-      <license>MIT</license>
-      <author>iamallyouneed</author>
+      <license>AGPL-3.0-only</license>
+      <author>Necessity</author>
       <layout>us</layout>
       <longname>Typescript</longname>
       <description>English, Korean and Japanese by word</description>

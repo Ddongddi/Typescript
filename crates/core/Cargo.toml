@@ -2,6 +2,8 @@
 name = "typescript-core"
 version = "0.5.0"
 edition = "2021"
+license = "AGPL-3.0-only"
+repository = "https://github.com/iamallyouneed/Typescript"
 
 [features]
 # Packs carried inside the binary (Android, the CLI, the tests). The Windows text service

@@ -64,6 +64,7 @@ jobs:
     needs: [release, unix]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -71,4 +72,11 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          # The notes are the version's entry in CHANGELOG.md; GitHub writes them if it has none.
+          if sh scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md; then
+            notes="--notes-file notes.md"
+          else
+            notes="--generate-notes"
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" $notes

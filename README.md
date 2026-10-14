@@ -27,7 +27,7 @@
   <img src="https://img.shields.io/badge/Android-IME-3DDC84?logo=android&logoColor=white" alt="Android">
   <img src="https://img.shields.io/badge/macOS-InputMethodKit-000000?logo=apple&logoColor=white" alt="macOS">
   <img src="https://img.shields.io/badge/Linux-IBus-FCC624?logo=linux&logoColor=black" alt="Linux">
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
+  <img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg" alt="AGPL-3.0 License">
 </p>
 
 ---
@@ -304,4 +304,4 @@ git tag v0.5.0; git push origin v0.5.0
 
 ## 라이선스
 
-[MIT](LICENSE). 데이터 라이선스는 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) 에 있습니다 (`korean_vocabulary.txt` 는 CC BY-SA 4.0, `kana_trigrams.txt` 는 Tatoeba CC-BY 2.0 FR).
+Copyright (C) 2026 [Necessity](https://github.com/iamallyouneed). [AGPL-3.0-only](LICENSE) 입니다 (v0.4.1까지의 릴리스는 MIT였고 그대로 남습니다. 원저작자 고지는 [NOTICE](NOTICE)). 기여하는 방법은 [CONTRIBUTING.md](CONTRIBUTING.md), 버전별 변경은 [CHANGELOG.md](CHANGELOG.md) 에 있습니다. 데이터 라이선스는 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) 에 있습니다 (`korean_vocabulary.txt` 는 CC BY-SA 4.0, `kana_trigrams.txt` 는 Tatoeba CC-BY 2.0 FR).

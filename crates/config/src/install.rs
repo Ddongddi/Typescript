@@ -550,6 +550,8 @@ mod tests {
             "typescript.xml.in",
             "install.sh",
             "VERSION",
+            "LICENSE",
+            "NOTICE",
             "THIRD_PARTY_NOTICES.txt",
         ];
         let mac = [
@@ -558,6 +560,9 @@ mod tests {
             "Typescript.app.tar",
             "install.sh",
             "VERSION",
+            "LICENSE",
+            "NOTICE",
+            "THIRD_PARTY_NOTICES.txt",
         ];
         for (os, names) in [("linux", &linux[..]), ("macos", &mac[..])] {
             let files: Vec<(&str, &[u8])> = names.iter().map(|n| (*n, &b"x"[..])).collect();

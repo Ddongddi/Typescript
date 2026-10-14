@@ -26,7 +26,7 @@ if [ "$OS" = macos ]; then
 else
   cp target/release/typescript target/release/typescript-config "$STAGE/"
 fi
-cp THIRD_PARTY_NOTICES.txt scripts/install.sh "$STAGE/"
+cp LICENSE NOTICE THIRD_PARTY_NOTICES.txt scripts/install.sh "$STAGE/"
 echo "$VERSION" > "$STAGE/VERSION"
 if [ "$OS" = linux ]; then
   make -C platforms/linux
