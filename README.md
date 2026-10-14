@@ -85,7 +85,7 @@ irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
-& $i -Version v0.6.1       # 특정 버전
+& $i -Version v0.6.2       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
@@ -295,7 +295,7 @@ cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/pac
 `v` 로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 테스트 → x64/x86 빌드 → 언어 팩 생성(`build-packs`) → 패키징(`scripts/package.ps1`) → 릴리스 생성까지 합니다. Linux와 macOS는 각 러너에서 따로 빌드·패키징(`scripts/package.sh`)하고, 마지막 `publish` 잡이 모아 한 번에 릴리스합니다. 올라가는 파일은 `typescript-windows.zip`(입력기와 `packs\`), `typescript-linux.zip`, `typescript-macos.zip`, 각 `.sha256`, `install.ps1`, `install.sh`, `typescript.apk` 입니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌립니다.
 
 ```powershell
-git tag v0.6.1; git push origin v0.6.1
+git tag v0.6.2; git push origin v0.6.2
 ```
 
 ## 알려진 한계
