@@ -16,8 +16,23 @@ function render(focusKey) {
   }
 }
 
+// Draws only the keys panel. Key designation is all local until 지정 is pressed, so rebuilding
+// the whole page (chat included) on every keypress flickers for nothing.
+function renderKeysPanel(focusKey) {
+  if (!state) return;
+  renderKeys();
+  if (focusKey) {
+    const el = document.querySelector('[data-f="' + CSS.escape(focusKey) + '"]');
+    if (el && !el.disabled) el.focus({ preventScroll: true });
+  }
+}
+
 function selectTab(index, focus) {
   stopCapture(); stopHangulCapture();
+  // The designation panel listens only while the 키 tab is in front. Leaving closes it (the draft
+  // is dropped) and draws the tab again, so what is shown is what is held.
+  if (assignOpen && TABS[index] === "keys") startCapture();
+  else if (assignOpen) { stopAssign(); renderKeysPanel(); }
   TABS.forEach((name, k) => {
     tabOf(name).setAttribute("aria-selected", k === index);
     tabOf(name).tabIndex = k === index ? 0 : -1;

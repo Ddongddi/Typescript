@@ -1,15 +1,22 @@
 "use strict";
 // 키 tab: what the 한/영 key does: switch the word's language (the default), nothing, or send a
 // shortcut (Ctrl+C, Win+L, ...) to the app. Saved through /api/settings, which checks it.
+//
+// The shortcut is designated in two slots, [modifiers] + [one key], filled one at a time:
+// modifiers only through buttons, the key through a lone keypress or a preset. Pressing a chord
+// like Win+L for real would lock the screen; the Win button plus a lone L is the same shortcut
+// without the danger. Nothing is saved until 지정 is pressed.
 
-const SEND_PRESETS = ["Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+Space", "Win+D", "Win+L"];
+const SEND_PRESETS = ["Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+S", "Ctrl+Space", "Alt+Tab", "Win+D", "Win+L"];
 const SEND_MODS = ["Ctrl", "Alt", "Shift", "Win"];
 const KEY_LABELS = { Hangul: "한/영", Hanja: "한자", RAlt: "오른쪽 Alt", RCtrl: "오른쪽 Ctrl", RShift: "오른쪽 Shift" };
 const HELD_CODES = ["ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"];
 
-let capture = false;   // a shortcut is being waited for
+let capture = false;   // a lone keypress is waited for (slot 2)
 let sendDraft = false;   // "단축키 보내기" chosen, nothing picked yet (nothing saved)
-let sendMods = { Ctrl: false, Alt: false, Shift: false, Win: false };   // held with the next key
+let sendMods = { Ctrl: false, Alt: false, Shift: false, Win: false };   // slot 1: held with the key
+let assignOpen = false;   // the two-slot designation panel is open
+let sendKey = "";   // slot 2: the key picked in the panel ("" = none yet)
 
 // One keycap per key of a combination: Ctrl + C is two caps.
 const keyCaps = (text) => text.split("+").flatMap((p, i) => [
@@ -44,24 +51,86 @@ function stopCapture() {
   document.removeEventListener("keydown", onCaptureDown, true);
 }
 
-// The key pressed, with the modifiers held and the ones switched on (Win can't be held here:
-// the system takes it).
+// Slot 2 is filled one key at a time, never as a chord: pressing Win+L together would lock the
+// screen, but the Win button plus a lone L designates the same shortcut without the danger.
 function onCaptureDown(e) {
   if (!capture) return;
+  // What is not the shortcut keeps working while the panel listens: typing in the chat on the
+  // right, moving about with Tab (Ctrl/Alt+Tab is a shortcut, Shift+Tab is moving back), and
+  // the arrow keys on a tab.
+  if (editable(e.target)) return;
+  if (e.code === "Tab" && !e.ctrlKey && !e.altKey) return;
+  if (e.target && e.target.getAttribute && e.target.getAttribute("role") === "tab") return;
+  // A focused button keeps working: Enter/Space on 지정 or 취소 must not become the key.
+  if ((e.code === "Enter" || e.code === "Space") && e.target && e.target.tagName === "BUTTON") return;
   e.preventDefault(); e.stopPropagation();
-  if (e.repeat || HELD_CODES.includes(e.code)) return;
+  if (e.repeat) return;
+  if (e.code === "Escape") { stopAssign(); renderKeysPanel("send-assign"); return; }   // Esc backs out, it never becomes the key
+  if (e.code === "MetaLeft" || e.code === "MetaRight" || e.metaKey) {
+    toast("Win 키는 왼쪽 슬롯의 Win 버튼으로 골라주세요 (함께 누르면 화면이 잠길 수 있습니다)", true);
+    return;
+  }
+  if (HELD_CODES.includes(e.code)) return;   // a lone modifier belongs to slot 1, not this one
   const key = sendKeyName(e.code);
   if (!key) { toast("이 키는 보낼 수 없습니다", true); return; }
-  const held = [e.ctrlKey || sendMods.Ctrl ? "Ctrl" : "", e.altKey || sendMods.Alt ? "Alt" : "", e.shiftKey || sendMods.Shift ? "Shift" : "", sendMods.Win ? "Win" : ""];
-  stopCapture();
-  setShortcut([...held, key].filter(Boolean).join("+"));
+  // Held Ctrl/Alt/Shift join slot 1 (sticky: the toggles show them, click to take back off).
+  sendMods.Ctrl = sendMods.Ctrl || e.ctrlKey;
+  sendMods.Alt = sendMods.Alt || e.altKey;
+  sendMods.Shift = sendMods.Shift || e.shiftKey;
+  sendKey = key;
+  renderKeysPanel("assign-confirm");
 }
 
 function startCapture() {
   stopHangulCapture();
+  if (capture) return;
   capture = true;
   document.addEventListener("keydown", onCaptureDown, true);
-  render("capture-cancel");
+}
+
+function stopAssign() {
+  assignOpen = false;
+  sendKey = "";
+  stopCapture();
+}
+
+// "Ctrl+Shift" + key, in the order the server shows them ("" while slot 2 is empty).
+function draftShortcut() {
+  const held = [
+    sendMods.Ctrl ? "Ctrl" : "",
+    sendMods.Alt ? "Alt" : "",
+    sendMods.Shift ? "Shift" : "",
+    sendMods.Win ? "Win" : "",
+  ].filter(Boolean);
+  return sendKey ? [...held, sendKey].join("+") : "";
+}
+
+function fillDraft(text) {
+  const parts = text.split("+");
+  sendKey = parts.length && parts[parts.length - 1] ? parts[parts.length - 1] : "";
+  sendMods = { Ctrl: false, Alt: false, Shift: false, Win: false };
+  for (const p of parts.slice(0, -1)) {
+    if (p === "Ctrl") sendMods.Ctrl = true;
+    else if (p === "Alt") sendMods.Alt = true;
+    else if (p === "Shift") sendMods.Shift = true;
+    else if (p === "Win") sendMods.Win = true;
+  }
+}
+
+// The panel starts from what is sent now, so changing one slot is one action.
+function openAssign() {
+  const action = state.settings.hangulAction;
+  fillDraft(action === "flip" || action === "none" ? "" : action);
+  assignOpen = true;
+  startCapture();
+  renderKeysPanel("assign-cancel");
+}
+
+function confirmAssign() {
+  const chord = draftShortcut();
+  if (!sendKey) return;
+  stopAssign();
+  setShortcut(chord);
 }
 
 // Which physical key is the Han/Eng key. Many laptops send it as the right Alt, not as Hangul:
@@ -89,7 +158,7 @@ function startHangulCapture() {
   stopCapture();
   hangulCapture = true;
   document.addEventListener("keydown", onHangulDown, true);
-  render("hangul-cancel");
+  renderKeysPanel("hangul-cancel");
 }
 
 // The three things the Han/Eng key can do.
@@ -106,8 +175,11 @@ function renderKeys() {
   const shownKind = sendDraft ? "send" : kind;
   const pick = (v) => {
     if (busy || v === shownKind) return;
+    stopAssign();
     sendDraft = v === "send";
-    if (v === "send") render("act-send");
+    // Choosing "send" opens the designation panel at once: there is no
+    // "nothing picked yet" stop in between.
+    if (v === "send") openAssign();
     else saveKeys({ hangulAction: v }, "저장했습니다", { hangulAction: action });
   };
   const cards = h("div", { class: "acts", role: "radiogroup", "aria-label": "한/영 키를 누르면" },
@@ -117,24 +189,41 @@ function renderKeys() {
     }, h("b", {}, title), h("span", {}, hint))));
 
   let send = null;
-  if (shownKind === "send") {
+  if (shownKind === "send" || assignOpen) {
     const now = kind === "send" ? action : "";
-    const presets = h("div", { class: "presets", role: "group", "aria-label": "자주 쓰는 단축키" },
-      SEND_PRESETS.map((v) => h("button", { type: "button", class: "preset", "aria-pressed": v === now, "data-f": "preset-" + v, disabled: busy, onclick: () => setShortcut(v) }, v)));
-    const mods = h("div", { class: "mods", role: "group", "aria-label": "함께 누를 키" },
-      SEND_MODS.map((m) => h("button", {
-        type: "button", class: "mod", "aria-pressed": sendMods[m], "data-f": "mod-" + m, disabled: busy,
-        onclick: () => { sendMods[m] = !sendMods[m]; render("mod-" + m); },
-      }, m)));
-    const press = capture
-      ? h("span", { class: "chip waiting", role: "status" }, "키를 누르세요…",
-          h("button", { type: "button", class: "chip-x", "data-f": "capture-cancel", onclick: () => { stopCapture(); render("send-capture"); } }, "취소"))
-      : h("button", { type: "button", class: "btn", "data-f": "send-capture", disabled: busy, onclick: startCapture }, "키 눌러 지정");
-    send = h("div", { class: "send" },
-      h("div", { class: "now" }, h("span", { class: "lbl" }, "보내는 단축키"),
-        now ? h("span", { class: "chip" }, keyCaps(now)) : h("em", {}, "아직 고르지 않았습니다")),
-      h("div", { class: "own" }, press, h("span", { class: "lbl" }, "함께 누를 키"), mods),
-      h("span", { class: "lbl" }, "또는 골라서 지정"), presets);
+    const current = h("div", { class: "now" }, h("span", { class: "lbl" }, "보내는 단축키"),
+      now ? h("span", { class: "chip" }, keyCaps(now)) : h("em", {}, "아직 고르지 않았습니다"),
+      assignOpen ? null
+        : h("button", { type: "button", class: "btn", "data-f": "send-assign", disabled: busy, onclick: openAssign }, "단축키 지정"));
+    let panel = null;
+    if (assignOpen) {
+      const draft = draftShortcut();
+      const mods = h("div", { class: "mods", role: "group", "aria-label": "함께 누를 키" },
+        SEND_MODS.map((m) => h("button", {
+          type: "button", class: "mod", "aria-pressed": sendMods[m], "data-f": "mod-" + m, disabled: busy,
+          onclick: () => { sendMods[m] = !sendMods[m]; renderKeysPanel("mod-" + m); },
+        }, m)));
+      const presets = h("div", { class: "presets", role: "group", "aria-label": "자주 쓰는 단축키" },
+        SEND_PRESETS.map((v) => h("button", {
+          type: "button", class: "preset", "aria-pressed": v === draft, "data-f": "preset-" + v, disabled: busy,
+          onclick: () => { fillDraft(v); renderKeysPanel("assign-confirm"); },
+        }, v)));
+      panel = h("div", { class: "assign", role: "group", "aria-label": "단축키 지정" },
+        h("div", { class: "slots" },
+          h("div", { class: "slot" }, h("span", { class: "lbl" }, "함께 누를 키 (버튼)"), mods),
+          h("span", { class: "plus", "aria-hidden": "true" }, "+"),
+          h("div", { class: "slot" }, h("span", { class: "lbl" }, "보낼 키 (한 번 누르기)"),
+            h("span", { class: "slotkey" }, sendKey ? keyCaps(sendKey)
+              : h("span", { class: "chip waiting", role: "status" }, "키를 한 번 누르세요")))),
+        h("p", { class: "hint" }, "키는 하나씩만 누르세요. Win+L처럼 함께 누르면 화면이 잠기는 조합도, 버튼과 한 키씩 나누면 안전하게 지정됩니다. (Esc: 취소)"),
+        h("div", { class: "decided" }, h("span", { class: "lbl" }, "지정될 단축키"),
+          draft ? h("span", { class: "chip" }, keyCaps(draft)) : h("em", {}, "미정")),
+        h("span", { class: "lbl" }, "또는 골라서 채우기"), presets,
+        h("div", { class: "actions" },
+          h("button", { type: "button", class: "btn primary", "data-f": "assign-confirm", disabled: busy || !sendKey, onclick: confirmAssign }, "지정"),
+          h("button", { type: "button", class: "btn quiet", "data-f": "assign-cancel", disabled: busy, onclick: () => { stopAssign(); renderKeysPanel("send-assign"); } }, "취소")));
+    }
+    send = h("div", { class: "send" }, current, panel);
   }
 
   $("p-keys").replaceChildren(
@@ -143,11 +232,11 @@ function renderKeys() {
       h("div", { class: "ask" }, h("b", {}, "이 키를 누르면"), h("span", {}, ["flip", "none"].includes(state.settings.hangulAction) ? "텍스트를 입력하는 창에서 동작합니다" : "어디서든 동작합니다")),
       hangulCapture
         ? h("span", { class: "chip waiting", role: "status" }, "한/영 키를 누르세요…",
-            h("button", { type: "button", class: "chip-x", "data-f": "hangul-cancel", onclick: () => { stopHangulCapture(); render("hangul-capture"); } }, "취소"))
+            h("button", { type: "button", class: "chip-x", "data-f": "hangul-cancel", onclick: () => { stopHangulCapture(); renderKeysPanel("hangul-capture"); } }, "취소"))
         : h("button", { type: "button", class: "btn quiet", "data-f": "hangul-capture", disabled: busy, onclick: startHangulCapture }, "다른 키로 인식될 때")),
     cards, send,
     h("div", { class: "keys-foot" },
-      h("p", {}, "Win은 키보드로 누를 수 없어서 버튼으로 함께 고릅니다. 한/영 키가 오른쪽 Alt로 들어오는 노트북이면 “다른 키로 인식될 때”를 눌러 한/영 키를 한 번 누르세요."),
+      h("p", {}, "한/영 키가 오른쪽 Alt로 들어오는 노트북이면 “다른 키로 인식될 때”를 눌러 한/영 키를 한 번 누르세요."),
       h("p", {}, "더 많은 키 매핑을 하고 싶다면 ",
         h("a", { href: "https://github.com/iamallyouneed/KeyZen", target: "_blank", rel: "noopener noreferrer" }, "KeyZen"),
         "을 확인하세요.")));

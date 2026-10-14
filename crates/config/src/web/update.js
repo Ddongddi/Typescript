@@ -15,7 +15,8 @@ function inline(text) {
 }
 
 // Adds one changelog line to a version: a "### group" starts a group, "- item" an item (in a
-// group of no title when the version has none), an indented line continues the item above.
+// group of no title when the version has none), an indented line continues the item above, and
+// a plain paragraph before the first group is the version's description.
 function takeLine(now, line) {
   if (line.startsWith("### ")) now.groups.push({ title: line.slice(4).trim(), items: [] });
   else if (line.startsWith("- ")) {
@@ -24,24 +25,27 @@ function takeLine(now, line) {
   } else if (/^\s+\S/.test(line) && now.groups.length) {
     const items = now.groups[now.groups.length - 1].items;
     if (items.length) items[items.length - 1] += " " + line.trim();
+  } else if (line.trim() && !now.groups.length) {
+    now.intro.push(line.trim());
   }
 }
 
-// CHANGELOG.md as a list of versions ("## [x.y.z] - date" or "## x.y.z", then groups and items).
+// CHANGELOG.md as a list of versions ("## [x.y.z] - date" or "## x.y.z", then a description,
+// groups and items).
 function parseChangelog(text) {
   const versions = [];
   for (const line of text.split(/\r?\n/)) {
     const head = line.match(/^## \[?([^\]\s]+)\]?(?: - (\S+))?/);
-    if (head) { versions.push({ version: head[1], date: head[2] || "", groups: [] }); continue; }
+    if (head) { versions.push({ version: head[1], date: head[2] || "", intro: [], groups: [] }); continue; }
     if (/^\[[^\]]+\]: /.test(line)) break;   // the link list at the end of the file
     if (versions.length) takeLine(versions[versions.length - 1], line);
   }
-  return versions.filter((v) => v.groups.length);
+  return versions.filter((v) => v.groups.length || v.intro.length);
 }
 
 // A release's notes (the text GitHub holds for it) as the same kind of version.
 function parseNotes(release) {
-  const now = { version: release.version, date: release.date, groups: [] };
+  const now = { version: release.version, date: release.date, intro: [], groups: [] };
   for (const line of release.notes.split(/\r?\n/)) takeLine(now, line);
   return now;
 }
@@ -50,7 +54,9 @@ function versionFold(v, open, tag) {
   return h("details", { open },
     h("summary", {}, h("b", {}, v.version === "Unreleased" ? "다음 버전" : v.version), h("span", {}, v.date),
       tag ? h("em", {}, tag) : ""),
-    h("div", { class: "body" }, ...v.groups.flatMap((g) => [g.title ? h("h4", {}, g.title) : null, h("ul", {}, ...g.items.map((it) => h("li", {}, ...inline(it))))])));
+    h("div", { class: "body" },
+      ...(v.intro || []).map((p) => h("p", { class: "note" }, ...inline(p))),
+      ...v.groups.flatMap((g) => [g.title ? h("h4", {}, g.title) : null, h("ul", {}, ...g.items.map((it) => h("li", {}, ...inline(it))))])));
 }
 
 // The whole history: versions newer than this one (from GitHub, once a check found them), then
@@ -58,7 +64,7 @@ function versionFold(v, open, tag) {
 // true/false after "모두 펼치기" / "모두 접기".
 function changelog(text) {
   const mine = parseChangelog(text);
-  const newer = (updates.newer || []).map(parseNotes).filter((v) => v.groups.length);
+  const newer = (updates.newer || []).map(parseNotes).filter((v) => v.groups.length || v.intro.length);
   const current = (v, i) => v.version === state.version || (i === 0 && v.version !== "Unreleased" && !mine.some((x) => x.version === state.version));
   const open = (def) => (updates.fold === null ? def : updates.fold);
   const count = mine.filter((v) => v.version !== "Unreleased").length + newer.length;
@@ -76,7 +82,9 @@ async function loadChangelog() {
   if (updates.log !== null) return;
   updates.log = "";   // asked once
   try { updates.log = (await api("/api/changelog")).text; } catch (e) { updates.log = ""; }
-  if (!panelOf("upd").hidden) renderUpdate();
+  // Draw again whatever tab is in front: the request usually lands while another tab is open,
+  // and opening this tab later does not draw again by itself.
+  renderUpdate();
 }
 
 function renderUpdate() {

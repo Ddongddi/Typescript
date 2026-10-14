@@ -164,9 +164,9 @@ function clearChat() {
 
 function chatBox() {
   const send = (key) => { chat.queue = chat.queue.then(() => playKey(key)); const box = $("chat-in"); if (box) box.focus(); };
-  const box = h("section", { class: "chat", "aria-label": "채팅으로 체험" },
+  const box = h("section", { class: "chat", "aria-label": "채팅으로 테스트" },
     h("div", { class: "chat-head" },
-      h("b", {}, "체험"), h("span", {}),
+      h("b", {}, "테스트"), h("span", {}),
       h("button", { type: "button", class: "btn quiet", "data-f": "chat-clear", onclick: clearChat }, "지우기")),
     h("div", { id: "chat-log", class: "chat-log", role: "log", "aria-live": "polite" }),
     h("p", { id: "chat-why", class: "chat-why", "aria-live": "polite" }),

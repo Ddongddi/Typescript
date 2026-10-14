@@ -19,9 +19,18 @@
 .send { display: grid; gap: 14px; padding: 22px 0 6px 24px; }
 .send .now { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; min-height: 48px; }
 .send em { color: var(--mute); font: normal 14px var(--sans); }
-.send .own { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
 .lbl { color: var(--mute); font-size: 12px; }
 .mods, .presets { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+
+/* the two-slot designation panel: [modifiers] + [one key], saved only on 지정 */
+.assign { display: grid; gap: 12px; margin-top: 14px; padding: 16px 0 6px 24px; border-top: 1px dashed var(--hair-strong); animation: rise .2s ease both; }
+.slots { display: flex; align-items: end; gap: 4px 14px; flex-wrap: wrap; }
+.slot { display: grid; gap: 8px; align-content: start; }
+.slots .plus { padding-bottom: 12px; color: var(--mute); font: 500 16px var(--mono); }
+.slotkey { display: flex; align-items: center; min-height: 40px; }
+.assign .hint { margin: 0; max-width: 64ch; color: var(--mute); font-size: 12px; }
+.assign .decided { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; min-height: 40px; }
+.assign .actions { display: flex; gap: 8px; }
 
 .keycap { display: inline-block; min-width: 40px; padding: 5px 11px; border: 1px solid var(--hair-strong); border-bottom-width: 2px; border-radius: 5px; color: var(--fg); font: 500 13px var(--mono); text-align: center; }
 .now .keycap { min-width: 48px; padding: 8px 14px; font-size: 16px; }
