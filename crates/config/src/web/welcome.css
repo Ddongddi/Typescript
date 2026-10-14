@@ -6,12 +6,11 @@ body { display: grid; place-items: center; }
 #later { margin-top: 44px; }
 #stage .btn.quiet { margin-top: -6px; }
 
-/* the segmented progress bar, fixed on top: finished segments are lit, the current one half */
+/* the segmented progress bar, fixed on top: the segments up to this screen are lit, whole */
 .bar { position: fixed; top: 18px; left: 50%; width: min(560px, calc(100% - 48px)); display: flex; gap: 6px; transform: translateX(-50%); }
 .bar i { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--hair); overflow: hidden; }
 .bar i::after { content: ""; position: absolute; inset: 0; background: var(--acc); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.16, 1, .3, 1); }
 .bar i.on::after { transform: scaleX(1); }
-.bar i.cur::after { transform: scaleX(.35); }
 
 /* a quiet line under the title */
 .aside { margin: -8px 0 4px; color: var(--mute); font-size: 13px; }

@@ -102,7 +102,7 @@ function drawBar() {
   const bar = view.bar;
   if (bar.childElementCount !== progress.total) bar.replaceChildren(...Array.from({ length: progress.total }, () => h("i", {})));
   [...bar.children].forEach((seg, i) => {
-    seg.className = i < progress.cursor ? "on" : i === progress.cursor ? "cur" : "";
+    seg.className = i <= progress.cursor ? "on" : "";   // a segment is lit or not, never half
   });
   bar.setAttribute("aria-valuemax", String(progress.total));
   bar.setAttribute("aria-valuenow", String(progress.cursor));
@@ -145,6 +145,7 @@ function pass(box, next, message, pause = PASS_PAUSE) {
   if (box) replay(box, "done");
   view.title.textContent = message || "✓";
   view.title.classList.remove("swap");
+  if (message) view.title.classList.add("one");   // a sentence: on one line, never broken in two
   replay(view.title, message ? "swap" : "good");
   setTimeout(next, pause);
 }
@@ -156,22 +157,20 @@ function intro() {
   skipAction = chooseLanguages;
   view.later.hidden = false;
   goto(0);
-  const hello = h("button", { type: "button", class: "btn primary wide" }, "안녕?");
-  hello.addEventListener("click", askIntro);
-  show("안녕하세요", hello);
-  hello.focus();
+  askIntro();
 }
 
-// Type "안녕 typescript" with your own input method: every press of the Han/Eng key shows what
-// this page is about.
+// "안녕하세요", and under it in grey what to ask of you: type "안녕 typescript" with your own
+// input method. Every press of the Han/Eng key shows what this page is about.
 function askIntro() {
   const hint = h("p", { class: "hint", role: "status" });
+  const aside = h("p", { class: "aside" }, hl(INTRO_TEXT), "를 입력해 보세요");
   const input = h("input", {
     type: "text", class: "practice", placeholder: INTRO_TEXT, "aria-label": INTRO_TEXT,
     autocomplete: "off", autocapitalize: "off", spellcheck: "false",
   });
   const next = h("button", { type: "button", class: "btn primary wide", disabled: true }, "계속");
-  show([hl(INTRO_TEXT), "를 입력해 보세요"], input, next, hint);
+  show("안녕하세요", aside, input, next, hint);
   input.focus();
   let finished = false;
   input.addEventListener("keydown", (e) => { if (isHangulKey(e)) flash(input, "nope"); });
@@ -183,6 +182,7 @@ function askIntro() {
     input.readOnly = true;
     input.classList.add("done");
     goto(1);
+    aside.hidden = true;   // the request is done
     // First the question, then the button wakes up with its answer.
     retitle([hanKey(), "키가 꼭 필요한 키일까요?"], () => {
       next.textContent = "아니요";
@@ -384,37 +384,74 @@ function typingScreen(spec, next) {
 // The word the program gets wrong on purpose: 깨짐 typed on English keys is "Rowla", which it
 // reads as English. Esc then turns it into the Korean (checked against the real engine).
 const ESC_WORD = { text: "깨짐", keys: "Rowla" };
+// Three rounds. The program learns a word the second time it is corrected the same way (the
+// correction counts once the word is confirmed), so: Esc, once more, and then the last round,
+// where the word should come out right by itself.
+const ESC_ROUNDS = [
+  () => [hl(ESC_WORD.text), " 을 쳐 보세요"],
+  () => "한 번만 더 해 주시겠어요?",
+  () => "마지막으로 한 번만 더요",
+];
+const ESC_TAUGHT = "이렇게 2번 고치신 단어는 기억해 드립니다";
+const TAUGHT_PAUSE = 2800;   // ms the sentence above stays: it is the point of the screen
 
-// Type Rowla; when it stays "Rowla", say that Esc fixes what it could not tell, and wait for it.
+// Each round is a new input box: a new text context, so the word before it (already Korean)
+// cannot make the next one come out Korean on its own, which would look like learning.
 function escScreen(next) {
-  const hint = h("p", { class: "hint", role: "status" });
-  const input = h("input", {
-    type: "text", class: "practice", placeholder: ESC_WORD.keys, "aria-label": ESC_WORD.keys,
-    autocomplete: "off", autocapitalize: "off", spellcheck: "false",
-  });
-  let asked = false, finished = false;
-  const check = () => {
-    if (finished) return;
-    if (input.value === ESC_WORD.text) {   // right already, or after Esc
+  const last = ESC_ROUNDS.length - 1;
+  const run = (round) => {
+    const hint = h("p", { class: "hint", role: "status" });
+    const input = h("input", {
+      type: "text", class: "practice", placeholder: ESC_WORD.keys, "aria-label": ESC_WORD.keys,
+      autocomplete: "off", autocapitalize: "off", spellcheck: "false",
+    });
+    let phase = "type";   // type -> esc (it stayed English) -> confirm (Esc made it Korean)
+    let composing = false, finished = false;
+    const roundDone = () => {
       finished = true;
-      pass(input, next);
-    } else if (!asked && input.value === ESC_WORD.keys) {   // the program kept it as English
-      asked = true;
-      retitle([hl("Esc"), "를 눌러 보세요"]);
-      hint.textContent = "판별에 실패한 글씨는 Esc로 바꿀 수 있어요";
-      replay(hint, "slide");
-    }
+      if (round === last) { pass(input, next); return; }   // got there with Esc: nothing to claim
+      replay(input, "done");
+      setTimeout(() => run(round + 1), 500);
+    };
+    const check = () => {
+      if (finished) return;
+      const value = input.value;
+      if (phase === "type") {
+        if (value === ESC_WORD.text) {
+          // It came out right without Esc: in the last round that is the learning; earlier it
+          // means the program knew the word already.
+          finished = true;
+          pass(input, next, round === last ? ESC_TAUGHT : "이미 기억하고 있는 단어예요", TAUGHT_PAUSE);
+        } else if (value === ESC_WORD.keys) {   // the program kept it as English
+          phase = "esc";
+          retitle([hl("Esc"), "를 눌러 보세요"]);
+          hint.textContent = round === 0 ? "판별에 실패한 글씨는 Esc로 바꿀 수 있어요" : "";
+          replay(hint, "slide");
+        }
+      } else if (phase === "esc") {
+        if (value === ESC_WORD.text) {
+          phase = "confirm";
+          hint.textContent = "Space를 눌러 확정하세요";
+          replay(hint, "slide");
+        }
+      } else if (!composing && value.trim() === ESC_WORD.text) {   // confirm: committed
+        roundDone();
+      }
+    };
+    input.addEventListener("compositionstart", () => { composing = true; });
+    input.addEventListener("compositionend", () => { composing = false; check(); });
+    input.addEventListener("input", check);
+    input.addEventListener("keyup", () => setTimeout(check, 50));   // Esc may change it without an input event
+    show(ESC_ROUNDS[round](), input, hint);
+    input.focus();
   };
-  input.addEventListener("compositionend", check);
-  input.addEventListener("input", check);
-  input.addEventListener("keyup", () => setTimeout(check, 50));   // Esc may change it without an input event
-  show([hl(ESC_WORD.text), " 을 쳐 보세요"], input, hint);
-  input.focus();
+  run(0);
 }
 
 function finish() {
   goto(progress.total);
-  show("설명은 여기까지에요! 앞으로의 업데이트도 잘 부탁드려요 :) ", h("button", { type: "button", class: "btn primary wide", onclick: leave }, "설정 열기"));
+  show("설명은 여기까지에요!", h("p", { class: "aside" }, "앞으로의 업데이트도 잘 부탁드려요 :)"),
+    h("button", { type: "button", class: "btn primary wide", onclick: leave }, "설정 열기"));
   view.later.hidden = true;
 }
 

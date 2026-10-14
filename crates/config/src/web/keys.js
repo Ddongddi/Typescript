@@ -234,7 +234,7 @@ function renderKeys() {
         ? h("span", { class: "chip waiting", role: "status" }, "한/영 키를 누르세요…",
             h("button", { type: "button", class: "chip-x", "data-f": "hangul-cancel", onclick: () => { stopHangulCapture(); renderKeysPanel("hangul-capture"); } }, "취소"))
         : h("button", { type: "button", class: "btn quiet", "data-f": "hangul-capture", disabled: busy, onclick: startHangulCapture }, "다른 키로 인식될 때")),
-    cards, send,
+    cards, send || "",   // (never null: replaceChildren would write it as the word "null")
     h("div", { class: "keys-foot" },
       h("p", {}, "한/영 키가 오른쪽 Alt로 들어오는 노트북이면 “다른 키로 인식될 때”를 눌러 한/영 키를 한 번 누르세요."),
       h("p", {}, "더 많은 키 매핑을 하고 싶다면 ",
