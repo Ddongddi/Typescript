@@ -9,6 +9,16 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-15
+
+### 변경
+- 키 탭: 한/영 키로 보낼 단축키를 두 칸으로 지정합니다. 왼쪽 칸은 Ctrl·Alt·Shift·Win 버튼, 오른쪽 칸은 키를 한 번 누르거나 자주 쓰는 단축키를 골라 채웁니다. Win+L처럼 한꺼번에 누르면 화면이 잠기는 조합도 Win 버튼과 L 한 번으로 안전하게 지정되고, [지정]을 누르기 전에는 아무것도 저장되지 않습니다. 패널이 열려 있어도 Tab 이동과 채팅 입력은 그대로 되고, 다른 탭으로 가면 패널이 닫힙니다. 자주 쓰는 단축키에 Ctrl+S와 Alt+Tab이 늘었습니다.
+- 대시보드 오른쪽 패널의 이름이 "체험"에서 "테스트"로 바뀌었습니다.
+- 업데이트 탭: 버전 앞의 설명 문단(예: 0.8.0이 마이너 버전을 올린 이유)이 변경 기록에 같이 보입니다.
+
+### 수정
+- 변경 기록 요청이 다른 탭을 보고 있을 때 끝나면 업데이트 탭을 열어도 기록이 나타나지 않던 문제.
+
 ## [0.8.0] - 2026-10-15
 
 이번 버전은 팩 파일 형식이 바뀌어서 0.7.1이 아니라 **0.8.0**으로 올립니다. 팩과 프로그램은 같은 마이너 버전끼리만 호환되도록 되어 있는데(0.7.x 팩은 0.7.x 프로그램용), 새 일본어 팩은 옛 프로그램(0.7.x)이 읽을 수 없는 형식이라 호환 범위를 나누려는 것입니다. 0.7.x에서는 이 릴리스의 팩 목록이 호환되지 않는다고 보고 받지 않으며 "Typescript를 먼저 업데이트하세요"라고 안내합니다. 업데이트하면 프로그램과 일본어 팩이 함께 새로 설치됩니다.
@@ -215,7 +225,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5

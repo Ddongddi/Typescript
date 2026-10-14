@@ -103,7 +103,7 @@ irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
-& $i -Version v0.8.0       # 특정 버전
+& $i -Version v0.8.1       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
@@ -349,7 +349,7 @@ cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/pac
 **릴리스.** `v` 로 시작하는 태그를 푸시하면 GitHub Actions(`release.yml`)가 테스트 → 빌드 → 언어 팩 생성 → 패키징 → 릴리스까지 합니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌립니다.
 
 ```powershell
-git tag v0.8.0; git push origin v0.8.0
+git tag v0.8.1; git push origin v0.8.1
 ```
 
 ## 알려진 한계

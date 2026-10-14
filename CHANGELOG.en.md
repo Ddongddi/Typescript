@@ -9,6 +9,16 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-15
+
+### Changed
+- Keys tab: the shortcut the Han/Eng key sends is designated in two slots. The left slot takes the Ctrl, Alt, Shift and Win buttons; the right slot is filled by pressing one key or picking a common shortcut. A combination that locks the screen when pressed together, such as Win+L, is now designated safely as the Win button plus a single L, and nothing is saved until you press Designate. Tab navigation and typing in the chat keep working while the panel is open, and leaving the tab closes the panel. Ctrl+S and Alt+Tab were added to the common shortcuts.
+- The dashboard's right-hand panel is now called "Test" instead of "Try it".
+- Update tab: the description paragraph in front of a version (for example why 0.8.0 raised the minor version) is shown with its records.
+
+### Fixed
+- The update tab showing no records when the request for them finished while another tab was in front.
+
 ## [0.8.0] - 2026-10-15
 
 This version is **0.8.0**, not 0.7.1, because the pack file format changed. Packs and the program are only compatible within the same minor version (0.7.x packs are for 0.7.x programs), and the new Japanese pack is in a format the older program (0.7.x) cannot read, so the compatibility range is split here. A 0.7.x program sees this release's pack list as incompatible, does not download it, and says "update Typescript first". Updating installs the program and the Japanese pack together.
@@ -215,7 +225,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5
