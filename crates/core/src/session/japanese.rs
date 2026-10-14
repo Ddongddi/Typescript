@@ -44,13 +44,13 @@ impl InputSession {
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width
     /// (`Settings.full_width_digits`), as addresses in Japan often need.
     pub(super) fn digits_full_width(&self) -> bool {
-        self.japanese_enabled() && self.full_width_digits && self.policy.full_width
+        self.japanese_enabled() && self.width.full_width_digits && self.policy.full_width
     }
 
     /// A symbol typed as its own Japanese word, shown full-width (or as the 「」・ a Japanese IME types).
     pub(super) fn start_symbol(&mut self, ch: char, client: &mut dyn TextClient) {
         self.last_recorded = None;
-        self.live_suppressed = false;
+        self.ja.live_suppressed = false;
         self.word.keys = ch.to_string();
         self.word.force(Language::Japanese, false);
         self.update_preview(client);
@@ -65,14 +65,14 @@ impl InputSession {
             '}' => '｛',
             _ => return false,
         };
-        self.open_brackets.last() == Some(&opener)
+        self.width.open_brackets.last() == Some(&opener)
     }
 
     /// Keeps `open_brackets` up to date with text going in.
     pub(super) fn note_brackets(&mut self, text: &str) {
         for ch in text.chars() {
             if matches!(ch, '（' | '「' | '｛' | '『' | '【') {
-                self.open_brackets.push(ch);
+                self.width.open_brackets.push(ch);
             } else if let Some(opener) = match ch {
                 '）' => Some('（'),
                 '」' => Some('「'),
@@ -81,8 +81,8 @@ impl InputSession {
                 '】' => Some('【'),
                 _ => None,
             } {
-                if self.open_brackets.last() == Some(&opener) {
-                    self.open_brackets.pop();
+                if self.width.open_brackets.last() == Some(&opener) {
+                    self.width.open_brackets.pop();
                 }
             }
         }
@@ -153,6 +153,7 @@ impl InputSession {
     pub(super) fn japanese_reading(&self, partial: bool) -> String {
         if !partial {
             if let Some(segments) = self
+                .ja
                 .segmenter
                 .as_ref()
                 .and_then(|s| s.segment(&self.word.keys))
@@ -164,6 +165,7 @@ impl InputSession {
         // not a stray letter to split an English word ("hag") out of.
         if partial && RomajiComposer::compose(&self.word.keys, true).stray_letters > 0 {
             if let Some(segments) = self
+                .ja
                 .segmenter
                 .as_ref()
                 .and_then(|s| s.segment(&self.word.keys))
@@ -184,12 +186,12 @@ impl InputSession {
     // MARK: - Live conversion
 
     pub(super) fn is_live(&self) -> bool {
-        self.live_conversion && !self.live_suppressed && self.converter.is_some()
+        self.ja.live_conversion && !self.ja.live_suppressed && self.ja.converter.is_some()
     }
 
     /// The top candidate covering all of `kana` (cached: the preview asks on every key).
     fn live_candidate(&mut self, kana: &str) -> Option<ConversionCandidate> {
-        if let Some((cached_kana, cached)) = &self.live_cache {
+        if let Some((cached_kana, cached)) = &self.ja.live_cache {
             if cached_kana == kana {
                 return cached.clone();
             }
@@ -211,7 +213,7 @@ impl InputSession {
                 }
             }
         }
-        self.live_cache = Some((kana.to_string(), candidate.clone()));
+        self.ja.live_cache = Some((kana.to_string(), candidate.clone()));
         candidate
     }
 
@@ -243,7 +245,7 @@ impl InputSession {
         let kana = self.japanese_reading(false);
         if self.is_live() {
             if let Some(candidate) = self.live_candidate(&kana) {
-                if let Some(converter) = &self.converter {
+                if let Some(converter) = &self.ja.converter {
                     converter.learn(&candidate, &kana);
                 }
                 return candidate.text;
@@ -256,7 +258,7 @@ impl InputSession {
 
     pub(super) fn start_conversion(&mut self, client: &mut dyn TextClient) {
         let kana = self.japanese_reading(false);
-        if self.converter.is_none() || kana.is_empty() {
+        if self.ja.converter.is_none() || kana.is_empty() {
             return;
         }
         let user_forced =
@@ -285,8 +287,8 @@ impl InputSession {
                 }
             }
         }
-        self.live_suppressed = false;
-        self.conversion = Some(Conversion {
+        self.ja.live_suppressed = false;
+        self.ja.conversion = Some(Conversion {
             kana: kana.clone(),
             keys: std::mem::take(&mut self.word.keys),
             candidates,
@@ -297,6 +299,7 @@ impl InputSession {
         self.word.syllable_start = None;
         self.previous_language = Some(Language::Japanese);
         let display = self
+            .ja
             .conversion
             .as_ref()
             .map(|c| c.display())
@@ -324,7 +327,7 @@ impl InputSession {
         } else {
             forms.into_iter().rev().collect()
         };
-        self.conversion = Some(Conversion {
+        self.ja.conversion = Some(Conversion {
             kana,
             keys,
             candidates,
@@ -336,6 +339,7 @@ impl InputSession {
         self.word.syllable_start = None;
         self.previous_language = Some(Language::Japanese);
         let display = self
+            .ja
             .conversion
             .as_ref()
             .map(|c| c.display())
@@ -347,7 +351,7 @@ impl InputSession {
     /// candidates for exactly that much of the reading, the rest shown as kana. A boundary
     /// never falls inside an English word (google). None when it can't move further.
     fn resize_first_clause(&mut self, conversion: &Conversion, step: i32) -> Option<Conversion> {
-        self.converter.as_ref()?;
+        self.ja.converter.as_ref()?;
         let reading: Vec<char> = conversion.kana.chars().collect();
         let mut length = conversion.current().kana_count as i64 + step as i64;
         while length >= 1
@@ -384,7 +388,7 @@ impl InputSession {
     }
 
     pub(super) fn handle_converting(&mut self, key: Key, client: &mut dyn TextClient) -> bool {
-        let Some(conversion) = self.conversion.take() else {
+        let Some(conversion) = self.ja.conversion.take() else {
             return false;
         };
         match key {
@@ -392,7 +396,7 @@ impl InputSession {
                 let mut conversion = conversion;
                 conversion.selected = (conversion.selected + 1) % conversion.candidates.len();
                 let display = conversion.display();
-                self.conversion = Some(conversion);
+                self.ja.conversion = Some(conversion);
                 client.set_marked_text(&display);
                 true
             }
@@ -402,7 +406,7 @@ impl InputSession {
                 let count = conversion.candidates.len();
                 conversion.selected = (conversion.selected + count - 1) % count;
                 let display = conversion.display();
-                self.conversion = Some(conversion);
+                self.ja.conversion = Some(conversion);
                 client.set_marked_text(&display);
                 true
             }
@@ -412,10 +416,10 @@ impl InputSession {
                 match self.resize_first_clause(&conversion, step) {
                     Some(resized) => {
                         let display = resized.display();
-                        self.conversion = Some(resized);
+                        self.ja.conversion = Some(resized);
                         client.set_marked_text(&display);
                     }
-                    None => self.conversion = Some(conversion),
+                    None => self.ja.conversion = Some(conversion),
                 }
                 true
             }
@@ -425,8 +429,8 @@ impl InputSession {
                     let v = ch as u32;
                     (0xFF10..=0xFF19).contains(&v).then(|| v - 0xFF10)
                 });
-                self.conversion = Some(conversion);
-                let count = self.conversion.as_ref().unwrap().candidates.len();
+                self.ja.conversion = Some(conversion);
+                let count = self.ja.conversion.as_ref().unwrap().candidates.len();
                 if let Some(n) = n {
                     if n >= 1 && (n as usize) <= std::cmp::min(9, count) {
                         self.choose(n as usize - 1, client);
@@ -438,7 +442,7 @@ impl InputSession {
             }
 
             Key::Enter => {
-                self.conversion = Some(conversion);
+                self.ja.conversion = Some(conversion);
                 self.commit_candidate(client);
                 true
             }
@@ -454,10 +458,10 @@ impl InputSession {
             }
 
             Key::Escape | Key::Cycle | Key::Delete => {
-                self.live_suppressed = true; // "back to kana" means kana, also with live conversion
-                                             // Back to editing the romaji — when it still spells the reading. After part of a
-                                             // phrase with English in it was committed it may not; keep the kana rather than lose it.
-                if JapaneseSegmenter::reading_of(&conversion.keys, self.segmenter.as_ref())
+                self.ja.live_suppressed = true; // "back to kana" means kana, also with live conversion
+                                                // Back to editing the romaji — when it still spells the reading. After part of a
+                                                // phrase with English in it was committed it may not; keep the kana rather than lose it.
+                if JapaneseSegmenter::reading_of(&conversion.keys, self.ja.segmenter.as_ref())
                     != conversion.kana
                 {
                     client.insert_text(&conversion.kana, None);
@@ -470,7 +474,7 @@ impl InputSession {
                 self.word.syllable_start = None;
                 if keys.ends_with('n') && !keys.ends_with("nn") {
                     keys.push('\'');
-                    self.added_n_marker = true;
+                    self.ja.added_n_marker = true;
                 }
                 self.word.keys = keys;
                 self.word.force(Language::Japanese, conversion.user_forced);
@@ -479,13 +483,13 @@ impl InputSession {
             }
 
             Key::Letter(_) | Key::Printable(_) => {
-                self.conversion = Some(conversion);
+                self.ja.conversion = Some(conversion);
                 self.commit(client);
                 self.handle(key, client)
             }
 
             _ => {
-                self.conversion = Some(conversion);
+                self.ja.conversion = Some(conversion);
                 self.commit(client);
                 false
             }
@@ -495,14 +499,14 @@ impl InputSession {
     /// Commits the selected candidate; if it covers only the start of the reading,
     /// keeps converting the rest.
     fn commit_candidate(&mut self, client: &mut dyn TextClient) {
-        if self.converter.is_none() {
+        if self.ja.converter.is_none() {
             return;
         }
-        let Some(conversion) = self.conversion.take() else {
+        let Some(conversion) = self.ja.conversion.take() else {
             return;
         };
         let candidate = conversion.current().clone();
-        if let Some(converter) = &self.converter {
+        if let Some(converter) = &self.ja.converter {
             converter.learn(&candidate, &conversion.kana);
         }
         client.insert_text(&candidate.text, None);
@@ -525,14 +529,14 @@ impl InputSession {
                 user_forced: false,
             };
             let display = rest_conversion.display();
-            self.conversion = Some(rest_conversion);
+            self.ja.conversion = Some(rest_conversion);
             client.set_marked_text(&display);
         }
     }
 
     /// Commits candidate `index` of the open conversion (e.g. clicked in the candidate window).
     pub fn choose(&mut self, index: usize, client: &mut dyn TextClient) {
-        match self.conversion.as_mut() {
+        match self.ja.conversion.as_mut() {
             Some(conversion) if index < conversion.candidates.len() => {
                 conversion.selected = index;
             }
@@ -546,6 +550,7 @@ impl InputSession {
     /// the digits come before those that spell them out (３月, 3月, then 三月; 東京都１, not 東京都一).
     fn conversion_candidates(&self, kana: &str) -> Vec<ConversionCandidate> {
         let candidates = self
+            .ja
             .converter
             .as_ref()
             .map(|c| c.candidates(kana))
@@ -668,10 +673,10 @@ impl InputSession {
     }
 
     pub(super) fn drop_n_marker(&mut self) {
-        if self.added_n_marker && self.word.keys.ends_with('\'') {
+        if self.ja.added_n_marker && self.word.keys.ends_with('\'') {
             self.word.keys.pop();
         }
-        self.added_n_marker = false;
+        self.ja.added_n_marker = false;
     }
 
     /// Japanese with Korean typed straight after it reads as broken Hangul: a particle

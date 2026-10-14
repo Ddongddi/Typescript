@@ -66,21 +66,8 @@ struct Word {
     decided: Language,
 }
 
-pub struct InputSession {
-    engine: Arc<LearningEngine>,
-    policies: AppPolicies,
-    return_confirms_only: bool,
-    word: WordState,
-    app: Option<String>,
-    policy: AppPolicy,
-    /// The last `decide` kept a short token (3 keys or fewer, like a command) English only
-    /// because the app is set to Strict.
-    kept_english_by_strict: bool,
-    previous_language: Option<Language>,
-    last_commit: Option<Committed>,
-    paused: bool,
-    /// The languages that are on, in Esc order (the engine's).
-    languages: Languages,
+/// Japanese: the conversion in progress and what feeds it.
+struct JapaneseState {
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like
     /// macOS Live Conversion.
     live_conversion: bool,
@@ -97,6 +84,10 @@ pub struct InputSession {
     /// "henkan" came back from conversion as "henkan'" (the final n stays ん); dropped again
     /// if the word leaves Japanese, so English doesn't get an apostrophe nobody typed.
     added_n_marker: bool,
+}
+
+/// What full-width text needs to remember about the sentence so far.
+struct WidthState {
     /// Full-width openers not closed yet in this sentence, so ) ] } close them full-width
     /// after an English word too.
     open_brackets: Vec<char>,
@@ -107,6 +98,25 @@ pub struct InputSession {
     full_width_digits: bool,
     /// A space after Japanese text is full-width (`Settings.full_width_space`).
     full_width_space: bool,
+}
+
+pub struct InputSession {
+    engine: Arc<LearningEngine>,
+    policies: AppPolicies,
+    return_confirms_only: bool,
+    word: WordState,
+    ja: JapaneseState,
+    width: WidthState,
+    app: Option<String>,
+    policy: AppPolicy,
+    /// The last `decide` kept a short token (3 keys or fewer, like a command) English only
+    /// because the app is set to Strict.
+    kept_english_by_strict: bool,
+    previous_language: Option<Language>,
+    last_commit: Option<Committed>,
+    paused: bool,
+    /// The languages that are on, in Esc order (the engine's).
+    languages: Languages,
     /// The last correction handed to the learning engine: going back and forth is one correction.
     last_recorded: Option<(String, Language)>,
     last_trace: Option<Trace>,
@@ -142,18 +152,23 @@ impl InputSession {
             last_commit: None,
             paused: false,
             languages,
-            live_conversion: false,
-            converter: japanese.then(|| Arc::new(KanaConverter) as Arc<dyn JapaneseConverter>),
-            segmenter: japanese
-                .then(|| JapaneseSegmenter::new(EnglishModel::shared(), JapaneseModel::shared())),
-            conversion: None,
-            live_suppressed: false,
-            live_cache: None,
-            added_n_marker: false,
-            open_brackets: Vec::new(),
-            after_digit: false,
-            full_width_digits: false,
-            full_width_space: false,
+            ja: JapaneseState {
+                live_conversion: false,
+                converter: japanese.then(|| Arc::new(KanaConverter) as Arc<dyn JapaneseConverter>),
+                segmenter: japanese.then(|| {
+                    JapaneseSegmenter::new(EnglishModel::shared(), JapaneseModel::shared())
+                }),
+                conversion: None,
+                live_suppressed: false,
+                live_cache: None,
+                added_n_marker: false,
+            },
+            width: WidthState {
+                open_brackets: Vec::new(),
+                after_digit: false,
+                full_width_digits: false,
+                full_width_space: false,
+            },
             last_recorded: None,
             last_trace: None,
             history: None,
@@ -173,8 +188,8 @@ impl InputSession {
         converter: Arc<dyn JapaneseConverter>,
         live_conversion: bool,
     ) -> Self {
-        self.converter = Some(converter);
-        self.live_conversion = live_conversion;
+        self.ja.converter = Some(converter);
+        self.ja.live_conversion = live_conversion;
         self
     }
 
@@ -185,17 +200,17 @@ impl InputSession {
 
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width.
     pub fn set_full_width_digits(&mut self, on: bool) {
-        self.full_width_digits = on;
+        self.width.full_width_digits = on;
     }
 
     /// A space after Japanese text is full-width.
     pub fn set_full_width_space(&mut self, on: bool) {
-        self.full_width_space = on;
+        self.width.full_width_space = on;
     }
 
     /// The kana→kanji conversion in progress, if any.
     pub fn conversion(&self) -> Option<&Conversion> {
-        self.conversion.as_ref()
+        self.ja.conversion.as_ref()
     }
 
     pub fn keys(&self) -> &str {
@@ -258,19 +273,19 @@ impl InputSession {
             || self.paused
             || !self.japanese_enabled()
             || !self.word.keys.is_empty()
-            || self.conversion.is_some()
+            || self.ja.conversion.is_some()
         {
             return false;
         }
         match key {
             Key::ShiftSpace => {
                 self.policy.full_width
-                    && !(self.full_width_space
+                    && !(self.width.full_width_space
                         && self.previous_language == Some(Language::Japanese))
             }
             Key::Printable(' ') => {
                 self.policy.full_width
-                    && self.full_width_space
+                    && self.width.full_width_space
                     && self.previous_language == Some(Language::Japanese)
             }
             Key::Printable(ch) if ch.is_ascii_digit() => {
@@ -278,7 +293,8 @@ impl InputSession {
             }
             Key::Printable(ch) => {
                 RomajiComposer::is_symbol_key(ch)
-                    && ((self.previous_language == Some(Language::Japanese) && !self.after_digit)
+                    && ((self.previous_language == Some(Language::Japanese)
+                        && !self.width.after_digit)
                         || self.closes_full_width(ch))
             }
             _ => false,
@@ -293,24 +309,24 @@ impl InputSession {
         if key == Key::ShiftSpace {
             // With nothing being typed, the other width: full-width unless Space already types that.
             let eligible = self.word.keys.is_empty()
-                && self.conversion.is_none()
+                && self.ja.conversion.is_none()
                 && self.japanese_enabled()
                 && self.policy.full_width;
             if !eligible {
                 return self.handle(Key::Printable(' '), client);
             }
             self.close_flip_window();
-            if self.full_width_space && self.previous_language == Some(Language::Japanese) {
+            if self.width.full_width_space && self.previous_language == Some(Language::Japanese) {
                 return false; // the app types the half-width " "
             }
             client.insert_text("　", None);
             return true;
         }
-        if self.conversion.is_some() {
+        if self.ja.conversion.is_some() {
             return self.handle_converting(key, client);
         }
         if !(matches!(key, Key::Printable(_)) && self.word.keys.is_empty()) {
-            self.after_digit = false;
+            self.width.after_digit = false;
         }
         let pending = self.last_commit.take();
         // Esc switches languages unless the app owns it; Shift+Esc always does. With a single
@@ -349,9 +365,9 @@ impl InputSession {
         }
         if self.word.keys.is_empty() {
             self.last_recorded = None; // a new word
-            self.live_suppressed = false;
+            self.ja.live_suppressed = false;
         }
-        self.added_n_marker = false;
+        self.ja.added_n_marker = false;
         self.word.unpin();
         self.word.keys.push(ch);
         self.update_preview(client);
@@ -373,7 +389,7 @@ impl InputSession {
                 self.word.keys.pop();
             }
         }
-        self.added_n_marker = false;
+        self.ja.added_n_marker = false;
         if self.word.is_empty() {
             self.word.reset();
         }
@@ -395,7 +411,7 @@ impl InputSession {
         if self.is_live()
             && self.word.forced().or(self.word.preview_language()) == Some(Language::Japanese)
         {
-            self.live_suppressed = true;
+            self.ja.live_suppressed = true;
             self.update_preview(client);
             return true;
         }
@@ -419,7 +435,7 @@ impl InputSession {
     fn on_printable(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
         if self.word.keys.is_empty() {
             let handled = self.on_printable_empty(ch, client);
-            self.after_digit = ch.is_numeric();
+            self.width.after_digit = ch.is_numeric();
             return handled;
         }
         if self.japanese_enabled() && self.belongs_to_japanese_phrase(ch) {
@@ -433,7 +449,7 @@ impl InputSession {
         }
         if ch == ' '
             && self.current_language() == Some(Language::Japanese)
-            && self.converter.is_some()
+            && self.ja.converter.is_some()
         {
             self.start_conversion(client);
             return true;
@@ -473,7 +489,7 @@ impl InputSession {
     fn on_printable_empty(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
         if self.previous_language == Some(Language::Japanese) {
             if ch == ' '
-                && self.full_width_space
+                && self.width.full_width_space
                 && self.japanese_enabled()
                 && self.policy.full_width
             {
@@ -488,7 +504,7 @@ impl InputSession {
         }
         // Not inside a number (3.5, 10:30), but a bracket closes the way it was opened.
         if RomajiComposer::is_symbol_key(ch)
-            && ((self.previous_language == Some(Language::Japanese) && !self.after_digit)
+            && ((self.previous_language == Some(Language::Japanese) && !self.width.after_digit)
                 || self.closes_full_width(ch))
         {
             self.start_symbol(ch, client);
@@ -551,11 +567,11 @@ impl InputSession {
     /// Commits whatever is in progress as-is (focus change, shortcut, deactivation).
     pub fn commit(&mut self, client: &mut dyn TextClient) {
         self.close_flip_window();
-        if let Some(conversion) = self.conversion.take() {
+        if let Some(conversion) = self.ja.conversion.take() {
             let display = conversion.display();
             client.insert_text(&display, None);
             self.note_brackets(&display);
-            if let Some(converter) = &self.converter {
+            if let Some(converter) = &self.ja.converter {
                 converter.learn(conversion.current(), &conversion.kana);
             }
             self.word.keys.clear();
@@ -625,7 +641,7 @@ impl InputSession {
                 .unwrap_or_else(|| self.engine.render(&self.word.keys, language)),
             other => self.engine.render(&self.word.keys, other),
         };
-        self.live_suppressed = false;
+        self.ja.live_suppressed = false;
         self.note_brackets(&text);
         if let Some(h) = &self.history {
             h.record(&text);
@@ -638,7 +654,7 @@ impl InputSession {
         };
         self.previous_language = Some(language.sentence_language());
         self.word.reset();
-        self.added_n_marker = false;
+        self.ja.added_n_marker = false;
         word
     }
 }

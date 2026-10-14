@@ -1066,11 +1066,12 @@ mod tests {
     fn the_page_stays_alive_while_it_talks_and_quits_on_request() {
         let f = fixture("app-alive");
         let app = app(&f);
-        std::thread::sleep(std::time::Duration::from_millis(40));
+        // The heartbeat asks Windows which input method is selected, which can take a while on a
+        // loaded machine: leave room, and compare with the idle time before it.
+        std::thread::sleep(std::time::Duration::from_millis(600));
         let idle = app.idle_for();
-        assert!(idle >= std::time::Duration::from_millis(40));
+        assert!(idle >= std::time::Duration::from_millis(600));
         app.handle(&req("POST", "/api/heartbeat", Some(json!({}))));
-        // Relative, not an absolute 40 ms: a loaded machine can take longer than that to answer.
         assert!(app.idle_for() < idle);
         assert!(!app.should_quit());
         assert_eq!(
