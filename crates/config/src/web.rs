@@ -7,19 +7,21 @@ use std::sync::OnceLock;
 const INDEX: &str = include_str!("web/index.html");
 
 /// Stylesheets, in cascade order.
-const STYLES: [&str; 4] = [
+const STYLES: [&str; 5] = [
     include_str!("web/base.css"),
     include_str!("web/controls.css"),
     include_str!("web/panels.css"),
+    include_str!("web/chat.css"),
     include_str!("web/try.css"),
 ];
 
 /// Scripts, in load order. They share one scope (a classic script), so a later file may use
 /// anything an earlier one declares.
-const SCRIPTS: [&str; 8] = [
+const SCRIPTS: [&str; 9] = [
     include_str!("web/core.js"),
     include_str!("web/dropdown.js"),
     include_str!("web/languages.js"),
+    include_str!("web/chat.js"),
     include_str!("web/settings.js"),
     include_str!("web/try.js"),
     include_str!("web/apps.js"),

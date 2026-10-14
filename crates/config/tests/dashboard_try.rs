@@ -27,10 +27,10 @@ fn post(app: &App, path: &str, body: Value) -> Value {
     v
 }
 
-#[test]
-fn typing_is_read_as_the_languages_that_are_on() {
+/// A dashboard over real packs with English and Korean on, in a folder of its own.
+fn dashboard(name: &str) -> (App, PathBuf) {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../core/data");
-    let root = std::env::temp_dir().join(format!("ts-try-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("ts-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     typescript_packgen::write_release(&data, &root.join("release")).unwrap();
     let env = Env {
@@ -41,7 +41,12 @@ fn typing_is_read_as_the_languages_that_are_on() {
     let source = Source::from_spec(root.join("release").to_str().unwrap());
     let setup = ["setup", "--languages", "en,ko"].map(String::from);
     cli::run(&setup, &env, &source).unwrap();
-    let app = App::new(env, source, TOKEN.into(), PORT);
+    (App::new(env, source, TOKEN.into(), PORT), root)
+}
+
+#[test]
+fn typing_is_read_as_the_languages_that_are_on() {
+    let (app, root) = dashboard("try");
 
     let r = post(
         &app,
@@ -83,5 +88,77 @@ fn typing_is_read_as_the_languages_that_are_on() {
 
     let long = send(&app, "/api/try", json!({ "text": "a".repeat(5000) }));
     assert_eq!(long.status, 400, "long text is refused");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The chat box of the settings tab: the keys go through the real session with the saved
+/// settings, and a key the session does not take is what the "app" (the chat) gets.
+#[test]
+fn the_chat_runs_the_real_session_with_the_saved_settings() {
+    let (app, root) = dashboard("play");
+    let play = |keys: &[&str]| post(&app, "/api/play", json!({ "keys": keys }));
+    let word = ["d", "k", "s", "s", "u", "d"];
+    fn with<'a>(word: &[&'a str], extra: &[&'a str]) -> Vec<&'a str> {
+        [word, extra].concat()
+    }
+
+    // Typing: the word is underlined (composing) and already read as Korean.
+    let typing = play(&word);
+    assert_eq!(typing["text"], "안녕", "{typing}");
+    assert_eq!(typing["marked"], json!([0, 2]), "{typing}");
+    assert_eq!(typing["submitted"], false);
+
+    // "Enter only confirms" (the default): the first Enter confirms, the second reaches the chat.
+    let first = play(&with(&word, &["Enter"]));
+    assert_eq!(first["text"], "안녕", "{first}");
+    assert_eq!(first["marked"], Value::Null, "{first}");
+    assert_eq!(first["submitted"], false, "one Enter did not send it");
+    let second = play(&with(&word, &["Enter", "Enter"]));
+    assert_eq!(second["submitted"], true, "{second}");
+    assert_eq!(second["text"], "안녕");
+
+    // Off: one Enter confirms and sends.
+    post(
+        &app,
+        "/api/settings",
+        json!({ "returnConfirmsOnly": false }),
+    );
+    let once = play(&with(&word, &["Enter"]));
+    assert_eq!(once["submitted"], true, "{once}");
+    assert_eq!(once["text"], "안녕", "{once}");
+
+    // Keys the session does not take are typed by the field; Backspace undoes them.
+    let plain = play(&["1", "2", "Backspace"]);
+    assert_eq!(plain["text"], "1", "{plain}");
+
+    let long = send(&app, "/api/play", json!({ "keys": vec!["a"; 500] }));
+    assert_eq!(long.status, 400, "a draft is a sentence, not a document");
+    let bad = send(&app, "/api/play", json!({ "keys": ["F13"] }));
+    assert_eq!(bad.status, 400);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A language that is on but whose pack is missing (or too old for this program) is left out,
+/// as the input method does; it must not take the page down.
+#[test]
+fn a_language_without_a_usable_pack_is_left_out() {
+    let (app, root) = dashboard("nopack");
+    std::fs::write(
+        root.join("home/settings.json"),
+        r#"{"languages": ["en", "ko", "ja"]}"#,
+    )
+    .unwrap();
+    // A build with the Japanese data inside the binary (another crate of the workspace turns
+    // that on) always has Japanese; then all there is to check is that nothing panics.
+    let built_in = typescript_core::pack::available(typescript_core::Language::Japanese);
+    let r = post(&app, "/api/try", json!({ "text": "dkssud" }));
+    let alts = r["segments"][0]["alts"].as_array().unwrap();
+    assert!(built_in || alts.len() == 2, "no Japanese reading: {r}");
+    let chat = post(
+        &app,
+        "/api/play",
+        json!({ "keys": ["d", "k", "s", "s", "u", "d"] }),
+    );
+    assert_eq!(chat["text"], "안녕", "{chat}");
     let _ = std::fs::remove_dir_all(&root);
 }

@@ -1,5 +1,5 @@
-// 입력 설정 tab: switches and one dropdown, each with what it does, an example, and for two of
-// them a few frames of the real thing.
+// 입력 설정 tab: a chat to try the settings in (chat.js), then switches and one dropdown, each with
+// what it does and an example.
 
 // [group, [[key, title, what it does, example, language it needs], ...]]
 const SETTINGS = [
@@ -16,54 +16,9 @@ const SETTINGS = [
   ["업데이트", [["checkUpdates", "새 버전 확인", "대시보드나 명령을 실행할 때 하루에 한 번 새 릴리스가 있는지 봅니다.", ""]]],
 ];
 
-// Frames of a setting at work: the text in a field, whether it is still underlined (being
-// typed), the key just pressed, and a word about what happened.
-const DEMOS = {
-  returnConfirmsOnly: (on) => [
-    { text: "안녕", typing: true, note: "dkssud 를 쳤습니다" },
-    on ? { text: "안녕", key: "Enter", note: "확정만 — 줄은 그대로" } : { text: "안녕↵", key: "Enter", note: "확정하고 줄바꿈" },
-    ...(on ? [{ text: "안녕↵", key: "Enter", note: "한 번 더 눌러야 줄바꿈" }] : []),
-  ],
-  autocomplete: (on) => [
-    { text: "hel", typing: true, note: "hel 까지 쳤습니다" },
-    on ? { text: "hello", key: "Tab", note: "자주 쓴 단어로 완성" } : { text: "hel", key: "Tab", note: "자동완성이 꺼져 있어 그대로" },
-  ],
-};
-let demoFor = null;   // the setting just changed: its demo plays by itself
-
-function demo(key, on) {
-  const frames = DEMOS[key](on);
-  const field = h("span", { class: "field" });
-  const hit = h("kbd", {}, "");
-  const note = h("span", { class: "note" });
-  const box = h("div", { class: "demo", "aria-hidden": "true" }, field, hit, note);
-  let run = 0;
-  const show = (f) => {
-    field.replaceChildren(f.typing ? h("u", {}, f.text) : f.text);
-    hit.textContent = f.key || "";
-    hit.hidden = !f.key;
-    hit.classList.toggle("hit", !!f.key);
-    note.textContent = f.note;
-  };
-  const play = async () => {
-    const mine = ++run;
-    for (const f of frames) {
-      if (mine !== run || !box.isConnected) return;
-      show(f);
-      await new Promise((done) => setTimeout(done, 900));
-    }
-  };
-  show(frames[frames.length - 1]);
-  box.append(h("button", { class: "btn quiet", type: "button", tabindex: "-1", onclick: play }, "▶ 다시"));
-  // The page is drawn twice around a change; the demo plays in the last one (the first is busy).
-  if (demoFor === key && !busy) { demoFor = null; queueMicrotask(play); }   // after it is in the page
-  return box;
-}
-
 function setting(key, title, desc, example) {
   const value = state.settings[key], changed = value !== state.defaults[key];
   const save = (v, label) => {
-    demoFor = key;
     act(label, "/api/settings", { [key]: v }, key, { path: "/api/settings", body: { [key]: value } });
   };
   const control = key === "pauseKey"
@@ -77,14 +32,13 @@ function setting(key, title, desc, example) {
     h("div", { class: "text" },
       h("b", {}, title, changed ? h("span", { class: "tag" }, "기본값 아님") : null),
       desc ? h("span", {}, desc) : null,
-      example ? h("em", {}, example) : null,
-      DEMOS[key] ? demo(key, value) : null),
+      example ? h("em", {}, example) : null),
     reset, control);
 }
 
 function renderSettings() {
   const p = $("p-set");
-  p.replaceChildren();
+  p.replaceChildren(h("h2", {}, "채팅으로 체험"), chatBox());
   for (const [group, items] of SETTINGS) {
     const shown = items.filter((it) => !it[4] || state.order.includes(it[4]));
     if (!shown.length) continue;

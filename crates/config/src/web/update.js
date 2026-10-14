@@ -1,6 +1,6 @@
 // 업데이트 tab: the version, and a check for a newer release (the program and the language packs).
 
-const updates = { info: null };   // answer of GET /api/update, once asked
+const updates = { info: null, reopen: false };   // GET /api/update, once asked; whether the program was just replaced
 
 function updateButtonText(info) {
   if (!info.coreChanged) return "언어 팩 업데이트";
@@ -10,6 +10,7 @@ function updateButtonText(info) {
 function renderUpdate() {
   const p = $("p-upd"), info = updates.info, working = busy && pending === "upd";
   p.replaceChildren(
+    ...(updates.reopen ? [h("div", { class: "banner", role: "status" }, "설치가 끝나면 이 설정 창을 닫고 터미널에서 typescript-config 를 다시 여세요. 지금 보이는 화면은 이전 버전입니다.")] : []),
     h("h2", {}, "현재 버전"), h("div", { class: "card pad" }, h("b", {}, "Typescript " + state.version)),
     h("h2", {}, "새 버전"));
   const box = h("div", { class: "card pad", "aria-busy": working });
@@ -35,8 +36,10 @@ async function checkUpdate() {
 async function applyUpdate() {
   busy = true; pending = "upd"; render();
   try {
+    const programChanged = updates.info && updates.info.coreChanged;
     const r = await api("/api/update", { action: "apply" });
-    toast(r.message || "업데이트했습니다");
+    toast(programChanged ? "업데이트를 시작했습니다. 끝나면 설정을 다시 여세요" : (r.message || "업데이트했습니다"));
+    updates.reopen = !!programChanged;
     updates.info = null;
     state = await api("/api/state");
   } catch (e) { toast(e.message, true); }

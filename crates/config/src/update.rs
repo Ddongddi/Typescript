@@ -325,7 +325,7 @@ pub fn apply(
     if program_is_newer {
         run_installer(env, api, &release, launch)?;
         said.push(format!(
-            "started the installer for {}{}",
+            "started the installer for {}{}; when it is done, close this and run typescript-config again (an open settings page is still the old version)",
             release.tag,
             if cfg!(windows) {
                 " (confirm the administrator prompt)"

@@ -1,0 +1,22 @@
+/* The chat box of the settings tab (chat.js). */
+
+.chat { margin-bottom: 8px; }
+.chat-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; margin-bottom: 14px; color: var(--mute); font-size: 13px; }
+.chat-head .btn[aria-pressed=true] { background: #ffffff14; border-color: var(--acc); color: var(--fg); }
+
+.chat-log { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; height: 230px; padding: 16px 4px; overflow-y: auto; border-top: 1px solid var(--line); }
+.chat-log .idle { margin: auto; align-self: center; }
+.bubble { display: flex; align-items: baseline; gap: 12px; max-width: 80%; padding: 8px 14px; border-radius: 14px 14px 3px 14px; background: #f4a2611f; border: 1px solid #f4a26144; animation: rise .2s ease both; }
+.bubble .said { font: 400 22px/1.3 var(--serif); overflow-wrap: anywhere; white-space: pre-wrap; }
+.bubble .sent { flex: none; font: 11px var(--mono); color: var(--mute); }
+.bubble .sent.two { color: var(--acc); }
+
+.chat-in { position: relative; min-height: 48px; padding: 10px 14px; border: 1px solid var(--hair); border-radius: 24px; font: 400 22px/1.5 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; transition: border-color .15s; }
+.chat-in:hover { border-color: var(--hair-strong); }
+.chat-in:focus, .chat-in:focus-visible { outline: none; border-color: var(--acc); }
+.chat-in.empty::before { content: "영문 자판으로 치고 Enter"; color: #3a4541; font: 15px var(--sans); position: absolute; top: 13px; }
+.chat-in u { text-decoration-color: var(--acc); text-underline-offset: 4px; }
+.caret { display: inline-block; width: 1px; height: 1.1em; margin-left: 1px; background: var(--acc); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
+.chat-in:not(:focus) .caret { visibility: hidden; }
+@keyframes blink { 50% { opacity: 0; } }
+.chat-hint { min-height: 1.6em; margin: 8px 6px 0; font-size: 13px; color: var(--acc); }

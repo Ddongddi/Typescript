@@ -43,16 +43,6 @@
 .setting .text em { display: block; margin-top: 4px; font: normal 13px/1.7 var(--sans); color: #7f8984; }
 .tag { padding: 0 6px; border: 1px solid #f4a26166; border-radius: 3px; font: 500 10px var(--mono); letter-spacing: .04em; color: var(--acc); }
 
-/* a few frames of what a setting does (settings.js: demo) */
-.demo { display: flex; align-items: center; gap: 12px; margin-top: 10px; font: 13px var(--mono); color: var(--soft); }
-.demo .field { min-width: 15ch; padding: 4px 10px; border: 1px solid var(--hair); border-radius: 4px; background: #ffffff05; white-space: pre; }
-.demo .field::after { content: ""; display: inline-block; width: 1px; height: 1em; margin-left: 1px; background: var(--acc); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
-.demo .field u { text-decoration-color: var(--acc); text-underline-offset: 3px; }
-.demo .note { margin: 0; font: 13px var(--sans); }
-.demo kbd { transition: border-color .15s, color .15s; }
-.demo kbd.hit { border-color: var(--acc); color: var(--acc); }
-@keyframes blink { 50% { opacity: 0; } }
-
 /* app rules */
 .apps { display: grid; }
 .app { padding: 22px 0; border-top: 1px solid var(--line); }

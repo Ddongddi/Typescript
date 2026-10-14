@@ -40,6 +40,8 @@ h1 { margin: 0; font: 400 clamp(40px, 6vw, 64px) / 1 var(--serif); letter-spacin
 .skip:focus { left: 12px; }
 :is(a, button, input, textarea, [tabindex]):focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; border-radius: 4px; }
 
+[role=tabpanel]:focus { outline: none; }   /* a panel takes focus programmatically, it is not a control */
+
 /* tabs */
 [role=tablist] { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 34px; overflow-x: auto; }
 [role=tab] { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; margin-bottom: -1px; padding: 11px 15px; min-height: 44px; color: var(--soft); font: 500 14px var(--sans); white-space: nowrap; cursor: pointer; transition: color .15s, background .15s; }

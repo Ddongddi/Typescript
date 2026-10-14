@@ -6,9 +6,12 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
+use typescript_core::session::testing::FakeTextField;
+use typescript_core::session::{Range, TextClient, NOT_FOUND};
 use typescript_core::store::policy::Override;
 use typescript_core::{
-    make_engine, pack, AppPolicy, DecisionContext, DecisionEngine, Language, Languages,
+    make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine,
+    DictionaryConverter, History, InputSession, JapaneseConverter, Key, Language, Languages,
     LearningEngine, Settings,
 };
 
@@ -21,6 +24,8 @@ use crate::update;
 pub const MAX_BODY: usize = 256 * 1024;
 /// The "try typing" box is for a sentence, not a document.
 const MAX_TRY_CHARS: usize = 2000;
+/// So is the chat box of the settings tab: keys of one draft message.
+const MAX_PLAY_KEYS: usize = 400;
 /// The settings the page may change, and how each is checked.
 const BOOL_SETTINGS: [&str; 6] = [
     "returnConfirmsOnly",
@@ -197,6 +202,8 @@ pub struct App {
     busy: Mutex<()>,
     /// The engine the "try typing" box reads with, for the languages that were on when it was built.
     engine: Mutex<Option<(Languages, Arc<LearningEngine>)>>,
+    /// The kana-to-kanji dictionary of the chat box, loaded when Japanese first needs it.
+    converter: Mutex<Option<Arc<dyn JapaneseConverter>>>,
 }
 
 impl App {
@@ -211,6 +218,7 @@ impl App {
             quit: AtomicBool::new(false),
             busy: Mutex::new(()),
             engine: Mutex::new(None),
+            converter: Mutex::new(None),
         }
     }
 
@@ -278,14 +286,15 @@ impl App {
             }
             (
                 "POST",
-                "/api/languages" | "/api/settings" | "/api/apps" | "/api/update" | "/api/try",
+                "/api/languages" | "/api/settings" | "/api/apps" | "/api/update" | "/api/try"
+                | "/api/play",
             ) => self.post(path, req),
             (
                 _,
                 "/" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
                 | "/api/quit",
             )
-            | (_, "/api/languages" | "/api/settings" | "/api/update" | "/api/try") => {
+            | (_, "/api/languages" | "/api/settings" | "/api/update" | "/api/try" | "/api/play") => {
                 fail(405, "method not allowed")
             }
             _ => fail(404, "not found"),
@@ -306,8 +315,13 @@ impl App {
         let Ok(body) = serde_json::from_slice::<Value>(&req.body) else {
             return fail(400, "the body is not valid JSON");
         };
-        if path == "/api/try" {
-            return match self.try_typing(&body) {
+        if path == "/api/try" || path == "/api/play" {
+            let answer = if path == "/api/try" {
+                self.try_typing(&body)
+            } else {
+                self.play(&body)
+            };
+            return match answer {
                 Ok(v) => json_response(200, &v),
                 Err(message) => fail(400, &message),
             };
@@ -335,19 +349,23 @@ impl App {
         }
     }
 
-    /// The engine for the languages that are on now (packs are read from this user's folder).
-    fn engine(&self) -> Arc<LearningEngine> {
-        let on = languages::enabled(&self.env);
+    /// The languages that are on now and have a usable pack, and the engine for them (packs are
+    /// read from this user's folder). A language without its pack is left out, as the input
+    /// method does; with none left there is nothing to read with.
+    fn engine(&self) -> Result<(Languages, Arc<LearningEngine>), String> {
+        pack::refresh(&self.env.packs);
+        let on = languages::enabled(&self.env)
+            .available()
+            .ok_or("no language pack is installed: add a language in the 언어 tab")?;
         let mut slot = self.engine.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((built_for, engine)) = slot.as_ref() {
             if *built_for == on {
-                return engine.clone();
+                return Ok((on, engine.clone()));
             }
         }
-        pack::refresh(&self.env.packs);
         let engine = make_engine(None, &on);
-        *slot = Some((on, engine.clone()));
-        engine
+        *slot = Some((on.clone(), engine.clone()));
+        Ok((on, engine))
     }
 
     /// Reads `text` as typed on a QWERTY keyboard, word by word, as the input method would:
@@ -361,8 +379,7 @@ impl App {
         let threshold = body["threshold"]
             .as_f64()
             .unwrap_or(AppPolicy::STANDARD.conversion_threshold);
-        let engine = self.engine();
-        let on = languages::enabled(&self.env);
+        let (on, engine) = self.engine()?;
         let mut segments = Vec::new();
         let mut previous = None;
         let mut rest = text;
@@ -406,6 +423,78 @@ impl App {
             }));
         }
         Ok(json!({ "segments": segments }))
+    }
+
+    fn converter(&self) -> Arc<dyn JapaneseConverter> {
+        let mut slot = self.converter.lock().unwrap_or_else(|e| e.into_inner());
+        slot.get_or_insert_with(|| Arc::new(DictionaryConverter::new(None)))
+            .clone()
+    }
+
+    /// Plays a draft message of the chat box: `keys` (a letter or symbol as itself, or `Enter`,
+    /// `Tab`, `Backspace`, `Escape`, `Cycle`) go through a fresh session built like the input
+    /// method's, with the saved settings. A key the session does not take is what the chat gets:
+    /// typed as it is, or, for Enter, the message is sent (`submitted`).
+    fn play(&self, body: &Value) -> Result<Value, String> {
+        let keys = body["keys"].as_array().ok_or("keys has to be a list")?;
+        if keys.len() > MAX_PLAY_KEYS {
+            return Err(format!("try at most {MAX_PLAY_KEYS} keys at a time"));
+        }
+        let settings = Settings::load(Some(&self.env.settings));
+        let policies = AppPolicies::load(Some(&self.env.apps));
+        let (on, engine) = self.engine()?;
+        let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
+        if settings.autocomplete {
+            session = session.with_history(Arc::new(History::new(None)));
+        }
+        if on.contains(Language::Japanese) {
+            session = session.with_japanese(self.converter(), settings.live_conversion);
+        }
+        session.set_full_width_digits(settings.full_width_digits);
+        session.set_full_width_space(settings.full_width_space);
+
+        let mut field = FakeTextField::new();
+        let mut submitted = false;
+        for (i, key) in keys.iter().enumerate() {
+            let name = key.as_str().ok_or("every key is a string")?;
+            let key = match name {
+                "Enter" => Key::Enter,
+                "Tab" => Key::Tab,
+                "Backspace" => Key::Delete,
+                "Escape" => Key::Escape,
+                "Cycle" => Key::Cycle,
+                one => match (one.chars().next(), one.chars().count()) {
+                    (Some(c), 1) if c.is_ascii_alphabetic() => Key::Letter(c),
+                    (Some(c), 1) if !c.is_control() => Key::Printable(c),
+                    _ => return Err(format!("unknown key: {one}")),
+                },
+            };
+            if session.handle(key, &mut field) {
+                continue;
+            }
+            match key {
+                Key::Enter => submitted = i + 1 == keys.len(),
+                Key::Letter(c) | Key::Printable(c) => field.insert_text(&c.to_string(), None),
+                Key::Delete => {
+                    if let Some(last) = field.text().chars().next_back() {
+                        let end = field.text().encode_utf16().count();
+                        let n = last.len_utf16();
+                        let range = Range {
+                            location: end - n,
+                            length: n,
+                        };
+                        field.insert_text("", Some(range));
+                    }
+                }
+                _ => {}
+            }
+        }
+        let marked = field.marked_range();
+        Ok(json!({
+            "text": field.text(),
+            "marked": (marked.location != NOT_FOUND).then(|| json!([marked.location, marked.length])),
+            "submitted": submitted,
+        }))
     }
 
     fn update_info(&self) -> Result<Value, String> {
@@ -856,10 +945,12 @@ mod tests {
             Some(json!({"action": "apply"})),
         ));
         assert_eq!(done.status, 200, "{}", String::from_utf8_lossy(&done.body));
-        assert!(json_of(&done)["message"]
-            .as_str()
-            .unwrap()
-            .contains("installer"));
+        let message = json_of(&done)["message"].as_str().unwrap().to_string();
+        assert!(message.contains("installer"), "{message}");
+        assert!(
+            message.contains("typescript-config again"),
+            "the open settings page is the old version: {message}"
+        );
         assert!(started.lock().unwrap().as_ref().unwrap().is_file());
         let bad = app.handle(&req(
             "POST",
