@@ -107,8 +107,26 @@ function Move-Aside([string]$target) {
 }
 
 function Remove-Leftovers {
+    # A leftover still mapped into a running app (Explorer keeps TSF DLLs) cannot be deleted
+    # now: mark it for deletion on reboot instead of letting .old-* files pile up forever.
+    # Only files this installer moved aside are ever touched.
+    $rebootDelete = @"
+using System;
+using System.Runtime.InteropServices;
+public static class RebootDelete {
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool MoveFileEx(string a, string b, int flags);
+    public static void AtReboot(string path) { MoveFileEx(path, null, 0x4); }
+}
+"@
     Get-ChildItem $dest -Filter '*.old-*' -ErrorAction SilentlyContinue | ForEach-Object {
-        try { Remove-Item $_.FullName -Force } catch { }
+        try { Remove-Item $_.FullName -Force -ErrorAction Stop }
+        catch {
+            try {
+                Add-Type -TypeDefinition $rebootDelete -ErrorAction Stop | Out-Null
+                [RebootDelete]::AtReboot($_.FullName)
+            } catch { }
+        }
     }
 }
 

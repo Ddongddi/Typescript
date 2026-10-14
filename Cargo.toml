@@ -6,4 +6,15 @@ resolver = "2"
 opt-level = 3
 lto = true
 codegen-units = 1
+# Symbols ship in the separate .pdb files; stripping the binaries changes nothing at runtime.
+strip = true
 # panic stays "unwind": the TIP catches panics at the COM boundary (DESIGN.md §3.1).
+
+# Not latency-sensitive: smaller without behaving any differently. The core engine and the
+# TIP stay at opt-level 3 (typing latency is their hot path).
+[profile.release.package.typescript-config]
+opt-level = "z"
+[profile.release.package.typescript-cli]
+opt-level = "z"
+[profile.release.package.typescript-packgen]
+opt-level = "z"
