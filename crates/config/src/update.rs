@@ -153,7 +153,7 @@ pub fn newer_notes(fetch: &dyn Fetch, latest_url: &str) -> Result<Vec<ReleaseNot
             })
         })
         .collect();
-    notes.sort_by(|a, b| parse(&b.version).cmp(&parse(&a.version)));
+    notes.sort_by_key(|n| std::cmp::Reverse(parse(&n.version)));
     Ok(notes)
 }
 
