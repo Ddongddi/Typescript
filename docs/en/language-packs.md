@@ -36,8 +36,8 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.7.0",
-  "core": ">=0.7.0, <0.8.0",
+  "version": "0.8.0",
+  "core": ">=0.8.0, <0.9.0",
   "requires": ["en"],
   "files": {
     "ipadic_compact.bin": "9c1e…",

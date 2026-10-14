@@ -36,8 +36,8 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.7.0",
-  "core": ">=0.7.0, <0.8.0",
+  "version": "0.8.0",
+  "core": ">=0.8.0, <0.9.0",
   "requires": ["en"],
   "files": {
     "ipadic_compact.bin": "9c1e…",

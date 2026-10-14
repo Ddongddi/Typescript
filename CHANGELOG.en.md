@@ -9,6 +9,20 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-15
+
+This version is **0.8.0**, not 0.7.1, because the pack file format changed. Packs and the program are only compatible within the same minor version (0.7.x packs are for 0.7.x programs), and the new Japanese pack is in a format the older program (0.7.x) cannot read, so the compatibility range is split here. A 0.7.x program sees this release's pack list as incompatible, does not download it, and says "update Typescript first". Updating installs the program and the Japanese pack together.
+
+### Changed
+- The Japanese pack got smaller: 17.2 MB → 10.1 MB installed, and the download about 5.9 MB → 4.9 MB. The tables are stored again at their natural width, so detection and conversion results are the same as before. (This is the change that alters the pack format: `kana_trigrams.txt` became `kana_trigrams.bin` and the dictionary went from `TSIPDIC2` to `TSIPDIC3`.) Thanks to Ddongddi for the contribution.
+- Release binaries are smaller. `typescript-config` is about 7% smaller (6.6 → 6.1 MB) and `typescript` about 2%; the input method DLL is unchanged.
+
+### Added
+- An English changelog ([CHANGELOG.en.md](CHANGELOG.en.md)).
+
+### Fixed
+- Files that could not be deleted on uninstall or reinstall because a running app held them (the DLLs in `C:\Program Files\Typescript`) are now scheduled for deletion at the next restart. Before, the folder stayed behind after an uninstall and only a message said otherwise.
+
 ## [0.7.0] - 2026-10-14
 
 ### Added
@@ -201,7 +215,8 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...v0.6.4

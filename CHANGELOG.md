@@ -9,8 +9,19 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-15
+
+이번 버전은 팩 파일 형식이 바뀌어서 0.7.1이 아니라 **0.8.0**으로 올립니다. 팩과 프로그램은 같은 마이너 버전끼리만 호환되도록 되어 있는데(0.7.x 팩은 0.7.x 프로그램용), 새 일본어 팩은 옛 프로그램(0.7.x)이 읽을 수 없는 형식이라 호환 범위를 나누려는 것입니다. 0.7.x에서는 이 릴리스의 팩 목록이 호환되지 않는다고 보고 받지 않으며 "Typescript를 먼저 업데이트하세요"라고 안내합니다. 업데이트하면 프로그램과 일본어 팩이 함께 새로 설치됩니다.
+
 ### 변경
-- 일본어 팩이 작아졌습니다: 설치 용량 17.2 MB → 10.1 MB, 내려받는 압축 파일도 약 5.9 MB → 4.9 MB가 됩니다. 표를 다시 담아 크기를 줄인 것이라 판별·변환 결과는 이전과 같습니다.
+- 일본어 팩이 작아졌습니다: 설치 용량 17.2 MB → 10.1 MB, 내려받는 압축 파일도 약 5.9 MB → 4.9 MB가 됩니다. 표를 다시 담아 크기를 줄인 것이라 판별·변환 결과는 이전과 같습니다. (이 변경이 팩 형식을 바꿉니다: `kana_trigrams.txt`는 `kana_trigrams.bin`으로, 사전은 `TSIPDIC2`에서 `TSIPDIC3`으로.) 기여해 주신 Ddongddi 님께 감사드립니다.
+- 릴리스 바이너리가 작아졌습니다. `typescript-config`는 약 7%(6.6 → 6.1 MB), `typescript`는 약 2% 줄었고, 입력기 DLL은 그대로입니다.
+
+### 추가
+- 영문 변경 기록([CHANGELOG.en.md](CHANGELOG.en.md))이 생겼습니다.
+
+### 수정
+- 제거하거나 다시 설치할 때 실행 중인 앱이 잡고 있어 지울 수 없던 파일(`C:\Program Files\Typescript`의 DLL)을 다음 재시작 때 지우도록 예약합니다. 이전에는 제거 뒤에도 폴더가 남았고 안내 문구만 있었습니다.
 
 ## [0.7.0] - 2026-10-14
 
@@ -204,7 +215,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
 [0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...v0.6.4
