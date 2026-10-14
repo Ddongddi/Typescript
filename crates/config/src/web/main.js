@@ -50,17 +50,29 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// Tells when the input method selected in Windows is not Typescript (the heartbeat answers it).
+function showIme(ime) {
+  const banner = $("ime");
+  banner.hidden = !ime || ime.typescript;
+  if (banner.hidden) return;
+  const name = ime.name ? `‘${ime.name}’` : "다른 입력기";
+  banner.textContent = `지금 선택된 입력기는 ${name}입니다. Typescript가 아니라서 여기서 정한 대로 동작하지 않아요. Win+Space로 Typescript를 고르세요.`;
+}
+
 async function heartbeat() {
   try {
-    await api("/api/heartbeat", {});
+    const answer = await api("/api/heartbeat", {});
     $("dot").className = "dot";
     $("linktext").textContent = "연결됨";
+    showIme(answer && answer.ime);
   } catch (e) {
     $("dot").className = "dot off";
     $("linktext").textContent = "끊어짐 — 터미널에서 다시 여세요";
   }
 }
 setInterval(heartbeat, 5000);
+heartbeat();
+window.addEventListener("focus", heartbeat); // back from switching the input method
 
 (async () => {
   const start = TABS.indexOf(location.hash.slice(1));

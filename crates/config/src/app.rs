@@ -285,7 +285,7 @@ impl App {
             },
             ("GET", "/api/processes") => json_response(200, &json!({ "apps": running_apps() })),
             ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
-            ("POST", "/api/heartbeat") => json_response(200, &json!({})),
+            ("POST", "/api/heartbeat") => json_response(200, &crate::ime::status()),
             ("POST", "/api/quit") => {
                 self.quit.store(true, Ordering::SeqCst);
                 json_response(200, &json!({}))

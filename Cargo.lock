@@ -645,6 +645,7 @@ dependencies = [
  "typescript-core",
  "typescript-packgen",
  "ureq",
+ "windows",
  "zip",
 ]
 

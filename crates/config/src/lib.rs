@@ -9,6 +9,7 @@ pub mod error;
 pub mod fetch;
 pub mod hash;
 pub mod http;
+pub mod ime;
 pub mod install;
 pub mod languages;
 pub mod setup;
