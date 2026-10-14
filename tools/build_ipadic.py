@@ -23,22 +23,34 @@ Usage:
     python3 tools/build_ipadic.py --ipadic-dir /path/to/mecab-ipadic \
         [--wordfreq-json wordfreq_ja.json] --out crates/core/data/ipadic_compact.bin
 
-Compact layout (all little-endian); keep in step with kanji.rs:
-    [0]  magic "TSIPDIC1" (8 bytes)
+Packed layout (all little-endian); keep in step with kanji.rs:
+    [0]  magic "TSIPDIC3" (8 bytes)
     [8]  u32 n_readings           readings (hiragana), sorted
     [12] u32 n_entries
     [16] u8  max_reading_chars
     [17] 3 bytes padding
-    [20] u16 lsize, u16 rsize     connection matrix dimensions (MeCab ids)
+    [20] u16 lsize, u16 rsize     connection matrix dimensions (MeCab ids, <= 2048)
     [24] u32 readings_len         blob bytes
     [28] u32 entries_len          blob bytes
-    [32] u32 reading_offsets[n_readings+1]   byte offsets into the readings blob
-         u32 entry_offsets[n_readings+1]     entry index ranges per reading
-         u32 entry_byte_offsets[n_readings+1] byte offsets of the first entry per reading
-         readings blob (UTF-8 hiragana, concatenated in sorted order)
-         entries blob:  per entry [u16 lc][u16 rc][i16 cost][u8 slen][surface bytes]
-         matrix: i16 lsize*rsize, indexed [l + lsize * r] as MeCab stores it
-                (l = right-id of the left word, r = left-id of the right word)
+    [32] u16 n_top                surface characters stored in one byte
+    [34] u16 n_rest               surface characters stored in two
+    [36] u8  reading_lens[n_readings]      encoded reading bytes (one per character)
+    [36] + n_readings            u8  entry_counts[n_readings]
+    [36] + 2*n_readings          u16 entry_byte_lens[n_readings]  entry blob bytes per reading
+    [36] + 4*n_readings          u16 charset: the n_top code points (most frequent first),
+                                 then the n_rest (ascending)
+    ...                          readings blob: ぁ..ゖ (0x3041..0x3096) -> 0..85, ー (0x30fc) -> 86
+    ...                          entries blob: per entry
+                                     u24 packed (lc | rc << 11), i16 cost, u8 nbytes,
+                                     nbytes x code: below 0x80 charset[code], else
+                                     (code - 0x80) << 8 | next indexes charset[n_top + code]
+    ...                          matrix: i16 lsize*rsize, indexed [l + lsize * r] as MeCab stores it
+                                 (l = right-id of the left word, r = left-id of the right word)
+
+Every table sits at its natural width: readings are one byte per character, lc/rc are 11 bits,
+the per-reading lengths fit u8/u16, and surfaces index a ~5,300 code-point table in one or two
+bytes. The reader rebuilds the u32 prefix sums from the lengths at load, so lookups stay O(1)
+and the candidates are exactly what the old UTF-8 layout produced.
 """
 
 import argparse
@@ -47,7 +59,7 @@ import json
 import os
 import struct
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 # (zipf - 4) * SCALE is added to the word cost (common: lower cost); clamped. Single
 # characters keep IPADIC's costs: a bonus there carves words into 多+さ+か instead of 大阪
@@ -60,6 +72,22 @@ ZIPF_MIN_CHARS = 2
 # Hiragana readings only: they are what the input method looks up.
 KANA_LO, KANA_HI = 0x3041, 0x3096  # ぁ .. ゖ
 CHOON = 0x30FC  # ー is part of words (らーめん)
+
+MAGIC = b"TSIPDIC3"
+TOP_CODES = 128  # surface characters stored in one byte; the rest take two
+
+
+def reading_code(r: str) -> bytes:
+    """The reading as one byte per character (ぁ..ゖ -> 0..85, ー -> 86)."""
+    out = bytearray()
+    for c in r:
+        v = ord(c)
+        if KANA_LO <= v <= KANA_HI:
+            out.append(v - KANA_LO)
+        else:
+            assert v == CHOON, f"reading {r!r} is not hiragana"
+            out.append(86)
+    return bytes(out)
 
 
 def kata_to_hira(s: str) -> str:
@@ -128,6 +156,86 @@ def load_matrix(ipadic_dir: str):
     return lsize, rsize, matrix
 
 
+def write_compact(out_path: str, readings, by_reading, lsize: int, rsize: int, matrix) -> tuple:
+    """Writes the packed table (the layout in the module docstring) for the readings and their
+    entries; returns (n_entries, n_top, n_rest)."""
+    assert lsize <= 2048 and rsize <= 2048, "lc/rc are 11-bit fields"
+    counts = Counter()
+    for r in readings:
+        for surface, _cost, _lc, _rc in by_reading[r]:
+            counts.update(surface)
+    # Surface characters: the top 128 by count get one-byte codes; the rest, ascending, two.
+    top = [c for c, _ in sorted(counts.items(), key=lambda kv: (-kv[1], ord(kv[0])))[:TOP_CODES]]
+    top_at = {c: i for i, c in enumerate(top)}
+    rest = sorted((c for c in counts if c not in top_at), key=ord)
+    assert len(rest) < 0x8000, "too many surface characters for a two-byte code"
+    rest_at = {c: i for i, c in enumerate(rest)}
+
+    def surface_code(surface: str) -> bytes:
+        out = bytearray()
+        for c in surface:
+            if c in top_at:
+                out.append(top_at[c])
+            else:
+                i = rest_at[c]
+                out.append(0x80 + (i >> 8))
+                out.append(i & 0xFF)
+        return bytes(out)
+
+    reading_lens = bytearray()
+    readings_blob = bytearray()
+    for r in readings:
+        code = reading_code(r)
+        assert len(code) <= 255, f"reading {r!r} is too long"
+        reading_lens.append(len(code))
+        readings_blob += code
+
+    entry_counts = bytearray()
+    entry_byte_lens = bytearray()
+    entries_blob = bytearray()
+    n_entries = 0
+    for r in readings:
+        start = len(entries_blob)
+        for surface, cost, lc, rc in by_reading[r]:
+            code = surface_code(surface)
+            assert len(code) <= 255, f"surface {surface!r} is too long"
+            assert 0 <= lc < 2048 and 0 <= rc < 2048, f"ids of {surface!r} do not fit 11 bits"
+            entries_blob += (lc | (rc << 11)).to_bytes(3, "little")
+            entries_blob += struct.pack("<hB", cost, len(code))
+            entries_blob += code
+            n_entries += 1
+        entry_counts.append(len(by_reading[r]))
+        delta = len(entries_blob) - start
+        assert delta <= 65535, f"reading {r!r} has too many entry bytes"
+        entry_byte_lens += struct.pack("<H", delta)
+
+    charset = b"".join(struct.pack("<H", ord(c)) for c in top + rest)
+    header = struct.pack(
+        "<8sIIB3xHHIIHH",
+        MAGIC,
+        len(readings),
+        n_entries,
+        max(len(r) for r in readings),
+        lsize,
+        rsize,
+        len(readings_blob),
+        len(entries_blob),
+        len(top),
+        len(rest),
+    )
+    assert len(header) == 36
+    with open(out_path, "wb") as f:
+        f.write(header)
+        f.write(reading_lens)
+        f.write(entry_counts)
+        f.write(entry_byte_lens)
+        f.write(charset)
+        f.write(readings_blob)
+        f.write(entries_blob)
+        f.write(struct.pack(f"<{lsize * rsize}h", *matrix))
+    return n_entries, len(top), len(rest)
+
+
 def build(ipadic_dir: str, out_path: str, zipf: dict) -> None:
     entries, skipped = load_entries(ipadic_dir, zipf)
     by_reading = defaultdict(list)
@@ -137,47 +245,12 @@ def build(ipadic_dir: str, out_path: str, zipf: dict) -> None:
     for r in readings:
         by_reading[r].sort(key=lambda e: e[1])  # cheapest first
 
-    reading_offsets = [0]
-    readings_blob = bytearray()
-    entry_offsets = [0]
-    entry_byte_offsets = [0]
-    entries_blob = bytearray()
-    for r in readings:
-        readings_blob += r.encode()
-        reading_offsets.append(len(readings_blob))
-        for surface, cost, lc, rc in by_reading[r]:
-            s = surface.encode()
-            entries_blob += struct.pack("<HHhB", lc, rc, cost, len(s)) + s
-        entry_offsets.append(entry_offsets[-1] + len(by_reading[r]))
-        entry_byte_offsets.append(len(entries_blob))
-
     lsize, rsize, matrix = load_matrix(ipadic_dir)
-    max_reading_chars = max(len(r) for r in readings)
-
-    header = struct.pack(
-        "<8sIIB3xHHII",
-        b"TSIPDIC2",
-        len(readings),
-        entry_offsets[-1],
-        max_reading_chars,
-        lsize,
-        rsize,
-        len(readings_blob),
-        len(entries_blob),
-    )
-    assert len(header) == 32
-    with open(out_path, "wb") as f:
-        f.write(header)
-        f.write(struct.pack(f"<{len(reading_offsets)}I", *reading_offsets))
-        f.write(struct.pack(f"<{len(entry_offsets)}I", *entry_offsets))
-        f.write(struct.pack(f"<{len(entry_byte_offsets)}I", *entry_byte_offsets))
-        f.write(readings_blob)
-        f.write(entries_blob)
-        f.write(struct.pack(f"<{len(matrix)}h", *matrix))
+    n_entries, n_top, n_rest = write_compact(out_path, readings, by_reading, lsize, rsize, matrix)
     size = os.path.getsize(out_path)
-    print(f"readings: {len(readings)}, entries: {entry_offsets[-1]}, "
-          f"max reading chars: {max_reading_chars}, matrix: {lsize}x{rsize}, "
-          f"skipped: {skipped}")
+    print(f"readings: {len(readings)}, entries: {n_entries}, "
+          f"max reading chars: {max(len(r) for r in readings)}, matrix: {lsize}x{rsize}, "
+          f"surface characters: {n_top}+{n_rest}, skipped: {skipped}")
     print(f"wrote {out_path} ({size/1e6:.1f} MB)")
 
 

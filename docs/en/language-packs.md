@@ -19,7 +19,7 @@ To keep the core engine lightweight and ensure instantaneous application startup
 
 ### Architectural Benefits
 1. **Minimal Memory Footprint**: The DLL loaded into each client process remains under 1MB.
-2. **Selective Downloads**: Users only download packs for the languages they actually use (e.g., the ~16MB Japanese IPADIC dictionary is optional).
+2. **Selective Downloads**: Users only download packs for the languages they actually use (e.g., the ~10MB Japanese IPADIC dictionary is optional).
 3. **Memory Mapping (`mmap`)**: All running processes share the exact same physical memory pages mapped from the `.pack` files, eliminating system RAM bloat.
 4. **Decoupled Extensibility**: Adding new language support requires minimal modifications to the core engine.
 
@@ -35,12 +35,13 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 ```json
 {
   "id": "ja",
-  "name": "Japanese",
-  "version": "1.0.0",
-  "tables": {
-    "kana_trigrams": "sha256:4a8b...12",
-    "ipadic_words": "sha256:9c1e...34",
-    "ipadic_matrix": "sha256:d83f...78"
+  "name": "日本語",
+  "version": "0.7.0",
+  "core": ">=0.7.0, <0.8.0",
+  "requires": ["en"],
+  "files": {
+    "ipadic_compact.bin": "9c1e…",
+    "kana_trigrams.bin": "4a8b…"
   }
 }
 ```

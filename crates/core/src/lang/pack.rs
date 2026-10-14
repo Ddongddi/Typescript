@@ -1,7 +1,7 @@
 //! Language packs: `<root>/<id>-<version>/manifest.json` plus the tables it lists. Packs are
 //! memory-mapped read-only, so the processes sharing them share the pages, as they did when the
 //! tables were baked into the DLL. Hashes are checked when a pack is installed (typescript-config),
-//! not here: hashing 16 MB in every application that loads the text service would be slow.
+//! not here: hashing 10 MB in every application that loads the text service would be slow.
 //!
 //! Missing data never panics: `bytes`/`text` return empty data and `available` says the
 //! language can't be used.
@@ -210,7 +210,7 @@ impl Registry {
 /// the first conversion).
 fn usable(language: Language, dir: &Path, files: &[(String, &'static [u8])]) -> bool {
     language != Language::Japanese
-        || ["ipadic_compact.bin", "kana_trigrams.txt"]
+        || ["ipadic_compact.bin", "kana_trigrams.bin"]
             .iter()
             .all(|name| {
                 files
@@ -229,7 +229,7 @@ fn usable(language: Language, dir: &Path, files: &[(String, &'static [u8])]) -> 
 
 /// Runs `check` on a pack file unless an earlier process already passed this very file (same
 /// size and modification time, noted in a marker next to it): every app loads the registry, and
-/// a full walk of the 16 MB dictionary would page all of it in, in each of them. A marker that
+/// a full walk of the 10 MB dictionary would page all of it in, in each of them. A marker that
 /// cannot be written (a read-only pack folder) only means the next process checks again.
 fn checked_once(dir: &Path, name: &str, check: impl FnOnce() -> bool) -> bool {
     let stamp = fs::metadata(dir.join(name)).ok().map(|m| {
@@ -306,7 +306,7 @@ fn embedded() -> Registry {
         Language::Japanese,
         vec![Language::English],
         vec![
-            pack_file!("ja", "kana_trigrams.txt"),
+            pack_file!("ja", "kana_trigrams.bin"),
             pack_file!("ja", "ipadic_compact.bin"),
         ],
     );
@@ -519,12 +519,17 @@ mod tests {
         write(&dir, "en", "0.4.0", &any_core());
         let pack = dir.join("ja-0.4.0");
         std::fs::create_dir_all(&pack).unwrap();
-        std::fs::write(pack.join("kana_trigrams.txt"), "a\n").unwrap();
-        std::fs::write(pack.join("ipadic_compact.bin"), b"TSIPDIC2 cut short").unwrap();
+        // A whole, valid trigram table: one character, one record.
+        std::fs::write(
+            pack.join("kana_trigrams.bin"),
+            b"TSKANA01\x01\x00\x00\x00\x5e\x00\x00\x00\x00\x01\x00",
+        )
+        .unwrap();
+        std::fs::write(pack.join("ipadic_compact.bin"), b"TSIPDIC3 cut short").unwrap();
         let manifest = serde_json::json!({
             "id": "ja", "name": "ja", "version": "0.4.0", "core": any_core(),
             "requires": ["en"],
-            "files": { "kana_trigrams.txt": "x", "ipadic_compact.bin": "x" },
+            "files": { "kana_trigrams.bin": "x", "ipadic_compact.bin": "x" },
         });
         std::fs::write(pack.join("manifest.json"), manifest.to_string()).unwrap();
         let mut registry = Registry::default();
@@ -543,7 +548,7 @@ mod tests {
         write(&dir, "en", "0.4.0", &any_core());
         let pack = dir.join("ja-0.4.0");
         std::fs::create_dir_all(&pack).unwrap();
-        std::fs::write(pack.join("kana_trigrams.txt"), "not a table\n").unwrap();
+        std::fs::write(pack.join("kana_trigrams.bin"), "not a table\n").unwrap();
         // A whole dictionary (the one the build ships): the trigram table is what is broken.
         let dictionary =
             std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("data/ipadic_compact.bin"))
@@ -552,7 +557,7 @@ mod tests {
         let manifest = serde_json::json!({
             "id": "ja", "name": "ja", "version": "0.4.0", "core": any_core(),
             "requires": ["en"],
-            "files": { "kana_trigrams.txt": "x", "ipadic_compact.bin": "x" },
+            "files": { "kana_trigrams.bin": "x", "ipadic_compact.bin": "x" },
         });
         std::fs::write(pack.join("manifest.json"), manifest.to_string()).unwrap();
         let mut registry = Registry::default();

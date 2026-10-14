@@ -27,7 +27,7 @@ param(
     [switch]$Uninstall,
     # Release tag to install (default: the latest release).
     [string]$Version = 'latest',
-    # Also install and turn on the Japanese language pack (romaji -> kana -> kanji, a 16 MB
+    # Also install and turn on the Japanese language pack (romaji -> kana -> kanji, a 10 MB
     # dictionary). The packs go to %LOCALAPPDATA%\Typescript\packs; settings.json "languages"
     # says which are on, in Esc order.
     [switch]$Japanese,

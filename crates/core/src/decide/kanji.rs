@@ -4,7 +4,10 @@
 //! — the MeCab model (the connection formula was checked against MeCab's `connector.h`:
 //! `matrix[left.rcAttr + lsize * right.lcAttr]`, BOS/EOS attributes 0).
 //!
-//! `tools/build_ipadic.py` builds `data/ipadic_compact.bin`; this module reads it zero-copy.
+//! `tools/build_ipadic.py` builds `data/ipadic_compact.bin` (`tools/repack_ipadic.py` upgrades
+//! an older one): every table at its natural width, so the same words take ~40% fewer bytes.
+//! The blobs are still read zero-copy; the stored per-reading lengths become u32 prefix sums
+//! once, at load.
 //! Seamtype gets kanji from macOS's engines (libmecabra, AzooKey); this is the Windows
 //! counterpart: the best paths, their clause boundaries and the user's earlier choices become
 //! the candidates the session cycles through.
@@ -20,7 +23,7 @@ use crate::lang::pack;
 use crate::lang::romaji::RomajiComposer;
 use crate::support_dir;
 
-const MAGIC: &[u8; 8] = b"TSIPDIC2";
+const MAGIC: &[u8; 8] = b"TSIPDIC3";
 
 /// No entry covers this character (a latin run, a stray mark): the path keeps it as typed.
 const UNKNOWN_COST: i32 = 15_000;
@@ -36,17 +39,20 @@ const PLAIN_FORMS_LEAD_COST: i32 = 13_000;
 /// Texts remembered per reading (`AppleJapaneseConverter` keeps five).
 const LEARNED_PER_READING: usize = 5;
 
-/// The compact dictionary (see tools/build_ipadic.py for the layout).
+/// The compact dictionary (see tools/build_ipadic.py for the packed layout, and
+/// tools/repack_ipadic.py for upgrading an older file).
 pub struct KanjiDictionary {
     n_readings: usize,
     n_entries: usize,
     max_reading_chars: usize,
     lsize: usize,
-    reading_offsets: &'static [u8],
-    entry_offsets: &'static [u8],
-    entry_byte_offsets: &'static [u8],
+    reading_offsets: Vec<u32>,
+    entry_offsets: Vec<u32>,
+    entry_byte_offsets: Vec<u32>,
     readings: &'static [u8],
     entries: &'static [u8],
+    top_chars: &'static [u8],
+    rest_chars: &'static [u8],
     matrix: &'static [u8],
 }
 
@@ -61,6 +67,28 @@ fn i16_at(bytes: &[u8], at: usize) -> i16 {
     i16::from_le_bytes([bytes[at], bytes[at + 1]])
 }
 
+fn u24_at(bytes: &[u8], at: usize) -> usize {
+    bytes[at] as usize | ((bytes[at + 1] as usize) << 8) | ((bytes[at + 2] as usize) << 16)
+}
+
+/// A reading as the file stores it: one byte per character, in an order the byte compare keeps
+/// (ぁ..ゖ -> 0..85, ー -> 86). `None` when a character cannot appear in a reading: no entry can
+/// match, so the search can answer without comparing.
+fn encoded_reading(key: &str) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(key.len());
+    for c in key.chars() {
+        let v = c as u32;
+        if (0x3041..=0x3096).contains(&v) {
+            out.push((v - 0x3041) as u8);
+        } else if v == 0x30FC {
+            out.push(86);
+        } else {
+            return None;
+        }
+    }
+    Some(out)
+}
+
 impl KanjiDictionary {
     /// One dictionary per process, built lazily (Japanese is off by default).
     pub fn shared() -> &'static KanjiDictionary {
@@ -69,7 +97,7 @@ impl KanjiDictionary {
 
     /// The bytes are a whole dictionary the reader can walk: right magic, tables that fit the
     /// file, and, the part a damaged file would otherwise hit the first time a word is
-    /// converted, offsets and attributes that stay inside those tables. The walk below is the
+    /// converted, lengths, codes and ids that stay inside those tables. The walk below is the
     /// same one `candidates` does, so a file this accepts cannot panic it. A pack is only
     /// registered when this holds, so a half-copied file costs the Japanese pack, not the
     /// text service.
@@ -77,7 +105,7 @@ impl KanjiDictionary {
     /// The arithmetic runs on file-supplied numbers: all of it checked, so a crafted header
     /// cannot wrap (the shipped 32-bit service is where that would bite).
     pub fn valid(data: &[u8]) -> bool {
-        if data.len() <= 32 || &data[..8] != MAGIC {
+        if data.len() <= 36 || &data[..8] != MAGIC {
             return false;
         }
         let u32_at = |at: usize| {
@@ -89,15 +117,27 @@ impl KanjiDictionary {
         if lsize == 0 || rsize == 0 {
             return false;
         }
-        let Some(table_len) = u32_at(8).checked_add(1).and_then(|n| n.checked_mul(4)) else {
+        let n_readings = u32_at(8);
+        let (readings_len, entries_len) = (u32_at(24), u32_at(28));
+        let (n_top, n_rest) = (u16_at(data, 32) as usize, u16_at(data, 34) as usize);
+        // One-byte surface codes index the top table, two-byte codes the rest; the reader
+        // takes both as sizes, so they have to hold.
+        if n_top > 128 || n_rest > 0x8000 {
+            return false;
+        }
+        let Some(at_charset) = n_readings.checked_mul(4).and_then(|n| n.checked_add(36)) else {
             return false;
         };
-        let Some(at_matrix) = table_len.checked_mul(3).and_then(|n| n.checked_add(32)) else {
+        let Some(at_readings) = n_top
+            .checked_add(n_rest)
+            .and_then(|n| n.checked_mul(2))
+            .and_then(|n| n.checked_add(at_charset))
+        else {
             return false;
         };
-        let Some(regions_end) = at_matrix
-            .checked_add(u32_at(24))
-            .and_then(|n| n.checked_add(u32_at(28)))
+        let Some(regions_end) = at_readings
+            .checked_add(readings_len)
+            .and_then(|n| n.checked_add(entries_len))
         else {
             return false;
         };
@@ -110,58 +150,82 @@ impl KanjiDictionary {
         {
             return false;
         }
-        let tables = 32;
-        let at_readings = tables + 3 * table_len;
-        let (readings_len, entries_len) = (u32_at(24), u32_at(28));
+        let tables = 36;
+        let reading_lens = &data[tables..tables + n_readings];
+        let entry_counts = &data[tables + n_readings..tables + 2 * n_readings];
+        let entry_byte_lens = &data[tables + 2 * n_readings..tables + 4 * n_readings];
+        let charset = &data[at_charset..at_readings];
         let readings = &data[at_readings..at_readings + readings_len];
         let entries = &data[at_readings + readings_len..regions_end];
-        let off = |table: usize, i: usize| u32_at(tables + table * table_len + 4 * i);
-        // Readings: the offsets must not go backwards past the blob and every slice the reader
-        // takes must be whole UTF-8.
-        let n_readings = u32_at(8);
-        for i in 0..n_readings {
-            let (a, b) = (off(0, i), off(0, i + 1));
-            if a > b || b > readings_len || std::str::from_utf8(&readings[a..b]).is_err() {
+        // Every code point has to be a character; the reader takes them as such.
+        for i in 0..(n_top + n_rest) {
+            if char::from_u32(u16_at(charset, i * 2) as u32).is_none() {
                 return false;
             }
         }
-        // Entries: walk every reading's entries exactly as the reader will. Each entry is 7
-        // header bytes plus its surface, so more entries than that in bytes is a lie (and
-        // keeps this walk linear).
-        let mut walked = 0usize;
-        for i in 0..n_readings {
-            let (start, end) = (off(1, i), off(1, i + 1));
-            if start > end {
-                return false;
-            }
-            let Some(total) = walked.checked_add(end - start) else {
+        // Readings: one byte per character, every byte a kana code, the lengths not adding
+        // past the blob.
+        let mut at = 0usize;
+        for &len in reading_lens {
+            let Some(next) = at.checked_add(len as usize) else {
                 return false;
             };
-            if total > entries_len / 7 {
+            if next > readings_len || readings[at..next].iter().any(|&b| b > 86) {
+                return false;
+            }
+            at = next;
+        }
+        // Entries: walk every reading's entries exactly as the reader will, and check that the
+        // per-reading byte lengths the reader jumps by agree with the records it will find.
+        let mut at = 0usize;
+        let mut walked = 0usize;
+        for (i, &count) in entry_counts.iter().enumerate() {
+            let start = at;
+            let count = count as usize;
+            let Some(total) = walked.checked_add(count) else {
+                return false;
+            };
+            // Each record is 6 header bytes plus its surface, so more entries than that in
+            // bytes is a lie (and keeps this walk linear).
+            if total > entries_len / 6 {
                 return false;
             }
             walked = total;
-            let mut at = off(2, i);
-            for _ in start..end {
-                if at > entries_len || at + 7 > entries_len {
+            for _ in 0..count {
+                if at + 6 > entries_len {
                     return false;
                 }
-                let surface_len = entries[at + 6] as usize;
-                let next = at + 7 + surface_len;
-                if next > entries_len {
+                let packed = u24_at(entries, at);
+                if (packed & 0x7FF) >= rsize || (packed >> 11) >= lsize {
                     return false;
                 }
-                let (lc, rc) = (
-                    u16_at(entries, at) as usize,
-                    u16_at(entries, at + 2) as usize,
-                );
-                if lc >= rsize || rc >= lsize {
+                let end = at + 6 + entries[at + 5] as usize;
+                if end > entries_len {
                     return false;
                 }
-                if std::str::from_utf8(&entries[at + 7..next]).is_err() {
-                    return false;
+                let mut p = at + 6;
+                while p < end {
+                    let code = entries[p];
+                    if code < 0x80 {
+                        if (code as usize) >= n_top {
+                            return false;
+                        }
+                        p += 1;
+                    } else {
+                        if p + 2 > end {
+                            return false;
+                        }
+                        let index = (((code - 0x80) as usize) << 8) | entries[p + 1] as usize;
+                        if index >= n_rest {
+                            return false;
+                        }
+                        p += 2;
+                    }
                 }
-                at = next;
+                at = end;
+            }
+            if at - start != u16_at(entry_byte_lens, i * 2) as usize {
+                return false;
             }
         }
         true
@@ -180,79 +244,107 @@ impl KanjiDictionary {
         let max_reading_chars = data[16] as usize;
         let (lsize, rsize) = (u16_at(data, 20) as usize, u16_at(data, 22) as usize);
         let (readings_len, entries_len) = (u32_at(24), u32_at(28));
-        let tables = 32;
-        let table_len = (n_readings + 1) * 4;
-        let at_readings = tables + 3 * table_len;
+        let (n_top, n_rest) = (u16_at(data, 32) as usize, u16_at(data, 34) as usize);
+        let tables = 36;
+        let at_charset = tables + 4 * n_readings;
+        let at_readings = at_charset + 2 * (n_top + n_rest);
         let at_entries = at_readings + readings_len;
         let at_matrix = at_entries + entries_len;
         assert!(
             at_matrix + lsize * rsize * 2 <= data.len(),
             "data/ipadic_compact.bin: truncated"
         );
+        // The prefix sums the reader jumps by, widened from the stored lengths once.
+        let mut reading_offsets = Vec::with_capacity(n_readings + 1);
+        let mut entry_offsets = Vec::with_capacity(n_readings + 1);
+        let mut entry_byte_offsets = Vec::with_capacity(n_readings + 1);
+        reading_offsets.push(0);
+        entry_offsets.push(0);
+        entry_byte_offsets.push(0);
+        for i in 0..n_readings {
+            reading_offsets.push(reading_offsets[i] + data[tables + i] as u32);
+            entry_offsets.push(entry_offsets[i] + data[tables + n_readings + i] as u32);
+            entry_byte_offsets
+                .push(entry_byte_offsets[i] + u16_at(data, tables + 2 * n_readings + 2 * i) as u32);
+        }
         Self {
             n_readings,
             n_entries,
             max_reading_chars,
             lsize,
-            reading_offsets: &data[tables..tables + table_len],
-            entry_offsets: &data[tables + table_len..tables + 2 * table_len],
-            entry_byte_offsets: &data[tables + 2 * table_len..tables + 3 * table_len],
+            reading_offsets,
+            entry_offsets,
+            entry_byte_offsets,
             readings: &data[at_readings..at_readings + readings_len],
             entries: &data[at_entries..at_entries + entries_len],
+            top_chars: &data[at_charset..at_charset + 2 * n_top],
+            rest_chars: &data[at_charset + 2 * n_top..at_charset + 2 * (n_top + n_rest)],
             matrix: &data[at_matrix..at_matrix + lsize * rsize * 2],
         }
     }
 
-    fn table(table: &[u8], i: usize) -> usize {
-        u32::from_le_bytes([
-            table[i * 4],
-            table[i * 4 + 1],
-            table[i * 4 + 2],
-            table[i * 4 + 3],
-        ]) as usize
-    }
-
-    fn reading(&self, i: usize) -> &'static str {
+    /// The i-th reading as stored (one byte per character).
+    fn reading(&self, i: usize) -> &'static [u8] {
         let blob = self.readings;
-        let (a, b) = (
-            Self::table(self.reading_offsets, i),
-            Self::table(self.reading_offsets, i + 1),
-        );
-        std::str::from_utf8(&blob[a..b]).expect("readings are UTF-8")
+        &blob[self.reading_offsets[i] as usize..self.reading_offsets[i + 1] as usize]
     }
 
     fn entry_range(&self, i: usize) -> (usize, usize) {
         (
-            Self::table(self.entry_offsets, i),
-            Self::table(self.entry_offsets, i + 1),
+            self.entry_offsets[i] as usize,
+            self.entry_offsets[i + 1] as usize,
         )
+    }
+
+    fn top_char(&self, code: u8) -> char {
+        char::from_u32(u16_at(self.top_chars, code as usize * 2) as u32)
+            .expect("charset code points are characters")
+    }
+
+    fn rest_char(&self, index: usize) -> char {
+        char::from_u32(u16_at(self.rest_chars, index * 2) as u32)
+            .expect("charset code points are characters")
     }
 
     /// The k-th entry of reading `i`: (left context, right context, word cost, surface).
-    fn entry(&self, i: usize, k: usize) -> (u16, u16, i32, &'static str) {
+    fn entry(&self, i: usize, k: usize) -> (u16, u16, i32, String) {
         let blob = self.entries;
-        let mut at = Self::table(self.entry_byte_offsets, i);
+        let mut at = self.entry_byte_offsets[i] as usize;
         let (start, _) = self.entry_range(i);
         for _ in start..k {
-            at += 7 + blob[at + 6] as usize;
+            at += 6 + blob[at + 5] as usize;
         }
-        let surface_len = blob[at + 6] as usize;
-        let surface =
-            std::str::from_utf8(&blob[at + 7..at + 7 + surface_len]).expect("surfaces are UTF-8");
+        let packed = u24_at(blob, at);
+        let nbytes = blob[at + 5] as usize;
+        let mut text = String::with_capacity(nbytes);
+        let mut p = at + 6;
+        let end = p + nbytes;
+        while p < end {
+            let code = blob[p];
+            if code < 0x80 {
+                text.push(self.top_char(code));
+                p += 1;
+            } else {
+                text.push(self.rest_char((((code - 0x80) as usize) << 8) | blob[p + 1] as usize));
+                p += 2;
+            }
+        }
         (
-            u16_at(blob, at),
-            u16_at(blob, at + 2),
-            i16_at(blob, at + 4) as i32,
-            surface,
+            (packed & 0x7FF) as u16,
+            (packed >> 11) as u16,
+            i16_at(blob, at + 3) as i32,
+            text,
         )
     }
 
-    /// The reading's index, if the dictionary has it (readings are sorted).
+    /// The reading's index, if the dictionary has it (readings are sorted, and the one-byte
+    /// encoding preserves the order, so the search compares bytes).
     pub fn find_reading(&self, key: &str) -> Option<usize> {
+        let key = encoded_reading(key)?;
         let (mut lo, mut hi) = (0usize, self.n_readings);
         while lo < hi {
             let mid = (lo + hi) / 2;
-            match self.reading(mid).cmp(key) {
+            match self.reading(mid).cmp(&key[..]) {
                 std::cmp::Ordering::Less => lo = mid + 1,
                 std::cmp::Ordering::Greater => hi = mid,
                 std::cmp::Ordering::Equal => return Some(mid),
@@ -319,7 +411,7 @@ impl KanjiDictionary {
                         lc,
                         rc,
                         wcost,
-                        text: surface.to_string(),
+                        text: surface,
                         unknown: false,
                     });
                     let id = nodes.len() - 1;
@@ -706,40 +798,66 @@ mod tests {
         assert_eq!(candidates[0].text, "今日はgoogleで検索");
     }
 
-    /// A whole, minimal dictionary (two readings, two entries — the layout of
-    /// tools/build_ipadic.py), small enough to damage one field at a time.
+    /// A whole, minimal dictionary — two readings, three entries — small enough to damage one
+    /// field at a time, in the layout tools/build_ipadic.py writes.
     fn minimal_dictionary() -> Vec<u8> {
-        let readings = "あい".as_bytes();
-        let mut entries = Vec::new();
-        for (lc, rc, cost, surface) in [(1u16, 1u16, 100i16, "か"), (2, 0, 50, "カ")] {
-            entries.extend(lc.to_le_bytes());
-            entries.extend(rc.to_le_bytes());
-            entries.extend(cost.to_le_bytes());
-            entries.push(surface.len() as u8);
-            entries.extend(surface.as_bytes());
+        let readings = ["あ", "い"]; // codes 0 and 1
+        let charset = ['か', 'き', 'カ']; // one-byte codes 0..2, all in the top table
+                                          // (reading, lc, rc, cost, surface code)
+        let entries: [(usize, u16, u16, i16, u8); 3] =
+            [(0, 1, 1, 100, 0), (0, 0, 2, 50, 1), (1, 1, 1, 10, 2)];
+        let (lsize, rsize) = (3u16, 2u16);
+
+        let mut readings_blob = Vec::new();
+        let mut reading_lens = Vec::new();
+        for r in readings {
+            let code = encoded_reading(r).unwrap();
+            reading_lens.push(code.len() as u8);
+            readings_blob.extend(code);
         }
-        let table_len = (2 + 1) * 4;
-        assert_eq!(entries.len(), 20, "two entries of 7 + 3 bytes");
+        let mut entries_blob = Vec::new();
+        let mut entry_counts = Vec::new();
+        let mut entry_byte_lens = Vec::new();
+        for i in 0..readings.len() {
+            let start = entries_blob.len();
+            let mut n = 0u8;
+            for (reading, lc, rc, cost, surface) in entries {
+                if reading != i {
+                    continue;
+                }
+                let packed = u32::from(lc) | (u32::from(rc) << 11);
+                entries_blob.extend(&packed.to_le_bytes()[..3]);
+                entries_blob.extend(cost.to_le_bytes());
+                entries_blob.push(1); // one surface code byte
+                entries_blob.push(surface);
+                n += 1;
+            }
+            entry_counts.push(n);
+            entry_byte_lens.extend(((entries_blob.len() - start) as u16).to_le_bytes());
+        }
+
         let mut out = Vec::new();
         out.extend(MAGIC);
         out.extend(2u32.to_le_bytes()); // readings
-        out.extend(2u32.to_le_bytes()); // entries
-        out.push(5); // longest reading
+        out.extend(3u32.to_le_bytes()); // entries
+        out.push(1); // longest reading, in characters
         out.extend([0u8; 3]); // padding
-        out.extend(2u16.to_le_bytes()); // lsize
-        out.extend(3u16.to_le_bytes()); // rsize
-        out.extend((readings.len() as u32).to_le_bytes());
-        out.extend((entries.len() as u32).to_le_bytes());
-        for table in [[0u32, 3, 6], [0, 2, 2], [0, 20, 20]] {
-            for v in table {
-                out.extend(v.to_le_bytes());
-            }
+        out.extend(lsize.to_le_bytes());
+        out.extend(rsize.to_le_bytes());
+        out.extend((readings_blob.len() as u32).to_le_bytes());
+        out.extend((entries_blob.len() as u32).to_le_bytes());
+        out.extend(3u16.to_le_bytes()); // charset: three one-byte characters
+        out.extend(0u16.to_le_bytes()); // ...and no two-byte ones
+        out.extend(reading_lens);
+        out.extend(entry_counts);
+        out.extend(entry_byte_lens);
+        for c in charset {
+            out.extend((c as u16).to_le_bytes());
         }
-        assert_eq!(out.len(), 32 + 3 * table_len);
-        out.extend(readings);
-        out.extend(&entries);
-        for _ in 0..6 {
-            out.extend(7i16.to_le_bytes()); // the connection matrix, lsize * rsize
+        out.extend(readings_blob);
+        out.extend(entries_blob);
+        for _ in 0..(lsize as usize * rsize as usize) {
+            out.extend(0i16.to_le_bytes()); // the connection matrix
         }
         out
     }
@@ -751,8 +869,8 @@ mod tests {
     }
 
     /// A damaged dictionary is refused by `valid` in every place the reader would otherwise
-    /// walk into it — a slice range, a matrix index, a UTF-8 expectation (this is the check
-    /// that keeps a half-copied pack from panicking the text service).
+    /// walk into it — a length past a blob, a code outside a table, an id outside the matrix
+    /// (this is the check that keeps a half-copied pack from panicking the text service).
     #[test]
     fn a_damaged_dictionary_fails_valid_where_the_reader_would_walk() {
         let whole = minimal_dictionary();
@@ -760,35 +878,45 @@ mod tests {
             KanjiDictionary::valid(&whole),
             "the fixture itself must pass"
         );
-        let (readings_at, entries_at) = (32 + 3 * 3 * 4, 32 + 3 * 3 * 4 + 6);
-        let cases: [(&str, Vec<u8>); 8] = [
+        // Where each field sits in the fixture above.
+        let (reading_lens_at, entry_counts_at, entry_byte_lens_at) = (36, 38, 40);
+        let (charset_at, readings_at, entries_at) = (44, 50, 52);
+        let cases: [(&str, Vec<u8>); 10] = [
             (
-                "a reading offset far past the blob",
-                patched(&whole, 32 + 4, &u32::MAX.to_le_bytes()),
+                "a reading length past the readings blob",
+                patched(&whole, reading_lens_at, &[200]),
             ),
             (
-                "a reading offset going backwards",
-                patched(&whole, 32 + 8, &1u32.to_le_bytes()),
-            ),
-            (
-                "a reading that is not UTF-8",
+                "a reading byte that is not a kana code",
                 patched(&whole, readings_at, &[0xFF]),
             ),
             (
                 "a left id outside the matrix",
-                patched(&whole, entries_at, &3u16.to_le_bytes()),
+                patched(&whole, entries_at, &[0x02, 0x08, 0x00]),
             ),
             (
                 "a right id outside the matrix",
-                patched(&whole, entries_at + 2, &2u16.to_le_bytes()),
+                patched(&whole, entries_at, &[0x01, 0x18, 0x00]),
+            ),
+            (
+                "a surface code that indexes past the tables",
+                patched(&whole, entries_at + 6, &[0x80]),
             ),
             (
                 "a surface running past the entries blob",
-                patched(&whole, entries_at + 6, &200u8.to_le_bytes()),
+                patched(&whole, entries_at + 19, &[200]),
             ),
             (
                 "more entries claimed than the blob can hold",
-                patched(&whole, 32 + 12 + 4, &1_000_000u32.to_le_bytes()),
+                patched(&whole, entry_counts_at, &[250]),
+            ),
+            (
+                "a byte length that disagrees with the records",
+                patched(&whole, entry_byte_lens_at, &[15, 0]),
+            ),
+            (
+                "a code point that is not a character",
+                patched(&whole, charset_at, &[0x00, 0xD8]),
             ),
             (
                 "a zero matrix width",
