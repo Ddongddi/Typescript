@@ -77,6 +77,9 @@ fn answer(app: &App, mut http: tiny_http::Request) {
         .with_header(header("Cache-Control", "no-store"))
         .with_header(header("X-Content-Type-Options", "nosniff"))
         .with_header(header("Referrer-Policy", "no-referrer"));
+    if matches!(response.status, 429 | 503) {
+        out = out.with_header(header("Retry-After", "2"));
+    }
     if response.content_type.starts_with("text/html") {
         out = out.with_header(header(
             "Content-Security-Policy",
@@ -106,8 +109,11 @@ pub fn start(env: Env, source: Source, idle: Duration) -> Result<Running> {
                     // instead of taking every thread and byte.
                     if working.fetch_add(1, Ordering::SeqCst) >= MAX_AT_ONCE {
                         working.fetch_sub(1, Ordering::SeqCst);
-                        let _ =
-                            http.respond(HttpResponse::from_string("busy").with_status_code(503));
+                        let _ = http.respond(
+                            HttpResponse::from_string("busy")
+                                .with_status_code(503)
+                                .with_header(header("Retry-After", "2")),
+                        );
                         continue;
                     }
                     let (app, working) = (shared.clone(), working.clone());

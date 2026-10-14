@@ -11,7 +11,6 @@
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashSet};
-use std::fs;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
@@ -538,11 +537,7 @@ pub struct DictionaryConverter {
 
 impl DictionaryConverter {
     pub fn new(learning_path: Option<PathBuf>) -> Self {
-        let learned = learning_path
-            .as_deref()
-            .and_then(|path| fs::read(path).ok())
-            .and_then(|data| serde_json::from_slice(&data).ok())
-            .unwrap_or_default();
+        let learned = crate::store::load_or_quarantine(learning_path.as_deref());
         Self {
             dict: KanjiDictionary::shared(),
             learning_path,
@@ -582,18 +577,7 @@ impl JapaneseConverter for DictionaryConverter {
         let Some(path) = &self.learning_path else {
             return;
         };
-        let Ok(json) = serde_json::to_vec_pretty(&*learned) else {
-            return;
-        };
-        if let Some(dir) = path.parent() {
-            let _ = fs::create_dir_all(dir);
-        }
-        let mut tmp = path.as_os_str().to_owned();
-        tmp.push(format!(".{}.tmp", std::process::id()));
-        let tmp = PathBuf::from(tmp);
-        if fs::write(&tmp, json).is_ok() && fs::rename(&tmp, path).is_err() {
-            let _ = fs::remove_file(&tmp);
-        }
+        let _ = crate::store::persist(path, &*learned);
     }
 
     fn save(&self) {
@@ -604,6 +588,7 @@ impl JapaneseConverter for DictionaryConverter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn converter() -> DictionaryConverter {
         DictionaryConverter::new(None)

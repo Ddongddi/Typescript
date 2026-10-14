@@ -5,7 +5,6 @@
 //! counts. ponytail: no cross-process lock, the last write wins; a named mutex if that matters.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -44,9 +43,7 @@ pub struct History {
 }
 
 fn read(path: Option<&PathBuf>) -> Store {
-    path.and_then(|p| fs::read(p).ok())
-        .and_then(|d| serde_json::from_slice(&d).ok())
-        .unwrap_or_default()
+    crate::store::load_or_quarantine(path.map(PathBuf::as_path))
 }
 
 /// Hangul syllables or ASCII letters only, 2..=32 characters: no numbers, no mixed tokens.
@@ -62,12 +59,12 @@ fn prune(store: &mut Store) {
     if store.words.len() <= MAX_WORDS {
         return;
     }
+    // Selecting the cut is linear; only the kept words are then collected.
     let mut ranked: Vec<(&String, &u32)> = store.words.iter().collect();
-    ranked.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
-    let keep: std::collections::BTreeSet<String> = ranked
-        .into_iter()
-        .take(MAX_WORDS)
-        .map(|(w, _)| w.clone())
+    ranked.select_nth_unstable_by(MAX_WORDS, |a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+    let keep: std::collections::BTreeSet<String> = ranked[..MAX_WORDS]
+        .iter()
+        .map(|(w, _)| (*w).clone())
         .collect();
     store.words.retain(|w, _| keep.contains(w));
 }
@@ -121,20 +118,9 @@ impl History {
             *merged.words.entry(word.clone()).or_default() += n;
         }
         prune(&mut merged);
-        let Ok(json) = serde_json::to_vec_pretty(&merged) else {
-            return;
-        };
-        if let Some(dir) = path.parent() {
-            let _ = fs::create_dir_all(dir);
-        }
-        let mut tmp = path.as_os_str().to_owned();
-        tmp.push(format!(".{}.tmp", std::process::id()));
-        let tmp = PathBuf::from(tmp);
-        if fs::write(&tmp, json).is_ok() && fs::rename(&tmp, path).is_ok() {
+        if crate::store::persist(path, &merged).is_ok() {
             s.store = merged;
             s.fresh.clear();
-        } else {
-            let _ = fs::remove_file(&tmp);
         }
     }
 
@@ -183,6 +169,8 @@ pub fn suggest(history: Option<&History>, language: Language, prefix: &str) -> O
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     #[test]
     fn the_file_is_capped_and_keeps_the_most_typed_words() {
         let mut store = Store::default();
@@ -254,6 +242,41 @@ mod tests {
         let _ = fs::remove_file(&path);
         assert_eq!(browser.suggest("zebra").as_deref(), Some("zebrafish"));
         assert_eq!(browser.lock().store.words.get("zebrastripe"), Some(&1));
+    }
+
+    #[test]
+    fn a_word_of_32_characters_is_kept_and_one_of_33_is_not() {
+        let h = History::new(None);
+        for w in ["a".repeat(MAX_WORD_CHARS), "a".repeat(MAX_WORD_CHARS + 1)] {
+            h.record(&w);
+            h.record(&w);
+        }
+        assert!(h
+            .lock()
+            .store
+            .words
+            .contains_key(&"a".repeat(MAX_WORD_CHARS)));
+        assert!(!h
+            .lock()
+            .store
+            .words
+            .contains_key(&"a".repeat(MAX_WORD_CHARS + 1)));
+    }
+
+    #[test]
+    fn a_damaged_history_file_is_set_aside_instead_of_overwritten() {
+        let path = temp("damaged");
+        std::fs::write(&path, b"{ broken").unwrap();
+        let h = History::new(Some(path.clone()));
+        h.record("zebrafish");
+        h.record("zebrafish");
+        h.flush();
+        let mut aside = path.as_os_str().to_owned();
+        aside.push(".unreadable");
+        assert_eq!(std::fs::read(&aside).unwrap(), b"{ broken");
+        assert_eq!(h.suggest("zebra").as_deref(), Some("zebrafish"));
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&aside);
     }
 
     #[test]

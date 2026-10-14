@@ -1,6 +1,8 @@
 //! Which languages are on, in what order: `languages` in settings.json, kept consistent with the
 //! packs that are installed.
 
+use std::sync::Mutex;
+
 use typescript_core::{Language, Languages, Settings};
 
 use crate::catalog::Catalog;
@@ -21,7 +23,14 @@ pub fn enabled(env: &Env) -> Languages {
     Settings::load(Some(&env.settings)).languages
 }
 
+/// Held while settings.json / apps.json are read, changed and written back (a moment, never a
+/// download), by the dashboard and by language changes alike.
+pub(crate) static SETTINGS_WRITE: Mutex<()> = Mutex::new(());
+
+/// Rewrites settings.json with the languages: the file is read, changed and written back under
+/// the lock the dashboard also takes for its own settings changes, so neither loses the other's.
 pub fn save(env: &Env, languages: &Languages) -> Result<()> {
+    let _write = SETTINGS_WRITE.lock().unwrap_or_else(|e| e.into_inner());
     let mut settings = Settings::load(Some(&env.settings));
     settings.languages = languages.clone();
     settings.save(&env.settings)?;

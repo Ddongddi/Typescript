@@ -208,7 +208,9 @@ pub struct App {
     last_seen: Mutex<Instant>,
     quit: AtomicBool,
     /// One change at a time: two downloads at once would race on the same folders.
-    busy: Mutex<()>,
+    /// Held for the slow jobs, downloading a language or updating: one at a time, the next one
+    /// asked for meanwhile is turned away (429) instead of piling up behind it.
+    slow: Mutex<()>,
     /// The engine the "try typing" box reads with, for the languages that were on when it was built.
     engine: Mutex<Option<(Languages, Arc<LearningEngine>)>>,
     /// The kana-to-kanji dictionary of the chat box, loaded when Japanese first needs it.
@@ -225,7 +227,7 @@ impl App {
             updates: Updates::github(),
             last_seen: Mutex::new(Instant::now()),
             quit: AtomicBool::new(false),
-            busy: Mutex::new(()),
+            slow: Mutex::new(()),
             engine: Mutex::new(None),
             converter: Mutex::new(None),
         }
@@ -336,7 +338,18 @@ impl App {
                 Err(message) => fail(400, &message),
             };
         }
-        let _one_at_a_time = self.busy.lock().unwrap_or_else(|e| e.into_inner());
+        let slow_job = path == "/api/update" || path == "/api/languages";
+        let _slow = if slow_job {
+            match self.slow.try_lock() {
+                Ok(guard) => Some(guard),
+                Err(std::sync::TryLockError::Poisoned(e)) => Some(e.into_inner()),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    return fail(429, "another download or update is still running");
+                }
+            }
+        } else {
+            None
+        };
         // Packs or the language set may change below: the box must read with what is there after.
         *self.engine.lock().unwrap_or_else(|e| e.into_inner()) = None;
         if path == "/api/update" {
@@ -345,13 +358,23 @@ impl App {
             }
             return match self.apply_update() {
                 Ok(message) => json_response(200, &json!({ "message": message })),
-                Err(message) => fail(400, &message),
+                Err(message) => fail(502, &message),
             };
         }
         let done = match path {
             "/api/languages" => self.change_languages(&body),
-            "/api/settings" => self.change_settings(&body),
-            _ => self.change_apps(&body),
+            "/api/settings" => {
+                let _write = crate::languages::SETTINGS_WRITE
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                self.change_settings(&body)
+            }
+            _ => {
+                let _write = crate::languages::SETTINGS_WRITE
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                self.change_apps(&body)
+            }
         };
         match done {
             Ok(()) => json_response(200, &self.state()),
@@ -1004,6 +1027,28 @@ mod tests {
             let r = app.handle(&req("POST", "/api/apps", Some(bad.clone())));
             assert_eq!(r.status, 400, "{bad}");
         }
+    }
+
+    #[test]
+    fn a_second_download_is_turned_away_but_settings_still_save() {
+        let f = fixture("app-slow");
+        let app = app(&f);
+        let _running = app.slow.lock().unwrap();
+        let add = json!({ "action": "add", "id": "ja" });
+        assert_eq!(
+            app.handle(&req("POST", "/api/languages", Some(add))).status,
+            429
+        );
+        let update = json!({ "action": "apply" });
+        assert_eq!(
+            app.handle(&req("POST", "/api/update", Some(update))).status,
+            429
+        );
+        let set = json!({ "autocomplete": false });
+        assert_eq!(
+            app.handle(&req("POST", "/api/settings", Some(set))).status,
+            200
+        );
     }
 
     #[test]

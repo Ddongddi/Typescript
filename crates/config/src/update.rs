@@ -164,10 +164,8 @@ pub fn check(env: &Env, fetch: &dyn Fetch, url: &str, now: u64, force: bool) -> 
     }
     let release = fetch_release(fetch, url)?;
     let remembered = json!({ "checkedAt": now, "latest": release.tag, "notes": release.notes });
-    if let Some(dir) = cache_path(env).parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let _ = std::fs::write(cache_path(env), remembered.to_string());
+    let _ =
+        typescript_core::store::write_atomic(&cache_path(env), remembered.to_string().as_bytes());
     Ok(info(&release.tag, &release.notes))
 }
 

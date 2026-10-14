@@ -97,3 +97,19 @@ fn a_chosen_candidate_is_first_next_time() {
     let again = converter.candidates("きょうはgoogleでけんさく");
     assert_eq!(again[0].text, chosen);
 }
+
+#[test]
+fn a_reading_remembers_its_five_latest_picks_newest_first_and_saves_them() {
+    use typescript_core::ConversionCandidate;
+    let path =
+        std::env::temp_dir().join(format!("typescript-kanji-cap-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let converter = DictionaryConverter::new(Some(path.clone()));
+    for pick in ["一", "二", "三", "四", "五", "六"] {
+        converter.learn(&ConversionCandidate::new(pick, 2), "いち");
+    }
+    let saved: std::collections::BTreeMap<String, Vec<String>> =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(saved["いち"], ["六", "五", "四", "三", "二"]); // 一 was pushed out
+    let _ = std::fs::remove_file(&path);
+}

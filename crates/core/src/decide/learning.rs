@@ -6,7 +6,6 @@
 //! simultaneous learns the last write wins. Add a named mutex if that ever matters.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -37,22 +36,7 @@ struct State {
 }
 
 fn read_store(path: Option<&Path>) -> Store {
-    let Some(path) = path else {
-        return Store::default();
-    };
-    let Ok(data) = fs::read(path) else {
-        return Store::default();
-    };
-    if let Ok(store) = serde_json::from_slice::<Store>(&data) {
-        return store;
-    }
-    // Unreadable (hand-edited, or from another version): keep it aside, don't overwrite it.
-    let mut aside = path.as_os_str().to_owned();
-    aside.push(".unreadable");
-    let aside = PathBuf::from(aside);
-    let _ = fs::remove_file(&aside);
-    let _ = fs::rename(path, &aside);
-    Store::default()
+    crate::store::load_or_quarantine(path)
 }
 
 impl LearningEngine {
@@ -165,18 +149,8 @@ impl LearningEngine {
 
     /// Failing to save (read-only profile, sandboxed app) only costs the learning.
     fn persist(&self, store: &Store) {
-        let Some(path) = &self.store_path else { return };
-        let Ok(json) = serde_json::to_vec_pretty(store) else {
-            return;
-        };
-        if let Some(dir) = path.parent() {
-            let _ = fs::create_dir_all(dir);
-        }
-        let mut tmp = path.as_os_str().to_owned();
-        tmp.push(format!(".{}.tmp", std::process::id()));
-        let tmp = PathBuf::from(tmp);
-        if fs::write(&tmp, json).is_ok() && fs::rename(&tmp, path).is_err() {
-            let _ = fs::remove_file(&tmp);
+        if let Some(path) = &self.store_path {
+            let _ = crate::store::persist(path, store);
         }
     }
 }
