@@ -201,7 +201,10 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
+[0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/iamallyouneed/Typescript/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/iamallyouneed/Typescript/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...v0.6.1
