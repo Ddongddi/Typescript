@@ -97,4 +97,12 @@ mod tests {
         assert_eq!(English.next("dkssud", &ko_en), Korean);
         assert_eq!(English.next("dkssud", &langs(&["en"])), English);
     }
+
+    #[test]
+    fn a_lone_consonant_stays_in_the_cycle() {
+        let all = langs(&["en", "ko", "ja"]);
+        assert_eq!(Korean.next("a", &all), Japanese);
+        assert_eq!(Japanese.next("a", &all), English);
+        assert_eq!(English.next("a", &all), Korean);
+    }
 }
