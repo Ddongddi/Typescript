@@ -172,7 +172,7 @@ pub fn check(env: &Env, fetch: &dyn Fetch, url: &str, now: u64, force: bool) -> 
 }
 
 /// Deletes the other versions of `id`; one a running app still holds stays for next time.
-fn prune_old(env: &Env, id: &str, keep: &str) {
+pub(crate) fn prune_old(env: &Env, id: &str, keep: &str) {
     let Ok(entries) = std::fs::read_dir(&env.packs) else {
         return;
     };

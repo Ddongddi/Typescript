@@ -91,12 +91,21 @@ fn free_folder(env: &Env, pack: &CatalogPack) -> Result<PathBuf> {
     ))
 }
 
+/// Installs `pack` (checked, never half-way), then clears its older versions: after a program
+/// update the previous version's folders are no use to anyone. A folder some program still has
+/// open stays until the next time.
 pub fn install_pack(
     env: &Env,
     fetch: &dyn Fetch,
     base: &str,
     pack: &CatalogPack,
 ) -> Result<Installed> {
+    let done = install_new(env, fetch, base, pack)?;
+    crate::update::prune_old(env, &pack.id, &pack.version);
+    Ok(done)
+}
+
+fn install_new(env: &Env, fetch: &dyn Fetch, base: &str, pack: &CatalogPack) -> Result<Installed> {
     if installed_folder(env, &pack.id, &pack.version).is_some() {
         return Ok(Installed::Already);
     }
@@ -311,6 +320,29 @@ mod tests {
         assert!(
             !f.env.staging().exists() || std::fs::read_dir(f.env.staging()).unwrap().count() == 0
         );
+    }
+
+    #[test]
+    fn installing_a_pack_clears_its_older_versions_and_nothing_else() {
+        let f = fixture("prune-on-install");
+        let old = |id: &str| {
+            let dir = f.env.packs.join(format!("{id}-0.3.0"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let manifest = format!(
+                r#"{{"id":"{id}","name":"{id}","version":"0.3.0","core":">=0.3.0, <0.4.0","files":{{}}}}"#
+            );
+            std::fs::write(dir.join("manifest.json"), manifest).unwrap();
+            dir
+        };
+        let (old_en, old_ko) = (old("en"), old("ko"));
+        let en = f.catalog.pack("en").unwrap();
+        install_pack(&f.env, &f.source, base(), en).unwrap();
+        assert!(!old_en.exists(), "the program has no use for it any more");
+        assert!(old_ko.exists(), "another pack is not ours to touch");
+        // Run again (as `setup` does on every install): leftovers that appeared since go too.
+        let again = old("en");
+        install_pack(&f.env, &f.source, base(), en).unwrap();
+        assert!(!again.exists());
     }
 
     #[test]

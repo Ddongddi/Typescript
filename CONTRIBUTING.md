@@ -88,13 +88,32 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 - **보안 취약점**은 공개 이슈에 올리지 말고 GitHub의
   [비공개 보안 권고](https://github.com/iamallyouneed/Typescript/security/advisories/new)로 보내 주세요.
 
-### 기여자
+### 기여자 (Contributors)
 
-- **noth3dev** (Necessity) — 프로젝트 운영과 핵심 개발
-- **Ddongddi** — 일본어 지원 추가
+<table>
+  <tr>
+    <td align="center" width="160px">
+      <a href="https://github.com/noth3dev">
+        <img src="https://github.com/noth3dev.png?size=100" width="100px;" alt="noth3dev" style="border-radius: 50%;" /><br />
+        <sub><b>noth3dev</b></sub>
+      </a><br />
+      <a href="https://github.com/noth3dev">@noth3dev</a><br />
+      <sub>(Necessity)</sub><br />
+      <sub>프로젝트 운영 · 핵심 개발</sub>
+    </td>
+    <td align="center" width="160px">
+      <a href="https://github.com/Ddongddi">
+        <img src="https://github.com/Ddongddi.png?size=100" width="100px;" alt="Ddongddi" style="border-radius: 50%;" /><br />
+        <sub><b>Ddongddi</b></sub>
+      </a><br />
+      <a href="https://github.com/Ddongddi">@Ddongddi</a><br />
+      <br />
+      <sub>일본어 지원 추가</sub>
+    </td>
+  </tr>
+</table>
 
-이 프로젝트는 [Seamtype](https://github.com/aimdevlee/seamtype)(aimdevlee, MIT)의 Rust 포트로 시작했습니다.
-자세한 고지는 [NOTICE](NOTICE)에 있습니다.
+이 프로젝트는 [@aimdevlee](https://github.com/aimdevlee)의 [Seamtype](https://github.com/aimdevlee/seamtype) (MIT) Rust 포트로 시작되었으며, Seamtype의 모델은 [@yksr-melt](https://github.com/yksr-melt)의 [Meltype](https://github.com/yksr-melt/Meltype)에서 영감을 받았습니다. 자세한 고지는 [NOTICE](NOTICE)에 있습니다.
 
 ---
 
@@ -188,8 +207,27 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 
 ### Contributors
 
-- **noth3dev** (Necessity) — project lead and core development
-- **Ddongddi** — added Japanese support
+<table>
+  <tr>
+    <td align="center" width="160px">
+      <a href="https://github.com/noth3dev">
+        <img src="https://github.com/noth3dev.png?size=100" width="100px;" alt="noth3dev" style="border-radius: 50%;" /><br />
+        <sub><b>noth3dev</b></sub>
+      </a><br />
+      <a href="https://github.com/noth3dev">@noth3dev</a><br />
+      <sub>(Necessity)</sub><br />
+      <sub>Project Lead & Core Dev</sub>
+    </td>
+    <td align="center" width="160px">
+      <a href="https://github.com/Ddongddi">
+        <img src="https://github.com/Ddongddi.png?size=100" width="100px;" alt="Ddongddi" style="border-radius: 50%;" /><br />
+        <sub><b>Ddongddi</b></sub>
+      </a><br />
+      <a href="https://github.com/Ddongddi">@Ddongddi</a><br />
+      <br />
+      <sub>Added Japanese Support</sub>
+    </td>
+  </tr>
+</table>
 
-The project began as a Rust port of [Seamtype](https://github.com/aimdevlee/seamtype) (aimdevlee, MIT); see
-[NOTICE](NOTICE) for the notices.
+The project began as a Rust port of [Seamtype](https://github.com/aimdevlee/seamtype) by [@aimdevlee](https://github.com/aimdevlee) (MIT), which was inspired by [Meltype](https://github.com/yksr-melt/Meltype) by [@yksr-melt](https://github.com/yksr-melt); see [NOTICE](NOTICE) for the notices.

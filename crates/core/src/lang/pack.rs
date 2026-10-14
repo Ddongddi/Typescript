@@ -67,30 +67,53 @@ pub fn version_matches(range: &str, version: &str) -> bool {
     })
 }
 
-fn read_manifest(dir: &Path) -> Result<Manifest, String> {
+/// Why a pack folder can't be used, and (when its manifest could be read) which pack and
+/// version it is, so a newer working version of it can make the folder not worth reporting.
+struct Rejected {
+    reason: String,
+    pack: Option<(String, String)>,
+}
+
+impl From<String> for Rejected {
+    fn from(reason: String) -> Self {
+        Rejected { reason, pack: None }
+    }
+}
+
+fn read_manifest(dir: &Path) -> Result<Manifest, Rejected> {
     let data = fs::read(dir.join("manifest.json")).map_err(|e| format!("manifest.json: {e}"))?;
     let manifest: Manifest =
         serde_json::from_slice(&data).map_err(|e| format!("manifest.json: {e}"))?;
+    let pack = Some((manifest.id.clone(), manifest.version.clone()));
     if !version_matches(&manifest.core, env!("CARGO_PKG_VERSION")) {
-        return Err(format!(
-            "needs core {}, this is {}",
-            manifest.core,
-            env!("CARGO_PKG_VERSION")
-        ));
+        return Err(Rejected {
+            reason: format!(
+                "needs core {}, this is {}",
+                manifest.core,
+                env!("CARGO_PKG_VERSION")
+            ),
+            pack,
+        });
     }
     if let Some(missing) = manifest.files.keys().find(|f| !dir.join(f).is_file()) {
-        return Err(format!("{missing} is missing"));
+        return Err(Rejected {
+            reason: format!("{missing} is missing"),
+            pack,
+        });
     }
     Ok(manifest)
 }
 
-/// Every usable pack under `root`: per id, the newest version this core accepts.
+/// Every usable pack under `root`: per id, the newest version this core accepts. A folder that
+/// can't be used is a problem unless a newer version of the same pack works (an old version
+/// left behind after an update is not news).
 pub fn scan(root: &Path) -> Scan {
     let mut out = Scan::default();
     let Ok(entries) = fs::read_dir(root) else {
         return out;
     };
     let mut best: HashMap<String, Found> = HashMap::new();
+    let mut rejected: Vec<(PathBuf, Rejected)> = Vec::new();
     for dir in entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
         match read_manifest(&dir) {
             Ok(manifest) => {
@@ -101,7 +124,16 @@ pub fn scan(root: &Path) -> Scan {
                     best.insert(manifest.id.clone(), Found { manifest, dir });
                 }
             }
-            Err(reason) => out.problems.push((dir, reason)),
+            Err(why) => rejected.push((dir, why)),
+        }
+    }
+    for (dir, why) in rejected {
+        let superseded = why.pack.as_ref().is_some_and(|(id, version)| {
+            best.get(id)
+                .is_some_and(|f| parse_version(&f.manifest.version) > parse_version(version))
+        });
+        if !superseded {
+            out.problems.push((dir, why.reason));
         }
     }
     out.packs = best.into_values().collect();
@@ -365,6 +397,21 @@ mod tests {
         assert_eq!(found.packs.len(), 1);
         assert_eq!(found.packs[0].manifest.version, "0.4.2");
         assert_eq!(found.problems.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_old_version_the_core_no_longer_accepts_is_not_a_problem_once_a_newer_one_works() {
+        let dir = temp("superseded");
+        // After a program update the old packs are left behind (they can be in use).
+        write(&dir, "en", "0.0.1", ">=0.0.1, <0.0.2");
+        write(&dir, "ko", "0.0.1", ">=0.0.1, <0.0.2");
+        write(&dir, "en", "0.4.1", &any_core());
+        let found = scan(&dir);
+        assert_eq!(found.packs.len(), 1);
+        // English has a working newer version; Korean has nothing, so its folder is the news.
+        assert_eq!(found.problems.len(), 1, "{:?}", found.problems);
+        assert!(found.problems[0].0.ends_with("ko-0.0.1"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
