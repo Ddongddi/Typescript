@@ -39,6 +39,7 @@ jobs:
 
   unix:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -53,7 +54,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev pkg-config zip
       - run: cargo test --workspace --exclude typescript-tip
       - run: cargo build --release -p typescript-cli -p typescript-config -p typescript-ffi
-      - run: ./scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
+      - run: sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ runner.os }}

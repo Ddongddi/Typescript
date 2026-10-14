@@ -25,6 +25,7 @@ jobs:
   # not build there), then the input method itself.
   unix:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -44,7 +45,7 @@ jobs:
       - name: Package (builds the IBus engine / the macOS input method too)
         run: |
           cargo build --release -p typescript-cli -p typescript-config -p typescript-ffi
-          ./scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
+          sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
 
   android:
     runs-on: windows-latest
