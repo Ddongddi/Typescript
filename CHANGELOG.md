@@ -9,6 +9,17 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-15
+
+### 변경
+- 시작 안내(튜토리얼): 첫 두 화면을 하나로 합쳤습니다. "안녕하세요" 밑에 회색 작은 글씨로 `안녕 typescript`를 입력해 보라고 하고, 다 치면 같은 화면에서 "한/영키가 꼭 필요한 키일까요?"로 넘어갑니다.
+- 시작 안내의 Esc 화면이 세 번으로 늘었습니다. `깨짐`(영문 자판 `Rowla`)을 치고 Esc로 고치고, "한 번만 더 해 주시겠어요?", "마지막으로 한 번만 더요" 순서입니다. 같은 교정을 두 번 하면 그 단어를 기억하므로 마지막에는 Esc 없이 바로 `깨짐`이 나오고, 그때 "이렇게 2번 고치신 단어는 기억해 드립니다"라고 알려 줍니다. 기억이 아직 안 된 경우에는 그렇게 말하지 않고 그냥 넘어갑니다. 교정은 단어를 확정(Space)해야 기록되므로 각 번마다 Space까지 안내합니다.
+- 시작 안내의 마지막 화면 문구를 다듬었고, 진행 바는 칸이 중간만 차지 않고 켜지거나 꺼지기만 합니다.
+
+### 수정
+- 키 탭에서 단어 언어 전환·아무것도 안 함을 고르면 카드 밑에 `null`이라는 글자가 보이던 문제.
+- 시작 안내에서 제목 자리의 긴 문장(예: "이렇게 2번 고치신 단어는 기억해 드립니다")이 줄바꿈되어 끊기던 문제.
+
 ## [0.8.1] - 2026-10-15
 
 ### 변경
@@ -225,7 +236,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0

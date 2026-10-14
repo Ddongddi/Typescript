@@ -9,6 +9,17 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-15
+
+### Changed
+- Welcome guide (tutorial): the first two screens are one. Under "안녕하세요", in small grey text, it asks you to type `안녕 typescript`, and when you have, the same screen moves on to "Is the Han/Eng key really needed?".
+- The welcome guide's Esc screen is now three rounds. Type `깨짐` (`Rowla` on an English layout), fix it with Esc, then "Could you do it once more?" and "One last time". The program learns a word the second time it is corrected the same way, so the last round comes out as `깨짐` without Esc, and then it tells you "words you fix twice like this are remembered". If it has not been learned yet it does not say so and simply moves on. A correction is recorded only once the word is confirmed (Space), so each round tells you to press Space.
+- The welcome guide's last screen wording was polished, and the progress bar segments are lit or off, never half.
+
+### Fixed
+- Choosing "switch the word's language" or "do nothing" on the Keys tab showed the text `null` under the cards.
+- In the welcome guide a long sentence in the title place (for example "words you fix twice like this are remembered") was broken across two lines.
+
 ## [0.8.1] - 2026-10-15
 
 ### Changed
@@ -225,7 +236,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
