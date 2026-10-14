@@ -1,5 +1,5 @@
-// 입력 설정 tab: a chat to try the settings in (chat.js), then switches and one dropdown, each with
-// what it does and an example.
+// 입력 설정 tab: switches, each with what it does and an example. (The chat to try them in is
+// the pane on the right, chat.js.)
 
 // [group, [[key, title, what it does, example, language it needs], ...]]
 const SETTINGS = [
@@ -35,7 +35,7 @@ function setting(key, title, desc, example) {
 
 function renderSettings() {
   const p = $("p-set");
-  p.replaceChildren(h("h2", {}, "채팅으로 체험"), chatBox());
+  p.replaceChildren();
   for (const [group, items] of SETTINGS) {
     const shown = items.filter((it) => !it[4] || state.order.includes(it[4]));
     if (!shown.length) continue;

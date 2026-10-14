@@ -44,7 +44,7 @@ function thresholdField(exe, rule, edit) {
   const show = async (value) => {
     const mine = ++latest;
     try {
-      const segments = await readTyping(tryState.text.trim() ? tryState.text : PREVIEW_TEXT, value);
+      const segments = await readTyping(PREVIEW_TEXT, value);
       if (mine === latest) preview.replaceChildren(...previewNodes(segments));
     } catch (e) { if (mine === latest) preview.textContent = e.message; }
   };

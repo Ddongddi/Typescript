@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Map, Value};
 use typescript_core::session::testing::FakeTextField;
 use typescript_core::session::{Range, TextClient, NOT_FOUND};
-use typescript_core::store::keys::{self, Chord};
+use typescript_core::store::keys::{self, Chord, HangulAction};
 use typescript_core::store::policy::Override;
 use typescript_core::{
     make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine,
@@ -569,7 +569,7 @@ impl App {
         };
         for (key, value) in changes {
             let ok = match key.as_str() {
-                "hangulKey" => value.is_string(),
+                "hangulKey" | "hangulAction" => value.is_string(),
                 "flipKeys" | "pauseKeys" => value
                     .as_array()
                     .is_some_and(|list| list.iter().all(Value::is_string)),
@@ -581,6 +581,10 @@ impl App {
             }
         }
         let mut changes = changes.clone();
+        if let Some(text) = changes.get("hangulAction").and_then(Value::as_str) {
+            let action: HangulAction = text.parse()?;
+            changes.insert("hangulAction".into(), json!(action.to_string()));
+        }
         if ["hangulKey", "flipKeys", "pauseKeys"]
             .iter()
             .any(|name| changes.contains_key(*name))
@@ -695,6 +699,7 @@ impl App {
             "settings": {
                 "returnConfirmsOnly": loaded.return_confirms_only,
                 "hangulKey": loaded.hangul_key.to_string(),
+                "hangulAction": loaded.hangul_action.to_string(),
                 "flipKeys": key_names(&loaded.flip_keys),
                 "pauseKeys": key_names(&loaded.pause_keys),
                 "autocomplete": loaded.autocomplete,
@@ -707,6 +712,7 @@ impl App {
             "defaults": {
                 "returnConfirmsOnly": defaults.return_confirms_only,
                 "hangulKey": defaults.hangul_key.to_string(),
+                "hangulAction": defaults.hangul_action.to_string(),
                 "flipKeys": key_names(&defaults.flip_keys),
                 "pauseKeys": key_names(&defaults.pause_keys),
                 "autocomplete": defaults.autocomplete,
@@ -814,6 +820,7 @@ mod tests {
         assert_eq!(ja["on"], false);
         assert_eq!(s["order"], json!(["en", "ko"]));
         assert_eq!(s["settings"]["hangulKey"], "Hangul");
+        assert_eq!(s["settings"]["hangulAction"], "flip");
         assert_eq!(s["settings"]["flipKeys"], json!(["Esc", "HangulKey"]));
         assert_eq!(s["settings"]["pauseKeys"], json!(["Alt+HangulKey"]));
         assert!(s["apps"].is_object());
@@ -924,6 +931,13 @@ mod tests {
         let moved = post(json!({"hangulKey": "f13", "flipKeys": ["Esc", "HangulKey"]}));
         assert_eq!(moved.status, 200);
         assert_eq!(json_of(&moved)["settings"]["hangulKey"], "F13");
+        // the Han/Eng key can send a shortcut
+        let send = post(json!({"hangulAction": "ctrl+c"}));
+        assert_eq!(send.status, 200);
+        assert_eq!(json_of(&send)["settings"]["hangulAction"], "Ctrl+C");
+        assert_eq!(post(json!({"hangulAction": "Ctrl+Hangul"})).status, 400);
+        assert_eq!(post(json!({"hangulAction": 3})).status, 400);
+        assert_eq!(post(json!({"hangulAction": "none"})).status, 200);
         // a modifier key can't take part in Alt+HangulKey
         let bad = post(json!({"hangulKey": "RCtrl"}));
         assert_eq!(bad.status, 400);

@@ -20,9 +20,10 @@
     <p class="link" role="status"><span class="dot" id="dot"></span><span id="linktext">연결됨</span></p>
   </header>
 
+  <div class="shell">
+  <div class="left">
   <nav role="tablist" aria-label="설정">
     <button role="tab" id="t-lang" aria-controls="p-lang" aria-selected="true">언어</button>
-    <button role="tab" id="t-try" aria-controls="p-try" aria-selected="false" tabindex="-1">체험</button>
     <button role="tab" id="t-set" aria-controls="p-set" aria-selected="false" tabindex="-1">입력 설정</button>
     <button role="tab" id="t-keys" aria-controls="p-keys" aria-selected="false" tabindex="-1">키</button>
     <button role="tab" id="t-apps" aria-controls="p-apps" aria-selected="false" tabindex="-1">앱별 규칙</button>
@@ -33,7 +34,6 @@
     <section id="p-lang" role="tabpanel" aria-labelledby="t-lang" tabindex="-1">
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
     </section>
-    <section id="p-try" role="tabpanel" aria-labelledby="t-try" tabindex="-1" hidden></section>
     <section id="p-set" role="tabpanel" aria-labelledby="t-set" tabindex="-1" hidden></section>
     <section id="p-keys" role="tabpanel" aria-labelledby="t-keys" tabindex="-1" hidden></section>
     <section id="p-apps" role="tabpanel" aria-labelledby="t-apps" tabindex="-1" hidden></section>
@@ -41,10 +41,13 @@
   </div>
 
   <footer class="keys" aria-label="단축키">
-    <span><kbd>1</kbd>–<kbd>6</kbd> 탭</span>
+    <span><kbd>1</kbd>–<kbd>5</kbd> 탭</span>
     <span><kbd>/</kbd> 앱 찾기</span>
     <span><kbd>Esc</kbd> 언어 탭에서 순환 보기</span>
   </footer>
+  </div>
+  <aside class="pane" id="chat-pane" aria-label="체험"></aside>
+  </div>
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>

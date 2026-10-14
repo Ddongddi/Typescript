@@ -6,15 +6,12 @@
 
 /* language tab: the Esc order, then one row per language */
 .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 4px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
-.flow .arrow { color: var(--mute); }
 .flow .cap { flex-basis: 100%; margin-top: 2px; font-size: 13px; color: var(--mute); }
-.chipl { display: inline-flex; align-items: center; gap: 10px; padding: 4px 16px 4px 6px; border: 1px solid var(--hair); border-radius: 999px; font-size: 14px; cursor: grab; user-select: none; transition: border-color .15s, background .15s, opacity .15s; }
-.chipl:hover { border-color: var(--hair-strong); }
-.chipl.dragging { opacity: .35; }
-.chipl.over { border-color: var(--acc); background: #f4a2610f; }
-.chipl b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #ffffff10; font: 400 19px/1 var(--serif); }
 
 .esc { display: flex; align-items: center; gap: 14px; flex-basis: 100%; margin-top: 8px; }
+.esc .key { appearance: none; font: 500 12px var(--mono); color: var(--soft); background: transparent; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 5px; padding: 6px 12px; cursor: pointer; transition: transform .08s, border-color .15s; }
+.esc .key:hover { border-color: var(--acc); color: var(--fg); }
+.esc .key:active { transform: translateY(2px); border-bottom-width: 1px; }
 .esc .typed { font: 13px var(--mono); color: var(--mute); }
 .esc .shown { min-width: 8ch; font: 400 28px/1.2 var(--serif); animation: rise .2s ease both; }
 

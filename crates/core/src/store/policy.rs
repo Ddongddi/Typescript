@@ -12,7 +12,7 @@ use crate::decide::engine::Language;
 use crate::lang::set::Languages;
 use crate::support_dir;
 
-use super::keys::{self, Chord, ChordKey, KeyAction, Mods};
+use super::keys::{self, Chord, ChordKey, HangulAction, KeyAction, Mods};
 
 /// How eagerly Typescript converts in a given app.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -177,6 +177,9 @@ pub struct Settings {
     pub return_confirms_only: bool,
     /// The Han/Eng key: any key; `HangulKey` in the lists below stands for it.
     pub hangul_key: Chord,
+    /// What the Han/Eng key does on its own: switch the word's language, nothing, or send a
+    /// shortcut.
+    pub hangul_action: HangulAction,
     /// Keys that switch the word being typed to its next language.
     pub flip_keys: Vec<Chord>,
     /// Keys that pause Typescript in the text field. Empty: no pause key.
@@ -201,6 +204,7 @@ impl Default for Settings {
         Self {
             return_confirms_only: true,
             hangul_key: keys::default_hangul(),
+            hangul_action: HangulAction::Flip,
             flip_keys: keys::default_flip(),
             pause_keys: keys::default_pause(),
             autocomplete: true,
@@ -227,6 +231,13 @@ impl Settings {
         };
         if hit(&self.pause_keys) {
             Some(KeyAction::Pause)
+        } else if self.hangul_key.matches(mods, pressed) && self.hangul_action != HangulAction::Flip
+        {
+            // the Han/Eng key itself, when it is not the word-language key
+            match self.hangul_action {
+                HangulAction::Send(_) => Some(KeyAction::Send),
+                _ => None,
+            }
         } else if hit(&self.flip_keys) {
             Some(KeyAction::Flip)
         } else {
@@ -245,6 +256,11 @@ impl Settings {
             .and_then(|v| v.as_str())
             .and_then(|text| keys::parse_hangul(text).ok())
             .unwrap_or_else(keys::default_hangul);
+        let hangul_action = value
+            .get("hangulAction")
+            .and_then(|v| v.as_str())
+            .and_then(|text| text.parse().ok())
+            .unwrap_or(HangulAction::Flip);
         let flip_keys =
             key_list(&value, "flipKeys", &hangul_key, &[]).unwrap_or_else(keys::default_flip);
         let legacy_off = value.get("pauseKey").and_then(|v| v.as_str()) == Some("off");
@@ -262,6 +278,7 @@ impl Settings {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.return_confirms_only),
             hangul_key,
+            hangul_action,
             flip_keys,
             pause_keys,
             autocomplete: value
@@ -318,6 +335,7 @@ impl Settings {
             |list: &[Chord]| -> Vec<String> { list.iter().map(|c| c.to_string()).collect() };
         object.remove("pauseKey");
         object.insert("hangulKey".into(), self.hangul_key.to_string().into());
+        object.insert("hangulAction".into(), self.hangul_action.to_string().into());
         object.insert("flipKeys".into(), names(&self.flip_keys).into());
         object.insert("pauseKeys".into(), names(&self.pause_keys).into());
         object.insert("autocomplete".into(), self.autocomplete.into());
@@ -479,6 +497,39 @@ mod tests {
             ..Mods::NONE
         };
         assert_eq!(s.key_action(alt, ChordKey::F(13)), Some(KeyAction::Pause));
+    }
+
+    #[test]
+    fn the_han_eng_key_can_send_a_shortcut_or_do_nothing() {
+        use keys::{ChordKey, KeyAction, Mods};
+        let s = load_json("keys-send", r#"{ "hangulAction": "ctrl+c" }"#);
+        assert_eq!(s.hangul_action.to_string(), "Ctrl+C");
+        assert_eq!(
+            s.key_action(Mods::NONE, ChordKey::Hangul),
+            Some(KeyAction::Send)
+        );
+        // Esc is still a language key; Alt+Han/Eng is still the pause key
+        assert_eq!(
+            s.key_action(Mods::NONE, ChordKey::Esc),
+            Some(KeyAction::Flip)
+        );
+        let alt = Mods {
+            alt: true,
+            ..Mods::NONE
+        };
+        assert_eq!(s.key_action(alt, ChordKey::Hangul), Some(KeyAction::Pause));
+        let s = load_json("keys-none", r#"{ "hangulAction": "none" }"#);
+        assert_eq!(s.key_action(Mods::NONE, ChordKey::Hangul), None);
+        assert_eq!(
+            s.key_action(Mods::NONE, ChordKey::Esc),
+            Some(KeyAction::Flip)
+        );
+        // junk means the default: the key switches the word's language
+        let s = load_json("keys-junk-action", r#"{ "hangulAction": "ctrl+nothing" }"#);
+        assert_eq!(
+            s.key_action(Mods::NONE, ChordKey::Hangul),
+            Some(KeyAction::Flip)
+        );
     }
 
     #[test]

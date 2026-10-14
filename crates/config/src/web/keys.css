@@ -1,21 +1,16 @@
-/* 키 tab: one card per role, a colour per role. */
-.r-han { --role: var(--acc); }
-.r-flip { --role: var(--info); }
-.r-pause { --role: var(--ok); }
-
-.roles { display: grid; gap: 16px; }
-.role { padding: 18px 20px; border: 1px solid var(--line); border-left: 3px solid var(--role); border-radius: 6px; }
-.role-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-.role-head b { font: 500 16px var(--sans); }
-.role-head .btn { margin-left: auto; }
-.badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--role); color: #07090a; font: 700 10px/1 var(--sans); font-style: normal; }
-.role p { margin: 8px 0 12px; color: var(--mute); font-size: 14px; }
-.role .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.role .chips em, .role .actions em { color: var(--mute); font-size: 13px; }
-.chip .hint { color: var(--mute); font-size: 12px; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 14px; }
+/* 키 tab: the Han/Eng key, what it does, and the shortcut it sends. */
+.hangul { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; padding: 6px 0 14px; }
+.hangul .to { color: var(--mute); font-size: 24px; }
+.send { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; flex-basis: 100%; }
+.send em { color: var(--mute); font-size: 14px; }
+.mods { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.keycap { display: inline-block; min-width: 42px; padding: 6px 12px; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 6px; background: linear-gradient(#ffffff10, #ffffff05); color: var(--fg); font: 500 13px var(--mono); text-align: center; box-shadow: 0 1px 0 #0008; }
+.keycap.big { min-width: 88px; padding: 16px 26px; border-bottom-width: 4px; border-radius: 9px; font-size: 22px; }
+.chip .plus { color: var(--mute); font-size: 13px; }
 .keypick { min-height: 40px; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: transparent; color: var(--soft); font: 500 13px var(--sans); cursor: pointer; }
 .keypick:hover:not(:disabled) { border-color: var(--hair-strong); }
 .keypick option { background: #0c1110; color: var(--fg); }
-.keycap { display: inline-block; min-width: 42px; padding: 6px 12px; border: 1px solid var(--hair-strong); border-bottom-width: 3px; border-radius: 6px; background: linear-gradient(#ffffff10, #ffffff05); color: var(--fg); font: 500 13px var(--mono); text-align: center; box-shadow: 0 1px 0 #0008; }
-.chip .plus { color: var(--mute); font-size: 13px; }
+.keypick.wide { min-height: 48px; padding: 10px 14px; font-size: 15px; color: var(--fg); }
+.pill { appearance: none; padding: 4px 14px; min-height: 36px; border: 1px solid var(--hair); border-radius: 999px; background: transparent; color: var(--soft); font: 500 12px var(--mono); cursor: pointer; }
+.pill:hover:not(:disabled) { background: #ffffff12; }
+.pill[aria-pressed=true] { border-color: #fff; background: #fff; color: #000; }

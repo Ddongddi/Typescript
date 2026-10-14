@@ -7,25 +7,23 @@ use std::sync::OnceLock;
 const INDEX: &str = include_str!("web/index.html");
 
 /// Stylesheets, in cascade order.
-const STYLES: [&str; 6] = [
+const STYLES: [&str; 5] = [
     include_str!("web/base.css"),
     include_str!("web/controls.css"),
     include_str!("web/panels.css"),
     include_str!("web/chat.css"),
-    include_str!("web/try.css"),
     include_str!("web/keys.css"),
 ];
 
 /// Scripts, in load order. They share one scope (a classic script), so a later file may use
 /// anything an earlier one declares.
-const SCRIPTS: [&str; 10] = [
+const SCRIPTS: [&str; 9] = [
     include_str!("web/core.js"),
     include_str!("web/dropdown.js"),
     include_str!("web/languages.js"),
     include_str!("web/chat.js"),
     include_str!("web/settings.js"),
     include_str!("web/keys.js"),
-    include_str!("web/try.js"),
     include_str!("web/apps.js"),
     include_str!("web/update.js"),
     include_str!("web/main.js"),
@@ -74,7 +72,7 @@ mod tests {
             }
         }
         assert!(missing.is_empty(), "no element with id: {missing:?}");
-        for tab in ["lang", "try", "set", "apps", "upd"] {
+        for tab in ["lang", "set", "keys", "apps", "upd"] {
             for prefix in ["t", "p"] {
                 assert!(
                     INDEX.contains(&format!("id=\"{prefix}-{tab}\"")),

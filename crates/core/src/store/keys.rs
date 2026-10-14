@@ -14,6 +14,8 @@ pub enum KeyAction {
     Flip,
     /// Pause or resume Typescript in this text field.
     Pause,
+    /// The Han/Eng key sends its shortcut to the app (`Settings::hangul_action`).
+    Send,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -379,6 +381,188 @@ pub fn sanitize(texts: &[&str], hangul: &Chord, taken: &[Chord]) -> Vec<Chord> {
     out
 }
 
+/// A key a shortcut can press (what the Han/Eng key can be made to send).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShortcutKey {
+    Letter(char),
+    Digit(u8),
+    F(u8),
+    Esc,
+    Space,
+    Enter,
+    Tab,
+    Backspace,
+    Delete,
+    Insert,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+    Left,
+    Up,
+    Right,
+    Down,
+}
+
+const NAMED_KEYS: [(&str, ShortcutKey); 15] = [
+    ("Esc", ShortcutKey::Esc),
+    ("Space", ShortcutKey::Space),
+    ("Enter", ShortcutKey::Enter),
+    ("Tab", ShortcutKey::Tab),
+    ("Backspace", ShortcutKey::Backspace),
+    ("Delete", ShortcutKey::Delete),
+    ("Insert", ShortcutKey::Insert),
+    ("Home", ShortcutKey::Home),
+    ("End", ShortcutKey::End),
+    ("PageUp", ShortcutKey::PageUp),
+    ("PageDown", ShortcutKey::PageDown),
+    ("Left", ShortcutKey::Left),
+    ("Up", ShortcutKey::Up),
+    ("Right", ShortcutKey::Right),
+    ("Down", ShortcutKey::Down),
+];
+
+impl ShortcutKey {
+    fn parse(token: &str) -> Option<ShortcutKey> {
+        let lower = token.to_ascii_lowercase();
+        let alias = match lower.as_str() {
+            "escape" => "esc",
+            "return" => "enter",
+            "del" => "delete",
+            "ins" => "insert",
+            "pgup" => "pageup",
+            "pgdn" => "pagedown",
+            other => other,
+        };
+        if let Some((_, key)) = NAMED_KEYS
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(alias))
+        {
+            return Some(*key);
+        }
+        let mut chars = alias.chars();
+        let first = chars.next()?;
+        if first == 'f' && alias.len() > 1 {
+            let n: u8 = alias[1..].parse().ok()?;
+            return (1..=24).contains(&n).then_some(Self::F(n));
+        }
+        if chars.next().is_some() {
+            return None;
+        }
+        match first {
+            'a'..='z' => Some(Self::Letter(first.to_ascii_uppercase())),
+            '0'..='9' => Some(Self::Digit(first as u8 - b'0')),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for ShortcutKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Letter(c) => write!(f, "{c}"),
+            Self::Digit(d) => write!(f, "{d}"),
+            Self::F(n) => write!(f, "F{n}"),
+            other => {
+                let name = NAMED_KEYS.iter().find(|(_, k)| k == other).map(|(n, _)| *n);
+                f.write_str(name.unwrap_or("?"))
+            }
+        }
+    }
+}
+
+/// Keys to press together: `Ctrl+C`, `Win+L`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Shortcut {
+    pub win: bool,
+    pub mods: Mods,
+    pub key: ShortcutKey,
+}
+
+impl fmt::Display for Shortcut {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (held, name) in [
+            (self.mods.ctrl, "Ctrl"),
+            (self.mods.alt, "Alt"),
+            (self.mods.shift, "Shift"),
+            (self.win, "Win"),
+        ] {
+            if held {
+                write!(f, "{name}+")?;
+            }
+        }
+        write!(f, "{}", self.key)
+    }
+}
+
+impl FromStr for Shortcut {
+    type Err = String;
+
+    fn from_str(text: &str) -> Result<Shortcut, String> {
+        let parts: Vec<&str> = text.split('+').map(str::trim).collect();
+        let Some((last, held)) = parts.split_last() else {
+            return Err("empty shortcut".into());
+        };
+        let (mut win, mut mods) = (false, Mods::NONE);
+        for part in held {
+            let flag = match part.to_ascii_lowercase().as_str() {
+                "ctrl" | "control" => &mut mods.ctrl,
+                "alt" => &mut mods.alt,
+                "shift" => &mut mods.shift,
+                "win" | "windows" | "meta" | "cmd" | "super" => &mut win,
+                _ => {
+                    return Err(format!(
+                        "'{part}' is not a modifier (Ctrl, Alt, Shift, Win)"
+                    ))
+                }
+            };
+            if *flag {
+                return Err(format!("'{part}' is given twice"));
+            }
+            *flag = true;
+        }
+        let key = ShortcutKey::parse(last)
+            .ok_or_else(|| format!("'{last}' is not a key a shortcut can press"))?;
+        Ok(Shortcut { win, mods, key })
+    }
+}
+
+/// What the Han/Eng key does on its own (with no modifier held).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HangulAction {
+    /// Switch the word's language (the key is in `flipKeys`).
+    Flip,
+    /// Nothing: the key goes on to the system as it is.
+    Nothing,
+    /// Send this shortcut to the app instead.
+    Send(Shortcut),
+}
+
+impl fmt::Display for HangulAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Flip => f.write_str("flip"),
+            Self::Nothing => f.write_str("none"),
+            Self::Send(shortcut) => write!(f, "{shortcut}"),
+        }
+    }
+}
+
+impl FromStr for HangulAction {
+    type Err = String;
+
+    fn from_str(text: &str) -> Result<HangulAction, String> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "flip" => Ok(Self::Flip),
+            "none" => Ok(Self::Nothing),
+            _ => text
+                .parse()
+                .map(Self::Send)
+                .map_err(|e| format!("hangulAction: {e}")),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -556,5 +740,45 @@ mod tests {
         );
         let shown: Vec<String> = kept.iter().map(|c| c.to_string()).collect();
         assert_eq!(shown, ["F13", "Ctrl+Space"]);
+    }
+
+    #[test]
+    fn shortcuts_read_and_show_in_one_spelling() {
+        for (given, shown) in [
+            ("ctrl+c", "Ctrl+C"),
+            ("Win + L", "Win+L"),
+            ("shift+ctrl+alt+delete", "Ctrl+Alt+Shift+Delete"),
+            ("f13", "F13"),
+            ("pgdn", "PageDown"),
+            ("Escape", "Esc"),
+            ("7", "7"),
+        ] {
+            assert_eq!(
+                given.parse::<Shortcut>().unwrap().to_string(),
+                shown,
+                "{given}"
+            );
+        }
+        for bad in [
+            "",
+            "Ctrl+",
+            "Ctrl+Ctrl+C",
+            "Hyper+C",
+            "Ctrl+Hangul",
+            "F25",
+            "Ctrl+Win+Alt",
+        ] {
+            assert!(bad.parse::<Shortcut>().is_err(), "{bad} should be refused");
+        }
+    }
+
+    #[test]
+    fn the_han_eng_action_is_flip_none_or_a_shortcut() {
+        assert_eq!("flip".parse(), Ok(HangulAction::Flip));
+        assert_eq!("NONE".parse(), Ok(HangulAction::Nothing));
+        let send: HangulAction = "ctrl+c".parse().unwrap();
+        assert_eq!(send.to_string(), "Ctrl+C");
+        assert!(matches!(send, HangulAction::Send(_)));
+        assert!("Ctrl+Hangul".parse::<HangulAction>().is_err());
     }
 }

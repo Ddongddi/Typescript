@@ -1,4 +1,4 @@
-// 언어 tab: the Esc order (drag the chips, or use the arrows), and one row per language.
+// 언어 tab: the Esc order (the arrows on each row), and one row per language.
 
 const LANGUAGES = "/api/languages";
 const ESC_WORD = "dkssud";
@@ -13,27 +13,6 @@ function move(id, delta) {
   if (j < 0 || j >= order.length) return;
   [order[i], order[j]] = [order[j], order[i]];
   setOrder(order, "순서를 바꿨습니다", "mv-" + id + (delta < 0 ? "-up" : "-down"));
-}
-
-// Dropping a chip on another puts it in that place.
-function dropOn(from, to) {
-  if (from === to || !state.order.includes(from)) return;
-  const order = state.order.filter((id) => id !== from);
-  const at = order.indexOf(to) + (state.order.indexOf(from) < state.order.indexOf(to) ? 1 : 0);
-  order.splice(at, 0, from);
-  setOrder(order, "순서를 바꿨습니다", "chip-" + from);
-}
-
-function chip(id) {
-  const over = (e, on) => e.currentTarget.classList.toggle("over", on);
-  return h("span", {
-    class: "chipl", draggable: true, "data-f": "chip-" + id, title: "끌어서 순서를 바꿉니다",
-    ondragstart: (e) => { e.dataTransfer.setData("text/plain", id); e.dataTransfer.effectAllowed = "move"; e.currentTarget.classList.add("dragging"); },
-    ondragend: (e) => e.currentTarget.classList.remove("dragging"),
-    ondragover: (e) => { e.preventDefault(); over(e, true); },
-    ondragleave: (e) => over(e, false),
-    ondrop: (e) => { e.preventDefault(); over(e, false); dropOn(e.dataTransfer.getData("text/plain"), id); },
-  }, h("b", { class: "g-" + id }, GLYPH[id] || "·"), langName(id));
 }
 
 // A key to press: each press shows the next language's reading of the same word, as Esc does.
@@ -111,14 +90,11 @@ function renderLang() {
   if (state.catalogError) p.append(h("div", { class: "banner bad", role: "alert" }, "릴리스 목록을 불러오지 못해서 설치된 언어만 보입니다. " + state.catalogError));
   for (const why of state.problems) p.append(h("div", { class: "banner bad", role: "alert" }, "쓸 수 없는 팩: " + why));
 
-  const flow = h("div", { class: "flow", "aria-label": "Esc 순서" });
-  state.order.forEach((id, i) => {
-    if (i) flow.append(h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
-    flow.append(chip(id));
-  });
+  const flow = h("div", { class: "flow" });
   flow.append(
-    h("span", { class: "cap" }, "단어에서 Esc를 누를 때마다 이 순서로 읽기가 바뀝니다. 칩을 끌어 순서를 바꾸세요. 하나는 켜 두어야 합니다."),
+    h("span", { class: "cap" }, "단어에서 Esc를 누를 때마다 켜진 언어 순서대로 읽기가 바뀝니다. 순서는 아래 ↑↓로 바꾸고, 하나는 켜 두어야 합니다."),
     h("div", { class: "esc" },
+      h("button", { class: "key", type: "button", onclick: pressEsc, "aria-label": "Esc 눌러 보기" }, "Esc"),
       h("span", { class: "typed" }, ESC_WORD),
       h("span", { id: "esc-shown", class: "shown", "aria-live": "polite" }, "…")));
   p.append(flow);

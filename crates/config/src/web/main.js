@@ -1,6 +1,6 @@
 // Draws everything from `state`, switches tabs, listens for shortcuts, and starts the page.
 
-const TABS = ["lang", "try", "set", "keys", "apps", "upd"];
+const TABS = ["lang", "set", "keys", "apps", "upd"];
 const tabOf = (name) => $("t-" + name), panelOf = (name) => $("p-" + name);
 
 // Draws every panel again. `focusKey` (or the focused control's data-f) gets the focus back.
@@ -9,7 +9,7 @@ function render(focusKey) {
   openDd = null;
   $("ver").textContent = "v" + state.version;
   const active = focusKey || (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f);
-  renderLang(); renderSettings(); renderKeys(); renderApps(); renderUpdate(); updateTry();
+  renderLang(); renderSettings(); renderKeys(); renderApps(); renderUpdate(); renderChat();
   if (active) {
     const el = document.querySelector('[data-f="' + CSS.escape(active) + '"]');
     if (el && !el.disabled) el.focus({ preventScroll: true });
@@ -25,7 +25,6 @@ function selectTab(index, focus) {
   });
   if (focus) tabOf(TABS[index]).focus();
   history.replaceState(null, "", "/#" + TABS[index]);
-  if (TABS[index] === "try" && state) runTry();
   if (TABS[index] === "apps" && running.list === null) loadRunning();
 }
 
@@ -37,10 +36,10 @@ TABS.forEach((name, i) => {
   });
 });
 
-// 1-5 switch tabs and / finds an app, wherever the focus is except in a text field. (On the
-// 체험 tab every key types into the box; Esc leaves it.)
+// 1-5 switch tabs and / finds an app, wherever the focus is except in a text field (the chat
+// box on the right is one).
 document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey || e.metaKey || e.altKey || editable(e.target) || openDd || !panelOf("try").hidden) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || editable(e.target) || openDd) return;
   const tab = Number(e.key) - 1;
   if (tab >= 0 && tab < TABS.length) { e.preventDefault(); selectTab(tab, false); }
   else if (e.key === "/") {
@@ -64,7 +63,6 @@ async function heartbeat() {
 setInterval(heartbeat, 5000);
 
 (async () => {
-  buildTry();
   const start = TABS.indexOf(location.hash.slice(1));
   if (start > 0) selectTab(start, false);
   try {

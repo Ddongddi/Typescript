@@ -1,8 +1,11 @@
 //! Virtual keys → the session's `Key`. Assumes a US QWERTY keyboard, like the original.
 
-use typescript_core::store::keys::{ChordKey, Mods};
+use typescript_core::store::keys::{ChordKey, Mods, Shortcut, ShortcutKey};
 use typescript_core::Key;
-use windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState;
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+    KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VIRTUAL_KEY,
+};
 
 pub const VK_HANGUL: u32 = 0x15;
 const VK_BACK: u32 = 0x08;
@@ -60,6 +63,77 @@ pub fn chord_key(vk: u32, lparam: isize) -> Option<ChordKey> {
         0x12 | 0xA4 | 0xA5 => ChordKey::Alt,
         _ => return None,
     })
+}
+
+/// The virtual key of a shortcut key, and whether it is an "extended" key (navigation keys).
+fn shortcut_vk(key: ShortcutKey) -> (u16, bool) {
+    match key {
+        ShortcutKey::Letter(c) => (c as u16, false),
+        ShortcutKey::Digit(d) => (0x30 + u16::from(d), false),
+        ShortcutKey::F(n) => (0x6F + u16::from(n), false),
+        ShortcutKey::Esc => (0x1B, false),
+        ShortcutKey::Space => (0x20, false),
+        ShortcutKey::Enter => (0x0D, false),
+        ShortcutKey::Tab => (0x09, false),
+        ShortcutKey::Backspace => (0x08, false),
+        ShortcutKey::Delete => (0x2E, true),
+        ShortcutKey::Insert => (0x2D, true),
+        ShortcutKey::Home => (0x24, true),
+        ShortcutKey::End => (0x23, true),
+        ShortcutKey::PageUp => (0x21, true),
+        ShortcutKey::PageDown => (0x22, true),
+        ShortcutKey::Left => (0x25, true),
+        ShortcutKey::Up => (0x26, true),
+        ShortcutKey::Right => (0x27, true),
+        ShortcutKey::Down => (0x28, true),
+    }
+}
+
+fn key_event(vk: u16, extended: bool, up: bool) -> INPUT {
+    let mut flags = KEYBD_EVENT_FLAGS(0);
+    if extended {
+        flags |= KEYEVENTF_EXTENDEDKEY;
+    }
+    if up {
+        flags |= KEYEVENTF_KEYUP;
+    }
+    INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VIRTUAL_KEY(vk),
+                dwFlags: flags,
+                ..Default::default()
+            },
+        },
+    }
+}
+
+/// Presses `shortcut` in the focused app: the modifiers down, the key, then everything released.
+pub fn send_shortcut(shortcut: &Shortcut) {
+    let mut held: Vec<u16> = Vec::new();
+    if shortcut.win {
+        held.push(0x5B);
+    }
+    if shortcut.mods.ctrl {
+        held.push(0x11);
+    }
+    if shortcut.mods.alt {
+        held.push(0x12);
+    }
+    if shortcut.mods.shift {
+        held.push(0x10);
+    }
+    let (vk, extended) = shortcut_vk(shortcut.key);
+    let mut inputs: Vec<INPUT> = held
+        .iter()
+        .map(|&m| key_event(m, m == 0x5B, false))
+        .collect();
+    inputs.push(key_event(vk, extended, false));
+    inputs.push(key_event(vk, extended, true));
+    inputs.extend(held.iter().rev().map(|&m| key_event(m, m == 0x5B, true)));
+    // SAFETY: fully initialized INPUTs and their size.
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
 }
 
 /// The characters of a US QWERTY keyboard, which is what the original assumes too.
@@ -161,6 +235,15 @@ mod tests {
         assert_eq!(chord_key(0x70, 0), Some(ChordKey::F(1)));
         assert_eq!(chord_key(0x41, 0), Some(ChordKey::Letter('A')));
         assert_eq!(chord_key(0x0D, 0), None);
+    }
+
+    #[test]
+    fn shortcut_keys_map_to_virtual_keys() {
+        assert_eq!(shortcut_vk(ShortcutKey::Letter('C')), (0x43, false));
+        assert_eq!(shortcut_vk(ShortcutKey::Digit(7)), (0x37, false));
+        assert_eq!(shortcut_vk(ShortcutKey::F(13)), (0x7C, false));
+        assert_eq!(shortcut_vk(ShortcutKey::Delete), (0x2E, true));
+        assert_eq!(shortcut_vk(ShortcutKey::Space), (0x20, false));
     }
 
     #[test]

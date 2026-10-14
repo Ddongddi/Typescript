@@ -25,7 +25,10 @@
 
 html { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
 body { margin: 0; min-height: 100vh; background: radial-gradient(50% 30% at 85% 0, #f4a2610d, transparent 70%); }
-main { max-width: 860px; margin: 0 auto; padding: 56px 20px 110px; }
+main { max-width: 1240px; margin: 0 auto; padding: 56px 28px 110px; }
+.shell { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 0 64px; align-items: start; }
+.pane { position: sticky; top: 28px; }
+@media (max-width: 1040px) { .shell { grid-template-columns: minmax(0, 1fr); } .pane { position: static; margin-top: 40px; } }
 
 /* header */
 .top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 30px; }

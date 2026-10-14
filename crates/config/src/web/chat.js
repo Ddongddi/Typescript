@@ -1,6 +1,6 @@
-// A chat to try the input settings in: the keys go through the real input method (the server
+// A chat to try the input in, on every tab: the keys go through the real input method (the server
 // plays them with the saved settings), and what it does not take is what the chat gets. With
-// "Enter confirms only" on, a message takes two Enters; off, one. Each message says how many.
+// "Enter confirms only" on (입력 설정), a message takes two Enters; off, one. Each message says how many.
 
 const chat = {
   messages: [],            // {text, enters}
@@ -10,10 +10,29 @@ const chat = {
   queue: Promise.resolve(), // keys are played one after the other
 };
 
-const ENTER_MODES = [
-  [false, "Enter 1번 → 바로 전송"],
-  [true, "Enter 2번 (확정 → 전송)"],
-];
+const PREVIEW_TEXT = "dkssudgktpdy hello rkskek git";   // what an app card's slider reads
+
+// The "convert only when sure" setting of an app rule, falling back to the rule for all apps.
+function appThreshold(name) {
+  const rule = state.apps[name] || {}, all = state.apps["*"] || {};
+  return rule.conversionThreshold !== undefined ? rule.conversionThreshold : all.conversionThreshold;
+}
+
+// What the engine makes of typed letters, word by word (/api/try).
+async function readTyping(text, threshold) {
+  const body = threshold === undefined ? { text } : { text, threshold };
+  return (await api("/api/try", body)).segments;
+}
+
+// The letters a draft was typed with (Backspace takes one back; Enter and Tab are not letters).
+function typedText(keys) {
+  const typed = [];
+  for (const k of keys) {
+    if (k.length === 1) typed.push(k);
+    else if (k === "Backspace") typed.pop();
+  }
+  return typed.join("");
+}
 
 // The key as the server knows it, or null for keys the chat leaves alone.
 function chatKey(e) {
@@ -30,7 +49,7 @@ async function playKey(key) {
   catch (e) { return toast(e.message, true); }
   const enters = keys.filter((k) => k === "Enter").length;
   if (played.submitted) {
-    if (played.text.trim()) chat.messages.push({ text: played.text, enters });
+    if (played.text.trim()) chat.messages.push({ text: played.text, enters, typed: typedText(keys) });
     chat.keys = [];
     chat.draft = { text: "", marked: null };
     chat.hint = "";
@@ -45,9 +64,7 @@ async function playKey(key) {
 function drawChat() {
   const log = $("chat-log"), input = $("chat-in");
   if (!log) return;
-  log.replaceChildren(...chat.messages.map((m) => h("div", { class: "bubble" },
-    h("span", { class: "said" }, m.text),
-    h("span", { class: "sent" + (m.enters > 1 ? " two" : "") }, "Enter ×" + m.enters))));
+  log.replaceChildren(...chat.messages.map(bubble));
   if (!chat.messages.length) log.append(h("p", { class: "idle" }, "메시지를 보내 보세요. dkssud 를 치고 Enter."));
   log.scrollTop = log.scrollHeight;
   const { text, marked } = chat.draft;
@@ -56,27 +73,50 @@ function drawChat() {
   input.replaceChildren(...shown);   // (never null: it would be written as the word "null")
   input.classList.toggle("empty", !text);
   $("chat-hint").textContent = chat.hint;
+  showWhy(null, null);
 }
 
-function enterMode() {
-  const on = state.settings.returnConfirmsOnly;
-  const change = (value) => {
-    chat.keys = []; chat.draft = { text: "", marked: null }; chat.hint = "";
-    act("저장했습니다", "/api/settings", { returnConfirmsOnly: value }, "chat-mode-" + value,
-      { path: "/api/settings", body: { returnConfirmsOnly: on } });
+// A message: the words it was read as are underlined on hover, as long as the confidence.
+function bubble(m) {
+  const said = h("span", { class: "said" }, m.text);
+  const reveal = async () => {
+    if (!m.reading) m.reading = readTyping(m.typed, appThreshold("*")).catch(() => []);
+    const segments = await m.reading;
+    m.segments = segments;
+    const text = segments.map((s) => (s.keys ? s.out : s.text)).join("");
+    if (!segments.length || text !== m.text || said.classList.contains("read")) return;   // not what was typed (Tab, ...)
+    said.classList.add("read");
+    said.replaceChildren(...segments.map((s, i) => (s.keys
+      ? h("span", { class: "w l-" + s.lang + (s.kept ? " kept" : ""), style: "--p:" + Math.round(s.confidence * 100) + "%", "data-i": i }, s.out)
+      : s.text)));
   };
-  return h("div", { class: "seg", role: "group", "aria-label": "Enter 동작" },
-    ENTER_MODES.map(([value, label]) => h("button", {
-      type: "button", class: "btn", "data-f": "chat-mode-" + value, "aria-pressed": on === value, disabled: busy,
-      onclick: () => on !== value && change(value),
-    }, label)));
+  const hover = (e) => {
+    const w = e.target.closest && e.target.closest(".w");
+    showWhy(m, w);
+  };
+  return h("div", { class: "bubble", tabindex: "0", onmouseenter: reveal, onfocus: reveal, onmouseover: hover, onmouseleave: () => showWhy(null, null), onblur: () => showWhy(null, null) },
+    said, h("span", { class: "sent" + (m.enters > 1 ? " two" : "") }, "Enter ×" + m.enters));
+}
+
+// The line under the log: what the word under the pointer was read as.
+function showWhy(m, el) {
+  const box = $("chat-why");
+  if (!box) return;
+  const s = m && el && m.segments ? m.segments[Number(el.dataset.i)] : null;
+  if (!s) {
+    box.replaceChildren(chat.messages.length ? "메시지에 올리면 단어마다 읽은 결과를 밑줄로 보여 줍니다" : "");
+    return;
+  }
+  const second = s.alts.find((a) => a.lang === s.runnerUp);
+  box.replaceChildren(h("b", {}, s.keys), " → ", h("b", { class: "o" }, s.out), "  ",
+    s.kept ? "확신이 부족해 그대로 둠" : langName(s.lang) + " " + Math.round(s.confidence * 100) + "%",
+    second ? "  ·  차선 " + langName(s.runnerUp) + " " + second.out : "");
 }
 
 function chatBox() {
   const box = h("section", { class: "chat", "aria-label": "채팅으로 체험" },
-    h("div", { class: "chat-head" },
-      h("span", {}, "지금 설정으로 채팅해 보세요. 입력은 실제 입력기와 같은 방식으로 처리됩니다."), enterMode()),
     h("div", { id: "chat-log", class: "chat-log", role: "log", "aria-live": "polite" }),
+    h("p", { id: "chat-why", class: "chat-why", "aria-live": "polite" }),
     h("div", {
       id: "chat-in", class: "chat-in", role: "textbox", tabindex: "0", "data-f": "chat-in", "aria-label": "메시지 입력 (영문 자판)",
       onkeydown: (e) => {
@@ -89,4 +129,9 @@ function chatBox() {
     h("p", { id: "chat-hint", class: "chat-hint", "aria-live": "polite" }));
   queueMicrotask(drawChat);
   return box;
+}
+
+// The pane on the right, shown on every tab: drawn again with the page, the draft is kept.
+function renderChat() {
+  $("chat-pane").replaceChildren(chatBox());
 }

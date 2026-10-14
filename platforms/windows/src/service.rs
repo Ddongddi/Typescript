@@ -10,7 +10,7 @@ use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use typescript_core::session::NoopClient;
-use typescript_core::store::keys::{ChordKey, KeyAction, Mods};
+use typescript_core::store::keys::{ChordKey, HangulAction, KeyAction, Mods};
 use typescript_core::store::policy::Override;
 use typescript_core::{
     make_engine, AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
@@ -27,7 +27,7 @@ use crate::client::{EditSession, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
-use crate::keymap::{chord_key, held_mods, key_for};
+use crate::keymap::{chord_key, held_mods, key_for, send_shortcut};
 use crate::shared::{converter, engine, history, refresh_packs, reload_engines};
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
@@ -229,7 +229,7 @@ impl Inner {
     /// Whether the key is ours to look at (TSF asks before it delivers).
     fn wants(&self, vk: u32, lparam: isize) -> bool {
         let action = self.key_action(vk, lparam);
-        if action == Some(KeyAction::Pause) {
+        if matches!(action, Some(KeyAction::Pause | KeyAction::Send)) {
             return true;
         }
         let session = self.session();
@@ -256,8 +256,10 @@ impl Inner {
         if !self.wants(vk, lparam) {
             return false;
         }
-        if self.key_action(vk, lparam) == Some(KeyAction::Pause)
-            || matches!(key_for(vk), Some(Key::Letter(_)))
+        if matches!(
+            self.key_action(vk, lparam),
+            Some(KeyAction::Pause | KeyAction::Send)
+        ) || matches!(key_for(vk), Some(Key::Letter(_)))
         {
             return true;
         }
@@ -269,6 +271,12 @@ impl Inner {
     fn key_down(self: &Rc<Self>, context: &ITfContext, vk: u32, lparam: isize) -> bool {
         self.note_key_down(vk, lparam);
         let action = self.key_action(vk, lparam);
+        if action == Some(KeyAction::Send) {
+            if (lparam >> 30) & 1 == 0 {
+                self.send_hangul_shortcut();
+            }
+            return true; // the Han/Eng key itself is replaced by the shortcut
+        }
         let pause = action == Some(KeyAction::Pause);
         if pause && (lparam >> 30) & 1 == 1 {
             return true; // auto-repeat of the pause key
@@ -277,7 +285,7 @@ impl Inner {
             return false;
         }
         let key = match action {
-            Some(KeyAction::Pause) => None,
+            Some(KeyAction::Pause | KeyAction::Send) => None,
             // Esc keeps its own behavior; every other switch key always switches.
             Some(KeyAction::Flip) => Some(match key_for(vk) {
                 Some(Key::Escape) => Key::Escape,
@@ -334,8 +342,21 @@ impl Inner {
         action.is_some_and(|action| self.act_on(context, action))
     }
 
+    /// The Han/Eng key was pressed and is set to send a shortcut: send it.
+    fn send_hangul_shortcut(&self) {
+        let action = self.settings.borrow().hangul_action;
+        if let HangulAction::Send(shortcut) = action {
+            self.trace(&format!("sends {shortcut}"));
+            send_shortcut(&shortcut);
+        }
+    }
+
     fn act_on(self: &Rc<Self>, context: &ITfContext, action: KeyAction) -> bool {
         let key = match action {
+            KeyAction::Send => {
+                self.send_hangul_shortcut();
+                return false; // the release still goes to the app
+            }
             KeyAction::Pause => None,
             KeyAction::Flip => {
                 let session = self.session();

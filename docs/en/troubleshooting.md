@@ -131,4 +131,4 @@ cargo run -p typescript-tip --example richedit_lab -- --ms
 **A:** Post-commit undo/flip requires that the host application permits the input method to inspect preceding text. Terminals or sandboxed input boxes that deny caret-reading permissions pass `Esc` straight to the app.
 
 ### Q: The Hangul key (language switch) or Alt+Hangul (pause) doesn't respond.
-**A:** On certain laptop keyboards, the Hangul key sends Right Alt (`VK_RMENU`). On the dashboard's "키" (Keys) tab, press `키 바꾸기` on the "한영키" card and then the key you actually use (or pick it from the list). On macOS, use **Option + Space**. On Linux, use the **Hangul** or **Pause** key.
+**A:** On certain laptop keyboards, the Hangul key sends Right Alt (`VK_RMENU`). On the dashboard's "키" (Keys) tab, set `"hangulKey"` in `settings.json` to the key you actually use (for example `"RAlt"`). On macOS, use **Option + Space**. On Linux, use the **Hangul** or **Pause** key.
