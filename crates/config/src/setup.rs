@@ -1,14 +1,11 @@
-//! The install-time choice of languages: a checklist, then an order, then the downloads.
+//! Installing a given list of languages at install time (`setup --languages ko,en`). Choosing
+//! them is the welcome page's first screen (`typescript-config welcome`).
 
-use std::io::IsTerminal;
-
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::{MultiSelect, Sort};
 use typescript_core::{Language, Languages};
 
 use crate::catalog::Catalog;
 use crate::env::Env;
-use crate::error::{err, Error, Result};
+use crate::error::{err, Result};
 use crate::fetch::Fetch;
 use crate::install::{install_with_requirements, Installed};
 use crate::languages;
@@ -65,64 +62,34 @@ pub fn apply(
     Ok(on)
 }
 
-fn ask(e: impl std::fmt::Display) -> Error {
-    Error(format!("the choice was cancelled: {e}"))
-}
-
-/// The checklist and the order, on the terminal.
-pub fn choose(catalog: &Catalog) -> Result<Vec<String>> {
-    let theme = ColorfulTheme::default();
-    let offered: Vec<_> = catalog
-        .packs
-        .iter()
-        .filter(|p| Language::from_id(&p.id).is_some())
-        .collect();
-    let labels: Vec<String> = offered
-        .iter()
-        .map(|p| format!("{:<10} {:>6.1} MB", p.name, p.size as f64 / 1_048_576.0))
-        .collect();
-    let defaults: Vec<bool> = offered
-        .iter()
-        .map(|p| p.id == "en" || p.id == "ko")
-        .collect();
-    let picked = loop {
-        let picked = MultiSelect::with_theme(&theme)
-            .with_prompt("쓸 언어를 고르세요 (Space 선택, Enter 다음)")
-            .items(&labels)
-            .defaults(&defaults)
-            .interact()
-            .map_err(ask)?;
-        if !picked.is_empty() {
-            break picked;
-        }
-        println!("하나 이상 골라야 합니다.");
-    };
-    let mut ids: Vec<String> = picked.iter().map(|&i| offered[i].id.clone()).collect();
-    if ids.len() > 1 {
-        let names: Vec<&str> = picked.iter().map(|&i| offered[i].name.as_str()).collect();
-        let order = Sort::with_theme(&theme)
-            .with_prompt("Esc로 넘기는 순서 (↑↓ 이동, Space 집기, Enter 확정)")
-            .items(&names)
-            .interact()
-            .map_err(ask)?;
-        ids = order.iter().map(|&i| ids[i].clone()).collect();
-    }
-    Ok(ids)
-}
-
-/// `setup [--languages ko,en]`
-pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
-    let catalog = source.catalog()?;
-    let given = args
+/// The languages `setup` is to install: the `--languages` list, or with `--if-configured` the
+/// ones already on (an update keeps them). A first install has neither: the welcome page asks.
+fn requested(args: &[String], env: &Env) -> Result<Vec<String>> {
+    if let Some(list) = args
         .iter()
         .position(|a| a == "--languages")
         .and_then(|i| args.get(i + 1))
-        .map(|list| parse_list(list));
-    let chosen = match given {
-        Some(list) => list,
-        None if std::io::stdin().is_terminal() => choose(&catalog)?,
-        None => return err("setup needs a terminal, or --languages ko,en"),
-    };
+    {
+        return Ok(parse_list(list));
+    }
+    if args.iter().any(|a| a == "--if-configured") {
+        if !env.settings.exists() {
+            return err("no languages are chosen yet: run typescript-config welcome");
+        }
+        return Ok(languages::enabled(env)
+            .ids()
+            .into_iter()
+            .map(String::from)
+            .collect());
+    }
+    err("setup needs --languages ko,en (or run typescript-config welcome)")
+}
+
+/// `setup --languages ko,en` or `setup --if-configured`. Plain `setup` opens the welcome page
+/// instead (see main.rs), so this only runs with one of the two.
+pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
+    let chosen = requested(args, env)?;
+    let catalog = source.catalog()?;
     let on = apply(
         env,
         source.fetch.as_ref(),
@@ -217,6 +184,31 @@ mod tests {
         )
         .is_err());
         assert_eq!(crate::languages::enabled(&f.env).ids(), vec!["en"]);
+    }
+
+    #[test]
+    fn if_configured_takes_the_languages_that_are_on() {
+        let f = fixture("setup-configured");
+        crate::languages::save(
+            &f.env,
+            &typescript_core::Languages::from_ids(&["ko", "en"]).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            requested(&pick(&["--if-configured"]), &f.env).unwrap(),
+            vec!["ko", "en"]
+        );
+    }
+
+    #[test]
+    fn if_configured_refuses_a_first_install() {
+        let f = fixture("setup-first");
+        assert!(requested(&pick(&["--if-configured"]), &f.env).is_err());
+        assert!(requested(&[], &f.env).is_err());
+        assert_eq!(
+            requested(&pick(&["--languages", "ja,en"]), &f.env).unwrap(),
+            vec!["ja", "en"]
+        );
     }
 
     #[test]

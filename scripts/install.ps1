@@ -336,8 +336,13 @@ function Get-ConfiguredLanguages {
     return @('en', 'ko')
 }
 
-# A release install: the packs come from the release through typescript-config, which asks
-# which languages when this is a first install.
+# Set when this is a first install with no languages given: the first-run page (opened at the
+# end, see Open-Welcome) lets the user choose them.
+$script:FreshInstall = $false
+
+# A release install: the packs come from the release through typescript-config. Languages that
+# are given (-Languages, -Japanese) or already on are installed quietly; on a first install the
+# first-run page asks instead.
 function Install-ReleasePacks {
     $config = Join-Path $dest 'typescript-config.exe'
     if (-not (Test-Path $config)) {
@@ -357,12 +362,26 @@ function Install-ReleasePacks {
     try {
         if ($wanted.Count) { & $config setup --languages ($wanted -join ',') }
         elseif ($Japanese) { & $config setup --languages 'en,ko,ja' }
-        else { & $config setup }
+        else { $script:FreshInstall = $true }
     } finally {
         # Do not leave the pin in the user's shell (this runs inside `irm | iex`).
         if ($null -eq $previousRelease) { Remove-Item Env:\TYPESCRIPT_RELEASE -ErrorAction SilentlyContinue } else { $env:TYPESCRIPT_RELEASE = $previousRelease }
     }
-    if ($LASTEXITCODE) { throw "typescript-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: typescript-config setup" }
+    if ($LASTEXITCODE) { throw "typescript-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: typescript-config setup --languages ko,en" }
+}
+
+# The first-run page: the greeting, the language choice, a short practice. It runs on its own
+# (as this user, not elevated) and ends by itself a few minutes after its tab is closed.
+function Open-Welcome {
+    $config = Join-Path $dest 'typescript-config.exe'
+    $previousRelease = $env:TYPESCRIPT_RELEASE
+    # The page fetches the packs of the release being installed, not of the latest one.
+    if ($Version -ne 'latest') { $env:TYPESCRIPT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
+    try {
+        Start-Process $config -ArgumentList 'welcome' -WindowStyle Hidden
+    } finally {
+        if ($null -eq $previousRelease) { Remove-Item Env:\TYPESCRIPT_RELEASE -ErrorAction SilentlyContinue } else { $env:TYPESCRIPT_RELEASE = $previousRelease }
+    }
 }
 
 $stage = $null
@@ -413,6 +432,10 @@ try {
         Write-Host '  Switch word language -> Esc or Han/Eng; Pause -> Alt+Han/Eng, per text field. Keys: dashboard settings, or %APPDATA%\Typescript\settings.json'
         Write-Host ('  Languages and settings: Start menu > ' + $settingsLabel + ' (opens a page in your browser), or ' + (Join-Path $dest 'typescript-config.exe'))
         Write-Host '  Apps already running pick the new text service up when you reopen them.'
+        if ($script:FreshInstall) {
+            Write-Host 'Opening the first-run page in your browser (choose languages, try it out)...'
+            Open-Welcome
+        }
     }
 } finally {
     if ($stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }

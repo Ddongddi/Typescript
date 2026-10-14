@@ -30,6 +30,15 @@ const SCRIPTS: [&str; 10] = [
     include_str!("web/main.js"),
 ];
 
+/// The first-run page (`/welcome`): a greeting and a short guided practice, one thing per screen.
+/// It shares the base styles and the first script (token, `h`, `api`) with the dashboard.
+const WELCOME: &str = include_str!("web/welcome.html");
+const WELCOME_STYLES: [&str; 2] = [
+    include_str!("web/base.css"),
+    include_str!("web/welcome.css"),
+];
+const WELCOME_SCRIPTS: [&str; 2] = [include_str!("web/core.js"), include_str!("web/welcome.js")];
+
 const STYLE_MARK: &str = "<!--styles-->";
 const SCRIPT_MARK: &str = "<!--scripts-->";
 
@@ -40,6 +49,16 @@ pub fn page() -> &'static str {
         INDEX
             .replace(STYLE_MARK, &STYLES.join("\n"))
             .replace(SCRIPT_MARK, &SCRIPTS.join("\n"))
+    })
+}
+
+/// The welcome page, built on first use.
+pub fn welcome_page() -> &'static str {
+    static PAGE: OnceLock<String> = OnceLock::new();
+    PAGE.get_or_init(|| {
+        WELCOME
+            .replace(STYLE_MARK, &WELCOME_STYLES.join("\n"))
+            .replace(SCRIPT_MARK, &WELCOME_SCRIPTS.join("\n"))
     })
 }
 
@@ -55,6 +74,28 @@ mod tests {
         assert_eq!(page.matches("<script>").count(), 1);
         // The policy only allows inline code and the font host: nothing may point elsewhere.
         assert!(!page.contains("<script src") && !page.contains("<link rel=\"stylesheet\""));
+    }
+
+    #[test]
+    fn the_welcome_page_is_one_document_too() {
+        let page = welcome_page();
+        assert!(!page.contains(STYLE_MARK) && !page.contains(SCRIPT_MARK));
+        assert_eq!(page.matches("<style>").count(), 1);
+        assert_eq!(page.matches("<script>").count(), 1);
+        assert!(!page.contains("<script src") && !page.contains("<link rel=\"stylesheet\""));
+    }
+
+    #[test]
+    fn every_element_the_welcome_scripts_look_up_exists_in_its_markup() {
+        let scripts = WELCOME_SCRIPTS.join("\n");
+        let mut missing = Vec::new();
+        for call in scripts.split("$(\"").skip(1) {
+            let id = call.split('"').next().unwrap();
+            if !WELCOME.contains(&format!("id=\"{id}\"")) {
+                missing.push(id.to_string());
+            }
+        }
+        assert!(missing.is_empty(), "no element with id: {missing:?}");
     }
 
     #[test]

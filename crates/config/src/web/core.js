@@ -6,7 +6,7 @@ const params = new URLSearchParams(location.search);
 let token = params.get("t") || sessionStorage.getItem("ts-token") || "";
 if (params.get("t")) {
   sessionStorage.setItem("ts-token", token);
-  history.replaceState(null, "", "/" + location.hash);
+  history.replaceState(null, "", location.pathname + location.hash);
 }
 
 let state = null;     // GET /api/state, replaced by every change

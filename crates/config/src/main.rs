@@ -8,10 +8,17 @@ fn main() {
     };
     let source = Source::detect();
     let hint_env = env.clone();
-    let result = if args.is_empty() {
+    // The welcome page: `welcome`, and `setup` without --languages (the old terminal questions
+    // are the page's first screen now).
+    let welcome = matches!(args.first().map(String::as_str), Some("welcome"))
+        || (args.first().map(String::as_str) == Some("setup")
+            && !args
+                .iter()
+                .any(|a| a == "--languages" || a == "--if-configured"));
+    let result = if args.is_empty() || welcome {
         // TYPESCRIPT_NO_BROWSER: print the address only (headless runs, browser tests).
         let open = std::env::var_os("TYPESCRIPT_NO_BROWSER").is_none();
-        typescript_config::http::run(env, source, open)
+        typescript_config::http::run(env, source, open, if welcome { "/welcome" } else { "/" })
     } else {
         cli::run(&args, &env, &source)
     };

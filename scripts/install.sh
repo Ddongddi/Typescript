@@ -110,7 +110,13 @@ fi
 if [ "$VERSION" != latest ]; then
   export TYPESCRIPT_RELEASE="https://github.com/$REPO/releases/download/$VERSION/"
 fi
-if [ -n "$LANGS" ]; then "$BIN/typescript-config" setup --languages "$LANGS"; else "$BIN/typescript-config" setup; fi
+FRESH=0
+if [ -n "$LANGS" ]; then
+  "$BIN/typescript-config" setup --languages "$LANGS"
+elif ! "$BIN/typescript-config" setup --if-configured 2>/dev/null; then
+  # A first install with no languages given: the first-run page asks (opened at the end).
+  FRESH=1
+fi
 
 echo
 if [ "$OS" = linux ]; then
@@ -121,3 +127,11 @@ else
   echo "Input Sources > Edit. The first time, allow it under Privacy & Security."
 fi
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "Add $BIN to your PATH to use typescript-config." ;; esac
+
+# The first-run page runs on its own and ends a few minutes after its tab is closed. Its output
+# holds the page's address with a session token, so it is not kept anywhere.
+if [ "$FRESH" = 1 ]; then
+  echo "Opening the first-run page in your browser (choose languages, try it out)..."
+  nohup "$BIN/typescript-config" welcome >/dev/null 2>&1 &
+  echo "If no page opened, run: typescript-config welcome"
+fi

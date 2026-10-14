@@ -49,23 +49,58 @@ impl Fetch for Http {
                 "refusing to download {url}: only https:// is allowed"
             ));
         }
+        // A host with several addresses can have one that does not answer on some networks (the
+        // system lists it first now and then): connecting to it stalls until the timeout, which
+        // is about half of what is allowed. So the first try is impatient, and only when the
+        // connection fails is it tried again with the time a slow link may need.
+        self.get_within(url, max, CONNECT_QUICK)
+            .or_else(|e| {
+                if connect_failed(&e) {
+                    self.get_within(url, max, CONNECT_PATIENT)
+                } else {
+                    Err(e)
+                }
+            })
+            .map_err(|e| Error(format!("download of {url} failed: {e}")))
+    }
+}
+
+/// How long the first try waits to connect, and the second.
+const CONNECT_QUICK: Duration = Duration::from_secs(3);
+const CONNECT_PATIENT: Duration = Duration::from_secs(15);
+
+impl Http {
+    fn get_within(
+        &self,
+        url: &str,
+        max: usize,
+        connect: Duration,
+    ) -> std::result::Result<Vec<u8>, ureq::Error> {
         let config = ureq::Agent::config_builder()
-            .timeout_connect(Some(Duration::from_secs(15)))
+            .timeout_connect(Some(connect))
             .timeout_global(Some(self.total))
             .build();
         let agent = ureq::Agent::new_with_config(config);
         let mut response = agent
             .get(url)
             .header("User-Agent", "typescript-config")
-            .call()
-            .map_err(|e| Error(format!("download of {url} failed: {e}")))?;
+            .call()?;
         response
             .body_mut()
             .with_config()
             .limit(max as u64)
             .read_to_vec()
-            .map_err(|e| Error(format!("download of {url} failed: {e}")))
     }
+}
+
+/// The connection could not be made (in time), as opposed to a server that answered with an error.
+fn connect_failed(e: &ureq::Error) -> bool {
+    matches!(
+        e,
+        ureq::Error::HostNotFound
+            | ureq::Error::ConnectionFailed
+            | ureq::Error::Timeout(ureq::Timeout::Connect)
+    )
 }
 
 /// Downloads must be https, so a hash that comes from the same place cannot vouch for a
@@ -127,6 +162,43 @@ mod tests {
         assert!(!is_secure("http://127.0.0.1@evil.test/x"));
         assert!(!is_secure("ftp://x.test/a"));
         assert!(Http::default().get("http://example.test/a", 10).is_err());
+    }
+
+    #[test]
+    fn only_a_connection_that_could_not_be_made_is_tried_again_with_more_time() {
+        assert!(connect_failed(&ureq::Error::HostNotFound));
+        assert!(connect_failed(&ureq::Error::ConnectionFailed));
+        assert!(connect_failed(&ureq::Error::Timeout(
+            ureq::Timeout::Connect
+        )));
+        // A server that answered (even with an error), or a slow body, is no reason to retry.
+        assert!(!connect_failed(&ureq::Error::StatusCode(404)));
+        assert!(!connect_failed(&ureq::Error::BodyExceedsLimit(10)));
+        assert!(!connect_failed(&ureq::Error::Timeout(
+            ureq::Timeout::Global
+        )));
+    }
+
+    #[test]
+    fn a_download_from_this_machine_works() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 1024];
+            let _ = stream.read(&mut request).unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello",
+                )
+                .unwrap();
+        });
+        let bytes = Http::default()
+            .get(&format!("http://127.0.0.1:{port}/packs.json"), 100)
+            .unwrap();
+        assert_eq!(bytes, b"hello");
+        server.join().unwrap();
     }
 
     #[test]

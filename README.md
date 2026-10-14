@@ -53,7 +53,7 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
    ```powershell
    irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
    ```
-   중간에 나오는 화면에서 쓸 언어를 고릅니다 (Space로 선택). 잘 모르겠으면 기본값 그대로 Enter.
+   끝나면 브라우저에 시작 안내 페이지가 열립니다. 쓸 언어를 고르고(영어·한국어가 기본) 시작을 누르세요.
 2. **입력기 고르기.** **Win+Space** 를 눌러 `Typescript (자동완성)` 을 고릅니다. 이미 떠 있는 앱은 다시 열어야 합니다.
 3. **쳐 보기.** 메모장에서 `dkssud` 를 치면 밑줄과 함께 `안녕` 이 보입니다. Space나 Enter로 확정합니다.
 4. **틀렸을 때.** 영어로 쓰려던 단어가 한글로 나오면 **Esc** 를 누르세요. 영어 → 한국어 → … 순서로 바뀝니다.
@@ -86,7 +86,7 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 
 ### Windows
 
-PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 설치 중에 **쓸 언어를 고르는 화면**이 나옵니다 (Space로 선택, 쓴 순서가 Esc 순환 순서).
+PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 처음 설치하면 설치가 끝난 뒤 브라우저에 **시작 안내 페이지**가 열립니다. 한/영 키 없이 치는 맛을 보여 주고, **쓸 언어를 고르면**(영어·한국어가 기본, 목록 순서가 Esc 순환 순서) 받아서 켠 뒤 짧은 연습까지 안내합니다. 업데이트로 설치하면 뜨지 않습니다. 안내는 대시보드 위쪽의 **튜토리얼** 링크로 언제든 다시 볼 수 있습니다.
 
 ```powershell
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
@@ -208,7 +208,9 @@ typescript-config remove ja            # 끄고 팩을 지운다
 typescript-config order ko,en          # Esc 순서 (켜진 언어끼리만 바꿀 수 있다)
 typescript-config check                # 새 버전이 있는지
 typescript-config update               # 언어 팩 갱신 + 새 프로그램 설치기 실행
-typescript-config setup --languages ko,en   # 설치 때 쓰는 선택 (화면 없이)
+typescript-config welcome              # 시작 안내 페이지: 언어 고르기 + 짧은 연습
+typescript-config setup --languages ko,en   # 설치 때 쓰는 선택 (화면 없이, 스크립트용)
+typescript-config setup --if-configured     # 이미 켜 둔 언어를 다시 설치 (업데이트용, 처음 설치면 실패)
 ```
 
 받은 팩은 릴리스 목록(`packs.json`)의 SHA-256과 크기가 맞고, 안의 표 파일이 manifest의 해시와 맞을 때만 설치됩니다. 하루에 한 번 새 릴리스를 확인해 알려 줍니다 (끄려면 입력 설정의 *새 버전 확인*). `TYPESCRIPT_RELEASE` 에 폴더나 주소를 주면 다른 릴리스(오프라인 설치)를 씁니다.

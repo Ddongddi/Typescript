@@ -149,18 +149,21 @@ pub fn open_browser(url: &str) -> bool {
 }
 
 /// `typescript-config` with no command: serve the dashboard, open it, and wait until it closes.
-pub fn run(env: Env, source: Source, open: bool) -> Result<String> {
+pub fn run(env: Env, source: Source, open: bool, page: &str) -> Result<String> {
     let running = start(env, source, IDLE)?;
     println!(
-        "대시보드를 엽니다. 브라우저 탭을 닫으면 잠시 뒤 끝납니다. (Ctrl+C로도 끝낼 수 있습니다)"
+        "{}를 엽니다. 브라우저 탭을 닫으면 잠시 뒤 끝납니다. (Ctrl+C로도 끝낼 수 있습니다)",
+        if page == "/welcome" {
+            "시작 안내"
+        } else {
+            "대시보드"
+        }
     );
     // The address carries the session token: it is shown only when the browser could not be
     // opened for the user, not left in the terminal (and its scrollback or logs) every time.
-    if !open || !open_browser(&running.url) {
-        println!(
-            "브라우저를 열지 못했습니다. 이 주소를 직접 여세요: {}",
-            running.url
-        );
+    let url = running.url.replacen("/?", &format!("{page}?"), 1);
+    if !open || !open_browser(&url) {
+        println!("브라우저를 열지 못했습니다. 이 주소를 직접 여세요: {url}");
     }
     running.wait();
     Ok(String::new())

@@ -79,6 +79,7 @@ kbd { font: 11px var(--mono); color: var(--soft); border: 1px solid var(--hair);
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .linkbtn { appearance: none; background: none; border: 0; border-bottom: 1px solid #ffffff22; padding: 4px 0; font: 12px var(--mono); color: var(--soft); cursor: pointer; transition: color .15s, border-color .15s; }
 .linkbtn:hover { color: var(--acc); border-color: var(--acc); }
+a.linkbtn { text-decoration: none; }
 
 /* text fields */
 input[type=text], textarea { font: 14px var(--sans); color: var(--fg); background: transparent; border: 1px solid var(--hair); border-radius: 4px; padding: 9px 10px; min-height: 40px; }

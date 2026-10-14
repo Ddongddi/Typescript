@@ -53,7 +53,7 @@ Windows shown; other systems are under [Installation](#installation).
    ```powershell
    irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
    ```
-   A screen asks which languages to use (Space to toggle). Not sure? Press Enter for the defaults.
+   A welcome page opens in your browser: tick your languages (English and Korean are on by default) and press Start.
 2. **Pick the input method.** Press **Win+Space** and choose `Typescript (Autocomplete)`. Apps that were already open need a restart.
 3. **Try it.** In Notepad type `dkssud` — you see `안녕` with a dotted underline. Space or Enter commits it.
 4. **If it guessed wrong.** A word you meant in English came out as Hangul? Press **Esc**. It cycles English → Korean → …
@@ -86,7 +86,7 @@ Just type. The dotted underline shows the current guess — the same result Spac
 
 ### Windows
 
-One line in PowerShell downloads the latest release, installs it and registers the input method (one UAC prompt). During setup you pick your languages (Space to toggle; the order you pick is the Esc cycle order).
+One line in PowerShell downloads the latest release, installs it and registers the input method (one UAC prompt). On a first install a **welcome page** opens in your browser when setup finishes: it shows what typing without the Han/Eng key feels like, lets you **pick your languages** (English and Korean are ticked; the list order is the Esc cycle order), downloads them and walks you through a short practice. An update install does not show it. The **Tutorial** link at the top of the dashboard opens it again.
 
 ```powershell
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
@@ -193,7 +193,9 @@ typescript-config remove ja            # disable and delete it
 typescript-config order ko,en          # Esc order (among enabled languages)
 typescript-config check                # is there a new version?
 typescript-config update               # refresh packs + run the new installer
-typescript-config setup --languages ko,en   # the install-time choice, no UI
+typescript-config welcome              # the first-run page: choose languages, short practice
+typescript-config setup --languages ko,en   # the install-time choice, no UI (for scripts)
+typescript-config setup --if-configured     # reinstall the languages already on (updates; fails on a first install)
 ```
 
 A pack is installed only if its size and SHA-256 match the release's `packs.json` and its tables match the manifest hashes. New releases are checked once a day (turn off with *check for updates*). Set `TYPESCRIPT_RELEASE` to a folder or URL to install from a different release (offline).

@@ -285,6 +285,7 @@ impl App {
         // The page is static and holds nothing private, so a reload (which drops the token from
         // the address) still works; everything it asks of the program needs the token.
         let token_ok = path == "/"
+            || path == "/welcome"
             || req
                 .token
                 .as_deref()
@@ -298,6 +299,11 @@ impl App {
                 status: 200,
                 content_type: "text/html; charset=utf-8",
                 body: crate::web::page().as_bytes().to_vec(),
+            },
+            ("GET", "/welcome") => Response {
+                status: 200,
+                content_type: "text/html; charset=utf-8",
+                body: crate::web::welcome_page().as_bytes().to_vec(),
             },
             ("GET", "/api/state") => json_response(200, &self.state()),
             ("GET", "/api/update") => match self.update_info() {
@@ -333,7 +339,7 @@ impl App {
             ) => self.post(path, req),
             (
                 _,
-                "/" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
+                "/" | "/welcome" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
                 | "/api/quit" | "/api/changelog" | "/api/releases" | "/api/health",
             )
             | (
@@ -394,6 +400,7 @@ impl App {
             if body["action"] != "apply" {
                 return fail(400, "action has to be apply");
             }
+            self.source.forget(); // a new release may have a new catalog
             return match self.apply_update() {
                 Ok(message) => json_response(200, &json!({ "message": message })),
                 Err(message) => fail(502, &message),
@@ -894,6 +901,23 @@ mod tests {
         let mut api = req("GET", "/api/state", None);
         api.token = None;
         assert_eq!(app.handle(&api).status, 401);
+    }
+
+    #[test]
+    fn the_welcome_page_is_served_like_the_dashboard_page() {
+        let f = fixture("app-welcome");
+        let app = app(&f);
+        let mut r = req("GET", "/welcome", None);
+        r.token = None;
+        let page = app.handle(&r);
+        assert_eq!(page.status, 200);
+        assert!(page.content_type.starts_with("text/html"));
+        assert!(String::from_utf8_lossy(&page.body).contains("progressbar"));
+        r.host = Some("evil.test".into());
+        assert_eq!(app.handle(&r).status, 403, "still only for this host");
+        let mut post = req("POST", "/welcome", Some(json!({})));
+        post.token = None;
+        assert_eq!(app.handle(&post).status, 405);
     }
 
     #[test]

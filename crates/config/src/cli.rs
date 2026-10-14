@@ -13,7 +13,9 @@ use crate::update;
 
 pub const USAGE: &str = "typescript-config [command]
   (none)            open the dashboard
-  setup [--languages ko,en]   choose the languages at install time
+  welcome           open the first-run page: choose languages, then a short practice
+  setup --languages ko,en   install those languages without asking (for scripts)
+  setup --if-configured     reinstall the languages already on; fails on a first install
   list              the languages: installed, turned on, available
   add <id>          install a language and turn it on (en, ko, ja)
   remove <id>       turn a language off and delete its pack
