@@ -40,7 +40,7 @@
 dkssudgktpdy, hello world!          →  안녕하세요, hello world!
 dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 fltpssm ghkdlxld                    →  리센느 화이팅
-kyouhaiitenkidesune ⏎               →  きょうはいいてんきですね   (일본어 팩)
+kyouhaiitenkidesune                 →  きょうはいいてんきですね   (일본어 팩)
 ```
 
 영어 자판 그대로 치면, **단어마다** 영어인지 한국어(두벌식)인지 일본어(로마자)인지 판단해서 바꿔 줍니다. 틀렸으면 Esc 한 번이면 다른 읽기로 바뀌고, 같은 교정을 두 번 하면 그 단어를 배웁니다.
