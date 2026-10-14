@@ -79,8 +79,9 @@ typescript-config setup --languages ko,en
 {
   "languages": ["en", "ko"],
   "returnConfirmsOnly": true,
-  "flipKeys": ["Esc", "Hangul"],
-  "pauseKeys": ["Alt+Hangul"],
+  "hangulKey": "Hangul",
+  "flipKeys": ["Esc", "HangulKey"],
+  "pauseKeys": ["Alt+HangulKey"],
   "autocomplete": true,
   "checkUpdates": true,
   "liveConversion": false,
@@ -93,8 +94,9 @@ typescript-config setup --languages ko,en
 | --- | --- | --- | --- |
 | `languages` | `string[]` | `["en", "ko"]` | 활성화할 언어 목록 및 `Esc` 순환 순서. (`"en"`, `"ko"`, `"ja"` 지원) |
 | `returnConfirmsOnly` | `bool` | `true` | `true`일 경우 단어를 입력 중일 때 `Enter`를 누르면 현재 단어 밑줄만 확정하고 줄바꿈은 앱에 보내지 않습니다. |
-| `flipKeys` | `string[]` | `["Esc", "Hangul"]` | 쓰는 중인(방금 친) 단어를 다음 언어로 바꾸는 키. `"Ctrl+Space"`처럼 조합할 수 있고, `"Ctrl"`·`"RCtrl"` 같은 수식어 키는 다른 키 없이 눌렀다 뗄 때 동작합니다. 최대 8개, `[]`이면 사용하지 않습니다. 대시보드 설정의 "키 지정"에서도 바꿀 수 있습니다. |
-| `pauseKeys` | `string[]` | `["Alt+Hangul"]` | 입력기 일시정지/재개 키. 형식은 `flipKeys`와 같고, 두 목록에 같은 키를 쓸 수 없습니다. 예전 `pauseKey`는 읽어서 옮깁니다(`"off"`는 `[]`). |
+| `hangulKey` | `string` | `"Hangul"` | 한영키로 쓸 키. 목록에서 `HangulKey`(또는 `한영키`)라고 쓰면 이 키를 가리킵니다. `Ctrl`·`RAlt` 같은 수식어 키로 바꾸면 `Alt+HangulKey` 같은 조합은 만들 수 없습니다. |
+| `flipKeys` | `string[]` | `["Esc", "HangulKey"]` | 쓰는 중인(방금 친) 단어를 다음 언어로 바꾸는 키. `"Ctrl+Space"`처럼 조합할 수 있고, `"Ctrl"`·`"RCtrl"` 같은 수식어 키는 다른 키 없이 눌렀다 뗄 때 동작합니다. 최대 8개, `[]`이면 사용하지 않습니다. 대시보드의 "키" 탭에서 키보드를 보며 바꿀 수 있습니다. |
+| `pauseKeys` | `string[]` | `["Alt+HangulKey"]` | 입력기 일시정지/재개 키. 형식은 `flipKeys`와 같고, 두 목록에 같은 키를 쓸 수 없습니다. 예전 `pauseKey`는 읽어서 옮깁니다(`"off"`는 `[]`). |
 | `autocomplete` | `bool` | `true` | `Typescript (자동완성)` 입력기에서 `Tab` 키 자동완성 및 빈도 학습 활성화 여부. |
 | `checkUpdates` | `bool` | `true` | 하루 1회 GitHub 릴리스를 조회하여 새 버전 존재 여부를 확인합니다. |
 | `liveConversion` | `bool` | `false` | (일본어) 타이핑하는 도중 추천 한자 변환 결과를 실시간으로 미리보기로 표시합니다. |

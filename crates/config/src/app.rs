@@ -569,6 +569,7 @@ impl App {
         };
         for (key, value) in changes {
             let ok = match key.as_str() {
+                "hangulKey" => value.is_string(),
                 "flipKeys" | "pauseKeys" => value
                     .as_array()
                     .is_some_and(|list| list.iter().all(Value::is_string)),
@@ -580,7 +581,10 @@ impl App {
             }
         }
         let mut changes = changes.clone();
-        if changes.contains_key("flipKeys") || changes.contains_key("pauseKeys") {
+        if ["hangulKey", "flipKeys", "pauseKeys"]
+            .iter()
+            .any(|name| changes.contains_key(*name))
+        {
             let current = Settings::load(Some(&self.env.settings));
             let list = |name: &str, now: &[Chord]| -> Vec<String> {
                 match changes.get(name).and_then(Value::as_array) {
@@ -592,12 +596,18 @@ impl App {
                     None => key_names(now),
                 }
             };
-            let (flip, pause) = keys::validate(
+            let hangul = changes
+                .get("hangulKey")
+                .and_then(Value::as_str)
+                .map_or_else(|| current.hangul_key.to_string(), str::to_string);
+            let saved = keys::validate(
+                &hangul,
                 &list("flipKeys", &current.flip_keys),
                 &list("pauseKeys", &current.pause_keys),
             )?;
-            changes.insert("flipKeys".into(), json!(key_names(&flip)));
-            changes.insert("pauseKeys".into(), json!(key_names(&pause)));
+            changes.insert("hangulKey".into(), json!(saved.hangul.to_string()));
+            changes.insert("flipKeys".into(), json!(key_names(&saved.flip)));
+            changes.insert("pauseKeys".into(), json!(key_names(&saved.pause)));
         }
         let mut file = self.read_object(&self.env.settings);
         let object = file
@@ -684,6 +694,7 @@ impl App {
             "catalogError": catalog.as_ref().err().map(|e| e.to_string()),
             "settings": {
                 "returnConfirmsOnly": loaded.return_confirms_only,
+                "hangulKey": loaded.hangul_key.to_string(),
                 "flipKeys": key_names(&loaded.flip_keys),
                 "pauseKeys": key_names(&loaded.pause_keys),
                 "autocomplete": loaded.autocomplete,
@@ -695,6 +706,7 @@ impl App {
             "os": std::env::consts::OS,
             "defaults": {
                 "returnConfirmsOnly": defaults.return_confirms_only,
+                "hangulKey": defaults.hangul_key.to_string(),
                 "flipKeys": key_names(&defaults.flip_keys),
                 "pauseKeys": key_names(&defaults.pause_keys),
                 "autocomplete": defaults.autocomplete,
@@ -801,8 +813,9 @@ mod tests {
         assert_eq!(ja["installed"], false);
         assert_eq!(ja["on"], false);
         assert_eq!(s["order"], json!(["en", "ko"]));
-        assert_eq!(s["settings"]["flipKeys"], json!(["Esc", "Hangul"]));
-        assert_eq!(s["settings"]["pauseKeys"], json!(["Alt+Hangul"]));
+        assert_eq!(s["settings"]["hangulKey"], "Hangul");
+        assert_eq!(s["settings"]["flipKeys"], json!(["Esc", "HangulKey"]));
+        assert_eq!(s["settings"]["pauseKeys"], json!(["Alt+HangulKey"]));
         assert!(s["apps"].is_object());
         assert!(s["catalogError"].is_null());
     }
@@ -907,6 +920,17 @@ mod tests {
         ] {
             assert_eq!(post(bad.clone()).status, 400, "{bad}");
         }
+        // the Han/Eng key can be another key; the lists follow it
+        let moved = post(json!({"hangulKey": "f13", "flipKeys": ["Esc", "HangulKey"]}));
+        assert_eq!(moved.status, 200);
+        assert_eq!(json_of(&moved)["settings"]["hangulKey"], "F13");
+        // a modifier key can't take part in Alt+HangulKey
+        let bad = post(json!({"hangulKey": "RCtrl"}));
+        assert_eq!(bad.status, 400);
+        assert!(json_of(&bad)["error"]
+            .as_str()
+            .unwrap()
+            .contains("modifier"));
         let off = post(json!({"pauseKeys": []}));
         assert_eq!(json_of(&off)["settings"]["pauseKeys"], json!([]));
     }
@@ -1090,8 +1114,9 @@ bash
         let app = app(&f);
         let s = json_of(&app.handle(&req("GET", "/api/state", None)));
         assert_eq!(s["defaults"]["returnConfirmsOnly"], true);
-        assert_eq!(s["defaults"]["flipKeys"], json!(["Esc", "Hangul"]));
-        assert_eq!(s["defaults"]["pauseKeys"], json!(["Alt+Hangul"]));
+        assert_eq!(s["defaults"]["hangulKey"], "Hangul");
+        assert_eq!(s["defaults"]["flipKeys"], json!(["Esc", "HangulKey"]));
+        assert_eq!(s["defaults"]["pauseKeys"], json!(["Alt+HangulKey"]));
         assert_eq!(s["os"], std::env::consts::OS);
         assert_eq!(s["defaults"]["checkUpdates"], true);
     }

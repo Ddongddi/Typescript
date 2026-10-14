@@ -211,15 +211,16 @@ JSON을 직접 편집합니다. 앱 간 전환할 때 다시 읽습니다.
 `settings.json`
 
 ```json
-{ "returnConfirmsOnly": true, "flipKeys": ["Esc", "Hangul"], "pauseKeys": ["Alt+Hangul"], "autocomplete": true,
+{ "returnConfirmsOnly": true, "hangulKey": "Hangul", "flipKeys": ["Esc", "HangulKey"], "pauseKeys": ["Alt+HangulKey"], "autocomplete": true,
   "languages": ["en", "ko"], "liveConversion": false, "fullWidthDigits": false, "fullWidthSpace": false }
 ```
 
 | 키 | 뜻 |
 | --- | --- |
 | `autocomplete` | `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
-| `flipKeys` | 단어의 언어를 바꾸는 키 목록 (기본 `["Esc", "Hangul"]`). `"Ctrl+Space"` 같은 조합도 되고 `[]`이면 끈다 |
-| `pauseKeys` | 일시정지 키 목록 (기본 `["Alt+Hangul"]`). 형식은 같고 두 목록에 같은 키를 쓸 수 없다 |
+| `hangulKey` | 한영키로 쓸 키 (기본 `"Hangul"`). 아래 목록의 `HangulKey`가 이 키를 가리킨다 |
+| `flipKeys` | 단어의 언어를 바꾸는 키 목록 (기본 `["Esc", "HangulKey"]`). `"Ctrl+Space"` 같은 조합도 되고 `[]`이면 끈다 |
+| `pauseKeys` | 일시정지 키 목록 (기본 `["Alt+HangulKey"]`). 형식은 같고 두 목록에 같은 키를 쓸 수 없다 |
 | `checkUpdates` | `false`면 새 릴리스를 자동으로 확인하지 않는다 (기본 켜짐) |
 | `languages` | 켜진 언어와 Esc 순환 순서. `"en"` `"ko"` `"ja"` 중 1개 이상, 자유 조합 (한국어만, 일본어만도 된다). 예전 `"japanese": true` 만 있는 파일은 `["en","ko","ja"]` 로 읽는다. 팩이 없는 언어는 빠진다 |
 | `liveConversion`, `fullWidthDigits`, `fullWidthSpace` | 일본어 절에서 설명한다 |

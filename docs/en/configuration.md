@@ -79,8 +79,9 @@ Configuration files are formatted in standard JSON and can be edited in any text
 {
   "languages": ["en", "ko"],
   "returnConfirmsOnly": true,
-  "flipKeys": ["Esc", "Hangul"],
-  "pauseKeys": ["Alt+Hangul"],
+  "hangulKey": "Hangul",
+  "flipKeys": ["Esc", "HangulKey"],
+  "pauseKeys": ["Alt+HangulKey"],
   "autocomplete": true,
   "checkUpdates": true,
   "liveConversion": false,
@@ -93,8 +94,9 @@ Configuration files are formatted in standard JSON and can be edited in any text
 | --- | --- | --- | --- |
 | `languages` | `string[]` | `["en", "ko"]` | Active languages and `Esc` rotation order. Supports `"en"`, `"ko"`, `"ja"`. |
 | `returnConfirmsOnly` | `bool` | `true` | When `true`, pressing `Enter` on a composing word only commits the underlined text without inserting a newline in the app. |
-| `flipKeys` | `string[]` | `["Esc", "Hangul"]` | Keys that switch the word being typed (or just typed) to its next language. Combinations such as `"Ctrl+Space"` work; a lone modifier such as `"Ctrl"` or `"RCtrl"` acts when released without another key. Up to 8; `[]` turns it off. Also editable under "Key assignment" in the dashboard settings. |
-| `pauseKeys` | `string[]` | `["Alt+Hangul"]` | Keys that pause/resume Typescript. Same format as `flipKeys`; a key can't be in both lists. The old `pauseKey` is read and moved (`"off"` becomes `[]`). |
+| `hangulKey` | `string` | `"Hangul"` | The key that serves as the Han/Eng key. `HangulKey` in the lists below stands for it. If it is a modifier such as `Ctrl` or `RAlt`, combinations like `Alt+HangulKey` can't be built. |
+| `flipKeys` | `string[]` | `["Esc", "HangulKey"]` | Keys that switch the word being typed (or just typed) to its next language. Combinations such as `"Ctrl+Space"` work; a lone modifier such as `"Ctrl"` or `"RCtrl"` acts when released without another key. Up to 8; `[]` turns it off. Also editable on the "키" (Keys) tab of the dashboard, with a drawn keyboard. |
+| `pauseKeys` | `string[]` | `["Alt+HangulKey"]` | Keys that pause/resume Typescript. Same format as `flipKeys`; a key can't be in both lists. The old `pauseKey` is read and moved (`"off"` becomes `[]`). |
 | `autocomplete` | `bool` | `true` | Enables `Tab` autocomplete and word frequency learning in `Typescript (Autocomplete)`. |
 | `checkUpdates` | `bool` | `true` | Automatically checks GitHub Releases once a day for new versions. |
 | `liveConversion` | `bool` | `false` | (Japanese) Displays ranked Kanji candidate conversions in real-time during typing. |

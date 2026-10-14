@@ -138,8 +138,9 @@ Settings and user history reside in `%APPDATA%\Typescript\` (Windows) or `~/.con
 {
   "languages": ["en", "ko"],
   "returnConfirmsOnly": true,
-  "flipKeys": ["Esc", "Hangul"],
-  "pauseKeys": ["Alt+Hangul"],
+  "hangulKey": "Hangul",
+  "flipKeys": ["Esc", "HangulKey"],
+  "pauseKeys": ["Alt+HangulKey"],
   "autocomplete": true,
   "checkUpdates": true
 }

@@ -44,6 +44,9 @@ pub enum ChordKey {
     Pause,
     ScrollLock,
     Space,
+    /// The Han/Eng key role: whatever key the user made the Han/Eng key (`hangulKey`). Only in
+    /// the key lists; `Chord::resolve` turns it into that key.
+    HangulKey,
     /// F1..=F24.
     F(u8),
     /// 'A'..='Z'.
@@ -92,6 +95,7 @@ impl ChordKey {
             "pause" => Self::Pause,
             "scrolllock" => Self::ScrollLock,
             "space" => Self::Space,
+            "hangulkey" | "한영키" => Self::HangulKey,
             "ctrl" | "control" => Self::Ctrl,
             "alt" => Self::Alt,
             "shift" => Self::Shift,
@@ -128,6 +132,7 @@ impl fmt::Display for ChordKey {
             Self::Pause => f.write_str("Pause"),
             Self::ScrollLock => f.write_str("ScrollLock"),
             Self::Space => f.write_str("Space"),
+            Self::HangulKey => f.write_str("HangulKey"),
             Self::F(n) => write!(f, "F{n}"),
             Self::Letter(c) => write!(f, "{c}"),
             Self::Digit(d) => write!(f, "{d}"),
@@ -157,6 +162,36 @@ impl Chord {
     /// Whether some key press would be both chords.
     pub fn overlaps(&self, other: &Chord) -> bool {
         self.mods == other.mods && self.key.overlaps(other.key)
+    }
+
+    /// This chord with the Han/Eng key role (`HangulKey`) replaced by the key `hangul` is: its
+    /// modifiers are added to this chord's. Other chords are returned as they are.
+    pub fn resolve(&self, hangul: &Chord) -> Result<Chord, String> {
+        if self.key != ChordKey::HangulKey {
+            return Ok(*self);
+        }
+        let (a, b) = (self.mods, hangul.mods);
+        if (a.ctrl && b.ctrl) || (a.alt && b.alt) || (a.shift && b.shift) {
+            return Err(format!(
+                "{self}: the Han/Eng key ({hangul}) already uses that modifier"
+            ));
+        }
+        if hangul.key.is_modifier() && a.count() > 0 {
+            return Err(format!(
+                "{self}: the Han/Eng key ({hangul}) is a modifier key and can't be combined"
+            ));
+        }
+        let mods = Mods {
+            ctrl: a.ctrl || b.ctrl,
+            alt: a.alt || b.alt,
+            shift: a.shift || b.shift,
+        };
+        let chord = Chord {
+            mods,
+            key: hangul.key,
+        };
+        chord.check().map_err(|e| format!("{self}: {e}"))?;
+        Ok(chord)
     }
 
     /// Rejects what would break typing or what the system or the program already owns.
@@ -251,53 +286,94 @@ fn builtin(text: &str) -> Chord {
     text.parse().expect("built-in key is valid")
 }
 
+/// The key that is the Han/Eng key until the user picks another.
+pub fn default_hangul() -> Chord {
+    builtin("Hangul")
+}
+
 pub fn default_flip() -> Vec<Chord> {
-    vec![builtin("Esc"), builtin("Hangul")]
+    vec![builtin("Esc"), builtin("HangulKey")]
 }
 
 pub fn default_pause() -> Vec<Chord> {
-    vec![builtin("Alt+Hangul")]
+    vec![builtin("Alt+HangulKey")]
 }
 
-fn parse_list(name: &str, texts: &[String]) -> Result<Vec<Chord>, String> {
+/// The Han/Eng key itself: any assignable key, but not a reference to itself.
+pub fn parse_hangul(text: &str) -> Result<Chord, String> {
+    let chord: Chord = text.parse().map_err(|e| format!("hangulKey: {e}"))?;
+    if chord.key == ChordKey::HangulKey {
+        return Err("hangulKey: the Han/Eng key can't be itself".into());
+    }
+    Ok(chord)
+}
+
+/// The keys as saved: the Han/Eng key and the two lists (which may point at it).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Keys {
+    pub hangul: Chord,
+    pub flip: Vec<Chord>,
+    pub pause: Vec<Chord>,
+}
+
+fn parse_list(name: &str, texts: &[String], hangul: &Chord) -> Result<Vec<Chord>, String> {
     if texts.len() > MAX_KEYS {
         return Err(format!("{name} takes at most {MAX_KEYS} keys"));
     }
     let mut out: Vec<Chord> = Vec::new();
+    let mut resolved: Vec<Chord> = Vec::new();
     for text in texts {
         let chord: Chord = text.parse().map_err(|e| format!("{name}: {e}"))?;
-        if let Some(same) = out.iter().find(|c| c.overlaps(&chord)) {
+        let real = chord.resolve(hangul).map_err(|e| format!("{name}: {e}"))?;
+        if let Some(same) = resolved.iter().find(|c| c.overlaps(&real)) {
             return Err(format!("{name}: {chord} is the same key as {same}"));
         }
         out.push(chord);
+        resolved.push(real);
     }
     Ok(out)
 }
 
-/// Both lists as the dashboard sends them: every mistake comes back as a message.
-pub fn validate(flip: &[String], pause: &[String]) -> Result<(Vec<Chord>, Vec<Chord>), String> {
-    let flip = parse_list("flipKeys", flip)?;
-    let pause = parse_list("pauseKeys", pause)?;
+/// Everything as the dashboard sends it: every mistake comes back as a message.
+pub fn validate(hangul: &str, flip: &[String], pause: &[String]) -> Result<Keys, String> {
+    let hangul = parse_hangul(hangul)?;
+    let flip = parse_list("flipKeys", flip, &hangul)?;
+    let pause = parse_list("pauseKeys", pause, &hangul)?;
     for chord in &pause {
-        if let Some(other) = flip.iter().find(|f| f.overlaps(chord)) {
-            return Err(format!(
-                "{chord} is already a language switch key ({other})"
-            ));
+        let real = chord.resolve(&hangul)?;
+        for other in &flip {
+            let other = other.resolve(&hangul)?;
+            if other.overlaps(&real) {
+                return Err(format!("{real} is already a language switch key ({other})"));
+            }
         }
     }
-    Ok((flip, pause))
+    Ok(Keys {
+        hangul,
+        flip,
+        pause,
+    })
 }
 
 /// A list from a settings.json somebody edited by hand: unusable entries are dropped, and
 /// keys in `taken` (the other action's) win.
-pub fn sanitize(texts: &[&str], taken: &[Chord]) -> Vec<Chord> {
+pub fn sanitize(texts: &[&str], hangul: &Chord, taken: &[Chord]) -> Vec<Chord> {
+    let taken: Vec<Chord> = taken
+        .iter()
+        .filter_map(|c| c.resolve(hangul).ok())
+        .collect();
     let mut out: Vec<Chord> = Vec::new();
+    let mut resolved: Vec<Chord> = Vec::new();
     for text in texts {
         let Ok(chord) = text.parse::<Chord>() else {
             continue;
         };
-        if out.len() < MAX_KEYS && !out.iter().chain(taken).any(|c| c.overlaps(&chord)) {
+        let Ok(real) = chord.resolve(hangul) else {
+            continue;
+        };
+        if out.len() < MAX_KEYS && !resolved.iter().chain(&taken).any(|c| c.overlaps(&real)) {
             out.push(chord);
+            resolved.push(real);
         }
     }
     out
@@ -401,33 +477,81 @@ mod tests {
     fn the_defaults_are_valid_and_do_not_clash() {
         let flip: Vec<String> = default_flip().iter().map(|c| c.to_string()).collect();
         let pause: Vec<String> = default_pause().iter().map(|c| c.to_string()).collect();
-        assert_eq!(flip, ["Esc", "Hangul"]);
-        assert_eq!(pause, ["Alt+Hangul"]);
-        assert!(validate(&flip, &pause).is_ok());
+        assert_eq!(flip, ["Esc", "HangulKey"]);
+        assert_eq!(pause, ["Alt+HangulKey"]);
+        assert!(validate("Hangul", &flip, &pause).is_ok());
+    }
+
+    #[test]
+    fn the_han_eng_role_follows_the_key_it_is_given() {
+        let hangul = chord("F13");
+        assert_eq!(
+            chord("HangulKey").resolve(&hangul).unwrap().to_string(),
+            "F13"
+        );
+        assert_eq!(
+            chord("Alt+HangulKey").resolve(&hangul).unwrap().to_string(),
+            "Alt+F13"
+        );
+        let with_ctrl = chord("Ctrl+Space");
+        assert_eq!(
+            chord("Alt+HangulKey")
+                .resolve(&with_ctrl)
+                .unwrap()
+                .to_string(),
+            "Ctrl+Alt+Space"
+        );
+        assert_eq!(chord("Esc").resolve(&hangul).unwrap().to_string(), "Esc");
+        assert_eq!(chord("한영키").to_string(), "HangulKey");
+    }
+
+    #[test]
+    fn a_modifier_as_the_han_eng_key_cannot_be_combined() {
+        let ctrl = chord("RCtrl");
+        assert!(chord("HangulKey").resolve(&ctrl).is_ok());
+        assert!(chord("Alt+HangulKey").resolve(&ctrl).is_err());
+        let both = validate(
+            "RCtrl",
+            &strings(&["Esc", "HangulKey"]),
+            &strings(&["Alt+HangulKey"]),
+        );
+        assert!(both.unwrap_err().contains("modifier key"));
+        let alone = validate("RCtrl", &strings(&["Esc", "HangulKey"]), &strings(&["F13"]));
+        assert!(alone.is_ok());
+        assert!(chord("Alt+HangulKey").resolve(&chord("Alt+F13")).is_err());
+        assert!(validate("HangulKey", &[], &[])
+            .unwrap_err()
+            .contains("itself"));
     }
 
     #[test]
     fn conflicts_are_refused_with_a_reason() {
-        let across = validate(&strings(&["Esc", "Hangul"]), &strings(&["Hangul"]));
+        let h = "Hangul";
+        let across = validate(h, &strings(&["Esc", "Hangul"]), &strings(&["Hangul"]));
         assert!(across
             .unwrap_err()
             .contains("already a language switch key"));
-        let twice = validate(&strings(&["Esc", "esc"]), &[]);
+        // the role and the key it stands for are the same key
+        let role = validate(h, &strings(&["HangulKey"]), &strings(&["Hangul"]));
+        assert!(role.is_err());
+        let twice = validate(h, &strings(&["Esc", "esc"]), &[]);
         assert!(twice.unwrap_err().contains("same key"));
-        let sides = validate(&strings(&["Ctrl"]), &strings(&["RCtrl"]));
+        let sides = validate(h, &strings(&["Ctrl"]), &strings(&["RCtrl"]));
         assert!(sides.is_err());
-        let fine = validate(&strings(&["Ctrl"]), &strings(&["RAlt"]));
+        let fine = validate(h, &strings(&["Ctrl"]), &strings(&["RAlt"]));
         assert!(fine.is_ok());
         let nine: Vec<String> = (1..=9).map(|n| format!("F{n}")).collect();
-        assert!(validate(&nine, &[]).unwrap_err().contains("at most"));
-        assert!(validate(&[], &[]).is_ok(), "no keys at all is allowed");
+        assert!(validate(h, &nine, &[]).unwrap_err().contains("at most"));
+        assert!(validate(h, &[], &[]).is_ok(), "no keys at all is allowed");
     }
 
     #[test]
     fn hand_edited_lists_keep_what_is_usable() {
-        let taken = [chord("Hangul")];
+        let hangul = chord("Hangul");
+        let taken = [chord("HangulKey")];
         let kept = sanitize(
             &["Win+L", "F13", "f13", "Hangul", "Ctrl+Space", "nope"],
+            &hangul,
             &taken,
         );
         let shown: Vec<String> = kept.iter().map(|c| c.to_string()).collect();

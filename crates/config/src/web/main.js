@@ -1,6 +1,6 @@
 // Draws everything from `state`, switches tabs, listens for shortcuts, and starts the page.
 
-const TABS = ["lang", "try", "set", "apps", "upd"];
+const TABS = ["lang", "try", "set", "keys", "apps", "upd"];
 const tabOf = (name) => $("t-" + name), panelOf = (name) => $("p-" + name);
 
 // Draws every panel again. `focusKey` (or the focused control's data-f) gets the focus back.
@@ -9,7 +9,7 @@ function render(focusKey) {
   openDd = null;
   $("ver").textContent = "v" + state.version;
   const active = focusKey || (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f);
-  renderLang(); renderSettings(); renderApps(); renderUpdate(); updateTry();
+  renderLang(); renderSettings(); renderKeys(); renderApps(); renderUpdate(); updateTry();
   if (active) {
     const el = document.querySelector('[data-f="' + CSS.escape(active) + '"]');
     if (el && !el.disabled) el.focus({ preventScroll: true });
@@ -17,6 +17,7 @@ function render(focusKey) {
 }
 
 function selectTab(index, focus) {
+  stopCapture();
   TABS.forEach((name, k) => {
     tabOf(name).setAttribute("aria-selected", k === index);
     tabOf(name).tabIndex = k === index ? 0 : -1;

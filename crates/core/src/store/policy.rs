@@ -157,10 +157,15 @@ impl AppPolicies {
 
 /// The list under `name`: None when it is missing, not a list, or has entries but none usable
 /// (the caller then uses its default; a hand-edit must not switch a key off by accident).
-fn key_list(value: &serde_json::Value, name: &str, taken: &[Chord]) -> Option<Vec<Chord>> {
+fn key_list(
+    value: &serde_json::Value,
+    name: &str,
+    hangul: &Chord,
+    taken: &[Chord],
+) -> Option<Vec<Chord>> {
     let list = value.get(name)?.as_array()?;
     let texts: Vec<&str> = list.iter().filter_map(|v| v.as_str()).collect();
-    let kept = keys::sanitize(&texts, taken);
+    let kept = keys::sanitize(&texts, hangul, taken);
     (list.is_empty() || !kept.is_empty()).then_some(kept)
 }
 
@@ -170,6 +175,8 @@ fn key_list(value: &serde_json::Value, name: &str, taken: &[Chord]) -> Option<Ve
 pub struct Settings {
     /// Return on an underlined word only confirms it; off, the app gets that Return too.
     pub return_confirms_only: bool,
+    /// The Han/Eng key: any key; `HangulKey` in the lists below stands for it.
+    pub hangul_key: Chord,
     /// Keys that switch the word being typed to its next language.
     pub flip_keys: Vec<Chord>,
     /// Keys that pause Typescript in the text field. Empty: no pause key.
@@ -193,6 +200,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             return_confirms_only: true,
+            hangul_key: keys::default_hangul(),
             flip_keys: keys::default_flip(),
             pause_keys: keys::default_pause(),
             autocomplete: true,
@@ -211,7 +219,12 @@ impl Settings {
 
     /// What pressing `pressed` with exactly `mods` held does, if it is an assigned key.
     pub fn key_action(&self, mods: Mods, pressed: ChordKey) -> Option<KeyAction> {
-        let hit = |list: &[Chord]| list.iter().any(|c| c.matches(mods, pressed));
+        let hit = |list: &[Chord]| {
+            list.iter().any(|c| {
+                c.resolve(&self.hangul_key)
+                    .is_ok_and(|real| real.matches(mods, pressed))
+            })
+        };
         if hit(&self.pause_keys) {
             Some(KeyAction::Pause)
         } else if hit(&self.flip_keys) {
@@ -227,20 +240,28 @@ impl Settings {
             .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok());
         let defaults = Settings::default();
         let Some(value) = value else { return defaults };
-        let flip_keys = key_list(&value, "flipKeys", &[]).unwrap_or_else(keys::default_flip);
+        let hangul_key = value
+            .get("hangulKey")
+            .and_then(|v| v.as_str())
+            .and_then(|text| keys::parse_hangul(text).ok())
+            .unwrap_or_else(keys::default_hangul);
+        let flip_keys =
+            key_list(&value, "flipKeys", &hangul_key, &[]).unwrap_or_else(keys::default_flip);
         let legacy_off = value.get("pauseKey").and_then(|v| v.as_str()) == Some("off");
-        let pause_keys = key_list(&value, "pauseKeys", &flip_keys).unwrap_or_else(|| {
-            if legacy_off {
-                Vec::new()
-            } else {
-                keys::sanitize(&["Alt+Hangul"], &flip_keys)
-            }
-        });
+        let pause_keys =
+            key_list(&value, "pauseKeys", &hangul_key, &flip_keys).unwrap_or_else(|| {
+                if legacy_off {
+                    Vec::new()
+                } else {
+                    keys::default_pause()
+                }
+            });
         Settings {
             return_confirms_only: value
                 .get("returnConfirmsOnly")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.return_confirms_only),
+            hangul_key,
             flip_keys,
             pause_keys,
             autocomplete: value
@@ -296,6 +317,7 @@ impl Settings {
         let names =
             |list: &[Chord]| -> Vec<String> { list.iter().map(|c| c.to_string()).collect() };
         object.remove("pauseKey");
+        object.insert("hangulKey".into(), self.hangul_key.to_string().into());
         object.insert("flipKeys".into(), names(&self.flip_keys).into());
         object.insert("pauseKeys".into(), names(&self.pause_keys).into());
         object.insert("autocomplete".into(), self.autocomplete.into());
@@ -430,8 +452,33 @@ mod tests {
     #[test]
     fn keys_default_when_the_file_says_nothing() {
         let s = load_json("keys-default", "{}");
-        assert_eq!(shown(&s.flip_keys), ["Esc", "Hangul"]);
-        assert_eq!(shown(&s.pause_keys), ["Alt+Hangul"]);
+        assert_eq!(shown(&s.flip_keys), ["Esc", "HangulKey"]);
+        assert_eq!(shown(&s.pause_keys), ["Alt+HangulKey"]);
+        assert_eq!(s.hangul_key.to_string(), "Hangul");
+    }
+
+    #[test]
+    fn the_han_eng_key_can_be_another_key_and_the_lists_follow_it() {
+        let s = load_json("keys-hangul", r#"{ "hangulKey": "RAlt" }"#);
+        assert_eq!(s.hangul_key.to_string(), "RAlt");
+        use keys::{ChordKey, KeyAction, Mods};
+        assert_eq!(
+            s.key_action(Mods::NONE, ChordKey::RAlt),
+            Some(KeyAction::Flip)
+        );
+        assert_eq!(s.key_action(Mods::NONE, ChordKey::Hangul), None);
+        // Alt + a modifier key can't be built: the pause key is then simply missing
+        let alt = Mods {
+            alt: true,
+            ..Mods::NONE
+        };
+        assert_eq!(s.key_action(alt, ChordKey::RAlt), None);
+        let s = load_json("keys-hangul-f13", r#"{ "hangulKey": "F13" }"#);
+        let alt = Mods {
+            alt: true,
+            ..Mods::NONE
+        };
+        assert_eq!(s.key_action(alt, ChordKey::F(13)), Some(KeyAction::Pause));
     }
 
     #[test]
@@ -439,7 +486,7 @@ mod tests {
         let s = load_json("keys-legacy-off", r#"{ "pauseKey": "off" }"#);
         assert!(s.pause_keys.is_empty());
         let s = load_json("keys-legacy-on", r#"{ "pauseKey": "hangul" }"#);
-        assert_eq!(shown(&s.pause_keys), ["Alt+Hangul"]);
+        assert_eq!(shown(&s.pause_keys), ["Alt+HangulKey"]);
     }
 
     #[test]
@@ -450,8 +497,8 @@ mod tests {
             "keys-junk",
             r#"{ "flipKeys": ["Win+L", 3], "pauseKeys": "x" }"#,
         );
-        assert_eq!(shown(&s.flip_keys), ["Esc", "Hangul"]);
-        assert_eq!(shown(&s.pause_keys), ["Alt+Hangul"]);
+        assert_eq!(shown(&s.flip_keys), ["Esc", "HangulKey"]);
+        assert_eq!(shown(&s.pause_keys), ["Alt+HangulKey"]);
     }
 
     #[test]
