@@ -45,3 +45,11 @@
   .switch i, .switch i::after { forced-color-adjust: none; }
   .switch input:checked + i::after { background: Highlight; }
 }
+
+.keyrow .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 8px; border: 1px solid var(--hair); border-radius: 4px; }
+.chip kbd { border: 0; font-size: 13px; color: var(--fg); }
+.chip.waiting { border-color: var(--acc); color: var(--acc); padding-right: 4px; font-size: 13px; }
+.chip-x { appearance: none; background: none; border: 0; color: var(--mute); cursor: pointer; font: 12px var(--sans); min-width: 28px; min-height: 28px; }
+.chip-x:hover:not(:disabled) { color: var(--bad); }
+.keyrow .chips em { color: var(--mute); font-size: 13px; }
