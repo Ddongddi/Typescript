@@ -167,6 +167,14 @@ impl TsfClient<'_> {
             let at = self.logged("query selection", unsafe {
                 insert.InsertTextAtSelection(self.ec, TF_IAS_QUERYONLY, &[])
             })?;
+            // Typing over a selection (File Explorer's rename box selects the old name) replaces it:
+            // a composition started on a non-empty range would leave that text in place.
+            if !self
+                .logged("IsEmpty", unsafe { at.IsEmpty(self.ec) })?
+                .as_bool()
+            {
+                self.logged("clear selection", unsafe { at.SetText(self.ec, 0, &[]) })?;
+            }
             let composing: ITfContextComposition =
                 self.logged("cast ITfContextComposition", self.context.cast())?;
             let sink = self.inner.comp_sink.borrow().clone();
