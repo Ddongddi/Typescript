@@ -7,6 +7,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-14
+
 ### 추가
 - 문서: `docs/`의 한국어·영어 문서(설치, 설정, 아키텍처, 언어 팩, 문제 해결)와 영문 README.
 - 대시보드의 입력 설정에 **채팅으로 체험**: 영문 자판으로 직접 쳐서 실제 입력기와 같은 방식으로 확인합니다.
@@ -99,7 +101,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/iamallyouneed/Typescript/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/iamallyouneed/Typescript/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/iamallyouneed/Typescript/compare/v0.3.0...v0.4.0
