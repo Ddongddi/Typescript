@@ -9,6 +9,10 @@
 </h3>
 
 <p align="center">
+  <b>한국어</b> &bull; <a href="README.en.md">English</a> &bull; <a href="docs/">문서 (Docs)</a>
+</p>
+
+<p align="center">
   <a href="#설치"><b>설치</b></a> &bull;
   <a href="#쓰는-법"><b>쓰는 법</b></a> &bull;
   <a href="#언어와-설정-관리"><b>관리</b></a> &bull;

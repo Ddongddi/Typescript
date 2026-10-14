@@ -1,0 +1,136 @@
+# Typescript Architecture & Design Principles
+
+Typescript is strictly architected into an OS-agnostic core written in pure Rust (`crates/core`) and native platform adapter layers (`platforms/`) that integrate with each operating system's native input method framework.
+
+[한국어](../ko/architecture.md) · [English Docs Index](README.md)
+
+---
+
+## 1. System Overview
+
+```mermaid
+flowchart TD
+    subgraph Platforms [Platform Adapters]
+        WIN[Windows TSF<br/>x64/x86 COM DLL]
+        AND[Android IME<br/>JNI + Java Service]
+        MAC[macOS<br/>InputMethodKit]
+        LNX[Linux<br/>IBus Engine]
+    end
+
+    subgraph Core [crates/core (OS-Agnostic Rust Core)]
+        subgraph SessionLayer [Session Layer: session/]
+            SESSION[InputSession State Machine]
+            WORD[Word Composition Buffer]
+            FLIP[Post-Commit FlipBuffer]
+            JP_SESSION[JapaneseSession State]
+        end
+
+        subgraph DecideLayer [Decide Layer: decide/]
+            LEARN[User Correction Memory<br/>LearningEngine]
+            MIXED[English+Particle Splitter<br/>SplittingEngine]
+            ENGINE[Bayesian Decision Engine<br/>DecisionEngine]
+            KANJI[Kanji Dictionary Engine<br/>KanjiDictionary / IPADIC]
+        end
+
+        subgraph LangLayer [Language Module Layer: lang/]
+            REG[Language Registry]
+            EN[English Model<br/>Trigrams + Vocabulary]
+            KO[Korean Model<br/>2-Set Automata + Syllable Trigrams]
+            JA[Japanese Model<br/>Romaji-to-Kana + Kana Trigrams]
+            PACK[Language Pack Loader<br/>mmap-based Zero Copy]
+        end
+
+        subgraph StoreLayer [Store Layer: store/]
+            POLICY[Settings & AppPolicy]
+            HIST[Word Frequency History]
+        end
+    end
+
+    Platforms -->|Key Events + TextClient Context| SESSION
+    SESSION -->|Evaluate Word| LEARN
+    LEARN --> MIXED
+    MIXED --> ENGINE
+    ENGINE --> REG
+    REG --> EN & KO & JA
+    PACK --> EN & KO & JA
+    JP_SESSION --> KANJI
+    SESSION -->|Text Edit Commands (Insert/Replace)| Platforms
+```
+
+---
+
+## 2. Input Session State Machine (`session/`)
+
+When a user begins typing, the platform adapter maps native OS keystrokes to abstract `session::Key` events and delegates them to `session::InputSession`.
+
+### State Lifecycle
+1. **Composing (In-Progress Typing)**:
+   - Alphanumeric keystrokes accumulate in `WordBuffer`.
+   - On each keypress, the `decide` engine evaluates the token and generates a dotted underline (preview string) indicating the currently predicted language.
+2. **Commit (Word Boundaries)**:
+   - Delimiters such as `Space`, newline (`Enter`), or punctuation marks (`.`, `,`, `?`, `!`) trigger commitment.
+   - The decided text is committed to the application, and the committed token is recorded into `FlipBuffer`.
+3. **Esc Cycling**:
+   - Pressing `Esc` during composition cycles through candidate readings:
+     $$\text{English} \longrightarrow \text{English + Particle} \longrightarrow \text{Korean} \longrightarrow \text{Japanese (if enabled)}$$
+   - Immediately after commitment (when the caret is right behind the committed word), pressing `Esc` replaces the word in the target application with the next candidate reading.
+4. **Dynamic Learning**:
+   - If the user corrects the same word twice with `Esc`, `LearningEngine` records this mapping in `lexicon.json`, prioritizing this decision for all future keystrokes.
+
+---
+
+## 3. Language Decision Pipeline (`decide/`)
+
+Whenever a word buffer is evaluated, it traverses a prioritized multi-stage evaluation pipeline:
+
+### Stage 1: User Correction Lexicon (`LearningEngine`)
+- Checks `lexicon.json`. If the user has manually corrected this word twice or more, statistical scoring is skipped, and the explicit override is applied immediately.
+
+### Stage 2: Mixed English + Korean Particles (`SplittingEngine`)
+- Handles compound words such as `githubdp` → `github` + `에` or `commitgkf` → `commit` + `할`.
+- Inspects common Korean particle and suffix endings (`dp`, `dml`, `mf`, `dl`, `rk`, etc.).
+- If the stem matches a valid English dictionary entry with high confidence, it classifies the token as `MixedWord` (English stem + Korean 2-set particle).
+
+### Stage 3: Statistical Heuristic Engine (`HeuristicEngine`)
+Standard non-mixed tokens are evaluated using statistical language models:
+- **Character Trigrams**: Computes log-likelihood probabilities across sliding 3-character windows for each candidate language.
+- **Vocabulary Lookups**:
+  - English frequency vocabulary.
+  - Korean morphological dictionary (evaluating whether the 2-set transliteration exists in Hangul word lists).
+- **Contextual Smoothing (`DecisionContext`)**:
+  - Incorporates the previous word's language and confidence score to prevent abrupt, erratic flickers within a continuous phrase.
+- **Threshold Matching (`conversionThreshold`)**:
+  - The default threshold is `0.5`. Terminal profiles can raise this to `0.97` to prevent short shell commands from being parsed as Korean.
+
+---
+
+## 4. Language Automata & Conversion (`lang/`)
+
+### 4.1 Korean (2-Set Hangul Automata, `lang/hangul.rs`)
+- Implements the complete Korean 2-set syllable automata, combining initial consonants (Choseong), medial vowels (Jungseong), and final consonants (Jongseong) into precomposed Unicode codepoints (`U+AC00` through `U+D7A3`).
+- Handles complex consonants (`ㄳ`, `ㄵ`, `ㄶ`, `ㄺ`) and compound vowels (`ㅘ`, `ㅙ`, `ㅚ`, `ㅝ`) with accurate decomposition on backspace.
+
+### 4.2 Japanese (Romaji & Kanji Engine, `lang/romaji.rs`, `decide/kanji.rs`)
+- **Romaji-to-Kana**: Maps QWERTY input to Hiragana/Katakana based on modified Hepburn and Kunrei-shiki romanization, supporting double consonants (`tt` → `っ`) and nasal sounds (`nn` → `ん`).
+- **IPADIC Kanji Conversion**: When Japanese is active, pressing `Space` triggers a Viterbi search against the IPADIC dictionary (390k lexical entries and connection cost matrices) to generate ranked Kanji candidates.
+- **Frequency Calibration**: Integrates `wordfreq` Zipf frequency data so that modern, commonly used orthographies appear first.
+
+---
+
+## 5. Memory-Mapped Language Packs (`lang/pack.rs`)
+
+Because Typescript runs as an in-process DLL loaded into every active application, memory efficiency and instant startup times are paramount.
+
+- **Zero-Copy Binary Tables**: Trigram frequencies and lexical indices are precompiled into contiguous binary tables by `crates/packgen`.
+- **Memory Mapping (`mmap`)**: Packs are mapped directly into virtual memory. Multiple processes concurrently running Typescript share the same underlying physical memory pages.
+- **Modular Packaging**: Large dictionaries (such as the ~16MB Japanese IPADIC pack) are decoupled from the base binaries and only loaded if the user enables the language.
+
+---
+
+## 6. Storage & State Persistence (`store/`)
+
+Per-user runtime configuration is located under `%APPDATA%\Typescript\` (Windows) or `~/.config/Typescript/` (Linux):
+- `settings.json`: Global operational parameters (language cycle order, autocomplete toggles, enter key rules).
+- `apps.json`: Per-executable rules (conversion thresholds, pass-through flags).
+- `lexicon.json`: User-corrected word associations.
+- `user_history.json`: Vocabulary frequency records for Tab autocomplete.
