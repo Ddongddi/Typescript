@@ -41,5 +41,6 @@ function renderSettings() {
     if (!shown.length) continue;
     p.append(h("h2", {}, group), h("div", { class: "card" }, shown.map((it) => setting(it[0], it[1], it[2], it[3]))));
   }
+  p.append(...wordHistory());
     p.append(h("p", { class: "note", style: "margin-top:18px" }, "바꾸면 바로 저장되고, 열려 있는 앱에는 곧 반영됩니다."));
 }

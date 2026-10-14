@@ -124,6 +124,31 @@ impl History {
         }
     }
 
+    /// How many different words are remembered (typed once or more).
+    pub fn word_count(&self) -> usize {
+        self.lock().store.words.len()
+    }
+
+    /// How many of them have been typed often enough to be suggested.
+    pub fn suggestible_count(&self) -> usize {
+        self.lock()
+            .store
+            .words
+            .values()
+            .filter(|n| **n >= MIN_COUNT)
+            .count()
+    }
+
+    /// Forgets every word, here and in the file.
+    pub fn clear(&self) {
+        let mut s = self.lock();
+        s.fresh.clear();
+        s.store = Store::default();
+        if let Some(path) = &self.path {
+            let _ = crate::store::persist(path, &s.store);
+        }
+    }
+
     /// Picks up what other processes wrote since this one loaded the file (every application
     /// runs its own copy of the text service). Words counted here but not yet written stay.
     pub fn reload(&self) {

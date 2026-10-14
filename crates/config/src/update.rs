@@ -116,6 +116,47 @@ fn info(latest: &str, notes: &str) -> UpdateInfo {
     }
 }
 
+/// One released version as the changelog shows it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReleaseNote {
+    pub version: String,
+    pub date: String,
+    pub notes: String,
+}
+
+/// The releases newer than this build, newest first, from GitHub's release list (the app only
+/// carries the changelog of its own version and older ones). `latest_url` is the `.../latest`
+/// address; any other address (a test folder) has no list.
+pub fn newer_notes(fetch: &dyn Fetch, latest_url: &str) -> Result<Vec<ReleaseNote>> {
+    let Some(list_url) = latest_url.strip_suffix("/latest") else {
+        return Ok(Vec::new());
+    };
+    let bytes = fetch.get(&format!("{list_url}?per_page=30"), API_MAX)?;
+    let list: Value = serde_json::from_slice(&bytes)?;
+    let mut notes: Vec<ReleaseNote> = list
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .filter(|r| r["draft"] != true)
+        .filter_map(|r| {
+            let tag = r["tag_name"].as_str()?;
+            is_newer(tag, CORE_VERSION).then(|| ReleaseNote {
+                version: tag.trim_start_matches('v').to_string(),
+                date: r["published_at"]
+                    .as_str()
+                    .unwrap_or("")
+                    .chars()
+                    .take(10)
+                    .collect(),
+                notes: r["body"].as_str().unwrap_or("").to_string(),
+            })
+        })
+        .collect();
+    notes.sort_by(|a, b| parse(&b.version).cmp(&parse(&a.version)));
+    Ok(notes)
+}
+
 pub fn fetch_release(fetch: &dyn Fetch, url: &str) -> Result<Release> {
     let bytes = fetch.get(url, API_MAX)?;
     let v: Value = serde_json::from_slice(&bytes)?;
@@ -472,6 +513,38 @@ mod tests {
 
     const URL: &str = "https://api.example.test/repos/x/y/releases/latest";
     const DAY: u64 = 24 * 60 * 60;
+
+    /// Answers every request with the same bytes and remembers the address asked for.
+    struct Fixed(String, std::sync::Mutex<Vec<String>>);
+
+    impl Fetch for Fixed {
+        fn get(&self, url: &str, _max: usize) -> crate::error::Result<Vec<u8>> {
+            self.1.lock().unwrap().push(url.to_string());
+            Ok(self.0.clone().into_bytes())
+        }
+    }
+
+    #[test]
+    fn release_notes_newer_than_this_build_come_newest_first() {
+        let list = serde_json::json!([
+            { "tag_name": "v99.1.0", "published_at": "2099-02-01T10:00:00Z", "body": "b" },
+            { "tag_name": "v99.10.0", "published_at": "2099-03-01T10:00:00Z", "body": "c" },
+            { "tag_name": "v99.2.0", "draft": true, "body": "not yet" },
+            { "tag_name": "v0.0.1", "published_at": "2020-01-01T00:00:00Z", "body": "old" },
+            { "tag_name": "nightly", "body": "not a version" }
+        ]);
+        let fetch = Fixed(list.to_string(), Default::default());
+        let notes = newer_notes(&fetch, URL).unwrap();
+        let versions: Vec<_> = notes.iter().map(|n| n.version.as_str()).collect();
+        assert_eq!(versions, ["99.10.0", "99.1.0"]);
+        assert_eq!(notes[1].date, "2099-02-01");
+        assert_eq!(
+            fetch.1.lock().unwrap()[0],
+            "https://api.example.test/repos/x/y/releases?per_page=30"
+        );
+        // A test folder has no list of releases.
+        assert!(newer_notes(&fetch, "latest").unwrap().is_empty());
+    }
 
     #[test]
     fn versions_compare_by_number_not_text() {

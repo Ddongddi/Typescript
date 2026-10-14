@@ -79,6 +79,15 @@
 }
 
 /* the change log on the update tab */
+.taught { list-style: none; margin: 0 0 12px; padding: 0; max-height: 280px; overflow: auto; }
+.taught li { display: flex; align-items: center; gap: 10px; padding: 4px 0; border-top: 1px solid var(--line); }
+.taught li:first-child { border-top: 0; }
+.taught code { font: 13px var(--mono); }
+.taught span { flex: 1; color: var(--mute); font-size: 14px; }
+#setup ol { margin: 6px 0 10px 18px; padding: 0; }
+#setup li { margin: 2px 0; }
+.logbar { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.logbar .note { margin-right: auto; }
 .log { margin-top: 10px; }
 .log details { border-top: 1px solid var(--line); padding: 2px 0; }
 .log summary { display: flex; align-items: baseline; gap: 12px; padding: 12px 0; cursor: pointer; list-style: none; color: var(--soft); transition: color .15s; }

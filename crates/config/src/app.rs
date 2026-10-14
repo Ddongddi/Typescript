@@ -69,8 +69,22 @@ fn json_response(status: u16, value: &Value) -> Response {
     }
 }
 
+/// The same failure the same way everywhere: 400 the request is wrong, 401/404/405/413/415 the
+/// usual, 429 another job is running, 502 the release server failed, 500 ours. `code` is for
+/// scripts and the page; `error` is the sentence to show.
 fn fail(status: u16, message: &str) -> Response {
-    json_response(status, &json!({ "error": message }))
+    let code = match status {
+        400 => "invalid",
+        401 => "unauthorized",
+        404 => "not_found",
+        405 => "method_not_allowed",
+        413 => "too_large",
+        415 => "unsupported_type",
+        429 => "busy",
+        502 => "upstream",
+        _ => "internal",
+    };
+    json_response(status, &json!({ "code": code, "error": message }))
 }
 
 /// Compares without stopping at the first difference.
@@ -206,6 +220,7 @@ pub struct App {
     port: u16,
     updates: Updates,
     last_seen: Mutex<Instant>,
+    started: Instant,
     quit: AtomicBool,
     /// One change at a time: two downloads at once would race on the same folders.
     /// Held for the slow jobs, downloading a language or updating: one at a time, the next one
@@ -226,6 +241,7 @@ impl App {
             port,
             updates: Updates::github(),
             last_seen: Mutex::new(Instant::now()),
+            started: Instant::now(),
             quit: AtomicBool::new(false),
             slow: Mutex::new(()),
             engine: Mutex::new(None),
@@ -289,6 +305,20 @@ impl App {
                 Err(message) => fail(502, &message),
             },
             ("GET", "/api/changelog") => json_response(200, &json!({ "text": CHANGELOG })),
+            ("GET", "/api/releases") => match self.newer_releases() {
+                Ok(v) => json_response(200, &v),
+                Err(message) => fail(502, &message),
+            },
+            ("GET", "/api/learning") => json_response(200, &crate::learning::summary(&self.env)),
+            ("GET", "/api/health") => json_response(
+                200,
+                &json!({
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "uptimeSeconds": self.started.elapsed().as_secs(),
+                    "idleSeconds": self.idle_for().as_secs(),
+                    "slowJobRunning": self.slow.try_lock().is_err(),
+                }),
+            ),
             ("GET", "/api/processes") => json_response(200, &json!({ "apps": running_apps() })),
             ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
             ("POST", "/api/heartbeat") => json_response(200, &crate::ime::status()),
@@ -299,16 +329,18 @@ impl App {
             (
                 "POST",
                 "/api/languages" | "/api/settings" | "/api/apps" | "/api/update" | "/api/try"
-                | "/api/play",
+                | "/api/play" | "/api/learning",
             ) => self.post(path, req),
             (
                 _,
                 "/" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
-                | "/api/quit" | "/api/changelog",
+                | "/api/quit" | "/api/changelog" | "/api/releases" | "/api/health",
             )
-            | (_, "/api/languages" | "/api/settings" | "/api/update" | "/api/try" | "/api/play") => {
-                fail(405, "method not allowed")
-            }
+            | (
+                _,
+                "/api/languages" | "/api/settings" | "/api/update" | "/api/try" | "/api/play"
+                | "/api/learning",
+            ) => fail(405, "method not allowed"),
             _ => fail(404, "not found"),
         }
     }
@@ -336,6 +368,12 @@ impl App {
             return match answer {
                 Ok(v) => json_response(200, &v),
                 Err(message) => fail(400, &message),
+            };
+        }
+        if path == "/api/learning" {
+            return match crate::learning::change(&self.env, &body) {
+                Ok(()) => json_response(200, &crate::learning::summary(&self.env)),
+                Err(e) => fail(400, &e.to_string()),
             };
         }
         let slow_job = path == "/api/update" || path == "/api/languages";
@@ -550,6 +588,18 @@ impl App {
             "notes": info.notes,
             "coreChanged": info.available,
             "packsOutdated": outdated,
+        }))
+    }
+
+    /// The releases newer than this build, for the changelog (GitHub's list; none offline).
+    fn newer_releases(&self) -> Result<Value, String> {
+        let notes = update::newer_notes(self.updates.api.as_ref(), &self.updates.url)
+            .map_err(|e| e.to_string())?;
+        Ok(json!({
+            "releases": notes
+                .iter()
+                .map(|n| json!({ "version": n.version, "date": n.date, "notes": n.notes }))
+                .collect::<Vec<_>>(),
         }))
     }
 
@@ -1027,6 +1077,48 @@ mod tests {
             let r = app.handle(&req("POST", "/api/apps", Some(bad.clone())));
             assert_eq!(r.status, 400, "{bad}");
         }
+    }
+
+    #[test]
+    fn failures_carry_a_code_and_the_health_check_answers() {
+        let f = fixture("app-codes");
+        let app = app(&f);
+        let r = app.handle(&req("GET", "/api/nothing", None));
+        assert_eq!(
+            (r.status, json_of(&r)["code"].as_str()),
+            (404, Some("not_found"))
+        );
+        let r = app.handle(&req("POST", "/api/settings", Some(json!({ "nope": true }))));
+        let body = json_of(&r);
+        assert_eq!((r.status, body["code"].as_str()), (400, Some("invalid")));
+        assert!(body["error"].is_string());
+        let health = json_of(&app.handle(&req("GET", "/api/health", None)));
+        assert_eq!(health["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(health["slowJobRunning"], false);
+        let held = app.slow.lock().unwrap();
+        let held_health = json_of(&app.handle(&req("GET", "/api/health", None)));
+        assert_eq!(held_health["slowJobRunning"], true);
+        drop(held);
+    }
+
+    #[test]
+    fn what_was_learned_can_be_listed_and_forgotten_over_the_api() {
+        let f = fixture("app-learning");
+        let app = app(&f);
+        let r = app.handle(&req("GET", "/api/learning", None));
+        assert_eq!(json_of(&r)["learnedCount"], 0);
+        let r = app.handle(&req(
+            "POST",
+            "/api/learning",
+            Some(json!({ "action": "forget", "keys": "zz" })),
+        ));
+        assert_eq!(r.status, 400);
+        let r = app.handle(&req(
+            "POST",
+            "/api/learning",
+            Some(json!({ "action": "clearHistory" })),
+        ));
+        assert_eq!(json_of(&r)["historyWords"], 0);
     }
 
     #[test]

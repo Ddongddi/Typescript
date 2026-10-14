@@ -12,7 +12,50 @@ pub fn status() -> Value {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS: the selected input source from `defaults read com.apple.HIToolbox
+/// AppleSelectedInputSources`. Typescript is selected when its name is in it; otherwise the
+/// keyboard layout (or input mode) it names is the name.
+#[cfg(any(target_os = "macos", test))]
+fn parse_macos_input_source(output: &str) -> Option<(bool, String)> {
+    if output.trim().is_empty() {
+        return None;
+    }
+    if output.to_lowercase().contains("typescript") {
+        return Some((true, "Typescript".to_string()));
+    }
+    let name = output
+        .lines()
+        .filter(|l| l.contains("KeyboardLayout Name") || l.contains("Input Mode"))
+        .find_map(|l| l.split('=').nth(1))
+        .map(|v| v.trim().trim_end_matches(';').trim_matches('"').to_string())
+        .unwrap_or_default();
+    Some((false, name))
+}
+
+#[cfg(target_os = "macos")]
+fn active() -> Option<(bool, String)> {
+    let out = std::process::Command::new("defaults")
+        .args(["read", "com.apple.HIToolbox", "AppleSelectedInputSources"])
+        .output()
+        .ok()?;
+    parse_macos_input_source(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// Linux (IBus): `ibus engine` names the engine in use; Typescript's is `typescript`.
+#[cfg(all(unix, not(target_os = "macos")))]
+fn active() -> Option<(bool, String)> {
+    let out = std::process::Command::new("ibus")
+        .arg("engine")
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!name.is_empty()).then(|| (name == "typescript", name))
+}
+
+#[cfg(not(any(windows, unix)))]
 fn active() -> Option<(bool, String)> {
     None
 }
@@ -75,5 +118,23 @@ mod tests {
         let status = super::status();
         let ime = &status["ime"];
         assert!(ime.is_null() || ime["typescript"].is_boolean());
+    }
+
+    use super::*;
+
+    #[test]
+    fn the_selected_macos_input_source_is_read_from_the_defaults_dump() {
+        let abc = "(\n    {\n        \"InputSourceKind\" = \"Keyboard Layout\";\n        \"KeyboardLayout ID\" = 252;\n        \"KeyboardLayout Name\" = ABC;\n    }\n)";
+        assert_eq!(
+            parse_macos_input_source(abc),
+            Some((false, "ABC".to_string()))
+        );
+        let ours =
+            "(\n {\n \"Bundle ID\" = \"io.github.iamallyouneed.inputmethod.Typescript\";\n }\n)";
+        assert_eq!(
+            parse_macos_input_source(ours),
+            Some((true, "Typescript".to_string()))
+        );
+        assert_eq!(parse_macos_input_source("  "), None);
     }
 }

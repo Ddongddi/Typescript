@@ -118,5 +118,6 @@ function renderLang() {
   p.append(h("h2", {}, "더 쓸 수 있는 언어"));
   if (!rest.length) p.append(h("div", { class: "emptybox" }, h("b", {}, "받을 수 있는 언어를 모두 켰습니다"), "새 언어는 릴리스에 올라오면 여기에 나타납니다. 업데이트 탭에서 확인해 보세요."));
   rest.forEach((l) => p.append(langRow(l, null)));
+  p.append(...taughtWords());
   loadEsc();
 }

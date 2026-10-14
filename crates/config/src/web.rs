@@ -17,10 +17,11 @@ const STYLES: [&str; 5] = [
 
 /// Scripts, in load order. They share one scope (a classic script), so a later file may use
 /// anything an earlier one declares.
-const SCRIPTS: [&str; 9] = [
+const SCRIPTS: [&str; 10] = [
     include_str!("web/core.js"),
     include_str!("web/dropdown.js"),
     include_str!("web/languages.js"),
+    include_str!("web/learning.js"),
     include_str!("web/chat.js"),
     include_str!("web/settings.js"),
     include_str!("web/keys.js"),

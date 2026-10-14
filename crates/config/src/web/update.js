@@ -1,6 +1,6 @@
 // 업데이트 tab: the version, and a check for a newer release (the program and the language packs).
 
-const updates = { info: null, reopen: false, log: null };   // GET /api/update, once asked; whether the program was just replaced
+const updates = { info: null, reopen: false, log: null, newer: null, fold: null };   // GET /api/update, once asked; whether the program was just replaced
 
 function updateButtonText(info) {
   if (!info.coreChanged) return "언어 팩 업데이트";
@@ -14,23 +14,62 @@ function inline(text) {
       : part.startsWith("**") ? h("b", {}, part.slice(2, -2)) : part);
 }
 
-// CHANGELOG.md as one fold per released version (## [x.y.z] - date, ### group, - item).
-function changelog(text) {
+// Adds one changelog line to a version: a "### group" starts a group, "- item" an item (in a
+// group of no title when the version has none), an indented line continues the item above.
+function takeLine(now, line) {
+  if (line.startsWith("### ")) now.groups.push({ title: line.slice(4).trim(), items: [] });
+  else if (line.startsWith("- ")) {
+    if (!now.groups.length) now.groups.push({ title: "", items: [] });
+    now.groups[now.groups.length - 1].items.push(line.slice(2));
+  } else if (/^\s+\S/.test(line) && now.groups.length) {
+    const items = now.groups[now.groups.length - 1].items;
+    if (items.length) items[items.length - 1] += " " + line.trim();
+  }
+}
+
+// CHANGELOG.md as a list of versions ("## [x.y.z] - date" or "## x.y.z", then groups and items).
+function parseChangelog(text) {
   const versions = [];
   for (const line of text.split(/\r?\n/)) {
-    const head = line.match(/^## \[([^\]]+)\](?: - (\S+))?/);
+    const head = line.match(/^## \[?([^\]\s]+)\]?(?: - (\S+))?/);
     if (head) { versions.push({ version: head[1], date: head[2] || "", groups: [] }); continue; }
-    const now = versions[versions.length - 1];
-    if (!now) continue;
-    if (line.startsWith("### ")) now.groups.push({ title: line.slice(4).trim(), items: [] });
-    else if (line.startsWith("- ") && now.groups.length) now.groups[now.groups.length - 1].items.push(line.slice(2));
-    else if (/^\[[^\]]+\]: /.test(line)) break;
+    if (/^\[[^\]]+\]: /.test(line)) break;   // the link list at the end of the file
+    if (versions.length) takeLine(versions[versions.length - 1], line);
   }
-  return h("div", { class: "log" }, ...versions.filter((v) => v.groups.length).map((v, i) =>
-    h("details", { open: v.version === state.version || (i === 0 && v.version !== "Unreleased" && !versions.some((x) => x.version === state.version)) },
-      h("summary", {}, h("b", {}, v.version === "Unreleased" ? "다음 버전" : v.version), h("span", {}, v.date),
-        v.version === state.version ? h("em", {}, "지금 버전") : ""),
-      h("div", { class: "body" }, ...v.groups.flatMap((g) => [h("h4", {}, g.title), h("ul", {}, ...g.items.map((it) => h("li", {}, ...inline(it))))])))));
+  return versions.filter((v) => v.groups.length);
+}
+
+// A release's notes (the text GitHub holds for it) as the same kind of version.
+function parseNotes(release) {
+  const now = { version: release.version, date: release.date, groups: [] };
+  for (const line of release.notes.split(/\r?\n/)) takeLine(now, line);
+  return now;
+}
+
+function versionFold(v, open, tag) {
+  return h("details", { open },
+    h("summary", {}, h("b", {}, v.version === "Unreleased" ? "다음 버전" : v.version), h("span", {}, v.date),
+      tag ? h("em", {}, tag) : ""),
+    h("div", { class: "body" }, ...v.groups.flatMap((g) => [g.title ? h("h4", {}, g.title) : null, h("ul", {}, ...g.items.map((it) => h("li", {}, ...inline(it))))])));
+}
+
+// The whole history: versions newer than this one (from GitHub, once a check found them), then
+// every version this build knows, newest first. `updates.fold` is null (each as it is), or
+// true/false after "모두 펼치기" / "모두 접기".
+function changelog(text) {
+  const mine = parseChangelog(text);
+  const newer = (updates.newer || []).map(parseNotes).filter((v) => v.groups.length);
+  const current = (v, i) => v.version === state.version || (i === 0 && v.version !== "Unreleased" && !mine.some((x) => x.version === state.version));
+  const open = (def) => (updates.fold === null ? def : updates.fold);
+  const count = mine.filter((v) => v.version !== "Unreleased").length + newer.length;
+  return h("div", {},
+    h("div", { class: "logbar" },
+      h("span", { class: "note" }, `${count}개 버전의 변경 기록`),
+      h("button", { class: "btn quiet", type: "button", "data-f": "log-open", onclick: () => { updates.fold = true; renderUpdate(); } }, "모두 펼치기"),
+      h("button", { class: "btn quiet", type: "button", "data-f": "log-close", onclick: () => { updates.fold = false; renderUpdate(); } }, "모두 접기")),
+    h("div", { class: "log" },
+      ...newer.map((v) => versionFold(v, open(true), "새 버전")),
+      ...mine.map((v, i) => versionFold(v, open(current(v, i)), v.version === state.version ? "지금 버전" : ""))));
 }
 
 async function loadChangelog() {
@@ -65,6 +104,10 @@ function renderUpdate() {
 async function checkUpdate() {
   busy = true; pending = "upd"; render("upd-check");
   try { updates.info = await api("/api/update"); } catch (e) { updates.info = { error: e.message }; }
+  // Versions newer than this build are not in its changelog: ask GitHub for their notes.
+  if (updates.info && updates.info.coreChanged) {
+    try { updates.newer = (await api("/api/releases")).releases; } catch (e) { updates.newer = []; }
+  }
   busy = false; pending = null; render("upd-check");
 }
 
