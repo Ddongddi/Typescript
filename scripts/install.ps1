@@ -14,9 +14,15 @@
     .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
+  The elevated half then downloads and checks the release itself, from GitHub: the commands it
+  runs are this script's own text, handed over in memory as an encoded command, never a file
+  some other process of the user could swap in before the prompt is answered. A local folder is
+  only ever used by -LocalSource (development), and it says so.
+
   Afterwards pick "Typescript" with Win+Space (or in Settings > Time & language > Language
   & region > English (United States) > Keyboards).
 #>
+
 param(
     [switch]$Uninstall,
     # Release tag to install (default: the latest release).
@@ -28,8 +34,11 @@ param(
     # The languages to turn on, in Esc order, e.g. ko,en,ja. Without it a new install asks
     # (typescript-config setup) and an update keeps the languages already on.
     [string]$Languages = '',
-    # Internal: the elevated half of the script, and the folder it installs from.
+    # Internal: the elevated half of the script.
     [switch]$Elevated,
+    # Internal: install the files in -Source instead of a release (checkout builds and custom
+    # releases). Those files are not checked against GitHub: development use only.
+    [switch]$LocalSource,
     [string]$Source
 )
 
@@ -37,10 +46,6 @@ $GitHubRepo = 'iamallyouneed/Typescript'
 $ErrorActionPreference = 'Stop'
 $dest = Join-Path $env:ProgramFiles 'Typescript'
 $dll64 = Join-Path $dest 'typescript_tip.dll'
-$dll86 = Join-Path $dest 'typescript_tip_x86.dll'
-$regsvr64 = Join-Path $env:SystemRoot 'System32\regsvr32.exe'
-$regsvr86 = Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
-$log = Join-Path $env:TEMP 'typescript-install.log'
 # The picker entries (CLSID + profile GUID, see platforms/windows/src/guids.rs): with and without Tab completion.
 # Registered under English (US), not Korean: see LANGID_TYPESCRIPT in guids.rs for why.
 $profiles = @(
@@ -48,8 +53,11 @@ $profiles = @(
     '{E231DAD4-326F-436F-B74C-D08F1D66D822}{BFC1C2A9-657F-443A-B4DE-ACF8EACA9AEC}'
 )
 
-# Adds (or removes) the keyboards under English (US) in the user's language list, adding the
-# language if it is missing; existing keyboards stay. Entries of earlier versions (under Korean) go.
+# A release tag as the release pages use them (v1.2.3): safe to put in a URL.
+function Test-Version([string]$Value) {
+    $Value -eq 'latest' -or ($Value.Length -le 64 -and $Value -match '^v?[0-9][0-9A-Za-z.+-]*$' -and $Value -notmatch '\.\.')
+}
+
 function Set-Keyboards([bool]$Present) {
     $list = Get-WinUserLanguageList
     foreach ($ko in @($list | Where-Object { $_.LanguageTag -eq 'ko' })) {
@@ -70,6 +78,20 @@ function Set-Keyboards([bool]$Present) {
     Set-WinUserLanguageList $list -Force -WarningAction SilentlyContinue
 }
 
+# The elevated half: one block of this script's own text, run either directly (an -Elevated
+# call, e.g. a -LocalSource folder install) or as an encoded command built below. Kept
+# self-contained on purpose: as an encoded command it runs in a fresh PowerShell that knows
+# nothing else from this file.
+$elevatedScript = @'
+param([string]$Version, [switch]$Uninstall, [switch]$LocalSource, [string]$Source)
+$ErrorActionPreference = 'Stop'
+$GitHubRepo = 'iamallyouneed/Typescript'
+$dest = Join-Path $env:ProgramFiles 'Typescript'
+$dll64 = Join-Path $dest 'typescript_tip.dll'
+$dll86 = Join-Path $dest 'typescript_tip_x86.dll'
+$regsvr64 = Join-Path $env:SystemRoot 'System32\regsvr32.exe'
+$regsvr86 = Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
+
 function Invoke-Regsvr([string]$exe, [string]$dll, [switch]$Unregister) {
     $arguments = if ($Unregister) { @('/u', '/s', "`"$dll`"") } else { @('/s', "`"$dll`"") }
     $p = Start-Process $exe -ArgumentList $arguments -Wait -PassThru
@@ -78,11 +100,10 @@ function Invoke-Regsvr([string]$exe, [string]$dll, [switch]$Unregister) {
 }
 
 # A loaded DLL can be renamed but not overwritten: move it aside, delete leftovers next time.
-function Install-File([string]$source, [string]$target) {
+function Move-Aside([string]$target) {
     if (Test-Path $target) {
         Move-Item $target "$target.old-$([guid]::NewGuid().ToString('N').Substring(0, 8))" -Force
     }
-    Copy-Item $source $target -Force
 }
 
 function Remove-Leftovers {
@@ -96,38 +117,100 @@ function Unregister-Existing {
     if (Test-Path $dll86) { Invoke-Regsvr $regsvr86 $dll86 -Unregister }
 }
 
-if ($Elevated) {
-    Start-Transcript -Path $log -Force | Out-Null
-    try {
-        if ($Uninstall) {
-            Unregister-Existing
-            if (Test-Path $dest) {
-                Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
-                if (Test-Path $dest) { Write-Warning "Some files in $dest are in use; they go away after a restart or sign-out." }
-            }
-        } else {
+# The transcript goes into a fresh random folder marked high integrity: nothing running
+# without the administrator token can plant a file there or swap one under the transcript.
+$logDir = Join-Path $env:TEMP ("typescript-install-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+New-Item $logDir -ItemType Directory -Force | Out-Null
+try { & icacls.exe $logDir /setintegritylevel '(OI)(CI)High' 2>$null } catch { }
+Start-Transcript -Path (Join-Path $logDir 'install.log') -Force | Out-Null
+try {
+    if ($Uninstall) {
+        Unregister-Existing
+        if (Test-Path $dest) {
+            Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
+            if (Test-Path $dest) { Write-Warning "Some files in $dest are in use; they go away after a restart or sign-out." }
+        }
+    } else {
+        if ($LocalSource) {
+            Write-Warning "Installing from a local folder ($Source): these files are not checked against a GitHub release. Development use only."
             New-Item $dest -ItemType Directory -Force | Out-Null
             Unregister-Existing
-            Install-File (Join-Path $Source 'typescript_tip.dll') $dll64
-            Install-File (Join-Path $Source 'typescript_tip_x86.dll') $dll86
-            Install-File (Join-Path $Source 'typescript.exe') (Join-Path $dest 'typescript.exe')
-            Install-File (Join-Path $Source 'typescript-config.exe') (Join-Path $dest 'typescript-config.exe')
-            foreach ($extra in 'typescript.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
-                Copy-Item (Join-Path $Source $extra) $dest -Force -ErrorAction SilentlyContinue
+            foreach ($name in 'typescript_tip.dll', 'typescript_tip_x86.dll', 'typescript.exe', 'typescript-config.exe') {
+                Move-Aside (Join-Path $dest $name)
+                Copy-Item (Join-Path $Source $name) (Join-Path $dest $name) -Force
             }
-            # Store apps and sandboxed processes load the DLL only if these groups can read it.
-            & icacls.exe $dest /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' | Out-Null
-            Invoke-Regsvr $regsvr64 $dll64
-            Invoke-Regsvr $regsvr86 $dll86
-            Remove-Leftovers
+            foreach ($name in 'typescript.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
+                Copy-Item (Join-Path $Source $name) $dest -Force -ErrorAction SilentlyContinue
+            }
+        } else {
+            # The release itself is fetched and checked here, in the elevated process: what a
+            # non-elevated process downloaded (or could replace) is never installed with
+            # administrator rights.
+            if ($Version -ne 'latest' -and ($Version -notmatch '^v?[0-9][0-9A-Za-z.+-]*$' -or $Version -match '\.\.')) {
+                throw "'$Version' is not a release version"
+            }
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" } else { "https://github.com/$GitHubRepo/releases/download/$Version" }
+            Write-Host "Downloading Typescript ($Version)..."
+            $web = New-Object Net.WebClient
+            $zip = $web.DownloadData("$base/typescript-windows.zip")
+            $expected = ($web.DownloadString("$base/typescript-windows.zip.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
+            $sha = [Security.Cryptography.SHA256]::Create()
+            $actual = (($sha.ComputeHash($zip) | ForEach-Object { $_.ToString('x2') }) -join '')
+            if (-not $expected -or $actual -ne $expected) { throw "Checksum mismatch (expected '$expected', got '$actual')" }
+            New-Item $dest -ItemType Directory -Force | Out-Null
+            Unregister-Existing
+            # Straight from memory into $dest: the package is never unpacked to a folder a
+            # non-elevated process could reach.
+            Add-Type -AssemblyName System.IO.Compression
+            $stream = [IO.MemoryStream]::new($zip)
+            try {
+                $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Read)
+                try {
+                    foreach ($entry in $archive.Entries) {
+                        $name = $entry.FullName
+                        if (-not $name -or $name -match '[\\/:]' -or $name -eq '..' -or $name -eq '.') {
+                            throw "the release package has an unsafe path: '$name'"
+                        }
+                        $target = Join-Path $dest $name
+                        Move-Aside $target
+                        $from = $entry.Open()
+                        try {
+                            $to = [IO.File]::Create($target)
+                            try { $from.CopyTo($to) } finally { $to.Dispose() }
+                        } finally { $from.Dispose() }
+                    }
+                } finally { $archive.Dispose() }
+            } finally { $stream.Dispose() }
         }
-    } finally {
-        Stop-Transcript | Out-Null
+        # Store apps and sandboxed processes load the DLL only if these groups can read it.
+        & icacls.exe $dest /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' | Out-Null
+        Invoke-Regsvr $regsvr64 $dll64
+        Invoke-Regsvr $regsvr86 $dll86
+        Remove-Leftovers
     }
-    exit 0
+} finally {
+    Stop-Transcript | Out-Null
+}
+exit 0
+'@
+
+# The encoded form of that call, for the UAC step: the elevated process gets the very text
+# this file is running, not a path a same-user process could swap in between.
+function Get-EncodedElevation([string]$Version, [bool]$Uninstall) {
+    $body = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($elevatedScript))
+    $call = "& ([scriptblock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$body'))))" +
+        " -Version '$Version'" + $(if ($Uninstall) { ' -Uninstall' })
+    [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($call))
 }
 
-# --- the user's side: get the files, ask for elevation, enable the profile ---
+if ($Elevated) {
+    # The one place the body runs straight from this file (a -LocalSource folder install, or a
+    # release that predates the encoded call passing -Elevated).
+    $direct = @{ Version = $Version; Uninstall = $Uninstall.IsPresent; LocalSource = $LocalSource.IsPresent; Source = $Source }
+    & ([scriptblock]::Create($elevatedScript)) @direct
+    exit 0
+}
 
 # Builds from a checkout into a folder laid out like the release package.
 function New-SourceStage {
@@ -282,52 +365,34 @@ function Install-ReleasePacks {
     if ($LASTEXITCODE) { throw "typescript-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: typescript-config setup" }
 }
 
-# Downloads a release package, checks its SHA-256 and unpacks it.
-function Get-ReleaseStage {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-    $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" }
-            else { "https://github.com/$GitHubRepo/releases/download/$Version" }
-    $stage = New-TempDirectory
-    $name = 'typescript-windows.zip'
-    $zip = Join-Path $stage $name
-    Write-Host "Downloading Typescript ($Version)..."
-    Invoke-WebRequest "$base/$name" -OutFile $zip -UseBasicParsing
-    # To a file, not .Content: Windows PowerShell 5.1 returns bytes for an octet-stream.
-    $sumFile = "$zip.sha256"
-    Invoke-WebRequest "$base/$name.sha256" -OutFile $sumFile -UseBasicParsing
-    $expected = ((Get-Content $sumFile -Raw) -split '\s+')[0].Trim()
-    $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
-    if ($actual -ne $expected) { throw "Checksum mismatch for $zip (expected $expected, got $actual)" }
-    Expand-Archive $zip -DestinationPath $stage -Force
-    Remove-Item $zip, $sumFile
-    return $stage
-}
-
 $stage = $null
-$inPackage = $PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot 'typescript_tip.dll'))
 $inCheckout = $PSScriptRoot -and (Test-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Cargo.toml'))
 try {
-    if ($inPackage -or ($Uninstall -and $PSCommandPath)) {
-        $Source = $PSScriptRoot # nothing to fetch: the files are here, or there is nothing to install
-    } elseif ($inCheckout) {
-        $stage = New-SourceStage
-        $Source = $stage
+    if (-not (Test-Version $Version)) { throw "'$Version' is not a release version" }
+    if ($LocalSource -or $inCheckout) {
+        if ($inCheckout) {
+            $stage = New-SourceStage
+            $Source = $stage
+        } elseif (-not $Source) {
+            $Source = $PSScriptRoot
+        }
+        $script = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $Source 'install.ps1' }
+        Write-Warning 'Installing from a local folder: these files are not checked against a GitHub release.'
+        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Elevated', '-LocalSource', '-Source', "`"$Source`"")
+        if ($Uninstall) { $arguments += '-Uninstall' }
     } else {
-        # Piped from the web: fetch the release package and use the script inside it.
-        $stage = Get-ReleaseStage
-        $Source = $stage
+        # A release install (or removal): the elevated half fetches and checks the release
+        # itself; nothing from this side, or from any user-writable folder, goes over.
+        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', (Get-EncodedElevation $Version $Uninstall.IsPresent))
     }
-    $script = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $Source 'install.ps1' }
+    # An uninstall removes the folder its process holds the DLL in; an install only renames the
+    # loaded DLL, and Set-KeyHook below restarts the process on the new one.
+    if ($Uninstall) { Stop-KeyHook }
 
-    # Its process holds the DLL (and the folder an uninstall removes): stop it first.
-    Stop-KeyHook
-    $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Elevated', '-Source', "`"$Source`"")
-    if ($Uninstall) { $arguments += '-Uninstall' }
     Write-Host 'Asking for administrator rights to register the text service...'
     $p = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
     if ($p.ExitCode -ne 0) {
-        if (Test-Path $log) { Get-Content $log -Tail 20 }
-        throw "The elevated step failed (exit $($p.ExitCode)). Log: $log"
+        throw "The elevated step failed (exit $($p.ExitCode)). A transcript, when the step ran, is in $env:TEMP\typescript-install-*."
     }
 
     if ($Uninstall) {
@@ -336,7 +401,8 @@ try {
         Set-KeyHook $false
         Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript, language packs in %LOCALAPPDATA%\Typescript.'
     } else {
-        if (Test-Path (Join-Path $Source 'packs')) { Install-Packs $Source } else { Install-ReleasePacks }
+        $packSource = if ($stage) { $stage } else { $Source }
+        if ($LocalSource -or $inCheckout) { Install-Packs $packSource } else { Install-ReleasePacks }
         # Per user: switch the registered profile on.
         & rundll32.exe $dll64, EnableForUser
         Set-Keyboards $true
@@ -351,3 +417,4 @@ try {
 } finally {
     if ($stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
 }
+

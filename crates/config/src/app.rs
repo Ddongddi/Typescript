@@ -76,8 +76,9 @@ fn same_token(a: &str, b: &str) -> bool {
 }
 
 /// How the dashboard finds out about releases and starts the installer.
-/// Starts the downloaded installer script.
-pub type Launcher = Box<dyn Fn(&std::path::Path) -> crate::error::Result<()> + Send + Sync>;
+/// Starts the release's installer (see `crate::update::Installer`).
+pub type Launcher =
+    Box<dyn Fn(&crate::update::Installer) -> crate::error::Result<()> + Send + Sync>;
 
 pub struct Updates {
     pub api: Box<dyn Fetch>,
@@ -1051,8 +1052,10 @@ mod tests {
         let updates = Updates {
             api: Box::new(crate::fetch::Dir(release)),
             url: "https://api.test/latest".into(),
-            launch: Box::new(move |script| {
-                *seen.lock().unwrap() = Some(script.to_path_buf());
+            launch: Box::new(move |what| {
+                if let crate::update::Installer::Script(script) = what {
+                    *seen.lock().unwrap() = Some(script.clone());
+                }
                 Ok(())
             }),
         };

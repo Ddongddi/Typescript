@@ -245,22 +245,58 @@ fn asset<'a>(release: &'a Release, name: &str) -> Result<&'a str> {
     }
 }
 
+/// Where the official release pages live (the Windows installer fetches from here itself).
+const RELEASES: &str = "https://github.com/iamallyouneed/Typescript/releases/download/";
+
+/// What a program update hands to `launch`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Installer {
+    /// The staged release's own install script (macOS and Linux; Windows too for a release
+    /// that did not come from the official GitHub pages).
+    Script(std::path::PathBuf),
+    /// The tag of an official GitHub release, for Windows: the elevated step fetches the
+    /// release's script and package itself, like a hand install, instead of trusting files a
+    /// non-elevated process could have written in the meantime.
+    Official(String),
+}
+
+/// The tag, when the release's own files come from the official GitHub pages: on Windows the
+/// install then fetches them there itself. Anything else (a custom source, an unusual tag)
+/// keeps the local-script flow.
+fn official_tag<'a>(zip_url: &str, tag: &'a str) -> Option<&'a str> {
+    let plain = !tag.is_empty()
+        && tag.len() <= 64
+        && tag
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+' | b'_'))
+        && !tag.contains("..");
+    (plain && zip_url.starts_with(RELEASES)).then_some(tag)
+}
+
 /// Downloads the release's installer package, checks its SHA-256, unpacks it and hands its
 /// install script to `launch`. Nothing is started unless the checksum matches.
 ///
 /// The checksum comes from the same release as the program, so it catches a damaged download,
 /// not a bad release. What the program is trusted for is where it comes from: over the network
 /// only github.com hosts are accepted.
+///
+/// A Windows install of an official release goes a different way: the elevated step fetches
+/// the release (script, package, checksum) itself, so nothing downloaded here is handed over.
 pub fn run_installer(
     env: &Env,
     fetch: &dyn Fetch,
     release: &Release,
-    launch: &dyn Fn(&Path) -> Result<()>,
+    launch: &dyn Fn(&Installer) -> Result<()>,
 ) -> Result<()> {
     let zip_url = asset(release, INSTALLER_ZIP)?;
     let sum_url = asset(release, &format!("{INSTALLER_ZIP}.sha256"))?;
     if fetch.is_remote() && !(trusted_download(zip_url) && trusted_download(sum_url)) {
         return err("the program is offered from a host other than GitHub, not installing");
+    }
+    if cfg!(windows) {
+        if let Some(tag) = official_tag(zip_url, &release.tag) {
+            return launch(&Installer::Official(tag.to_string()));
+        }
     }
     let zip = fetch.get(zip_url, INSTALLER_MAX)?;
     let sum = String::from_utf8_lossy(&fetch.get(sum_url, 4096)?).into_owned();
@@ -278,24 +314,80 @@ pub fn run_installer(
     if !script.is_file() {
         return err(format!("the program package has no {INSTALLER_SCRIPT}"));
     }
-    launch(&script)
+    launch(&Installer::Script(script))
 }
 
 /// The installer: the elevated PowerShell script in its own window on Windows, `sh install.sh`
-/// (which installs for the current user and asks for nothing) elsewhere.
-pub fn launch_installer(script: &Path) -> Result<()> {
-    let mut command = if cfg!(windows) {
-        let mut c = std::process::Command::new("powershell");
-        c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]);
-        c
-    } else {
-        std::process::Command::new("sh")
+/// (which installs for the current user and asks for nothing) elsewhere. An official Windows
+/// release starts the release's own install.ps1 (fetched from GitHub, like a hand install) as
+/// an encoded command built here from literals; that script then fetches and checks the
+/// package in the elevated process.
+pub fn launch_installer(what: &Installer) -> Result<()> {
+    let mut command = match what {
+        Installer::Official(tag) => {
+            let url = format!("{RELEASES}{tag}/install.ps1");
+            let call =
+                format!("& ([scriptblock]::Create((Invoke-RestMethod '{url}'))) -Version '{tag}'");
+            let mut c = std::process::Command::new("powershell");
+            c.args([
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-EncodedCommand",
+            ])
+            .arg(utf16_base64(&call));
+            c
+        }
+        Installer::Script(script) if cfg!(windows) => {
+            let mut c = std::process::Command::new("powershell");
+            c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+                .arg(script)
+                .arg("-LocalSource");
+            c
+        }
+        Installer::Script(script) => {
+            let mut c = std::process::Command::new("sh");
+            c.arg(script);
+            c
+        }
     };
     command
-        .arg(script)
         .spawn()
         .map(|_| ())
         .map_err(|e| Error(format!("could not start the installer: {e}")))
+}
+
+/// The UTF-16LE base64 PowerShell's `-EncodedCommand` takes.
+fn utf16_base64(text: &str) -> String {
+    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    base64(&bytes)
+}
+
+/// Standard base64 (RFC 4648) with padding: no dependency for the one call site.
+fn base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
+        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 {
+            TABLE[(n >> 6) as usize & 63] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[n as usize & 63] as char
+        } else {
+            '='
+        });
+    }
+    out
 }
 
 /// Everything an update means: the packs first (no administrator needed), then the program if
@@ -305,7 +397,7 @@ pub fn apply(
     source: &Source,
     api: &dyn Fetch,
     api_url: &str,
-    launch: &dyn Fn(&Path) -> Result<()>,
+    launch: &dyn Fn(&Installer) -> Result<()>,
 ) -> Result<String> {
     let release = fetch_release(api, api_url)?;
     let program_is_newer = is_newer(&release.tag, CORE_VERSION);
@@ -515,8 +607,10 @@ mod tests {
             ],
         };
         let started = std::cell::RefCell::new(None);
-        run_installer(&f.env, &f.source, &release, &|script| {
-            *started.borrow_mut() = Some(script.to_path_buf());
+        run_installer(&f.env, &f.source, &release, &|what| {
+            if let Installer::Script(script) = what {
+                *started.borrow_mut() = Some(script.clone());
+            }
             Ok(())
         })
         .unwrap();
@@ -573,5 +667,71 @@ mod tests {
         ));
         assert!(!trusted_download("https://github.com.evil.test/x"));
         assert!(!trusted_download("http://github.com/x"));
+    }
+
+    #[test]
+    fn only_the_official_release_pages_carry_the_tag_to_the_installer() {
+        let url = format!("{RELEASES}v9.0.0/{INSTALLER_ZIP}");
+        assert_eq!(official_tag(&url, "v9.0.0"), Some("v9.0.0"));
+        assert_eq!(
+            official_tag("https://x.test/typescript-windows.zip", "v9.0.0"),
+            None
+        );
+        assert_eq!(
+            official_tag(
+                "https://github.com/someone/else/releases/download/v1/x.zip",
+                "v1"
+            ),
+            None
+        );
+        assert_eq!(official_tag(&url, "../evil"), None);
+        assert_eq!(official_tag(&url, "v1; rm"), None);
+    }
+
+    #[test]
+    fn the_encoded_command_is_utf16_base64_powershell_reads() {
+        // RFC 4648's test vectors.
+        assert_eq!(base64(b""), "");
+        assert_eq!(base64(b"f"), "Zg==");
+        assert_eq!(base64(b"fo"), "Zm8=");
+        assert_eq!(base64(b"foo"), "Zm9v");
+        assert_eq!(base64(b"foob"), "Zm9vYg==");
+        assert_eq!(base64(b"fooba"), "Zm9vYmE=");
+        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+        // PowerShell's -EncodedCommand is UTF-16LE, so a plain string doubles up.
+        assert_eq!(utf16_base64("ab"), "YQBiAA==");
+    }
+
+    /// On Windows the elevated step fetches an official release itself: the launcher is handed
+    /// the tag, and nothing is downloaded or unpacked on this side.
+    #[cfg(windows)]
+    #[test]
+    fn an_official_windows_release_goes_back_to_the_release_itself() {
+        let f = fixture("upd-win");
+        let release = Release {
+            tag: "v9.0.0".into(),
+            notes: String::new(),
+            assets: vec![
+                (
+                    INSTALLER_ZIP.into(),
+                    format!("{RELEASES}v9.0.0/{INSTALLER_ZIP}"),
+                ),
+                (
+                    format!("{INSTALLER_ZIP}.sha256"),
+                    format!("{RELEASES}v9.0.0/{INSTALLER_ZIP}.sha256"),
+                ),
+            ],
+        };
+        let what = std::cell::RefCell::new(None);
+        run_installer(&f.env, &f.source, &release, &|given| {
+            *what.borrow_mut() = Some(given.clone());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            what.borrow().clone(),
+            Some(Installer::Official("v9.0.0".into()))
+        );
+        assert!(!f.env.staging().exists(), "nothing was unpacked here");
     }
 }

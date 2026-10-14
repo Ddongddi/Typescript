@@ -179,7 +179,7 @@ impl Registry {
                 .keys()
                 .map(|name| map(&found.dir.join(name)).map(|bytes| (name.clone(), bytes)))
                 .collect();
-            if let Some(files) = files.filter(|f| usable(language, f)) {
+            if let Some(files) = files.filter(|f| usable(language, &found.dir, f)) {
                 let requires = found
                     .manifest
                     .requires
@@ -208,7 +208,7 @@ impl Registry {
 /// A pack whose data can't be used is left out like a missing one (the Japanese tables are
 /// checked, walking them as the readers will, because a damaged file would otherwise panic
 /// the first conversion).
-fn usable(language: Language, files: &[(String, &'static [u8])]) -> bool {
+fn usable(language: Language, dir: &Path, files: &[(String, &'static [u8])]) -> bool {
     language != Language::Japanese
         || ["ipadic_compact.bin", "kana_trigrams.txt"]
             .iter()
@@ -216,11 +216,41 @@ fn usable(language: Language, files: &[(String, &'static [u8])]) -> bool {
                 files
                     .iter()
                     .find(|(n, _)| n == name)
-                    .is_some_and(|(_, bytes)| match *name {
-                        "ipadic_compact.bin" => crate::decide::kanji::KanjiDictionary::valid(bytes),
-                        _ => crate::lang::japanese::JapaneseModel::valid(bytes),
+                    .is_some_and(|(_, bytes)| {
+                        checked_once(dir, name, || match *name {
+                            "ipadic_compact.bin" => {
+                                crate::decide::kanji::KanjiDictionary::valid(bytes)
+                            }
+                            _ => crate::lang::japanese::JapaneseModel::valid(bytes),
+                        })
                     })
             })
+}
+
+/// Runs `check` on a pack file unless an earlier process already passed this very file (same
+/// size and modification time, noted in a marker next to it): every app loads the registry, and
+/// a full walk of the 16 MB dictionary would page all of it in, in each of them. A marker that
+/// cannot be written (a read-only pack folder) only means the next process checks again.
+fn checked_once(dir: &Path, name: &str, check: impl FnOnce() -> bool) -> bool {
+    let stamp = fs::metadata(dir.join(name)).ok().map(|m| {
+        let secs = m
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |d| d.as_nanos());
+        format!("{} {secs}", m.len())
+    });
+    let marker = dir.join(format!(".{name}.ok"));
+    if let Some(stamp) = &stamp {
+        if fs::read_to_string(&marker).is_ok_and(|seen| seen == *stamp) {
+            return true;
+        }
+    }
+    let ok = check();
+    if let (true, Some(stamp)) = (ok, &stamp) {
+        let _ = fs::write(&marker, stamp);
+    }
+    ok
 }
 
 /// Maps a file for the rest of the process.
@@ -532,6 +562,30 @@ mod tests {
             !registry.has(Language::Japanese),
             "an unreadable trigram table must not load"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_passed_check_is_not_repeated_until_the_file_changes() {
+        let dir = temp("checked-once");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("t.bin"), b"one").unwrap();
+        let runs = std::cell::Cell::new(0);
+        assert!(checked_once(&dir, "t.bin", || {
+            runs.set(runs.get() + 1);
+            true
+        }));
+        assert!(checked_once(&dir, "t.bin", || {
+            runs.set(runs.get() + 1);
+            false
+        })); // remembered: not asked again
+        assert_eq!(runs.get(), 1);
+        std::fs::write(dir.join("t.bin"), b"three").unwrap(); // another size: checked afresh
+        assert!(!checked_once(&dir, "t.bin", || {
+            runs.set(runs.get() + 1);
+            false
+        }));
+        assert_eq!(runs.get(), 2);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
