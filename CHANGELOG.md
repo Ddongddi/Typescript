@@ -7,6 +7,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-10-14
+
 ### 추가
 - 대시보드: 지금 선택된 입력기가 Typescript가 아니면 상단에 알려 주고, 어떤 입력기인지와 Win+Space로 바꾸라는 안내를 보여 줍니다. (Windows)
 
@@ -150,7 +152,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/iamallyouneed/Typescript/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/iamallyouneed/Typescript/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/iamallyouneed/Typescript/compare/v0.5.2...v0.6.0
