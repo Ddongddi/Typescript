@@ -37,7 +37,7 @@ TABS.forEach((name, i) => {
 });
 
 // 1-5 switch tabs and / finds an app, wherever the focus is except in a text field (the chat
-// box on the right is one).
+// box on the right is one). Other letters typed on a blank part of the page go to the chat.
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || editable(e.target) || openDd) return;
   const tab = Number(e.key) - 1;
@@ -47,7 +47,7 @@ document.addEventListener("keydown", (e) => {
     selectTab(TABS.indexOf("apps"), false);
     const box = document.querySelector('[data-f="app-filter"]');
     if (box) box.focus();
-  }
+  } else typeIntoChat(e);   // anything else typed on a blank part of the page is for the chat
 });
 
 // Tells when the input method selected in Windows is not Typescript (the heartbeat answers it).

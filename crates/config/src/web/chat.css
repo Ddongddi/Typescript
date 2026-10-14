@@ -31,14 +31,15 @@
 /* The words of a message, underlined on hover: the colour is the language, the length the confidence. */
 .bubble { cursor: default; }
 .bubble:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
-.w { padding-bottom: 3px; border-bottom: 2px solid transparent; background: linear-gradient(var(--ul, var(--mute)), var(--ul, var(--mute))) no-repeat left bottom / 0 2px; }
+.w { padding-bottom: 3px; border-bottom: 2px dotted transparent; background: linear-gradient(var(--ul, var(--mute)), var(--ul, var(--mute))) no-repeat left bottom / 0 2px; transition: background-size .45s cubic-bezier(.2, .7, .2, 1), border-color .3s ease; }
 .w.l-ko { --ul: var(--acc); }
 .w.l-ja { --ul: var(--info); }
 .w.l-en { --ul: #ffffff99; }
 .w.kept { background: none; }
-.bubble:hover .w, .bubble:focus-visible .w { background-size: var(--p) 2px; animation: grow .35s ease both; }
-.bubble:hover .w.kept, .bubble:focus-visible .w.kept { border-bottom: 2px dotted #ffffff66; animation: none; }
-@keyframes grow { from { background-size: 0 2px; } }
+.bubble:hover .w, .bubble:focus-visible .w { background-size: var(--p) 2px; }
+.bubble:hover .w.kept, .bubble:focus-visible .w.kept { border-bottom-color: #ffffff66; }
+.chat-why > * { animation: fade .2s ease both; }
+@keyframes fade { from { opacity: 0; } }
 .chat-why { min-height: 2.6em; margin: 8px 6px 0; font: 12px/1.6 var(--mono); color: var(--mute); }
 .chat-why b { color: var(--soft); font-weight: 500; }
 .chat-why b.o { font: 400 18px var(--serif); color: var(--fg); }
