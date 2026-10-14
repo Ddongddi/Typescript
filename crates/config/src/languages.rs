@@ -208,7 +208,9 @@ mod tests {
         let bytes = std::fs::read(&f.env.settings).unwrap();
         assert_ne!(&bytes[..3], &[0xEF, 0xBB, 0xBF]);
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(v["pauseKey"], "off");
+        // the old pause key moves to its new spelling and stays off
+        assert!(v.get("pauseKey").is_none());
+        assert_eq!(v["pauseKeys"], serde_json::json!([]));
         assert_eq!(v["somethingNew"], 7);
         assert_eq!(v["languages"], serde_json::json!(["en", "ko", "ja"]));
     }

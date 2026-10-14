@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Map, Value};
 use typescript_core::session::testing::FakeTextField;
 use typescript_core::session::{Range, TextClient, NOT_FOUND};
+use typescript_core::store::keys::{self, Chord};
 use typescript_core::store::policy::Override;
 use typescript_core::{
     make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine,
@@ -51,6 +52,10 @@ pub struct Response {
     pub status: u16,
     pub content_type: &'static str,
     pub body: Vec<u8>,
+}
+
+fn key_names(list: &[Chord]) -> Vec<String> {
+    list.iter().map(ToString::to_string).collect()
 }
 
 fn json_response(status: u16, value: &Value) -> Response {
@@ -564,7 +569,9 @@ impl App {
         };
         for (key, value) in changes {
             let ok = match key.as_str() {
-                "pauseKey" => matches!(value.as_str(), Some("hangul" | "off")),
+                "flipKeys" | "pauseKeys" => value
+                    .as_array()
+                    .is_some_and(|list| list.iter().all(Value::is_string)),
                 k if BOOL_SETTINGS.contains(&k) => value.is_boolean(),
                 _ => return Err(format!("'{key}' is not a setting you can change here")),
             };
@@ -572,11 +579,32 @@ impl App {
                 return Err(format!("'{key}' has a value this setting does not take"));
             }
         }
+        let mut changes = changes.clone();
+        if changes.contains_key("flipKeys") || changes.contains_key("pauseKeys") {
+            let current = Settings::load(Some(&self.env.settings));
+            let list = |name: &str, now: &[Chord]| -> Vec<String> {
+                match changes.get(name).and_then(Value::as_array) {
+                    Some(given) => given
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect(),
+                    None => key_names(now),
+                }
+            };
+            let (flip, pause) = keys::validate(
+                &list("flipKeys", &current.flip_keys),
+                &list("pauseKeys", &current.pause_keys),
+            )?;
+            changes.insert("flipKeys".into(), json!(key_names(&flip)));
+            changes.insert("pauseKeys".into(), json!(key_names(&pause)));
+        }
         let mut file = self.read_object(&self.env.settings);
         let object = file
             .as_object_mut()
             .ok_or("settings.json is not an object")?;
-        for (key, value) in changes {
+        object.remove("pauseKey");
+        for (key, value) in &changes {
             object.insert(key.clone(), value.clone());
         }
         self.write_json(&self.env.settings, &file)
@@ -656,7 +684,8 @@ impl App {
             "catalogError": catalog.as_ref().err().map(|e| e.to_string()),
             "settings": {
                 "returnConfirmsOnly": loaded.return_confirms_only,
-                "pauseKey": loaded.pause_key,
+                "flipKeys": key_names(&loaded.flip_keys),
+                "pauseKeys": key_names(&loaded.pause_keys),
                 "autocomplete": loaded.autocomplete,
                 "liveConversion": loaded.live_conversion,
                 "fullWidthDigits": loaded.full_width_digits,
@@ -666,7 +695,8 @@ impl App {
             "os": std::env::consts::OS,
             "defaults": {
                 "returnConfirmsOnly": defaults.return_confirms_only,
-                "pauseKey": defaults.pause_key,
+                "flipKeys": key_names(&defaults.flip_keys),
+                "pauseKeys": key_names(&defaults.pause_keys),
                 "autocomplete": defaults.autocomplete,
                 "liveConversion": defaults.live_conversion,
                 "fullWidthDigits": defaults.full_width_digits,
@@ -771,7 +801,8 @@ mod tests {
         assert_eq!(ja["installed"], false);
         assert_eq!(ja["on"], false);
         assert_eq!(s["order"], json!(["en", "ko"]));
-        assert_eq!(s["settings"]["pauseKey"], "hangul");
+        assert_eq!(s["settings"]["flipKeys"], json!(["Esc", "Hangul"]));
+        assert_eq!(s["settings"]["pauseKeys"], json!(["Alt+Hangul"]));
         assert!(s["apps"].is_object());
         assert!(s["catalogError"].is_null());
     }
@@ -830,24 +861,54 @@ mod tests {
         let f = fixture("app-settings");
         std::fs::write(&f.env.settings, r#"{ "somethingNew": 7 }"#).unwrap();
         let app = app(&f);
-        let good = json!({"liveConversion": true, "pauseKey": "off"});
+        let good = json!({"liveConversion": true, "pauseKeys": ["RCtrl"]});
         assert_eq!(
             app.handle(&req("POST", "/api/settings", Some(good))).status,
             200
         );
         let v: Value = serde_json::from_slice(&std::fs::read(&f.env.settings).unwrap()).unwrap();
         assert_eq!(v["liveConversion"], true);
-        assert_eq!(v["pauseKey"], "off");
+        assert_eq!(v["pauseKeys"], json!(["RCtrl"]));
+        assert!(v.get("pauseKey").is_none());
         assert_eq!(v["somethingNew"], 7);
         for bad in [
             json!({"nope": true}),
             json!({"liveConversion": "yes"}),
-            json!({"pauseKey": "x"}),
+            json!({"pauseKey": "off"}),
             json!([1]),
         ] {
             let r = app.handle(&req("POST", "/api/settings", Some(bad.clone())));
             assert_eq!(r.status, 400, "{bad}");
         }
+    }
+
+    #[test]
+    fn keys_are_checked_together_and_saved_in_one_spelling() {
+        let f = fixture("app-keys");
+        let app = app(&f);
+        let post = |body: Value| app.handle(&req("POST", "/api/settings", Some(body)));
+        let ok = post(json!({"flipKeys": ["esc", "ctrl+space"]}));
+        assert_eq!(ok.status, 200);
+        assert_eq!(
+            json_of(&ok)["settings"]["flipKeys"],
+            json!(["Esc", "Ctrl+Space"])
+        );
+        let clash = post(json!({"pauseKeys": ["Ctrl+Space"]}));
+        assert_eq!(clash.status, 400);
+        assert!(json_of(&clash)["error"]
+            .as_str()
+            .unwrap()
+            .contains("language switch"));
+        for bad in [
+            json!({"flipKeys": ["Win+L"]}),
+            json!({"flipKeys": "Esc"}),
+            json!({"flipKeys": [1]}),
+            json!({"pauseKeys": ["Esc", "Esc"]}),
+        ] {
+            assert_eq!(post(bad.clone()).status, 400, "{bad}");
+        }
+        let off = post(json!({"pauseKeys": []}));
+        assert_eq!(json_of(&off)["settings"]["pauseKeys"], json!([]));
     }
 
     #[test]
@@ -1029,7 +1090,8 @@ bash
         let app = app(&f);
         let s = json_of(&app.handle(&req("GET", "/api/state", None)));
         assert_eq!(s["defaults"]["returnConfirmsOnly"], true);
-        assert_eq!(s["defaults"]["pauseKey"], "hangul");
+        assert_eq!(s["defaults"]["flipKeys"], json!(["Esc", "Hangul"]));
+        assert_eq!(s["defaults"]["pauseKeys"], json!(["Alt+Hangul"]));
         assert_eq!(s["os"], std::env::consts::OS);
         assert_eq!(s["defaults"]["checkUpdates"], true);
     }

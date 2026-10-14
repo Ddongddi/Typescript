@@ -12,6 +12,8 @@ use crate::decide::engine::Language;
 use crate::lang::set::Languages;
 use crate::support_dir;
 
+use super::keys::{self, Chord, ChordKey, KeyAction, Mods};
+
 /// How eagerly Typescript converts in a given app.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AppPolicy {
@@ -153,14 +155,25 @@ impl AppPolicies {
     }
 }
 
+/// The list under `name`: None when it is missing, not a list, or has entries but none usable
+/// (the caller then uses its default; a hand-edit must not switch a key off by accident).
+fn key_list(value: &serde_json::Value, name: &str, taken: &[Chord]) -> Option<Vec<Chord>> {
+    let list = value.get(name)?.as_array()?;
+    let texts: Vec<&str> = list.iter().filter_map(|v| v.as_str()).collect();
+    let kept = keys::sanitize(&texts, taken);
+    (list.is_empty() || !kept.is_empty()).then_some(kept)
+}
+
 /// User settings from `%APPDATA%\Typescript\settings.json`. A missing file or key means the
 /// default; unknown keys are ignored (and kept on save).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settings {
     /// Return on an underlined word only confirms it; off, the app gets that Return too.
     pub return_confirms_only: bool,
-    /// Key that pauses Typescript in the text field: "hangul" (한/영) or "off".
-    pub pause_key: String,
+    /// Keys that switch the word being typed to its next language.
+    pub flip_keys: Vec<Chord>,
+    /// Keys that pause Typescript in the text field. Empty: no pause key.
+    pub pause_keys: Vec<Chord>,
     /// Tab completes the word being typed, and the words typed are counted for that.
     pub autocomplete: bool,
     /// The languages turned on, in Esc order (`"languages": ["en", "ko"]`). Files from before
@@ -180,7 +193,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             return_confirms_only: true,
-            pause_key: "hangul".to_string(),
+            flip_keys: keys::default_flip(),
+            pause_keys: keys::default_pause(),
             autocomplete: true,
             languages: Languages::legacy(false),
             live_conversion: false,
@@ -195,22 +209,40 @@ impl Settings {
         support_dir().map(|d| d.join("settings.json"))
     }
 
+    /// What pressing `pressed` with exactly `mods` held does, if it is an assigned key.
+    pub fn key_action(&self, mods: Mods, pressed: ChordKey) -> Option<KeyAction> {
+        let hit = |list: &[Chord]| list.iter().any(|c| c.matches(mods, pressed));
+        if hit(&self.pause_keys) {
+            Some(KeyAction::Pause)
+        } else if hit(&self.flip_keys) {
+            Some(KeyAction::Flip)
+        } else {
+            None
+        }
+    }
+
     pub fn load(path: Option<&Path>) -> Settings {
         let value = path
             .and_then(read_json_file)
             .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok());
         let defaults = Settings::default();
         let Some(value) = value else { return defaults };
+        let flip_keys = key_list(&value, "flipKeys", &[]).unwrap_or_else(keys::default_flip);
+        let legacy_off = value.get("pauseKey").and_then(|v| v.as_str()) == Some("off");
+        let pause_keys = key_list(&value, "pauseKeys", &flip_keys).unwrap_or_else(|| {
+            if legacy_off {
+                Vec::new()
+            } else {
+                keys::sanitize(&["Alt+Hangul"], &flip_keys)
+            }
+        });
         Settings {
             return_confirms_only: value
                 .get("returnConfirmsOnly")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.return_confirms_only),
-            pause_key: value
-                .get("pauseKey")
-                .and_then(|v| v.as_str())
-                .map(str::to_string)
-                .unwrap_or(defaults.pause_key),
+            flip_keys,
+            pause_keys,
             autocomplete: value
                 .get("autocomplete")
                 .and_then(|v| v.as_bool())
@@ -261,7 +293,11 @@ impl Settings {
             "returnConfirmsOnly".into(),
             self.return_confirms_only.into(),
         );
-        object.insert("pauseKey".into(), self.pause_key.clone().into());
+        let names =
+            |list: &[Chord]| -> Vec<String> { list.iter().map(|c| c.to_string()).collect() };
+        object.remove("pauseKey");
+        object.insert("flipKeys".into(), names(&self.flip_keys).into());
+        object.insert("pauseKeys".into(), names(&self.pause_keys).into());
         object.insert("autocomplete".into(), self.autocomplete.into());
         object.insert("languages".into(), self.languages.ids().into());
         // Read by the versions before language packs.
@@ -367,15 +403,68 @@ mod tests {
     #[test]
     fn settings_round_trip_keeps_unknown_keys() {
         let path = temp("settings");
-        fs::write(&path, r#"{"future": 1, "returnConfirmsOnly": false}"#).unwrap();
+        fs::write(
+            &path,
+            r#"{"future": 1, "returnConfirmsOnly": false, "pauseKey": "hangul"}"#,
+        )
+        .unwrap();
         let mut settings = Settings::load(Some(&path));
         assert!(!settings.return_confirms_only);
-        settings.pause_key = "off".into();
+        settings.pause_keys = Vec::new();
         settings.save(&path).unwrap();
         let text = fs::read_to_string(&path).unwrap();
         let _ = fs::remove_file(&path);
         assert!(text.contains("\"future\""), "{text}");
-        assert!(text.contains("\"off\""), "{text}");
+        assert!(text.contains("\"pauseKeys\": []"), "{text}");
+        assert!(text.contains("\"flipKeys\""), "{text}");
+        assert!(
+            !text.contains("\"pauseKey\""),
+            "the old key is gone: {text}"
+        );
+    }
+
+    fn shown(list: &[keys::Chord]) -> Vec<String> {
+        list.iter().map(|c| c.to_string()).collect()
+    }
+
+    #[test]
+    fn keys_default_when_the_file_says_nothing() {
+        let s = load_json("keys-default", "{}");
+        assert_eq!(shown(&s.flip_keys), ["Esc", "Hangul"]);
+        assert_eq!(shown(&s.pause_keys), ["Alt+Hangul"]);
+    }
+
+    #[test]
+    fn the_old_pause_key_off_stays_off() {
+        let s = load_json("keys-legacy-off", r#"{ "pauseKey": "off" }"#);
+        assert!(s.pause_keys.is_empty());
+        let s = load_json("keys-legacy-on", r#"{ "pauseKey": "hangul" }"#);
+        assert_eq!(shown(&s.pause_keys), ["Alt+Hangul"]);
+    }
+
+    #[test]
+    fn an_empty_list_means_off_but_nothing_usable_means_default() {
+        let s = load_json("keys-empty", r#"{ "flipKeys": [], "pauseKeys": [] }"#);
+        assert!(s.flip_keys.is_empty() && s.pause_keys.is_empty());
+        let s = load_json(
+            "keys-junk",
+            r#"{ "flipKeys": ["Win+L", 3], "pauseKeys": "x" }"#,
+        );
+        assert_eq!(shown(&s.flip_keys), ["Esc", "Hangul"]);
+        assert_eq!(shown(&s.pause_keys), ["Alt+Hangul"]);
+    }
+
+    #[test]
+    fn a_hand_written_clash_gives_the_key_to_the_language_switch() {
+        let s = load_json(
+            "keys-clash",
+            r#"{ "flipKeys": ["Esc", "F13"], "pauseKeys": ["F13", "Ctrl"] }"#,
+        );
+        assert_eq!(shown(&s.pause_keys), ["Ctrl"]);
+        assert_eq!(
+            s.key_action(keys::Mods::NONE, keys::ChordKey::F(13)),
+            Some(keys::KeyAction::Flip)
+        );
     }
 
     fn load_json(name: &str, json: &str) -> Settings {
