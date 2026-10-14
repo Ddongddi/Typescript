@@ -276,6 +276,21 @@ fn types_single_letter_with_particle() {
     assert_eq!(r.text(), "x에 n이 X를 X도 ");
 }
 
+/// A lone consonant key after Korean text is the jamo (ㅇ, ㅋ), not an English letter; Esc still
+/// turns it into the letter, and after English it stays the letter.
+#[test]
+fn a_lone_consonant_after_korean_is_a_jamo() {
+    let mut r = Rig::new("lone-jamo");
+    r.type_("dkssud d z ");
+    assert_eq!(r.text(), "안녕 ㅇ ㅋ ");
+    let mut r = Rig::new("lone-jamo-esc");
+    r.type_("dkssud d⎋ ");
+    assert_eq!(r.text(), "안녕 d ");
+    let mut r = Rig::new("lone-jamo-english");
+    r.type_("hello d ");
+    assert_eq!(r.text(), "hello d ");
+}
+
 #[test]
 fn keeps_short_english_ending_in_eh_or_sk() {
     let mut r = Rig::new("ehsk");

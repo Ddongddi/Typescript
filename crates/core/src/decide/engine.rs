@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::decide::segmenter::{JapaneseSegmenter, Segment};
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
-use crate::lang::hangul::DubeolsikLayout;
+use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::korean::{KoreanModel, KoreanScore};
 use crate::lang::registry;
@@ -143,6 +143,8 @@ const ENGLISH_FLOOR_SHORT: f64 = -2.6;
 const NON_LETTER_PENALTY: f64 = 3.0;
 /// Confidence for keys with a capital outside QWERTOP: only ever English.
 const CAPITALISED_ENGLISH_CONFIDENCE: f64 = 0.99;
+/// A single consonant key typed inside Korean text (ㅇ for d): it is the jamo, not an English letter.
+const LONE_CONSONANT_CONFIDENCE: f64 = 0.95;
 
 /// Scores the same keystrokes as English (character trigrams + word list), Korean
 /// (2-set syllables) and, when enabled, Japanese (romaji → kana trigrams), each as
@@ -306,6 +308,24 @@ impl DecisionEngine for HeuristicEngine {
                 explanation: "uppercase outside QWERTOP".to_string(),
                 runner_up: None,
             };
+        }
+
+        // A lone consonant key right after Korean text is a jamo (ㅇ, ㅋ, ㅎ as in ㅋㅋ): one key on
+        // its own has nothing else to go on, and Korean is what is being typed.
+        if self.korean_on
+            && context.previous_language.map(Language::sentence_language) == Some(Language::Korean)
+            && keys.chars().count() == 1
+        {
+            let jamo = HangulComposer::compose(keys).map(|c| c.text());
+            if let Some(text) = jamo.filter(|t| t.chars().all(|c| ('ㄱ'..='ㅎ').contains(&c))) {
+                return Decision {
+                    language: Language::Korean,
+                    confidence: LONE_CONSONANT_CONFIDENCE,
+                    output: text,
+                    explanation: "a lone consonant key inside Korean text".to_string(),
+                    runner_up: Some(Language::English),
+                };
+            }
         }
 
         let known = self.english_on && self.english.is_known_word(keys);
