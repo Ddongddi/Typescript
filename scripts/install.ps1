@@ -138,7 +138,8 @@ function New-SourceStage {
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
         & cargo build --release -p typescript-tip --target i686-pc-windows-msvc
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
-        & cargo run --release -p typescript-packgen --bin build-packs -- crates\core\data target\packs
+        # Out-Host: what it prints must not become part of this function's result (the stage path).
+        & cargo run --release -p typescript-packgen --bin build-packs -- crates\core\data target\packs | Out-Host
         if ($LASTEXITCODE) { throw 'building the language packs failed' }
     } finally {
         Pop-Location
