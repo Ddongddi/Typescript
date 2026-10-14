@@ -37,7 +37,7 @@ impl InputSession {
         {
             return None;
         }
-        let language = commit.language.next(&commit.keys, &self.languages);
+        let language = self.next_language(commit.language, &commit.keys);
         let reading = if language == Language::Japanese {
             JapaneseSegmenter::reading_of(&commit.keys, self.segmenter.as_ref())
         } else {

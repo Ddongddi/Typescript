@@ -76,9 +76,18 @@ impl Language {
     /// as a clean alternative exists — a typo can still be forced into its language when
     /// nothing reads cleanly.
     pub fn next(self, keys: &str, languages: &Languages) -> Language {
+        self.next_with(keys, languages, false)
+    }
+
+    /// `next`, where `engine_mixed` says the engine reads these keys as English + Korean even
+    /// though the plain particle split finds nothing (`xdp` → `x에`, `hellodnjfem` →
+    /// `hello월드`): that reading is then part of the cycle too.
+    pub fn next_with(self, keys: &str, languages: &Languages, engine_mixed: bool) -> Language {
         let available: Vec<Language> = registry::cycle_order(languages)
             .into_iter()
-            .filter(|l| registry::reading(*l, keys).is_some())
+            .filter(|l| {
+                registry::reading(*l, keys).is_some() || (*l == Language::Mixed && engine_mixed)
+            })
             .collect();
         let clean = |l: &Language| registry::is_clean(*l, keys);
         let clean_count = available.iter().filter(|l| clean(l)).count();

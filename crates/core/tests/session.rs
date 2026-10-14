@@ -180,6 +180,23 @@ fn esc_while_composing_flips_the_preview() {
     assert_eq!(r.text(), "dkssud ");
 }
 
+/// Readings the engine finds but the plain particle split does not (a single letter + particle,
+/// a name + a Korean word) must still be reachable with Esc, not only shown once.
+#[test]
+fn esc_reaches_an_engine_found_mixed_reading() {
+    let mut r = Rig::new("mixedcycle");
+    r.type_("xdp");
+    assert_eq!(r.text(), "x에");
+    let mut seen = vec![r.text()];
+    for _ in 0..3 {
+        r.key(Key::Escape);
+        seen.push(r.text());
+    }
+    // Mixed -> (next reading) -> ... -> Mixed again: it is part of the cycle.
+    assert_eq!(seen.iter().filter(|t| *t == "x에").count(), 2, "{seen:?}");
+    assert!(seen.contains(&"xdp".to_string()), "{seen:?}");
+}
+
 #[test]
 fn delete_removes_keystrokes() {
     let mut r = Rig::new("del");

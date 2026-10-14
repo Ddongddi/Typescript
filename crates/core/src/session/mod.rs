@@ -243,6 +243,13 @@ impl InputSession {
         self.previous_language = None;
     }
 
+    /// What Esc switches `current` to for these keys. The engine is asked whether it reads them
+    /// as English + Korean, because only it knows (the plain split misses `xdp` → `x에`).
+    pub(super) fn next_language(&self, current: Language, keys: &str) -> Language {
+        let engine_mixed = self.engine.render(keys, Language::Mixed) != keys;
+        current.next_with(keys, &self.languages, engine_mixed)
+    }
+
     /// Whether the session would consume `key` right now without a word being composed:
     /// full-width symbols, digits and spaces after Japanese text. The TIP asks before letting
     /// such a key go to the app.
@@ -397,7 +404,7 @@ impl InputSession {
             Some(l) => l,
             None => self.decide(true).language,
         };
-        self.word.forced = Some(shown.next(&self.word.keys, &self.languages));
+        self.word.forced = Some(self.next_language(shown, &self.word.keys));
         self.word.forced_by_user = true;
         self.word.pinned = None;
         if self.word.forced != Some(Language::Japanese) {
