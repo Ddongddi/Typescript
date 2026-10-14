@@ -336,4 +336,4 @@ cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/pac
 
 ## License
 
-Copyright (C) 2026 [Necessity](https://github.com/iamallyouneed). Licensed under [AGPL-3.0-only](LICENSE) (releases up to v0.4.1 were MIT and stay MIT; see [NOTICE](NOTICE)). Changes per version: [CHANGELOG.md](CHANGELOG.md). Third-party data licenses: [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
+Copyright (C) 2026 [Necessity](https://github.com/iamallyouneed). Licensed under [AGPL-3.0-only](LICENSE) (releases up to v0.4.1 were MIT and stay MIT; see [NOTICE](NOTICE)). Changes per version: [CHANGELOG.en.md](CHANGELOG.en.md). Third-party data licenses: [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).

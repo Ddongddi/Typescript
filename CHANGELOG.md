@@ -1,5 +1,7 @@
 # 변경 기록 (Changelog)
 
+English version: [CHANGELOG.en.md](CHANGELOG.en.md).
+
 릴리스마다 무엇이 바뀌었는지 적습니다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를,
 버전은 [유의적 버전](https://semver.org/lang/ko/)을 따릅니다. 릴리스를 만들 때 해당 버전의 항목이
 GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대로 보입니다. 쓰는 법은

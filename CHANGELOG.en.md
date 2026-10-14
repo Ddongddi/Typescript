@@ -1,0 +1,217 @@
+# Changelog
+
+What changed in each release. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+[Semantic Versioning](https://semver.org/). When a release is made, that version's entry becomes
+the GitHub release notes and is shown as-is in the dashboard's update tab. How to write entries:
+[CONTRIBUTING.md](CONTRIBUTING.md#changelog-and-releases).
+
+Korean version: [CHANGELOG.md](CHANGELOG.md).
+
+## [Unreleased]
+
+## [0.7.0] - 2026-10-14
+
+### Added
+- First-run tutorial (welcome page, `typescript-config welcome`): starts with "안녕하세요", shows the hassle of typing while hitting the Han/Eng key, then lets you try `dkssud typescript` without it. Picking languages downloads and enables them (per-language progress and completion are shown), and practices switching input methods, Korean, and Esc one screen at a time. The Esc screen shows an intentionally wrong example (typing `깨짐` on an English layout leaves `Rowla`) and explains that undecided text can be changed with Esc. A progress bar sits on top, practice fields are free-typing with only the result checked. It opens only on a fresh install (never on update) and can be reopened from the dashboard's "Tutorial" link.
+- `typescript-config setup --if-configured`: reinstalls the already-enabled languages (for updates). It fails on a fresh install so the install scripts can tell the two cases apart.
+- Dashboard update tab: the changelog for every version in one place (since 0.1.0). Expand/collapse all, and records for versions newer than the current one are fetched from GitHub and shown on top.
+- Dashboard: a "taught words" section on the language tab (delete one, clear all) and a "word history" section on the input-settings tab (remembered word count, clear). Both need two presses to clear.
+- Dashboard: also detects the currently selected input method on macOS and Linux, shows a one-time setup checklist, and adapts the switch-key guidance to the system.
+- Dashboard: opening an old address (expired token) shows a "please reopen" notice. Added `GET /api/health` (version, uptime, whether busy).
+
+### Changed
+- The language prompt during installation (checklist and ordering) moved to the welcome page's first screen. Passing `-Languages` or having already-configured languages (an update) still installs quietly. Dropped the `dialoguer` dependency for the terminal prompt, and a bare `typescript-config setup` opens the welcome page instead of asking in the terminal.
+- Dashboard: server error responses carry a `code` (invalid, upstream, busy, …). The connectivity check slows to every 30 seconds while the window is hidden and backs off while it keeps failing.
+
+### Fixed
+- Language-pack downloads and the dashboard taking 8–25 seconds every time on some networks. GitHub's file servers have several addresses and one of them is unresponsive on those networks, so connecting to that address first meant waiting for the timeout. Connections now move to the next address after 3 seconds (one more try at 15 seconds if all fail), and the fetched pack list (`packs.json`) is remembered for 5 minutes instead of being fetched on every request. An English+Korean install dropped from about 57 seconds to about 5.
+- Changelog entries without a subheading such as `## 0.1.0` and their continuation lines being dropped from the records.
+
+## [0.6.5] - 2026-10-14
+
+### Changed
+- Security: password fields are passed straight to the app — nothing there is read, counted, or learned. Detected via input scope (password) on Windows, secure-input mode on macOS, and input purpose (password/PIN) on Linux (IBus). (Previously Android only.)
+- Security: language packs and updates are fetched over https only. An `http://` address in `TYPESCRIPT_RELEASE` is refused unless it is this machine (localhost). Folders can still be used as-is.
+- Security: opening `typescript-config` from the terminal no longer always prints the address carrying the session token; it is shown only when the browser fails to open.
+- Built-in rules for terminals, editors, and messengers. Terminals (Windows Terminal, cmd, PowerShell, …) use a strict conversion threshold, editors (VS Code, Cursor, JetBrains, …) pass Esc to the app, and messengers (Slack, Discord, Teams, Telegram, LINE, KakaoTalk) send on a single Enter. An entry in `apps.json` for that app wins. App rules gain `returnConfirmsOnly` (per-app Enter behavior).
+- Security: `install.sh` refuses to install archives containing paths outside their folder (`../`, absolute paths).
+- Damaged word-history and kanji-learning files are moved aside to `.unreadable` instead of being silently overwritten (same as the correction-learning file). All saves are atomic, including the update-check cache.
+- Dashboard: fetching languages or updating no longer blocks settings changes, and asking for the same job twice is answered with 429. Update failures respond with 502 like checks do, and 429/503 carry `Retry-After`.
+- Word history (`user_history.json`) is capped at 20,000 words. Past that, the least-typed words are dropped first.
+
+### Fixed
+- English+Korean readings only the engine finds (`xdp`→`x에`, `hellodnjfem`→`hello월드`) missing from the Esc cycle, so once you left them you could never get back.
+
+## [0.6.4] - 2026-10-14
+
+### Added
+- Dashboard: a "changelog" view on the update tab showing this build's CHANGELOG, folded per version.
+- Dashboard: when Enter only confirms in the chat, a "to send at once, change the setting" hint appears and takes you to the "Enter only confirms" switch in input settings.
+
+### Changed
+- Dashboard: pressing the physical Esc key also presses the on-screen Esc keycap on the language tab.
+- Dashboard: fixed the chat flickering on every keystroke; typing on a blank part of the page outside the inputs now goes to the chat. Underlines ride more softly when messages are posted.
+
+### Fixed
+- Typing a lone consonant jamo after Korean text (`d`→ㅇ, `z`→ㅋ) turning into the English letter `d`. A lone consonant right after Korean now stays the jamo. It can still be switched to the English letter with Esc.
+- From that lone consonant, Esc cycled Korean → Japanese → English and never came back to Korean.
+
+## [0.6.3] - 2026-10-14
+
+### Added
+- Dashboard: a banner when the currently selected input method is not Typescript, naming it and telling you to switch with Win+Space. (Windows)
+
+### Changed
+- Dashboard: trimmed the "connected" indicator at the top down to a small dot and text.
+
+## [0.6.2] - 2026-10-14
+
+### Changed
+- Dashboard "Keys" tab: when the Han/Eng key is set to send a shortcut, it says it works "everywhere". Leaves room below and links to KeyZen for more key mappings.
+
+### Fixed
+- Windows: the elevated half of the install ran a file from a user-writable folder. The elevated side now fetches the GitHub release itself, verifies its SHA-256, and installs straight from memory. Running `install.ps1` from an unpacked folder installs the latest release (or `-Version`) instead of that folder.
+- Damaged or half-copied Japanese packs (dictionary, trigram tables) are refused at registration. They used to panic on first conversion. A file that passes once leaves a marker so other apps don't re-scan the 16 MB dictionary.
+
+## [0.6.1] - 2026-10-14
+
+### Added
+- Han/Eng key sends a shortcut: set it from the dashboard "Keys" tab via `Han/Eng → ?`. Switch the word's language (default), do nothing, or send a shortcut such as `Ctrl+C` or `Win+L`. Pick shortcuts from the list or by pressing the key, with Win chosen by button. (Windows, `hangulAction`)
+- Hovering a chat message shows each word's read language and confidence as an underline (color is the language, length is the confidence). Hovering a word shows how it was read and the runner-up.
+
+### Changed
+- Dashboard: removed the try-out tab; every tab has the chat on its right so anything can be tried immediately. "Enter only confirms" is changed in input settings.
+- Dashboard "Keys" tab is a single `Han/Eng → ?` line. The language-switch keys, pause keys, and which key is the Han/Eng key are changed only in `settings.json`.
+- Removed the `English → 한국어` order chips from the language tab. The order is changed with each language's ↑↓.
+
+### Fixed
+- Dashboard: typing digits in the input-settings tab's chat input switched tabs.
+- Windows: shortcuts assigned to the Han/Eng key (`Win+D` and the like) worked only inside text fields. They now work everywhere, including the desktop, the taskbar, and already-running apps. Same for laptops where the Han/Eng key arrives as right Alt. Installing starts a key watcher at sign-in (`rundll32 typescript_tip.dll,KeyHook`). It does not act in front of windows run as administrator.
+
+## [0.6.0] - 2026-10-14
+
+### Added
+- **Keys tab**: the dashboard draws a keyboard to pick keys with. It sets which key is the Han/Eng key (`hangulKey`, default `Han/Eng`), which keys switch the word's language (`flipKeys`, default `Esc` and the Han/Eng key), and which pause (`pauseKeys`, default `Alt`+Han/Eng). Changing the Han/Eng key follows in the other two's "Han/Eng key". `Ctrl+Space` combinations and lone `Ctrl` keys work, lists grow to 8 entries. Win combinations, common shortcuts like `Ctrl+C`, and keys claimed by both actions are refused. (Windows)
+
+### Changed
+- The default pause key changed from `Han/Eng` to `Alt+Han/Eng`, and a lone `Han/Eng` switches the word's language like `Esc`. An old `pauseKey` setting is migrated to `pauseKeys` (`"off"` stays off).
+
+### Fixed
+- Windows: in input fields that talk IMM32, such as File Explorer's rename box, the space or period after a word landed before the word. Keys that confirm a word are now delivered to the app after confirming.
+- Windows: in fields with selected text, such as File Explorer's rename box, the old name stayed until the word was fully typed and only changed at the end. The selection is now cleared on the first keystroke.
+
+## [0.5.2] - 2026-10-14
+
+### Fixed
+- Windows: typing over selected text changed nothing. In fields with a selection, such as File Explorer's rename box, the old text stayed and the typing was appended. The selection is now deleted first and typed in its place.
+- Windows: with "Enter only confirms" off, after sending a message in KakaoTalk the next characters went to the placeholder ("Message") instead of the input. In IMM32 apps one Enter confirms the word, then Enter is sent after confirming.
+- Running `scripts/install.ps1` from the source folder failed at the elevated step.
+
+## [0.5.1] - 2026-10-12
+
+### Added
+- Docs: Korean and English docs under `docs/` (installation, configuration, architecture, language packs, troubleshooting) and the English README.
+- Dashboard input settings gain **try in chat**: type on an English layout and check it the same way the real input method does.
+  With "Enter only confirms" on it takes two Enters to send, with it off one — the bubble's `Enter ×N`
+  shows it, and buttons compare the two behaviors. Tab completion and Backspace work too.
+- When an update replaces the program, the settings page tells you to close it and reopen `typescript-config`.
+
+### Fixed
+- "Unusable pack: …needs core …" staying on the dashboard after a program update. When a newer version of the same pack already works, old version folders are no longer reported as problems, and installing a pack cleans up that pack's old version folders.
+- The dashboard's try-out erroring when an enabled language's pack was missing or mismatched with this build. Like the input method, it runs without that language and shows a notice when no usable pack exists.
+- A big outline wrapping the whole panel after keyboard navigation on the dashboard.
+
+## [0.5.0] - 2026-10-14
+
+### Added
+- **macOS**: InputMethodKit input method (`Typescript.app`, Apple silicon + Intel).
+- **Linux**: IBus engine (`ibus-engine-typescript`).
+- `install.sh`: one-line install/uninstall for macOS and Linux (current user only, no administrator rights, SHA-256 verified).
+- `platforms/ffi`: the input method wrapped as C functions (`typescript.h`). The macOS and Linux input methods share it.
+- Dashboard: clicking a word on the try-out tab shows and switches to how it reads in other languages.
+- Dashboard: the app-rule conversion threshold becomes a slider with a live preview of how a sample sentence reads while it moves.
+- Dashboard: drag the Esc order chips to reorder and press Esc to preview the cycle.
+- Dashboard: short demos of the "Enter only confirms" and "Tab completion" settings.
+- Dashboard: undo a change, shortcuts (`1`–`5` switch tabs, `/` finds an app).
+- New logo and icons.
+- `LICENSE` changed to AGPL-3.0 with `NOTICE`, `CONTRIBUTING.md`, and this changelog added.
+
+### Changed
+- Settings and language-pack folders are per system. Windows is unchanged; macOS uses `~/Library/Application Support/Typescript`,
+  Linux uses `~/.config/Typescript` (packs under `~/.local/share/Typescript/packs`).
+- License: MIT → AGPL-3.0-only (releases up to v0.4.1 stay MIT).
+- Dashboard sources split into markup, style, and script files under `crates/config/src/web/`.
+- CI and releases build, test, and package on Linux and macOS in addition to Windows and Android.
+
+### Fixed
+- Accessibility attributes (`aria-pressed` and the like) going out as empty values.
+
+## [0.4.1] - 2026-10-13
+
+### Added
+- Dashboard try-out tab: see right away how what you type on an English layout reads word by word.
+- Per-setting examples with a "not the default" mark and a "reset to default".
+- Per-app rule cards, presets (terminal, game, vim, KakaoTalk), running-app list (search, pages, drag and drop).
+- Custom dropdowns, accessibility (keyboard, screen reader, high contrast) and narrow-screen support.
+
+### Changed
+- Dashboard restyled into a minimal flat design.
+
+## [0.4.0] - 2026-10-13
+
+### Added
+- **Language packs**: language data ships as packs so only what is needed is fetched. Structure for adding languages as modules.
+- `typescript-config`: terminal setup screen, command line, web dashboard.
+- Update checks for new versions and language packs from releases.
+- Pick languages at install time and fetch their packs.
+
+### Changed
+- The engine decides over any combination of enabled languages. The Esc cycle follows the enabled languages.
+
+## [0.3.0] - 2026-10-13
+
+### Added
+- English/Korean and Japanese builds distributed separately (`install.ps1 -Japanese`).
+
+### Fixed
+- Katakana candidates for words missing from IPADIC, and `ー` after English words.
+
+## [0.2.1] - 2026-10-13
+
+### Added
+- **Japanese**: romaji → kana decision, conversion flow, full-width handling, IPADIC-based kanji conversion.
+
+### Changed
+- First APK signed with the fixed release key.
+
+## [0.2.0] - 2026-10-13
+
+### Added
+- **Android**: `InputMethodService` app and on-screen keyboard.
+
+### Changed
+- The core is shared by `platforms/windows` and `platforms/android`.
+
+## [0.1.1] - 2026-10-12
+
+### Fixed
+- The install script failing to find the repository path at the elevated step.
+
+## 0.1.0
+
+- First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
+
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/iamallyouneed/Typescript/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/iamallyouneed/Typescript/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/iamallyouneed/Typescript/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/iamallyouneed/Typescript/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/iamallyouneed/Typescript/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/iamallyouneed/Typescript/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/iamallyouneed/Typescript/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/iamallyouneed/Typescript/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/iamallyouneed/Typescript/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/iamallyouneed/Typescript/releases/tag/v0.1.1
