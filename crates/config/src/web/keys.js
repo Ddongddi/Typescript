@@ -140,7 +140,7 @@ function renderKeys() {
   $("p-keys").replaceChildren(
     h("div", { class: "hangul" },
       h("kbd", { class: "keycap big" }, KEY_LABELS[state.settings.hangulKey] || state.settings.hangulKey),
-      h("div", { class: "ask" }, h("b", {}, "이 키를 누르면"), h("span", {}, "텍스트를 입력하는 창에서 동작합니다")),
+      h("div", { class: "ask" }, h("b", {}, "이 키를 누르면"), h("span", {}, ["flip", "none"].includes(state.settings.hangulAction) ? "텍스트를 입력하는 창에서 동작합니다" : "어디서든 동작합니다")),
       hangulCapture
         ? h("span", { class: "chip waiting", role: "status" }, "한/영 키를 누르세요…",
             h("button", { type: "button", class: "chip-x", "data-f": "hangul-cancel", onclick: () => { stopHangulCapture(); render("hangul-capture"); } }, "취소"))
