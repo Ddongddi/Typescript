@@ -106,27 +106,36 @@ function Move-Aside([string]$target) {
     }
 }
 
-function Remove-Leftovers {
-    # A leftover still mapped into a running app (Explorer keeps TSF DLLs) cannot be deleted
-    # now: mark it for deletion on reboot instead of letting .old-* files pile up forever.
-    # Only files this installer moved aside are ever touched.
-    $rebootDelete = @"
+# A file a running app still has mapped (Explorer keeps the text service DLL) cannot be deleted
+# now. This asks Windows to delete it at the next restart, before anything loads it. Returns
+# whether Windows took the request; says so when it did not.
+function Remove-AtReboot([string]$path) {
+    try {
+        if (-not ('RebootDelete' -as [type])) {
+            $source = @"
 using System;
 using System.Runtime.InteropServices;
 public static class RebootDelete {
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern bool MoveFileEx(string a, string b, int flags);
-    public static void AtReboot(string path) { MoveFileEx(path, null, 0x4); }
+    public static extern bool MoveFileEx(string existing, string target, int flags);
+    // MOVEFILE_DELAY_UNTIL_REBOOT (0x4)
+    public static bool AtReboot(string path) { return MoveFileEx(path, null, 0x4); }
 }
 "@
+            Add-Type -TypeDefinition $source -ErrorAction Stop | Out-Null
+        }
+        if ([RebootDelete]::AtReboot($path)) { return $true }
+    } catch { }
+    Write-Warning "Could not schedule $path for deletion at the next restart."
+    return $false
+}
+
+# Deletes the .old-* files this installer moved aside earlier (only those are ever touched); one
+# still in use is left to the next restart instead of piling up forever.
+function Remove-Leftovers {
     Get-ChildItem $dest -Filter '*.old-*' -ErrorAction SilentlyContinue | ForEach-Object {
         try { Remove-Item $_.FullName -Force -ErrorAction Stop }
-        catch {
-            try {
-                Add-Type -TypeDefinition $rebootDelete -ErrorAction Stop | Out-Null
-                [RebootDelete]::AtReboot($_.FullName)
-            } catch { }
-        }
+        catch { Remove-AtReboot $_.FullName | Out-Null }
     }
 }
 
@@ -146,7 +155,16 @@ try {
         Unregister-Existing
         if (Test-Path $dest) {
             Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
-            if (Test-Path $dest) { Write-Warning "Some files in $dest are in use; they go away after a restart or sign-out." }
+            if (Test-Path $dest) {
+                # What is left is in use by running apps. Schedule it for the next restart: the
+                # deepest first, the folder itself last (a folder goes only once it is empty).
+                $scheduled = $true
+                $left = Get-ChildItem $dest -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending
+                foreach ($item in $left) { if (-not (Remove-AtReboot $item.FullName)) { $scheduled = $false } }
+                if (-not (Remove-AtReboot $dest)) { $scheduled = $false }
+                if ($scheduled) { Write-Warning "Some files in $dest are in use; they are deleted at the next restart." }
+                else { Write-Warning "Some files in $dest are in use and could not be scheduled for deletion; delete the folder after a restart." }
+            }
         }
     } else {
         if ($LocalSource) {
