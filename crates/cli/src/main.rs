@@ -8,6 +8,7 @@
 //!                                                    (previous: english|korean|mixed|japanese|empty)
 //!   typescript --convert < kana.txt                kanji candidates per kana line
 //! Add --japanese to score romaji Japanese too (--decide, -v); it needs the Japanese pack.
+//! Add --chinese to score pinyin Chinese too; it needs the Chinese pack.
 
 use std::io::{self, BufRead};
 
@@ -31,13 +32,19 @@ fn main() {
         typescript_core::pack::refresh(&root);
     }
     let japanese = args.iter().any(|a| a == "--japanese");
+    let chinese = args.iter().any(|a| a == "--chinese");
+    args.retain(|a| a != "--japanese" && a != "--chinese");
     if (japanese || args.first().is_some_and(|a| a == "--convert"))
         && !typescript_core::pack::available(Language::Japanese)
     {
         eprintln!("no Japanese pack: install it (install.ps1 -Japanese) or build with --features japanese");
         std::process::exit(1);
     }
-    let engine = make_engine(None, &Languages::legacy(japanese));
+    if chinese && !typescript_core::pack::available(Language::Chinese) {
+        eprintln!("no Chinese pack: install it or build with --features chinese");
+        std::process::exit(1);
+    }
+    let engine = make_engine(None, &Languages::legacy_with(japanese, chinese));
 
     match args.first().map(String::as_str) {
         Some("--compose") => {
@@ -114,6 +121,7 @@ fn main() {
                             Language::Korean => "ko",
                             Language::Mixed => "mix",
                             Language::Japanese => "ja",
+                            Language::Chinese => "zh",
                         };
                         println!(
                             "  {:<16} → {} [{lang} {:.2}] {}",

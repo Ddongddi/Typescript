@@ -22,7 +22,7 @@ fn every_released_pack_scans_clean() {
     let found = pack::scan(&root);
     assert!(found.problems.is_empty(), "{:?}", found.problems);
     let ids: Vec<&str> = found.packs.iter().map(|f| f.manifest.id.as_str()).collect();
-    assert_eq!(ids, vec!["en", "ja", "ko"]);
+    assert_eq!(ids, vec!["en", "ja", "ko", "zh"]);
     for f in &found.packs {
         for (name, hash) in &f.manifest.files {
             let bytes = std::fs::read(f.dir.join(name)).unwrap();
@@ -46,6 +46,20 @@ fn a_flipped_byte_no_longer_matches_its_hash() {
         en.manifest.files["trigrams.bin"],
         "a damaged table must be detectable from the manifest"
     );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_released_pinyin_dictionary_passes_its_own_validity_check() {
+    let root = built_packs("pinyin");
+    let found = pack::scan(&root);
+    let zh = found.packs.iter().find(|f| f.manifest.id == "zh").unwrap();
+    let bytes = std::fs::read(zh.dir.join("pinyin_compact.bin")).unwrap();
+    assert!(typescript_core::ChineseModel::valid(&bytes));
+    assert!(!typescript_core::ChineseModel::valid(
+        &bytes[..bytes.len() - 100]
+    ));
+    assert!(!typescript_core::ChineseModel::valid(b""));
     let _ = std::fs::remove_dir_all(&root);
 }
 

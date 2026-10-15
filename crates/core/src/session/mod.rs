@@ -52,6 +52,7 @@ use crate::decide::convert::{JapaneseConverter, KanaConverter};
 use crate::decide::engine::{DecisionEngine, Language};
 use crate::decide::learning::LearningEngine;
 use crate::decide::segmenter::JapaneseSegmenter;
+use crate::lang::chinese::ChineseModel;
 use crate::lang::english::EnglishModel;
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::romaji::RomajiComposer;
@@ -196,6 +197,22 @@ impl InputSession {
     /// Romaji is detected and converted (Japanese is among the languages).
     fn japanese_enabled(&self) -> bool {
         self.languages.contains(Language::Japanese)
+    }
+
+    /// Pinyin is detected and converted (Chinese is among the languages).
+    fn chinese_enabled(&self) -> bool {
+        self.languages.contains(Language::Chinese)
+    }
+
+    /// Chinese: the word Space/Return commits for the keys — the reading's top dictionary
+    /// word (`nihao` → 你好) while the keys are a dictionary reading, else the pinyin
+    /// reading as typed. This is what the underlined preview shows too.
+    pub(super) fn chinese_display(&self) -> String {
+        ChineseModel::shared()
+            .score(&self.word.keys, false)
+            .and_then(|s| s.converted)
+            .map(str::to_string)
+            .unwrap_or_else(|| self.engine.render(&self.word.keys, Language::Chinese))
     }
 
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width.
@@ -639,6 +656,7 @@ impl InputSession {
                 .word
                 .hangul()
                 .unwrap_or_else(|| self.engine.render(&self.word.keys, language)),
+            Language::Chinese => self.chinese_display(),
             other => self.engine.render(&self.word.keys, other),
         };
         self.ja.live_suppressed = false;

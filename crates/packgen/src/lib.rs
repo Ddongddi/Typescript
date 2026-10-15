@@ -35,6 +35,11 @@ pub const PACKS: &[PackSpec] = &[
         name: "日本語",
         requires: &["en"],
     },
+    PackSpec {
+        id: "zh",
+        name: "简体中文",
+        requires: &["en"],
+    },
 ];
 
 /// The core versions a pack built now works with: this minor version.
@@ -73,6 +78,10 @@ pub fn write_pack(id: &str, data: &Path, dir: &Path) -> io::Result<()> {
                 fs::read(data.join("ipadic_compact.bin"))?,
             ),
         ],
+        "zh" => vec![(
+            "pinyin_compact.bin",
+            fs::read(data.join("pinyin_compact.bin"))?,
+        )],
         _ => unreachable!("checked against PACKS"),
     };
     fs::create_dir_all(dir)?;

@@ -12,6 +12,8 @@ path = "src/main.rs"
 [features]
 # Embeds the Japanese pack too (10 MB), for tuning without installing it.
 japanese = ["typescript-core/embedded-ja"]
+# Embeds the Chinese pack too (1.4 MB), for tuning without installing it.
+chinese = ["typescript-core/embedded-zh"]
 
 [dependencies]
 typescript-core = { path = "../core", features = ["embedded-en", "embedded-ko"] }

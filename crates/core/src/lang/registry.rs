@@ -6,10 +6,11 @@ use crate::decide::engine::Language;
 use crate::lang::module::{ComboRule, LanguageModule};
 use crate::lang::set::Languages;
 
-static MODULES: [&dyn LanguageModule; 3] = [
+static MODULES: [&dyn LanguageModule; 4] = [
     &crate::lang::en::English,
     &crate::lang::ko::Korean,
     &crate::lang::ja::Japanese,
+    &crate::lang::zh::Chinese,
 ];
 
 static COMBOS: [&dyn ComboRule; 1] = [&crate::lang::combo::en_ko::EnglishKorean];

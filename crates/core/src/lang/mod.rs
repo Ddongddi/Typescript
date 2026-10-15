@@ -1,5 +1,6 @@
 //! Language models: how Hangul is typed and composed, and how likely a token is Korean or English.
 
+pub mod chinese;
 mod combo;
 mod en;
 pub mod english;
@@ -17,3 +18,4 @@ pub mod romaji;
 pub mod set;
 pub(crate) mod sorted;
 mod syllables;
+mod zh;

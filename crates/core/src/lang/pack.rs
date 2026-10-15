@@ -209,22 +209,23 @@ impl Registry {
 /// checked, walking them as the readers will, because a damaged file would otherwise panic
 /// the first conversion).
 fn usable(language: Language, dir: &Path, files: &[(String, &'static [u8])]) -> bool {
-    language != Language::Japanese
-        || ["ipadic_compact.bin", "kana_trigrams.bin"]
+    let names: &[&str] = match language {
+        Language::Japanese => &["ipadic_compact.bin", "kana_trigrams.bin"],
+        Language::Chinese => &["pinyin_compact.bin"],
+        _ => return true,
+    };
+    names.iter().all(|name| {
+        files
             .iter()
-            .all(|name| {
-                files
-                    .iter()
-                    .find(|(n, _)| n == name)
-                    .is_some_and(|(_, bytes)| {
-                        checked_once(dir, name, || match *name {
-                            "ipadic_compact.bin" => {
-                                crate::decide::kanji::KanjiDictionary::valid(bytes)
-                            }
-                            _ => crate::lang::japanese::JapaneseModel::valid(bytes),
-                        })
-                    })
+            .find(|(n, _)| n == name)
+            .is_some_and(|(_, bytes)| {
+                checked_once(dir, name, || match *name {
+                    "ipadic_compact.bin" => crate::decide::kanji::KanjiDictionary::valid(bytes),
+                    "pinyin_compact.bin" => crate::lang::chinese::ChineseModel::valid(bytes),
+                    _ => crate::lang::japanese::JapaneseModel::valid(bytes),
+                })
             })
+    })
 }
 
 /// Runs `check` on a pack file unless an earlier process already passed this very file (same
@@ -309,6 +310,12 @@ fn embedded() -> Registry {
             pack_file!("ja", "kana_trigrams.bin"),
             pack_file!("ja", "ipadic_compact.bin"),
         ],
+    );
+    #[cfg(feature = "embedded-zh")]
+    registry.insert(
+        Language::Chinese,
+        vec![Language::English],
+        vec![pack_file!("zh", "pinyin_compact.bin")],
     );
     registry
 }

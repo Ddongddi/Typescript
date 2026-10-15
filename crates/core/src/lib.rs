@@ -17,6 +17,7 @@ pub use decide::kanji::{DictionaryConverter, KanjiDictionary};
 pub use decide::learning::LearningEngine;
 pub use decide::mixed::{MixedWord, SplittingEngine};
 pub use decide::segmenter::{JapaneseSegmenter, Segment};
+pub use lang::chinese::ChineseModel;
 pub use lang::english::EnglishModel;
 pub use lang::japanese::JapaneseModel;
 pub use lang::pack;

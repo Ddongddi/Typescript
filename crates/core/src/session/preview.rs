@@ -95,6 +95,7 @@ impl InputSession {
             let text = match forced {
                 Language::Japanese => self.japanese_display(),
                 Language::Korean => self.word.hangul().unwrap_or_else(|| self.word.keys.clone()),
+                Language::Chinese => self.chinese_display(),
                 other => self.engine.render(&self.word.keys, other),
             };
             client.set_marked_text(&text);
@@ -200,6 +201,15 @@ impl InputSession {
                         .next()
                         .is_some_and(|c| c != 'っ' && c != 'ん')
             }
+            Language::Chinese => {
+                if !self.chinese_enabled()
+                    || decision.confidence < LIVE_KANA_CONFIDENCE
+                    || char_count(keys) < LIVE_KANA_MIN_KEYS
+                {
+                    return false;
+                }
+                true
+            }
             Language::Korean => false,
         }
     }
@@ -214,6 +224,7 @@ impl InputSession {
                 (text != self.word.keys).then_some(text)
             }
             Language::Japanese => self.japanese_enabled().then(|| self.japanese_reading(true)),
+            Language::Chinese => self.chinese_enabled().then(|| self.chinese_display()),
         }
     }
 }

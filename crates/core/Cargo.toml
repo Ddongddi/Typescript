@@ -11,7 +11,8 @@ repository = "https://github.com/iamallyouneed/Typescript"
 embedded-en = []
 embedded-ko = []
 embedded-ja = []
-embedded-packs = ["embedded-en", "embedded-ko", "embedded-ja"]
+embedded-zh = []
+embedded-packs = ["embedded-en", "embedded-ko", "embedded-ja", "embedded-zh"]
 
 [dependencies]
 memmap2 = "0.9"

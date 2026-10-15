@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::decide::segmenter::{JapaneseSegmenter, Segment};
+use crate::lang::chinese::ChineseModel;
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
 use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
 use crate::lang::japanese::JapaneseModel;
@@ -19,6 +20,9 @@ pub enum Language {
     Mixed,
     /// Romaji typed as Japanese (rendered as hiragana; kanji conversion happens on Space).
     Japanese,
+    /// Pinyin typed as Chinese (rendered as the reading's top word; the candidate window
+    /// comes later, like Japanese kanji).
+    Chinese,
 }
 
 impl Language {
@@ -28,6 +32,7 @@ impl Language {
             Language::Korean => "korean",
             Language::Mixed => "mixed",
             Language::Japanese => "japanese",
+            Language::Chinese => "chinese",
         }
     }
 
@@ -38,6 +43,7 @@ impl Language {
             Language::Korean => "ko",
             Language::Mixed => "mixed",
             Language::Japanese => "ja",
+            Language::Chinese => "zh",
         }
     }
 
@@ -47,6 +53,7 @@ impl Language {
             "en" => Some(Language::English),
             "ko" => Some(Language::Korean),
             "ja" => Some(Language::Japanese),
+            "zh" => Some(Language::Chinese),
             _ => None,
         }
     }
@@ -57,6 +64,7 @@ impl Language {
             "korean" => Some(Language::Korean),
             "mixed" => Some(Language::Mixed),
             "japanese" => Some(Language::Japanese),
+            "chinese" => Some(Language::Chinese),
             _ => None,
         }
     }
@@ -67,6 +75,7 @@ impl Language {
             Language::English => Language::English,
             Language::Korean | Language::Mixed => Language::Korean,
             Language::Japanese => Language::Japanese,
+            Language::Chinese => Language::Chinese,
         }
     }
 
@@ -170,6 +179,8 @@ pub struct HeuristicEngine {
     pub korean: KoreanModel,
     /// None when Japanese is off or its model isn't available.
     pub japanese: Option<&'static JapaneseModel>,
+    /// None when Chinese is off or its dictionary isn't available.
+    pub chinese: Option<&'static ChineseModel>,
     /// Added to the previous word's language score: people mostly stay in one language.
     pub context_bias: f64,
     /// Bias after Japanese text. Raising it to 1.2 recovered 1 of 2,590 held-out phrases
@@ -179,6 +190,10 @@ pub struct HeuristicEngine {
     /// per ~2 keys read differently from letter trigrams). Tuned on held-out data so that
     /// English words almost never turn into kana.
     pub japanese_offset: f64,
+    /// Bias after Chinese text.
+    pub chinese_context_bias: f64,
+    /// Shifts Chinese scores (the floors in `lang::chinese` are the base).
+    pub chinese_offset: f64,
     /// Shifts Korean scores (used when the syllable model changes scale).
     pub korean_offset: f64,
     /// Taken off the dictionary floor for rarer English words (SCOWL levels 40–50: dork,
@@ -212,9 +227,12 @@ impl HeuristicEngine {
             english,
             korean,
             japanese: None,
+            chinese: None,
             context_bias: 0.8,
             japanese_context_bias: 0.8,
             japanese_offset: 0.5,
+            chinese_context_bias: 0.8,
+            chinese_offset: 0.0,
             korean_offset: 0.0,
             rare_word_floor_penalty: 0.3,
             switch_bias_factor: 0.25,
@@ -234,6 +252,9 @@ impl HeuristicEngine {
         } else {
             Self::new()
         };
+        if languages.contains(Language::Chinese) {
+            engine.chinese = Some(ChineseModel::shared());
+        }
         engine.english_on = languages.contains(Language::English);
         engine.korean_on = languages.contains(Language::Korean);
         engine
@@ -378,6 +399,12 @@ impl DecisionEngine for HeuristicEngine {
             )
         });
 
+        // Chinese: the keys read as pinyin syllables; a dictionary word (你好) scores near
+        // the English floors, a clean split with no word stays weak.
+        let zh = self
+            .chinese
+            .and_then(|model| model.score(keys, context.partial));
+
         let mut scores: Vec<(Language, f64)> = Vec::new();
         if self.english_on {
             scores.push((Language::English, e));
@@ -391,20 +418,27 @@ impl DecisionEngine for HeuristicEngine {
         if let Some(japanese_score) = japanese_score {
             scores.push((Language::Japanese, japanese_score + self.japanese_offset));
         }
+        if let Some(zh) = &zh {
+            scores.push((
+                Language::Chinese,
+                zh.average_log_probability + self.chinese_offset,
+            ));
+        }
         if let Some(previous) = context.previous_language.map(Language::sentence_language) {
             if let Some(i) = scores.iter().position(|s| s.0 == previous) {
-                let mut bias = if previous == Language::Japanese {
-                    self.japanese_context_bias
-                } else {
-                    self.context_bias
+                let mut bias = match previous {
+                    Language::Japanese => self.japanese_context_bias,
+                    Language::Chinese => self.chinese_context_bias,
+                    _ => self.context_bias,
                 };
                 let known_in = |l: Language| match l {
                     Language::English => known,
                     Language::Korean => known_korean,
+                    Language::Chinese => zh.as_ref().is_some_and(|z| z.known),
                     _ => false,
                 };
                 if !known_in(previous)
-                    && [Language::English, Language::Korean]
+                    && [Language::English, Language::Korean, Language::Chinese]
                         .iter()
                         .any(|l| *l != previous && known_in(*l))
                 {
@@ -417,6 +451,8 @@ impl DecisionEngine for HeuristicEngine {
             // No language that is on reads these keys (Korean only, and the keys aren't Hangul).
             let language = if self.korean_on {
                 Language::Korean
+            } else if self.chinese.is_some() {
+                Language::Chinese
             } else {
                 Language::Japanese
             };
@@ -430,12 +466,12 @@ impl DecisionEngine for HeuristicEngine {
         }
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        // A dictionary English word only becomes kana on a clear win, unless we're already
-        // in Japanese text (where "same", "sake", "kite" are Japanese words).
+        // A dictionary English word only becomes kana (or hanzi: "women", "fan") on a
+        // clear win, unless we're already in that language's text ("same", "sake" are
+        // Japanese words; "women", "shanghai" are 我们, 上海).
         if known
-            && scores[0].0 == Language::Japanese
-            && context.previous_language.map(Language::sentence_language)
-                != Some(Language::Japanese)
+            && matches!(scores[0].0, Language::Japanese | Language::Chinese)
+            && context.previous_language.map(Language::sentence_language) != Some(scores[0].0)
         {
             if let Some(i) = scores.iter().position(|s| s.0 == Language::English) {
                 if scores[0].1 - scores[i].1 < self.english_word_protection {
@@ -456,6 +492,11 @@ impl DecisionEngine for HeuristicEngine {
             Language::Japanese => segmented
                 .map(|(segments, _)| JapaneseSegmenter::text(&segments))
                 .or_else(|| j.as_ref().map(|score| score.composition.text.clone()))
+                .unwrap_or_else(|| keys.to_string()),
+            Language::Chinese => zh
+                .as_ref()
+                .and_then(|z| z.converted.map(str::to_string))
+                .or_else(|| zh.as_ref().map(|z| z.reading.clone()))
                 .unwrap_or_else(|| keys.to_string()),
             _ => keys.to_string(),
         };

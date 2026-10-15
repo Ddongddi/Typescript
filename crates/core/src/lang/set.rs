@@ -24,9 +24,17 @@ impl Languages {
 
     /// What the editions before language packs had: English + Korean, plus Japanese.
     pub fn legacy(japanese: bool) -> Languages {
+        Self::legacy_with(japanese, false)
+    }
+
+    /// `legacy`, plus Chinese (the CLI's `--chinese`).
+    pub fn legacy_with(japanese: bool, chinese: bool) -> Languages {
         let mut list = vec![Language::English, Language::Korean];
         if japanese {
             list.push(Language::Japanese);
+        }
+        if chinese {
+            list.push(Language::Chinese);
         }
         Languages(list)
     }
