@@ -26,6 +26,7 @@ const KOREAN_VOCAB: &str = include_str!("../../crates/core/data/korean_vocabular
 const ENGLISH_FREQ: &str = include_str!("../../crates/core/data/english_frequency.txt");
 const WORDS: &str = include_str!("../cases/words.tsv");
 const SENTENCES: &str = include_str!("../cases/sentences.tsv");
+const CODE_SWITCH: &str = include_str!("../cases/codeswitch.tsv");
 
 /// Words per generated bucket, and how deep into the English frequency list they come from.
 const SAMPLE: usize = 2000;
@@ -192,18 +193,37 @@ fn word_cases() -> Vec<Case> {
     cases
 }
 
-fn sentence_cases() -> Vec<Case> {
-    data_lines(SENTENCES)
-        .map(|f| {
-            assert_eq!(f.len(), 2, "sentences.tsv: {f:?}");
-            Case {
-                bucket: "sentences".to_string(),
-                keys: f[0].to_string(),
-                previous: None,
-                expected: f[1].to_string(),
-            }
+/// The keys that type `text`: Hangul on a 2-set layout, everything else as written.
+fn keys_of_text(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            '가'..='힣' => keys_of(&c.to_string()),
+            'ㄱ'..='ㅣ' => key_of(c).to_string(),
+            other => other.to_string(),
         })
         .collect()
+}
+
+fn sentence_cases() -> Vec<Case> {
+    let hand = data_lines(SENTENCES).map(|f| {
+        assert_eq!(f.len(), 2, "sentences.tsv: {f:?}");
+        Case {
+            bucket: "sentences".to_string(),
+            keys: f[0].to_string(),
+            previous: None,
+            expected: f[1].to_string(),
+        }
+    });
+    let code_switch = data_lines(CODE_SWITCH).map(|f| {
+        assert_eq!(f.len(), 2, "codeswitch.tsv: {f:?}");
+        Case {
+            bucket: format!("cs.{}", f[1]),
+            keys: keys_of_text(f[0]),
+            previous: None,
+            expected: f[0].to_string(),
+        }
+    });
+    hand.chain(code_switch).collect()
 }
 
 fn micros(d: Duration) -> f64 {

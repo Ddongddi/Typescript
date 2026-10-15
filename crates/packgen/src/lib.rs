@@ -97,7 +97,7 @@ const EXTRA_LEVEL: i32 = 35;
 const SYMBOLS: usize = 27;
 
 const SHORT_WORDS: &str = "a i ad ah am an as at aw ax be by do eh go ha he hi hm if in is it lo ma me mo my no of oh ok on or ow ox pa \
-pc so to tv uh um up us we ya ye yo id ex vs ai ui ux os js ts";
+pc so to tv uh um up us we ya ye yo id ex vs ai ui ux os js ts rs rb gz";
 
 /// Everyday/technical words SCOWL is missing or ranks rare.
 const COMMON_WORDS: &str = "ok okay hi hey yeah yep nope lol omg btw thx thanks pls please email emails app apps api apis url urls \
@@ -109,6 +109,7 @@ claude chatgpt laptop smartphone selfie emoji internet podcast startup dev devs 
 wanna gonna gotta kinda sorta outta lemme gimme dunno yeah yup nah ain cuz tho thru hiya kiddo sayin \
 goin doin nothin somethin y'all ya yo hey oi aye \
 wouldn couldn shouldn didn doesn isn wasn weren hasn haven hadn needn mustn aren mightn \
+rs rb gz cmd env htm cjs \
 makeup brooklyn shakespeare einstein techno pesto americano cosmo promo garde kanji kana romaji ramen";
 
 fn is_ascii_letters(w: &str) -> bool {

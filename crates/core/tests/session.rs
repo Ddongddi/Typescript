@@ -641,3 +641,11 @@ fn tab_without_history_never_completes() {
     assert!(!r.key(Key::Tab));
     assert_eq!(r.text(), "zebraf");
 }
+
+/// A file name stays whole: `rs` after `main.` is the extension, not the jamo ㄱㄴ.
+#[test]
+fn file_names_with_an_extension_stay_english() {
+    let mut r = Rig::new("file-ext");
+    r.type_("main.rs tnwjdgoTdj ");
+    assert_eq!(r.text(), "main.rs 수정했어 ");
+}

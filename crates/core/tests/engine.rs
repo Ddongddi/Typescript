@@ -240,6 +240,16 @@ fn splits_single_letter_and_korean_word() {
     }
 }
 
+/// Capitals that are all shifted jamo keys (PR = ㅖㄲ) still make an acronym before a particle.
+#[test]
+fn splits_shifted_acronym_and_particle() {
+    let e = splitting();
+    for (keys, want) in [("PRdms", "PR은"), ("QRzhem", "QR코드")] {
+        let d = e.decide(keys, &ctx());
+        assert_eq!(d.output, want, "{keys}: {}", d.explanation);
+    }
+}
+
 /// Words that spell like English stay whole, also while typing (edi → editor).
 #[test]
 fn single_letter_split_leaves_english_spelling_alone() {

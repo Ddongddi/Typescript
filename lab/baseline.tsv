@@ -1,4 +1,13 @@
-#metric	acc.ALL	99.828
+#metric	acc.ALL	99.812
+#metric	acc.cs.chat	100.000
+#metric	acc.cs.conj	100.000
+#metric	acc.cs.hada	100.000
+#metric	acc.cs.loan	100.000
+#metric	acc.cs.mix	85.714
+#metric	acc.cs.number	100.000
+#metric	acc.cs.particle	95.000
+#metric	acc.cs.plain	100.000
+#metric	acc.cs.token	95.455
 #metric	acc.en.freq/after-en	99.800
 #metric	acc.en.freq/after-ko	99.450
 #metric	acc.en.freq/none	99.600
@@ -14,17 +23,17 @@
 #metric	acc.ko.words/after-ko	99.950
 #metric	acc.ko.words/none	99.950
 #metric	acc.sentences	100.000
-#metric	commit.avg_us	30.601
-#metric	commit.p50_us	27.400
-#metric	commit.p95_us	67.400
-#metric	commit.p99_us	109.400
+#metric	commit.avg_us	24.408
+#metric	commit.p50_us	21.400
+#metric	commit.p95_us	52.500
+#metric	commit.p99_us	77.900
 #metric	heap.loaded_kb	66.701
-#metric	heap.peak_kb	7978.333
-#metric	keystroke.avg_us	17.522
-#metric	keystroke.p50_us	11.600
-#metric	keystroke.p95_us	45.900
-#metric	keystroke.p99_us	71.100
-#metric	load.ms	4.357
+#metric	heap.peak_kb	7995.814
+#metric	keystroke.avg_us	13.961
+#metric	keystroke.p50_us	9.400
+#metric	keystroke.p95_us	36.000
+#metric	keystroke.p99_us	55.000
+#metric	load.ms	2.554
 ko.words/none	rodtlsdl	-	갱신이	rod신이
 ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
 ko.words/after-en	rodtlsdl	english	갱신이	rod신이
@@ -56,3 +65,6 @@ hand.abbrev	dr	korean	dr	ㅇㄱ
 hand.abbrev	ft	korean	ft	ㄹㅅ
 hand.abbrev	tc	korean	tc	ㅅㅊ
 hand.abbrev	ftl	korean	ftl	f시
+cs.token	rm -rf whtlago	-	rm -rf 조심해	그 -ㄱㄹ 조심해
+cs.particle	kubectldmf Tjdi eho	-	kubectl을 써야 돼	kubectldmf 써야 돼
+cs.mix	zhemreview gownj	-	코드review 해줘	zhemreview 해줘

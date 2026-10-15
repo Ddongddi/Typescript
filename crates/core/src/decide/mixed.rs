@@ -316,6 +316,7 @@ impl DecisionEngine for SplittingEngine {
         if self.korean_on {
             if let Some(mixed) = MixedWord::split(keys) {
                 let front_ok = Self::is_acronym(&mixed.english)
+                    || Self::is_shifted_acronym(&mixed.english)
                     || Self::is_capitalized_name(&mixed.english)
                     || (mixed.english.chars().count() >= 3 && self.looks_english(&mixed.english));
                 // A capital with no shifted jamo (the S of Slack) was typed as English on purpose,

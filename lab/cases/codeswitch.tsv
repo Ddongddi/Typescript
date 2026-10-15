@@ -1,0 +1,79 @@
+# expected text<TAB>tag. The keys are made from the text: Hangul typed on a 2-set layout, the rest as is.
+# Sentences with English words/names + Korean particles, endings, numbers, tokens with symbols.
+github에 push했어	particle
+오늘 meeting 있어	particle
+API를 호출했는데 error가 나	particle
+서버에 deploy해서 확인했어	hada
+이건 commit할 거야	hada
+이 함수를 refactor하자	hada
+build가 깨졌어	particle
+PR 올렸으니까 review 부탁해	particle
+Docker로 띄웠는데 안 돼	particle
+React랑 Vue 중에 뭐가 나아	particle
+Python으로 짜는 게 낫겠다	particle
+Slack에서 얘기하자	particle
+VSCode에서 열어봐	particle
+3개만 남겨줘	number
+10분 뒤에 보자	number
+2번 문제 풀었어	number
+5시에 만나자	number
+v0.8.5로 올렸어	token
+github.com에서 받았어	token
+file_name을 바꿨어	token
+http://localhost:3000 접속해봐	token
+3.14는 파이야	token
+src/main.rs 수정했어	token
+ls -la 쳐봐	token
+git commit -m 하고 push해	token
+npm install 하고 나서 실행해	token
+리센느 화이팅	loan
+카페라떼 마시고 싶다	loan
+넷플릭스 보면서 쉬자	loan
+유튜브 영상 봤어	loan
+먹었는데 맛이 없었어	conj
+갔어요 어제	conj
+했는데도 안 됐어	conj
+보고 있었습니다	conj
+그래서 어떻게 됐어요	conj
+ㅋㅋㅋ 진짜 웃기다	chat
+ㅇㅇ 알겠어	chat
+hello 안녕하세요	mix
+thanks 고마워요	mix
+I think 이건 좋은 것 같아	mix
+the 학교 is far	mix
+OK 알겠습니다	mix
+README.md 읽어봐	token
+config.json 열어봐	token
+foo.py 실행해	token
+main.rs 수정했어	token
+Next.js 쓰자	token
+Node.js 설치했어	token
+me@example.com 으로 보내줘	token
+--help 쳐봐	token
+rm -rf 조심해	token
+$HOME 확인해	token
+v1.2.3 배포했어	token
+10.5kg 나왔어	token
+a.b.c 형식이야	token
+Kubernetes를 배우는 중이야	particle
+Terraform으로 관리해	particle
+kubectl을 써야 돼	particle
+TypeScript가 더 좋아	particle
+iPhone에서 안 돼	particle
+macOS에서 돌려봤어	particle
+PostgreSQL에 저장했어	particle
+JSON으로 바꿔줘	particle
+3개 PR 올렸어	number
+2025년에 출시했어	number
+100% 완료됐어	number
+API 3개 만들었어	number
+코드review 해줘	mix
+이거 fix해줘	hada
+test를 돌려봐	particle
+debug하다가 죽었어	hada
+merge conflict가 났어	particle
+이 PR은 approve 했어	mix
+오늘은 날씨가 좋네	plain
+점심 뭐 먹을까	plain
+회의가 길어져서 늦었어	plain
+그 영화 진짜 재밌더라	plain
