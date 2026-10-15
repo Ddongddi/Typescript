@@ -172,7 +172,10 @@ fn english(data: &Path) -> io::Result<Files> {
     }
     let text: String = levels
         .iter()
-        .map(|(w, l)| format!("{w}\t{l}\t{}\n", frequency.get(w).copied().unwrap_or(0)))
+        .map(|(w, l)| match frequency.get(w).copied().unwrap_or(0) {
+            0 => format!("{w}\t{l}\n"),
+            n => format!("{w}\t{l}\t{n}\n"),
+        })
         .collect();
     let levels_file = text.into_bytes();
 

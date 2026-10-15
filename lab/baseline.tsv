@@ -14,17 +14,17 @@
 #metric	acc.ko.words/after-ko	99.950
 #metric	acc.ko.words/none	99.950
 #metric	acc.sentences	100.000
-#metric	commit.avg_us	27.408
-#metric	commit.p50_us	24.900
-#metric	commit.p95_us	58.000
-#metric	commit.p99_us	87.900
-#metric	heap.loaded_kb	100.717
-#metric	heap.peak_kb	8012.349
-#metric	keystroke.avg_us	15.629
-#metric	keystroke.p50_us	10.200
-#metric	keystroke.p95_us	39.900
-#metric	keystroke.p99_us	59.300
-#metric	load.ms	2.838
+#metric	commit.avg_us	30.601
+#metric	commit.p50_us	27.400
+#metric	commit.p95_us	67.400
+#metric	commit.p99_us	109.400
+#metric	heap.loaded_kb	66.701
+#metric	heap.peak_kb	7978.333
+#metric	keystroke.avg_us	17.522
+#metric	keystroke.p50_us	11.600
+#metric	keystroke.p95_us	45.900
+#metric	keystroke.p99_us	71.100
+#metric	load.ms	4.357
 ko.words/none	rodtlsdl	-	갱신이	rod신이
 ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
 ko.words/after-en	rodtlsdl	english	갱신이	rod신이

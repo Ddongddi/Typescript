@@ -1,6 +1,7 @@
 //! Syllable-unigram model for Korean (KoreanModel.swift): tells "안녕하세요" from the
 //! accidental Hangul English produces on a 2-set layout (e.g. "the" → "솓").
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::decide::engine::Language;
@@ -52,8 +53,11 @@ pub struct KoreanScore {
 }
 
 pub struct KoreanModel {
-    tiers: HashMap<char, f64>,
+    tiers: Cow<'static, HashMap<char, f64>>,
 }
+
+static SHARED_MAX: PackLazy<HashMap<char, f64>> =
+    PackLazy::new(Language::Korean, || KoreanModel::build(Source::Max));
 
 /// The initial consonants in syllable order, as the lone jamo a half-typed syllable shows.
 const INITIALS: &str = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
@@ -101,7 +105,17 @@ impl Default for KoreanModel {
 }
 
 impl KoreanModel {
+    /// The default (`Source::Max`) table is built once per process and shared by every engine.
     pub fn new(source: Source) -> Self {
+        let tiers = if source == Source::Max {
+            Cow::Borrowed(SHARED_MAX.get())
+        } else {
+            Cow::Owned(Self::build(source))
+        };
+        Self { tiers }
+    }
+
+    fn build(source: Source) -> HashMap<char, f64> {
         let mut map: HashMap<char, f64> = HashMap::new();
         if source != Source::Corpus {
             // later (more frequent) tiers overwrite earlier ones
@@ -133,7 +147,7 @@ impl KoreanModel {
                 map.insert(s, best);
             }
         }
-        Self { tiers: map }
+        map
     }
 
     /// A word that occurs in real Korean text (the composed Hangul, not the keys).
