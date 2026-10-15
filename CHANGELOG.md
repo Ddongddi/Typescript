@@ -9,6 +9,11 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-15
+
+### 추가
+- 대시보드 업데이트 탭에 **삭제**가 생겼습니다. 입력기와 프로그램을 지우고, 배운 단어·기록·설정·언어 팩까지 이 컴퓨터에서 깔끔히 지웁니다. 누른다고 바로 지워지지 않고, 한 번 더 물은 뒤 버튼을 **1.5초 꾹 눌러야** 합니다(누르는 동안 버튼이 채워지고, 중간에 떼거나 버튼 밖으로 나가면 처음부터입니다). 설치된 Windows 프로그램은 설치기의 `-Uninstall`로 지우므로 관리자 권한 확인창이 한 번 뜨고, 그게 **성공한 뒤에만** 설정과 배운 단어를 지웁니다(확인창에서 취소하면 아무것도 지워지지 않습니다). 설치된 프로그램이 아닌 곳(빌드 폴더, 시험용 폴더)에서 열면 프로그램은 그대로 두고 데이터만 지웁니다.
+
 ## [0.8.2] - 2026-10-15
 
 ### 변경
@@ -236,7 +241,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0

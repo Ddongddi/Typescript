@@ -9,6 +9,11 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-15
+
+### Added
+- The dashboard's update tab has **Delete**. It removes the input method and the program, and everything that was learned, the settings and the language packs, from this computer. One press never deletes: it asks once more and then the button has to be **held down for 1.5 seconds** (it fills while you hold it, and letting go or moving off it starts over). An installed Windows program is removed by the installer's `-Uninstall`, so an administrator prompt appears once, and the settings and learned words are removed **only after that worked** (declining the prompt deletes nothing). Opened from somewhere that is not an installed program (a build folder, a test folder) it leaves the program alone and removes only the data.
+
 ## [0.8.2] - 2026-10-15
 
 ### Changed
@@ -236,7 +241,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
