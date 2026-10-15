@@ -91,7 +91,11 @@ function renderUpdate() {
   const p = $("p-upd"), info = updates.info, working = busy && pending === "upd";
   p.replaceChildren(
     ...(updates.reopen ? [h("div", { class: "banner", role: "status" }, "설치가 끝나면 이 설정 창을 닫고 터미널에서 typescript-config 를 다시 여세요. 지금 보이는 화면은 이전 버전입니다.")] : []),
-    h("h2", {}, "현재 버전"), h("div", { class: "card pad" }, h("b", {}, "Typescript " + state.version)),
+    h("h2", {}, "현재 버전"),
+    h("div", { class: "card pad" },
+      h("div", {}, h("b", {}, "Typescript " + state.version)),
+      h("p", { class: "note ver-link", style: "margin:6px 0 0" }, "github | ",
+        h("a", { href: "https://github.com/iamallyouneed/Typescript", target: "_blank", rel: "noopener noreferrer" }, "iamallyouneed/Typescript"))),
     h("h2", {}, "새 버전"));
   const box = h("div", { class: "card pad", "aria-busy": working });
   if (!info) box.append(h("p", { class: "note" }, "GitHub 릴리스에서 새 버전과 언어 팩 갱신을 확인합니다."));
