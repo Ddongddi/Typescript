@@ -61,6 +61,8 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 ### 변경 기록
 
+**버전 기준.** 팩과 프로그램의 호환은 마이너 번호로 판단합니다. 팩 파일 형식이나 팩–프로그램 호환 범위처럼 이전 프로그램이 읽지 못하게 되는 변경만 마이너(`0.x.0`)를 올리고, 형식을 바꾸지 않는 기능·수정은 모두 패치(`0.8.x`)입니다. 1.0 이전에는 메이저를 쓰지 않습니다. 커밋은 `main`에 쌓아 두고, 릴리스는 필요할 때 한 번에 합니다.
+
 `CHANGELOG.md`는 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 형식입니다. 항목은 `추가`, `변경`,
 `수정`(필요하면 `제거`, `보안`) 아래에 사용자 관점으로 한 줄씩 씁니다. 릴리스 담당자는 이 순서로 합니다.
 
@@ -154,6 +156,8 @@ On Linux and macOS leave out the Windows-only text service: `--workspace --exclu
 - The three commands above and CI (Windows, Android, Linux, macOS) must pass before a merge.
 
 ### Changelog and releases
+
+**Versioning.** Packs and the program are compatible by minor version. Only a change that older programs cannot read (the pack file format, the pack–program compatibility range) bumps the minor (`0.x.0`); features and fixes that keep the formats are patches (`0.8.x`). No major before 1.0. Commits pile up on `main`; release when needed, not per fix.
 
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): one user-facing line per
 change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거`/`보안` when needed. To release:
