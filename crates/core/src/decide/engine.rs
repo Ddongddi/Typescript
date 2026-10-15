@@ -286,9 +286,14 @@ impl HeuristicEngine {
         let mut k = self.korean.score(keys, partial);
         let known = k.as_ref().is_some_and(|s| {
             s.composition.stray_jamo().is_empty()
-                && self
+                && (self
                     .korean
                     .is_known_word_or_inflected(&s.composition.text())
+                    // Wider vocabulary counts too, unless the keys are everyday English
+                    // (a rare word like ahem may well be 모드).
+                    || (s.composition.syllables().len() >= 2
+                        && self.english.level(keys).is_none_or(|l| l > EXTRA_LEVEL)
+                        && self.korean.is_vocabulary_word(&s.composition.text())))
         });
         if let (Some(score), true) = (k.as_mut(), known) {
             let floor = if score.composition.syllables().len() >= 2 {

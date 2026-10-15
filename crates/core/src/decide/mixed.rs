@@ -159,6 +159,14 @@ impl SplittingEngine {
                 .any(|c| !DubeolsikLayout::is_korean_shift_key(c))
     }
 
+    /// QR, RR: capitals that are all shifted jamo keys (ㅃㄲ), so no letter proves English,
+    /// but they make no Hangul syllable either (a lone jamo run isn't something people type).
+    fn is_shifted_acronym(front: &str) -> bool {
+        (2..=4).contains(&front.chars().count())
+            && front.chars().all(|c| c.is_ascii_uppercase())
+            && HangulComposer::compose(front).is_some_and(|c| c.syllables().is_empty())
+    }
+
     /// Slack, TextEdit, VSCode, GitHub: a name typed with its capitals, so English even when
     /// it isn't in the word list.
     fn is_capitalized_name(front: &str) -> bool {
@@ -203,6 +211,16 @@ impl SplittingEngine {
                 .all(|s| self.korean.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP),
             _ => false,
         }
+    }
+
+    /// `slackdptj` reads as Hangul (님차에서) but that is no Korean word, while `slack` is a
+    /// word people say: the English front wins. Needs 5+ letters, shorter fronts (gus, ruxd)
+    /// collide with real Korean too often.
+    fn known_english_over_odd_korean(&self, front: &str, keys: &str) -> bool {
+        front.chars().count() >= 5
+            && self.english.is_known_word(front)
+            && HangulComposer::compose(keys)
+                .is_some_and(|c| !self.is_korean_word_or_word_with_particle(&c.text()))
     }
 
     fn is_korean_word_or_word_with_particle(&self, hangul: &str) -> bool {
@@ -257,6 +275,7 @@ impl SplittingEngine {
             // Capitals count only when one has no Korean meaning (ThkT is 쐈, not a name).
             let front_ok = (Self::has_english_only_capital(&front)
                 && (Self::is_acronym(&front) || Self::is_capitalized_name(&front)))
+                || Self::is_shifted_acronym(&front)
                 || (start >= 3 && self.english.is_known_word(&front));
             if !front_ok || !DubeolsikLayout::starts_syllable(back.chars().next()?) {
                 continue;
@@ -304,7 +323,8 @@ impl DecisionEngine for SplittingEngine {
                 if front_ok
                     && !self.english.is_known_word(keys)
                     && (Self::has_english_only_capital(&mixed.english)
-                        || !self.reads_as_korean(keys))
+                        || !self.reads_as_korean(keys)
+                        || self.known_english_over_odd_korean(&mixed.english, keys))
                 {
                     return Self::split_decision(&mixed);
                 }

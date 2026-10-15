@@ -1,4 +1,4 @@
-#metric	acc.ALL	99.662
+#metric	acc.ALL	99.828
 #metric	acc.en.freq/after-en	99.800
 #metric	acc.en.freq/after-ko	99.450
 #metric	acc.en.freq/none	99.600
@@ -6,56 +6,28 @@
 #metric	acc.hand.chat	100.000
 #metric	acc.hand.letter-noun	95.455
 #metric	acc.hand.letter-particle	100.000
-#metric	acc.hand.mixed	71.429
-#metric	acc.ko.vocab/after-en	98.800
+#metric	acc.hand.mixed	100.000
+#metric	acc.ko.vocab/after-en	100.000
 #metric	acc.ko.vocab/after-ko	100.000
-#metric	acc.ko.vocab/none	99.800
+#metric	acc.ko.vocab/none	100.000
 #metric	acc.ko.words/after-en	99.950
 #metric	acc.ko.words/after-ko	99.950
 #metric	acc.ko.words/none	99.950
 #metric	acc.sentences	100.000
-#metric	commit.avg_us	30.725
-#metric	commit.p50_us	26.100
-#metric	commit.p95_us	70.300
-#metric	commit.p99_us	107.800
+#metric	commit.avg_us	27.408
+#metric	commit.p50_us	24.900
+#metric	commit.p95_us	58.000
+#metric	commit.p99_us	87.900
 #metric	heap.loaded_kb	100.717
-#metric	heap.peak_kb	8012.227
-#metric	keystroke.avg_us	16.543
-#metric	keystroke.p50_us	11.000
-#metric	keystroke.p95_us	44.100
-#metric	keystroke.p99_us	70.900
-#metric	load.ms	3.091
+#metric	heap.peak_kb	8012.349
+#metric	keystroke.avg_us	15.629
+#metric	keystroke.p50_us	10.200
+#metric	keystroke.p95_us	39.900
+#metric	keystroke.p99_us	59.300
+#metric	load.ms	2.838
 ko.words/none	rodtlsdl	-	갱신이	rod신이
 ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
 ko.words/after-en	rodtlsdl	english	갱신이	rod신이
-ko.vocab/none	altus	-	미션	altus
-ko.vocab/none	Rowl	-	깨지	Rowl
-ko.vocab/none	clao	-	치매	clao
-ko.vocab/none	Epaus	-	떼면	Epaus
-ko.vocab/after-en	thfud	english	소령	thfud
-ko.vocab/after-en	coreh	english	책도	coreh
-ko.vocab/after-en	wordl	english	잭이	wordl
-ko.vocab/after-en	shkenaus	english	놔두면	shkenaus
-ko.vocab/after-en	elffks	english	딜란	elffks
-ko.vocab/after-en	altus	english	미션	altus
-ko.vocab/after-en	ckfut	english	차렷	ckfut
-ko.vocab/after-en	Rowl	english	깨지	Rowl
-ko.vocab/after-en	zuwu	english	켜져	zuwu
-ko.vocab/after-en	clao	english	치매	clao
-ko.vocab/after-en	Thrp	english	쏘게	Thrp
-ko.vocab/after-en	alcuTsi	english	미쳤냐	alcuTsi
-ko.vocab/after-en	Tlem	english	씨드	Tlem
-ko.vocab/after-en	gnacuTwl	english	훔쳤지	gnacuTwl
-ko.vocab/after-en	akty	english	마쇼	akty
-ko.vocab/after-en	zhqm	english	코브	zhqm
-ko.vocab/after-en	rosua	english	개념	rosua
-ko.vocab/after-en	dhamffpt	english	오믈렛	dhamffpt
-ko.vocab/after-en	djEO	english	어떄	djEO
-ko.vocab/after-en	alcuTwy	english	미쳤죠	alcuTwy
-ko.vocab/after-en	sowk	english	내자	sowk
-ko.vocab/after-en	Epaus	english	떼면	Epaus
-ko.vocab/after-en	xoal	english	태미	xoal
-ko.vocab/after-en	dirl	english	야기	dirl
 en.freq/none	tha	-	tha	솜
 en.freq/none	zhao	-	zhao	코매
 en.freq/none	sdh	-	sdh	s오
@@ -80,8 +52,6 @@ en.freq/after-en	sdh	english	sdh	s오
 en.freq/after-en	dmv	english	dmv	읖
 en.freq/after-en	bb	english	bb	ㅠㅠ
 hand.letter-noun	Agud	korean	A형	Agud
-hand.mixed	slackdptj	-	slack에서	님차에서
-hand.mixed	QRzhem	korean	QR코드	QRzhem
 hand.abbrev	dr	korean	dr	ㅇㄱ
 hand.abbrev	ft	korean	ft	ㄹㅅ
 hand.abbrev	tc	korean	tc	ㅅㅊ
