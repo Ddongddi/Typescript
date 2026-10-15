@@ -1,15 +1,23 @@
 // Draws everything from `state`, switches tabs, listens for shortcuts, and starts the page.
 
 const TABS = ["lang", "set", "keys", "apps", "upd"];
-const tabOf = (name) => $("t-" + name), panelOf = (name) => $("p-" + name);
+const tabOf = (name) => $("t-" + name),
+  panelOf = (name) => $("p-" + name);
 
 // Draws every panel again. `focusKey` (or the focused control's data-f) gets the focus back.
 function render(focusKey) {
   if (!state) return;
   openDd = null;
   $("ver").textContent = "v" + state.version;
-  const active = focusKey || (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f);
-  renderLang(); renderSettings(); renderKeys(); renderApps(); renderUpdate(); renderChat();
+  const active =
+    focusKey ||
+    (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f);
+  renderLang();
+  renderSettings();
+  renderKeys();
+  renderApps();
+  renderUpdate();
+  renderChat();
   if (active) {
     const el = document.querySelector('[data-f="' + CSS.escape(active) + '"]');
     if (el && !el.disabled) el.focus({ preventScroll: true });
@@ -28,11 +36,15 @@ function renderKeysPanel(focusKey) {
 }
 
 function selectTab(index, focus) {
-  stopCapture(); stopHangulCapture();
+  stopCapture();
+  stopHangulCapture();
   // The designation panel listens only while the 키 tab is in front. Leaving closes it (the draft
   // is dropped) and draws the tab again, so what is shown is what is held.
   if (assignOpen && TABS[index] === "keys") startCapture();
-  else if (assignOpen) { stopAssign(); renderKeysPanel(); }
+  else if (assignOpen) {
+    stopAssign();
+    renderKeysPanel();
+  }
   TABS.forEach((name, k) => {
     tabOf(name).setAttribute("aria-selected", k === index);
     tabOf(name).tabIndex = k === index ? 0 : -1;
@@ -46,8 +58,16 @@ function selectTab(index, focus) {
 TABS.forEach((name, i) => {
   tabOf(name).addEventListener("click", () => selectTab(i, true));
   tabOf(name).addEventListener("keydown", (e) => {
-    const to = { ArrowRight: (i + 1) % TABS.length, ArrowLeft: (i + TABS.length - 1) % TABS.length, Home: 0, End: TABS.length - 1 }[e.key];
-    if (to !== undefined) { e.preventDefault(); selectTab(to, true); }
+    const to = {
+      ArrowRight: (i + 1) % TABS.length,
+      ArrowLeft: (i + TABS.length - 1) % TABS.length,
+      Home: 0,
+      End: TABS.length - 1,
+    }[e.key];
+    if (to !== undefined) {
+      e.preventDefault();
+      selectTab(to, true);
+    }
   });
 });
 
@@ -56,18 +76,24 @@ TABS.forEach((name, i) => {
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || editable(e.target) || openDd) return;
   const tab = Number(e.key) - 1;
-  if (tab >= 0 && tab < TABS.length) { e.preventDefault(); selectTab(tab, false); }
-  else if (e.key === "/") {
+  if (tab >= 0 && tab < TABS.length) {
+    e.preventDefault();
+    selectTab(tab, false);
+  } else if (e.key === "/") {
     e.preventDefault();
     selectTab(TABS.indexOf("apps"), false);
     const box = document.querySelector('[data-f="app-filter"]');
     if (box) box.focus();
-  } else typeIntoChat(e);   // anything else typed on a blank part of the page is for the chat
+  } else typeIntoChat(e); // anything else typed on a blank part of the page is for the chat
 });
 
 // How to switch input methods, per system, and the steps that make Typescript appear in the list
 // at all (the part people get stuck on right after installing).
-const SWITCH_KEY = { windows: "Win+Space", macos: "Control+Space (또는 메뉴 막대의 입력 소스)", linux: "Super+Space (또는 상단 메뉴의 입력 소스)" };
+const SWITCH_KEY = {
+  windows: "Win+Space",
+  macos: "Control+Space (또는 메뉴 막대의 입력 소스)",
+  linux: "Super+Space (또는 상단 메뉴의 입력 소스)",
+};
 const SETUP_STEPS = {
   windows: [],
   macos: [
@@ -84,7 +110,11 @@ const SETUP_STEPS = {
 };
 
 let setupDismissed = false;
-try { setupDismissed = localStorage.getItem("ts-setup-done") === "1"; } catch (e) { /* private window: shown every time */ }
+try {
+  setupDismissed = localStorage.getItem("ts-setup-done") === "1";
+} catch (e) {
+  /* private window: shown every time */
+}
 
 // The "after installing" checklist, where the system cannot say which input method is selected
 // (macOS and Linux answer only when their tools do): shown until it is dismissed.
@@ -95,16 +125,30 @@ function showSetup(steps) {
   box.replaceChildren(
     h("b", {}, "설치 후 한 번만 해 주세요"),
     h("ol", {}, ...steps.map((s) => h("li", {}, s))),
-    h("button", { class: "btn quiet", type: "button", onclick: () => {
-      setupDismissed = true;
-      try { localStorage.setItem("ts-setup-done", "1"); } catch (e) { /* stays for this page */ }
-      box.hidden = true;
-    } }, "마쳤어요"));
+    h(
+      "button",
+      {
+        class: "btn quiet",
+        type: "button",
+        onclick: () => {
+          setupDismissed = true;
+          try {
+            localStorage.setItem("ts-setup-done", "1");
+          } catch (e) {
+            /* stays for this page */
+          }
+          box.hidden = true;
+        },
+      },
+      "마쳤어요",
+    ),
+  );
 }
 
 // Tells when the input method selected is not Typescript (the heartbeat answers it).
 function showIme(ime) {
-  const banner = $("ime"), os = state ? state.os : "";
+  const banner = $("ime"),
+    os = state ? state.os : "";
   if (!ime) {
     banner.hidden = true;
     showSetup(SETUP_STEPS[os] || []);
@@ -142,7 +186,9 @@ async function beat() {
 }
 beat();
 window.addEventListener("focus", heartbeat); // back from switching the input method
-document.addEventListener("visibilitychange", () => { if (!document.hidden) heartbeat(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) heartbeat();
+});
 
 (async () => {
   const start = TABS.indexOf(location.hash.slice(1));
@@ -153,6 +199,12 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) hear
     loadLearning();
     if (!panelOf("apps").hidden) loadRunning();
   } catch (e) {
-    $("p-lang").replaceChildren(h("div", { class: "banner bad", role: "alert" }, e.message + " 터미널에서 typescript-config 를 다시 실행해 주세요."));
+    $("p-lang").replaceChildren(
+      h(
+        "div",
+        { class: "banner bad", role: "alert" },
+        e.message + " 터미널에서 typescript-config 를 다시 실행해 주세요.",
+      ),
+    );
   }
 })();

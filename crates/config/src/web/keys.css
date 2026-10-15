@@ -1,48 +1,236 @@
 /* 키 tab: the Han/Eng key, what it does, and the shortcut it sends. Hairlines, no boxes. */
-.hangul { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 0 0 26px; }
-.hangul .ask { flex: 1; min-width: 160px; }
-.hangul .ask b { display: block; font: 500 17px var(--sans); }
-.hangul .ask span { color: var(--mute); font-size: 13px; }
+.hangul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 0 0 26px;
+}
+.hangul .ask {
+  flex: 1;
+  min-width: 160px;
+}
+.hangul .ask b {
+  display: block;
+  font: 500 17px var(--sans);
+}
+.hangul .ask span {
+  color: var(--mute);
+  font-size: 13px;
+}
 
 /* the three actions: rows, the chosen one marked by the accent */
-.acts { display: grid; border-top: 1px solid var(--line); }
-.act { appearance: none; position: relative; display: flex; align-items: baseline; gap: 16px; padding: 16px 4px 16px 24px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--soft); text-align: left; cursor: pointer; transition: background .15s, color .15s; }
-.act::before { content: ""; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; border: 1px solid var(--hair-strong); transition: background .15s, border-color .15s; }
-.act b { font: 500 15px var(--sans); color: inherit; }
-.act span { font-size: 13px; color: var(--mute); }
-.act:hover:not(:disabled) { color: var(--fg); background: #ffffff05; }
-.act[aria-checked=true] { color: var(--fg); }
-.act[aria-checked=true]::before { border-color: var(--acc); background: var(--acc); }
-.act:disabled { opacity: .5; cursor: not-allowed; }
+.acts {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+.act {
+  appearance: none;
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 16px 4px 16px 24px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--soft);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.act::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  border: 1px solid var(--hair-strong);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.act b {
+  font: 500 15px var(--sans);
+  color: inherit;
+}
+.act span {
+  font-size: 13px;
+  color: var(--mute);
+}
+.act:hover:not(:disabled) {
+  color: var(--fg);
+  background: #ffffff05;
+}
+.act[aria-checked="true"] {
+  color: var(--fg);
+}
+.act[aria-checked="true"]::before {
+  border-color: var(--acc);
+  background: var(--acc);
+}
+.act:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* the shortcut it sends */
-.send { display: grid; gap: 14px; padding: 22px 0 6px 24px; }
-.send .now { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; min-height: 48px; }
-.send em { color: var(--mute); font: normal 14px var(--sans); }
-.lbl { color: var(--mute); font-size: 12px; }
-.mods, .presets { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+.send {
+  display: grid;
+  gap: 14px;
+  padding: 22px 0 6px 24px;
+}
+.send .now {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-height: 48px;
+}
+.send em {
+  color: var(--mute);
+  font: normal 14px var(--sans);
+}
+.lbl {
+  color: var(--mute);
+  font-size: 12px;
+}
+.mods,
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
 
 /* the two-slot designation panel: [modifiers] + [one key], saved only on 지정 */
-.assign { display: grid; gap: 12px; margin-top: 14px; padding: 16px 0 6px 24px; border-top: 1px dashed var(--hair-strong); animation: rise .2s ease both; }
-.slots { display: flex; align-items: end; gap: 4px 14px; flex-wrap: wrap; }
-.slot { display: grid; gap: 8px; align-content: start; }
-.slots .plus { padding-bottom: 12px; color: var(--mute); font: 500 16px var(--mono); }
-.slotkey { display: flex; align-items: center; min-height: 40px; }
-.assign .hint { margin: 0; max-width: 64ch; color: var(--mute); font-size: 12px; }
-.assign .decided { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; min-height: 40px; }
-.assign .actions { display: flex; gap: 8px; }
+.assign {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px 0 6px 24px;
+  border-top: 1px dashed var(--hair-strong);
+  animation: rise 0.2s ease both;
+}
+.slots {
+  display: flex;
+  align-items: end;
+  gap: 4px 14px;
+  flex-wrap: wrap;
+}
+.slot {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.slots .plus {
+  padding-bottom: 12px;
+  color: var(--mute);
+  font: 500 16px var(--mono);
+}
+.slotkey {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+.assign .hint {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--mute);
+  font-size: 12px;
+}
+.assign .decided {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-height: 40px;
+}
+.assign .actions {
+  display: flex;
+  gap: 8px;
+}
 
-.keycap { display: inline-block; min-width: 40px; padding: 5px 11px; border: 1px solid var(--hair-strong); border-bottom-width: 2px; border-radius: 5px; color: var(--fg); font: 500 13px var(--mono); text-align: center; }
-.now .keycap { min-width: 48px; padding: 8px 14px; font-size: 16px; }
-.keycap.big { min-width: 84px; padding: 14px 24px; border-bottom-width: 3px; border-radius: 8px; font-size: 21px; }
-.chip .plus { color: var(--mute); font-size: 13px; }
+.keycap {
+  display: inline-block;
+  min-width: 40px;
+  padding: 5px 11px;
+  border: 1px solid var(--hair-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--fg);
+  font: 500 13px var(--mono);
+  text-align: center;
+}
+.now .keycap {
+  min-width: 48px;
+  padding: 8px 14px;
+  font-size: 16px;
+}
+.keycap.big {
+  min-width: 84px;
+  padding: 14px 24px;
+  border-bottom-width: 3px;
+  border-radius: 8px;
+  font-size: 21px;
+}
+.chip .plus {
+  color: var(--mute);
+  font-size: 13px;
+}
 
-.mod, .preset { appearance: none; padding: 4px 10px; min-height: 32px; border: 0; border-radius: 4px; background: none; color: var(--mute); font: 500 12px var(--mono); cursor: pointer; transition: color .15s, background .15s; }
-.mod:hover:not(:disabled), .preset:hover:not(:disabled) { color: var(--fg); background: #ffffff0d; }
-.mod[aria-pressed=true], .preset[aria-pressed=true] { color: var(--acc); background: #f4a26114; }
-.mod:disabled, .preset:disabled { opacity: .5; cursor: not-allowed; }
+.mod,
+.preset {
+  appearance: none;
+  padding: 4px 10px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--mute);
+  font: 500 12px var(--mono);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.mod:hover:not(:disabled),
+.preset:hover:not(:disabled) {
+  color: var(--fg);
+  background: #ffffff0d;
+}
+.mod[aria-pressed="true"],
+.preset[aria-pressed="true"] {
+  color: var(--acc);
+  background: #f4a26114;
+}
+.mod:disabled,
+.preset:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-.keys-foot { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); max-width: 64ch; color: var(--mute); font-size: 13px; line-height: 1.7; }
-.keys-foot p { margin: 0 0 6px; }
-.keys-foot a { color: inherit; font-weight: 600; text-underline-offset: 3px; }
-.keys-foot a:hover { color: var(--fg); }
+.keys-foot {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  max-width: 64ch;
+  color: var(--mute);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.keys-foot p {
+  margin: 0 0 6px;
+}
+.keys-foot a {
+  color: inherit;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+.keys-foot a:hover {
+  color: var(--fg);
+}

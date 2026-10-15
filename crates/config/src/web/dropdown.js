@@ -3,7 +3,7 @@
 // `.value` of the result is the chosen option's value; `onchange(value)` runs only when another
 // option is chosen. Keys: Up Down Home End, Enter/Space to choose, Esc to close.
 
-let openDd = null;   // the one dropdown that is open
+let openDd = null; // the one dropdown that is open
 let ddCount = 0;
 
 function closeDd(refocus) {
@@ -14,23 +14,53 @@ function closeDd(refocus) {
   if (refocus) openDd.btn.focus();
   openDd = null;
 }
-document.addEventListener("pointerdown", (e) => { if (openDd && !openDd.root.contains(e.target)) closeDd(false); });
+document.addEventListener("pointerdown", (e) => {
+  if (openDd && !openDd.root.contains(e.target)) closeDd(false);
+});
 
 function dd({ value, options, label, onchange, key, disabled, title }) {
   const id = "dd" + ++ddCount;
-  let cur = Math.max(0, options.findIndex((o) => String(o[0]) === String(value)));
+  let cur = Math.max(
+    0,
+    options.findIndex((o) => String(o[0]) === String(value)),
+  );
   let active = cur;
 
   const shown = h("span", {}, options[cur][1]);
-  const btn = h("button", {
-    type: "button", class: "dd-btn", "aria-haspopup": "listbox", "aria-expanded": "false",
-    "aria-label": label + ": " + options[cur][1], "data-f": key, disabled, title,
-  }, shown, h("i", { class: "dd-caret", "aria-hidden": "true" }));
-  const items = options.map((o, i) => h("li", {
-    role: "option", id: id + "-" + i, class: "dd-opt", "aria-selected": i === cur,
-    onpointermove: () => mark(i), onclick: () => choose(i),
-  }, o[1]));
-  const menu = h("ul", { class: "dd-menu", role: "listbox", "aria-label": label, hidden: true }, items);
+  const btn = h(
+    "button",
+    {
+      type: "button",
+      class: "dd-btn",
+      "aria-haspopup": "listbox",
+      "aria-expanded": "false",
+      "aria-label": label + ": " + options[cur][1],
+      "data-f": key,
+      disabled,
+      title,
+    },
+    shown,
+    h("i", { class: "dd-caret", "aria-hidden": "true" }),
+  );
+  const items = options.map((o, i) =>
+    h(
+      "li",
+      {
+        role: "option",
+        id: id + "-" + i,
+        class: "dd-opt",
+        "aria-selected": i === cur,
+        onpointermove: () => mark(i),
+        onclick: () => choose(i),
+      },
+      o[1],
+    ),
+  );
+  const menu = h(
+    "ul",
+    { class: "dd-menu", role: "listbox", "aria-label": label, hidden: true },
+    items,
+  );
   const root = h("div", { class: "dd" }, btn, menu);
   Object.defineProperty(root, "value", { get: () => options[cur][0] });
   const self = { root, btn, menu };
@@ -47,8 +77,10 @@ function dd({ value, options, label, onchange, key, disabled, title }) {
     menu.hidden = false;
     menu.classList.remove("up", "right");
     const r = btn.getBoundingClientRect();
-    if (r.left + menu.offsetWidth > document.querySelector("main").getBoundingClientRect().right) menu.classList.add("right");
-    if (r.bottom + menu.offsetHeight + 12 > innerHeight && r.top > menu.offsetHeight + 12) menu.classList.add("up");
+    if (r.left + menu.offsetWidth > document.querySelector("main").getBoundingClientRect().right)
+      menu.classList.add("right");
+    if (r.bottom + menu.offsetHeight + 12 > innerHeight && r.top > menu.offsetHeight + 12)
+      menu.classList.add("up");
     btn.setAttribute("aria-expanded", "true");
     openDd = self;
     mark(cur);
@@ -71,12 +103,22 @@ function dd({ value, options, label, onchange, key, disabled, title }) {
     const isOpen = openDd === self;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      if (!isOpen) open(); else mark(active + (e.key === "ArrowDown" ? 1 : -1));
-    } else if (e.key === "Home" && isOpen) { e.preventDefault(); mark(0); }
-    else if (e.key === "End" && isOpen) { e.preventDefault(); mark(options.length - 1); }
-    else if ((e.key === "Enter" || e.key === " ") && isOpen) { e.preventDefault(); choose(active); }
-    else if (e.key === "Escape" && isOpen) { e.preventDefault(); e.stopPropagation(); closeDd(true); }
-    else if (e.key === "Tab" && isOpen) closeDd(false);
+      if (!isOpen) open();
+      else mark(active + (e.key === "ArrowDown" ? 1 : -1));
+    } else if (e.key === "Home" && isOpen) {
+      e.preventDefault();
+      mark(0);
+    } else if (e.key === "End" && isOpen) {
+      e.preventDefault();
+      mark(options.length - 1);
+    } else if ((e.key === "Enter" || e.key === " ") && isOpen) {
+      e.preventDefault();
+      choose(active);
+    } else if (e.key === "Escape" && isOpen) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeDd(true);
+    } else if (e.key === "Tab" && isOpen) closeDd(false);
   });
   return root;
 }

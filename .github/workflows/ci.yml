@@ -16,6 +16,7 @@ jobs:
           targets: i686-pc-windows-msvc
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
+      - run: npx --yes prettier@3.3.3 --check "crates/config/src/web/**/*.{js,css}" ".github/**/*.yml"
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       # The 32-bit text service loads into 32-bit apps, so it has to keep building.

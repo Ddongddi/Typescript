@@ -1,0 +1,7 @@
+target/
+dist/
+lab/data/
+crates/core/tests/golden/
+*.lock
+THIRD_PARTY_NOTICES.txt
+.superpowers/

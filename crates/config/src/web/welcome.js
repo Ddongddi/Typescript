@@ -5,9 +5,9 @@
 //   3. "your Han/Eng key becomes a shortcut" (a slot machine of shortcuts);
 //   4. choose the languages, switch to Typescript, practice (type freely; only the result is checked).
 
-const PASS_PAUSE = 600;       // ms the check mark stays before the next screen
-const ASK_PAUSE = 1800;       // ms "자, 어떠신가요?" stays: time to look at what the box made
-const TITLE_IN = 450;         // ms a new title takes to come in, before what depends on it wakes
+const PASS_PAUSE = 600; // ms the check mark stays before the next screen
+const ASK_PAUSE = 1800; // ms "자, 어떠신가요?" stays: time to look at what the box made
+const TITLE_IN = 450; // ms a new title takes to come in, before what depends on it wakes
 const INTRO_TEXT = "안녕 typescript";
 const TRIAL_KEYS = "dkssud typescript";
 // What the box shows after each of the first six keys of the trial: the Korean the program makes
@@ -15,23 +15,50 @@ const TRIAL_KEYS = "dkssud typescript";
 const TRIAL_HANGUL = ["ㅇ", "아", "안", "안ㄴ", "안녀", "안녕"];
 
 // What each practice screen asks for: the keys, and the text they should make.
-const hl = (text) => h("span", { class: "hl" }, text);   // the text to type, in the accent colour
+const hl = (text) => h("span", { class: "hl" }, text); // the text to type, in the accent colour
 const PRACTICE = {
   ko: { title: () => [hl("dkssud"), " 를 쳐 보세요"], keys: "dkssud", expect: "안녕" },
-  mixed: { title: () => [hl("hello dkssud"), " 를 쳐 보세요"], keys: "hello dkssud", expect: "hello 안녕" },
+  mixed: {
+    title: () => [hl("hello dkssud"), " 를 쳐 보세요"],
+    keys: "hello dkssud",
+    expect: "hello 안녕",
+  },
   ja: { title: () => [hl("nihongo"), " 를 쳐 보세요"], keys: "nihongo", expect: "にほんご" },
 };
-const SWITCH_KEYS = { windows: ["Win", "Space"], macos: ["Control", "Space"], linux: ["Super", "Space"] };
+const SWITCH_KEYS = {
+  windows: ["Win", "Space"],
+  macos: ["Control", "Space"],
+  linux: ["Super", "Space"],
+};
 // Shortcuts the Han/Eng key can send, spun through the slot machine.
 const COMBOS = {
-  windows: [["Ctrl", "Z"], ["Ctrl", "C"], ["Ctrl", "V"], ["Win", "D"], ["Win", "L"], ["Alt", "Tab"]],
-  macos: [["⌘", "Z"], ["⌘", "C"], ["⌘", "V"], ["⌘", "Tab"], ["⌥", "Tab"]],
-  linux: [["Ctrl", "Z"], ["Ctrl", "C"], ["Ctrl", "V"], ["Super", "D"], ["Alt", "Tab"]],
+  windows: [
+    ["Ctrl", "Z"],
+    ["Ctrl", "C"],
+    ["Ctrl", "V"],
+    ["Win", "D"],
+    ["Win", "L"],
+    ["Alt", "Tab"],
+  ],
+  macos: [
+    ["⌘", "Z"],
+    ["⌘", "C"],
+    ["⌘", "V"],
+    ["⌘", "Tab"],
+    ["⌥", "Tab"],
+  ],
+  linux: [
+    ["Ctrl", "Z"],
+    ["Ctrl", "C"],
+    ["Ctrl", "V"],
+    ["Super", "D"],
+    ["Alt", "Tab"],
+  ],
 };
-const SLOT_EVERY = 1600;   // ms between flips of the slot machine: steady and slow
-const LIST_ORDER = ["en", "ko", "ja"];                     // the order they are offered in, and the Esc order they get
+const SLOT_EVERY = 1600; // ms between flips of the slot machine: steady and slow
+const LIST_ORDER = ["en", "ko", "ja"]; // the order they are offered in, and the Esc order they get
 const DEFAULT_ON = ["en", "ko"];
-const INTRO_SEGMENTS = 5;   // hello/type, "needed?", trial, shortcut, languages
+const INTRO_SEGMENTS = 5; // hello/type, "needed?", trial, shortcut, languages
 
 // The key that types `ch` on a QWERTY keyboard: its `code` and whether Shift is held.
 function keyOf(ch) {
@@ -61,17 +88,25 @@ function trialText(at) {
 
 if (typeof module !== "undefined") module.exports = { keyOf, isNext, trialText };
 
-const view = typeof document === "undefined" ? null : {
-  title: $("title"), stage: $("stage"), later: $("later"), bar: $("bar"),
-};
-let imeKnown = false;   // whether the system answers which input method is selected
+const view =
+  typeof document === "undefined"
+    ? null
+    : {
+        title: $("title"),
+        stage: $("stage"),
+        later: $("later"),
+        bar: $("bar"),
+      };
+let imeKnown = false; // whether the system answers which input method is selected
 let imeIsOurs = false;
 let beatEvery = 5000;
-let epoch = 0;          // counts screens: a timer of an earlier screen does nothing
+let epoch = 0; // counts screens: a timer of an earlier screen does nothing
 let skipAction = () => leave();
-const progress = { total: INTRO_SEGMENTS + 4, cursor: 0 };   // 4: switch, then three Korean screens (English + Korean)
+const progress = { total: INTRO_SEGMENTS + 4, cursor: 0 }; // 4: switch, then three Korean screens (English + Korean)
 
-function leave() { location.href = "/"; }
+function leave() {
+  location.href = "/";
+}
 
 // The page must keep pinging, or the program ends after 3 minutes of silence.
 async function beat() {
@@ -79,7 +114,9 @@ async function beat() {
     const answer = await api("/api/heartbeat", {});
     imeKnown = !!(answer && answer.ime);
     imeIsOurs = imeKnown && answer.ime.typescript;
-  } catch (e) { /* the next ping tries again */ }
+  } catch (e) {
+    /* the next ping tries again */
+  }
   setTimeout(beat, beatEvery);
 }
 
@@ -100,9 +137,10 @@ function flash(el, cls) {
 
 function drawBar() {
   const bar = view.bar;
-  if (bar.childElementCount !== progress.total) bar.replaceChildren(...Array.from({ length: progress.total }, () => h("i", {})));
+  if (bar.childElementCount !== progress.total)
+    bar.replaceChildren(...Array.from({ length: progress.total }, () => h("i", {})));
   [...bar.children].forEach((seg, i) => {
-    seg.className = i <= progress.cursor ? "on" : "";   // a segment is lit or not, never half
+    seg.className = i <= progress.cursor ? "on" : ""; // a segment is lit or not, never half
   });
   bar.setAttribute("aria-valuemax", String(progress.total));
   bar.setAttribute("aria-valuenow", String(progress.cursor));
@@ -136,7 +174,10 @@ function retitle(title, then) {
     view.title.classList.remove("fly");
     setTitle(title);
     replay(view.title, "swap");
-    if (then) setTimeout(() => { if (mine === epoch) then(); }, TITLE_IN);
+    if (then)
+      setTimeout(() => {
+        if (mine === epoch) then();
+      }, TITLE_IN);
   }, 320);
 }
 
@@ -145,7 +186,7 @@ function pass(box, next, message, pause = PASS_PAUSE) {
   if (box) replay(box, "done");
   view.title.textContent = message || "✓";
   view.title.classList.remove("swap");
-  if (message) view.title.classList.add("one");   // a sentence: on one line, never broken in two
+  if (message) view.title.classList.add("one"); // a sentence: on one line, never broken in two
   replay(view.title, message ? "swap" : "good");
   setTimeout(next, pause);
 }
@@ -166,23 +207,33 @@ function askIntro() {
   const hint = h("p", { class: "hint", role: "status" });
   const aside = h("p", { class: "aside" }, hl(INTRO_TEXT), "를 입력해 보세요");
   const input = h("input", {
-    type: "text", class: "practice", placeholder: INTRO_TEXT, "aria-label": INTRO_TEXT,
-    autocomplete: "off", autocapitalize: "off", spellcheck: "false",
+    type: "text",
+    class: "practice",
+    placeholder: INTRO_TEXT,
+    "aria-label": INTRO_TEXT,
+    autocomplete: "off",
+    autocapitalize: "off",
+    spellcheck: "false",
   });
   const next = h("button", { type: "button", class: "btn primary wide", disabled: true }, "계속");
   show("안녕하세요", aside, input, next, hint);
   input.focus();
   let finished = false;
-  input.addEventListener("keydown", (e) => { if (isHangulKey(e)) flash(input, "nope"); });
+  input.addEventListener("keydown", (e) => {
+    if (isHangulKey(e)) flash(input, "nope");
+  });
   const check = () => {
     const text = input.value.normalize("NFC");
-    hint.textContent = !finished && text.length >= 6 && /^[\x20-\x7e]*$/.test(text) ? "한/영키를 눌러 한글로 바꿔 쳐 보세요" : "";
+    hint.textContent =
+      !finished && text.length >= 6 && /^[\x20-\x7e]*$/.test(text)
+        ? "한/영키를 눌러 한글로 바꿔 쳐 보세요"
+        : "";
     if (finished || text !== INTRO_TEXT) return;
     finished = true;
     input.readOnly = true;
     input.classList.add("done");
     goto(1);
-    aside.hidden = true;   // the request is done
+    aside.hidden = true; // the request is done
     // First the question, then the button wakes up with its answer.
     retitle([hanKey(), "키가 꼭 필요한 키일까요?"], () => {
       next.textContent = "아니요";
@@ -199,23 +250,34 @@ function askIntro() {
 // The same sentence without the key: the box takes the letters and shows what the program makes.
 function tryIt() {
   goto(2);
-  const field = h("div", { class: "practice trial empty", role: "textbox", tabindex: "0", "aria-label": TRIAL_KEYS, "data-placeholder": TRIAL_KEYS });
+  const field = h("div", {
+    class: "practice trial empty",
+    role: "textbox",
+    tabindex: "0",
+    "aria-label": TRIAL_KEYS,
+    "data-placeholder": TRIAL_KEYS,
+  });
   const hint = h("p", { class: "hint", role: "status" });
   let at = 0;
   const draw = () => {
     const text = trialText(at);
-    const composing = at >= 1 && at <= TRIAL_HANGUL.length;   // the last syllable is still being made
+    const composing = at >= 1 && at <= TRIAL_HANGUL.length; // the last syllable is still being made
     field.classList.toggle("empty", !text);
     field.replaceChildren(
       composing ? text.slice(0, -1) : text,
       composing ? h("u", {}, text.slice(-1)) : "",
-      h("i", { class: "caret" }));
+      h("i", { class: "caret" }),
+    );
   };
   field.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.key === "Tab" || e.key === "Shift") return;
     e.preventDefault();
-    if (isHangulKey(e)) { flash(field, "nope"); hint.textContent = "한/영키 없이 쳐 보세요"; return; }
-    if (!isNext(TRIAL_KEYS, at, e)) return;   // the demo only plays the sentence: other keys are ignored, quietly
+    if (isHangulKey(e)) {
+      flash(field, "nope");
+      hint.textContent = "한/영키 없이 쳐 보세요";
+      return;
+    }
+    if (!isNext(TRIAL_KEYS, at, e)) return; // the demo only plays the sentence: other keys are ignored, quietly
     hint.textContent = "";
     at += 1;
     draw();
@@ -236,12 +298,18 @@ function slotMachine(os) {
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let n = -1;
   const flip = () => {
-    if (n >= 0 && !slot.isConnected) { clearInterval(timer); return; }   // the screen is gone
+    if (n >= 0 && !slot.isConnected) {
+      clearInterval(timer);
+      return;
+    } // the screen is gone
     n = (n + 1) % combos.length;
     const old = slot.lastElementChild;
     slot.append(h("span", { class: "reel in" }, ...combos[n].map((k) => h("kbd", {}, k))));
     if (!old) return;
-    if (still) { old.remove(); return; }   // no motion: the old one must not linger under the new
+    if (still) {
+      old.remove();
+      return;
+    } // no motion: the old one must not linger under the new
     old.classList.add("out");
     old.addEventListener("animationend", () => old.remove(), { once: true });
   };
@@ -256,20 +324,24 @@ function shortcutScreen() {
   go.addEventListener("click", chooseLanguages);
   const aside = h("p", { class: "aside" }, "더 이상 필요없을 키거든요 :)");
   show([hanKey(), "키를, ", slotMachine((appState || {}).os), "로 바꿔드립니다"], aside, go);
-  view.title.classList.add("one");   // this title stays on one line
+  view.title.classList.add("one"); // this title stays on one line
   go.focus();
 }
 
 // ---- the languages -------------------------------------------------------------------------
 
-const hasPack = (state) => state.order.some((id) => (state.languages.find((l) => l.id === id) || {}).installed);
+const hasPack = (state) =>
+  state.order.some((id) => (state.languages.find((l) => l.id === id) || {}).installed);
 
 // The list of languages (English and Korean ticked), then [시작] and [튜토리얼 건너뛰기]. Both
 // install what is ticked; the second goes to the settings instead of the practice.
 async function chooseLanguages() {
-  const state = appState || await loadState().catch(() => null);
-  if (!state) return;   // the error screen is up already
-  if (hasPack(state)) { steps(state); return; }   // seen again later: the languages are there already
+  const state = appState || (await loadState().catch(() => null));
+  if (!state) return; // the error screen is up already
+  if (hasPack(state)) {
+    steps(state);
+    return;
+  } // seen again later: the languages are there already
   goto(4);
   view.later.hidden = true;
   const langs = LIST_ORDER.map((id) => state.languages.find((l) => l.id === id)).filter(Boolean);
@@ -277,18 +349,47 @@ async function chooseLanguages() {
   const hint = h("p", { class: "hint", role: "status" });
   const start = h("button", { type: "button", class: "btn primary wide" }, "시작");
   const skip = h("button", { type: "button", class: "btn quiet" }, "튜토리얼 건너뛰기");
-  const sync = () => { start.disabled = skip.disabled = !picked.size; };
+  const sync = () => {
+    start.disabled = skip.disabled = !picked.size;
+  };
   const rows = langs.map((l, i) => {
     const box = h("input", { type: "checkbox", checked: picked.has(l.id) });
-    box.addEventListener("change", () => { if (box.checked) picked.add(l.id); else picked.delete(l.id); sync(); });
-    return h("li", { style: "--i:" + i, "data-lang": l.id }, h("label", { class: "lang" },
-      box, h("span", { class: "tick", "aria-hidden": "true" }),
-      h("span", { class: "name" }, l.name), h("small", {}, l.installed ? "받아 둠" : mb(l.size))));
+    box.addEventListener("change", () => {
+      if (box.checked) picked.add(l.id);
+      else picked.delete(l.id);
+      sync();
+    });
+    return h(
+      "li",
+      { style: "--i:" + i, "data-lang": l.id },
+      h(
+        "label",
+        { class: "lang" },
+        box,
+        h("span", { class: "tick", "aria-hidden": "true" }),
+        h("span", { class: "name" }, l.name),
+        h("small", {}, l.installed ? "받아 둠" : mb(l.size)),
+      ),
+    );
   });
-  const go = (after) => () => install(LIST_ORDER.filter((id) => picked.has(id)), langs, [start, skip], hint, after);
+  const go = (after) => () =>
+    install(
+      LIST_ORDER.filter((id) => picked.has(id)),
+      langs,
+      [start, skip],
+      hint,
+      after,
+    );
   start.addEventListener("click", go(steps));
   skip.addEventListener("click", go(leave));
-  show("Typescript", h("p", { class: "caption" }, "쓸 언어를 고르세요"), h("ul", { class: "langs" }, ...rows), start, skip, hint);
+  show(
+    "Typescript",
+    h("p", { class: "caption" }, "쓸 언어를 고르세요"),
+    h("ul", { class: "langs" }, ...rows),
+    start,
+    skip,
+    hint,
+  );
   sync();
   start.focus();
 }
@@ -301,10 +402,19 @@ async function install(ids, langs, buttons, hint, after) {
   const weight = (id) => Math.max((langs.find((l) => l.id === id) || {}).size || 0, 1);
   const total = ids.reduce((sum, id) => sum + weight(id), 0);
   const row = (id) => view.stage.querySelector(`[data-lang="${id}"] small`);
-  const say = (id, text, cls) => { const el = row(id); if (el) { el.textContent = text; el.className = cls || ""; } };
+  const say = (id, text, cls) => {
+    const el = row(id);
+    if (el) {
+      el.textContent = text;
+      el.className = cls || "";
+    }
+  };
   const fill = (bytes) => start.style.setProperty("--p", Math.round((100 * bytes) / total) + "%");
-  let finished = 0, current = null;
-  buttons.forEach((b) => { b.disabled = true; });
+  let finished = 0,
+    current = null;
+  buttons.forEach((b) => {
+    b.disabled = true;
+  });
   view.stage.classList.add("busy");
   hint.textContent = "";
   start.classList.add("loading");
@@ -323,14 +433,16 @@ async function install(ids, langs, buttons, hint, after) {
     start.textContent = "켜는 중…";
     const state = await api("/api/languages", { action: "order", ids });
     start.textContent = "준비됐어요";
-    setTimeout(() => after(state), 450);   // a moment to see the bar full
+    setTimeout(() => after(state), 450); // a moment to see the bar full
   } catch (e) {
     if (current) say(current, "실패", "bad");
     hint.textContent = e.message;
     start.textContent = "다시 시도";
     start.classList.remove("loading");
     view.stage.classList.remove("busy");
-    buttons.forEach((b) => { b.disabled = false; });
+    buttons.forEach((b) => {
+      b.disabled = false;
+    });
   }
 }
 
@@ -338,44 +450,74 @@ async function install(ids, langs, buttons, hint, after) {
 
 function switchScreen(state, next) {
   const keys = SWITCH_KEYS[state.os] || ["Super", "Space"];
-  const cap = h("div", { class: "cap", "aria-label": keys.join(" + ") },
-    ...keys.flatMap((k, i) => (i ? ["+", h("kbd", {}, k)] : [h("kbd", {}, k)])));
+  const cap = h(
+    "div",
+    { class: "cap", "aria-label": keys.join(" + ") },
+    ...keys.flatMap((k, i) => (i ? ["+", h("kbd", {}, k)] : [h("kbd", {}, k)])),
+  );
   const unsure = h("button", { type: "button", class: "btn", onclick: next }, "바꿨어요");
   unsure.hidden = true;
   show("입력기를 Typescript로 바꾸세요", cap, unsure);
   beatEvery = 1000;
   const wait = setInterval(() => {
-    if (imeKnown && imeIsOurs) { clearInterval(wait); beatEvery = 5000; pass(null, next); }
-    else if (!imeKnown) unsure.hidden = false;   // this system does not say: the user does
+    if (imeKnown && imeIsOurs) {
+      clearInterval(wait);
+      beatEvery = 5000;
+      pass(null, next);
+    } else if (!imeKnown) unsure.hidden = false; // this system does not say: the user does
   }, 500);
-  unsure.addEventListener("click", () => { clearInterval(wait); beatEvery = 5000; });
+  unsure.addEventListener("click", () => {
+    clearInterval(wait);
+    beatEvery = 5000;
+  });
 }
 
 // One text to type. `spec.expect` null: after the keys, Esc has to change the text.
 function typingScreen(spec, next) {
   const hint = h("p", { class: "hint", role: "status" });
   const input = h("input", {
-    type: "text", class: "practice", placeholder: spec.keys, "aria-label": spec.keys,
-    autocomplete: "off", autocapitalize: "off", spellcheck: "false",
+    type: "text",
+    class: "practice",
+    placeholder: spec.keys,
+    "aria-label": spec.keys,
+    autocomplete: "off",
+    autocapitalize: "off",
+    spellcheck: "false",
   });
-  let composing = false, finished = false, timer = 0;
-  const done = () => { if (!finished) { finished = true; pass(input, next); } };
+  let composing = false,
+    finished = false,
+    timer = 0;
+  const done = () => {
+    if (!finished) {
+      finished = true;
+      pass(input, next);
+    }
+  };
   // Free typing: nothing is held back, only the result is checked.
   const check = () => {
     clearTimeout(timer);
     hint.textContent = "";
-    if (input.value === spec.expect) { done(); return; }
-    if (composing || input.value.length < spec.expect.length) return;   // still typing
+    if (input.value === spec.expect) {
+      done();
+      return;
+    }
+    if (composing || input.value.length < spec.expect.length) return; // still typing
     // Typed enough and it is not the text: say why, after a moment (the last key may still be coming).
     timer = setTimeout(() => {
       if (finished || input.value === spec.expect) return;
-      hint.textContent = imeKnown && !imeIsOurs
-        ? "Typescript가 선택되어 있지 않아요. 지우고 다시 쳐 보세요"
-        : "다른 글자가 나왔어요. 지우고 다시 쳐 보세요";
+      hint.textContent =
+        imeKnown && !imeIsOurs
+          ? "Typescript가 선택되어 있지 않아요. 지우고 다시 쳐 보세요"
+          : "다른 글자가 나왔어요. 지우고 다시 쳐 보세요";
     }, 800);
   };
-  input.addEventListener("compositionstart", () => { composing = true; });
-  input.addEventListener("compositionend", () => { composing = false; check(); });
+  input.addEventListener("compositionstart", () => {
+    composing = true;
+  });
+  input.addEventListener("compositionend", () => {
+    composing = false;
+    check();
+  });
   input.addEventListener("input", check);
   show(spec.title(), input, hint);
   input.focus();
@@ -393,7 +535,7 @@ const ESC_ROUNDS = [
   () => "마지막으로 한 번만 더요",
 ];
 const ESC_TAUGHT = "이렇게 2번 고치신 단어는 기억해 드립니다";
-const TAUGHT_PAUSE = 2800;   // ms the sentence above stays: it is the point of the screen
+const TAUGHT_PAUSE = 2800; // ms the sentence above stays: it is the point of the screen
 
 // Each round is a new input box: a new text context, so the word before it (already Korean)
 // cannot make the next one come out Korean on its own, which would look like learning.
@@ -402,14 +544,23 @@ function escScreen(next) {
   const run = (round) => {
     const hint = h("p", { class: "hint", role: "status" });
     const input = h("input", {
-      type: "text", class: "practice", placeholder: ESC_WORD.keys, "aria-label": ESC_WORD.keys,
-      autocomplete: "off", autocapitalize: "off", spellcheck: "false",
+      type: "text",
+      class: "practice",
+      placeholder: ESC_WORD.keys,
+      "aria-label": ESC_WORD.keys,
+      autocomplete: "off",
+      autocapitalize: "off",
+      spellcheck: "false",
     });
-    let phase = "type";   // type -> esc (it stayed English) -> confirm (Esc made it Korean)
-    let composing = false, finished = false;
+    let phase = "type"; // type -> esc (it stayed English) -> confirm (Esc made it Korean)
+    let composing = false,
+      finished = false;
     const roundDone = () => {
       finished = true;
-      if (round === last) { pass(input, next); return; }   // got there with Esc: nothing to claim
+      if (round === last) {
+        pass(input, next);
+        return;
+      } // got there with Esc: nothing to claim
       replay(input, "done");
       setTimeout(() => run(round + 1), 500);
     };
@@ -421,8 +572,14 @@ function escScreen(next) {
           // It came out right without Esc: in the last round that is the learning; earlier it
           // means the program knew the word already.
           finished = true;
-          pass(input, next, round === last ? ESC_TAUGHT : "이미 기억하고 있는 단어예요", TAUGHT_PAUSE);
-        } else if (value === ESC_WORD.keys) {   // the program kept it as English
+          pass(
+            input,
+            next,
+            round === last ? ESC_TAUGHT : "이미 기억하고 있는 단어예요",
+            TAUGHT_PAUSE,
+          );
+        } else if (value === ESC_WORD.keys) {
+          // the program kept it as English
           phase = "esc";
           retitle([hl("Esc"), "를 눌러 보세요"]);
           hint.textContent = round === 0 ? "판별에 실패한 글씨는 Esc로 바꿀 수 있어요" : "";
@@ -434,14 +591,20 @@ function escScreen(next) {
           hint.textContent = "Space를 눌러 확정하세요";
           replay(hint, "slide");
         }
-      } else if (!composing && value.trim() === ESC_WORD.text) {   // confirm: committed
+      } else if (!composing && value.trim() === ESC_WORD.text) {
+        // confirm: committed
         roundDone();
       }
     };
-    input.addEventListener("compositionstart", () => { composing = true; });
-    input.addEventListener("compositionend", () => { composing = false; check(); });
+    input.addEventListener("compositionstart", () => {
+      composing = true;
+    });
+    input.addEventListener("compositionend", () => {
+      composing = false;
+      check();
+    });
     input.addEventListener("input", check);
-    input.addEventListener("keyup", () => setTimeout(check, 50));   // Esc may change it without an input event
+    input.addEventListener("keyup", () => setTimeout(check, 50)); // Esc may change it without an input event
     show(ESC_ROUNDS[round](), input, hint);
     input.focus();
   };
@@ -450,8 +613,11 @@ function escScreen(next) {
 
 function finish() {
   goto(progress.total);
-  show("설명은 여기까지에요!", h("p", { class: "aside" }, "앞으로의 업데이트도 잘 부탁드려요 :)"),
-    h("button", { type: "button", class: "btn primary wide", onclick: leave }, "설정 열기"));
+  show(
+    "설명은 여기까지에요!",
+    h("p", { class: "aside" }, "앞으로의 업데이트도 잘 부탁드려요 :)"),
+    h("button", { type: "button", class: "btn primary wide", onclick: leave }, "설정 열기"),
+  );
   view.later.hidden = true;
 }
 
@@ -467,14 +633,17 @@ function steps(state) {
   skipAction = leave;
   view.later.hidden = false;
   const go = (i) => {
-    if (i >= screens.length) { finish(); return; }
+    if (i >= screens.length) {
+      finish();
+      return;
+    }
     goto(INTRO_SEGMENTS + i);
     screens[i](() => go(i + 1));
   };
   go(0);
 }
 
-let appState = null;   // GET /api/state, once it has come
+let appState = null; // GET /api/state, once it has come
 const loadState = () => api("/api/state").then((state) => (appState = state));
 
 if (view) {
@@ -483,6 +652,13 @@ if (view) {
   beat();
   intro();
   loadState().catch((e) => {
-    show("연결할 수 없어요", h("p", { class: "hint" }, e.message + " 터미널에서 typescript-config welcome 을 다시 실행해 주세요."));
+    show(
+      "연결할 수 없어요",
+      h(
+        "p",
+        { class: "hint" },
+        e.message + " 터미널에서 typescript-config welcome 을 다시 실행해 주세요.",
+      ),
+    );
   });
 }
