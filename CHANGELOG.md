@@ -9,6 +9,11 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-15
+
+### 수정
+- 선택된 글자 위에 치면 첫 글자부터 덮어쓰기: Win+R, 파일 탐색기 F2 이름 바꾸기처럼 글자가 미리 선택된 칸에서 기존 글자 뒤에 이어 써지고 확정해야 바뀌던 문제.
+
 ## [0.8.4] - 2026-10-15
 
 ### 수정
@@ -249,7 +254,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2

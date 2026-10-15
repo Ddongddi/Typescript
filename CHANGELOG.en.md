@@ -9,6 +9,11 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-15
+
+### Fixed
+- Typing over selected text replaces it from the first key: in Win+R or File Explorer's F2 rename (text preselected), the word used to be appended after the selection and replaced it only on commit.
+
 ## [0.8.4] - 2026-10-15
 
 ### Fixed
@@ -249,7 +254,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
