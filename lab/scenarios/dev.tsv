@@ -1,0 +1,68 @@
+# 개발 (terminal, code review, commit messages, issue talk). expected text<TAB>scenario.
+# Keys are made from the text: Hangul typed on a 2-set layout, the rest as is.
+git status	terminal
+git commit -m fix	terminal
+git push origin main	terminal
+git checkout -b feature/login	terminal
+npm install	terminal
+npm run build	terminal
+cargo test --release	terminal
+cd src	terminal
+ls -al	terminal
+docker compose up -d	terminal
+kubectl get pods	terminal
+ssh user@server	terminal
+curl -X POST localhost:3000	terminal
+python main.py	terminal
+mkdir -p build	terminal
+cat README.md	terminal
+grep -rn TODO src	terminal
+이 함수는 null을 반환해	review
+변수 이름이 너무 길어	review
+이거 리팩토링 좀 해야겠다	review
+테스트 코드도 같이 올려줘	review
+이 부분은 async로 바꾸자	review
+타입 에러가 나는데 확인해줘	review
+의존성이 너무 많아	review
+PR 올렸으니까 리뷰 부탁해	review
+머지 전에 rebase 해줘	review
+이 로직은 helper로 빼자	review
+lint 에러 고쳤어	review
+fix: 로그인 버그 수정	commit
+feat: 다크 모드 추가	commit
+refactor: 중복 코드 제거	commit
+docs: README 업데이트	commit
+test: API 테스트 추가	commit
+chore: 의존성 업데이트	commit
+perf: 캐시 적용으로 속도 개선	commit
+getUserName 함수가 이상해	identifier
+isValid가 항상 true야	identifier
+useState 훅을 썼어	identifier
+config.json 파일을 열어봐	identifier
+src/main.rs 파일 수정했어	identifier
+node_modules 폴더 지워	identifier
+MAX_RETRY 값을 3으로 바꿔	identifier
+docker가 안 켜져	tool
+nginx 설정을 바꿨어	tool
+redis에 저장돼 있어	tool
+GitHub에 push했어	tool
+mongodb를 쓰고 있어	tool
+kubectl을 설치해야 해	tool
+postgres로 마이그레이션했어	tool
+terraform으로 배포해	tool
+VS Code에서 열었어	tool
+Segmentation fault가 나	error
+build가 실패했어	error
+404 에러가 계속 떠	error
+Connection refused 뜨는데	error
+timeout이 너무 짧아	error
+undefined is not a function 에러야	error
+메모리 leak이 있는 것 같아	error
+서버가 500을 반환해	error
+로컬에서는 되는데 production에서 안 돼	error
+deploy 하다가 롤백했어	error
+버그 재현이 안 돼	issue
+이슈 등록해둘게	issue
+hotfix 브랜치 따서 작업할게	issue
+회귀 테스트 추가했어	issue
+스택 트레이스 공유해줘	issue

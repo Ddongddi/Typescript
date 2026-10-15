@@ -47,9 +47,25 @@ echo "| 세트 | 정확도 |"
 echo "| --- | ---: |"
 for m in acc.ALL acc.en.freq/none acc.en.freq/after-ko acc.ko.words/none acc.ko.vocab/none \
   big.ko.sent.sentence big.ko.sent.token big.en.sent.sentence big.cs.particle.sentence \
-  big.cs.particle.token big.cs.bare.sentence big.cs.number.sentence big.ko.title.none \
+  big.cs.particle.token big.cs_heldout.particle.sentence big.cs.bare.sentence big.cs.number.sentence big.ko.title.none \
   big.ko.title.after-en big.learn.other_forms_before big.learn.other_forms_after; do
   echo "| \`$m\` | $(metric $m) |"
+done
+
+echo
+echo "### 유형별 시나리오 (문장 정답률 %, token은 단어 단위, chain은 4문장 이어 입력)"
+echo
+echo "| 유형 | 문장 | token | chain.token | µs/글자 |"
+echo "| --- | ---: | ---: | ---: | ---: |"
+for t in chat dev writing; do
+  echo "| $t | $(metric sc.$t.sentence) | $(metric sc.$t.token) | $(metric sc.$t.chain.token) | $(metric sc.$t.us_per_char) |"
+done
+echo "| 전체 | $(metric sc.ALL.sentence) | $(metric sc.ALL.token) | | |"
+echo
+echo "| 시나리오 | 문장 정답률 |"
+echo "| --- | ---: |"
+for f in $(awk '$1 ~ /^sc\.[a-z]+\.[a-z]+$/ && $1 !~ /\.(sentence|token)$/ { print $1 }' "$tmp/1.txt"); do
+  echo "| \`${f#sc.}\` | $(metric "$f") |"
 done
 
 echo

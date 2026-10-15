@@ -14,6 +14,8 @@ use typescript_core::{
 use crate::{keys_of, keys_of_text};
 
 const TERMS: &str = include_str!("../cases/terms.txt");
+/// The pack generator's source: its extra-word list says which terms were tuned for.
+const PACKGEN: &str = include_str!("../../crates/packgen/src/lib.rs");
 
 const PARTICLES: [&str; 28] = [
     "이",
@@ -85,7 +87,7 @@ fn spread(items: &[String], sample: usize) -> Vec<&String> {
 }
 
 /// Per-token hits: the tokens at the same place, or none when the token count differs.
-fn token_hits(expected: &str, got: &str) -> (usize, usize) {
+pub fn token_hits(expected: &str, got: &str) -> (usize, usize) {
     let (e, g): (Vec<&str>, Vec<&str>) = (expected.split(' ').collect(), got.split(' ').collect());
     let hits = if e.len() == g.len() {
         e.iter().zip(&g).filter(|(a, b)| a == b).count()
@@ -155,6 +157,7 @@ fn words(
         let ctx = DecisionContext {
             previous_language: previous,
             partial: false,
+            ..Default::default()
         };
         let (mut ok, mut misses) = (0, Vec::new());
         for word in titles {
@@ -279,6 +282,24 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
     }
     for (kind, items) in &by_kind {
         sentences(engine, &format!("cs.{kind}"), items, shown, &mut report);
+    }
+    // Terms the pack's extra-word list does not name: what the engine does on names nobody
+    // listed (the honest number once a word list was tuned on terms.txt).
+    let listed: std::collections::HashSet<&str> = PACKGEN.split_whitespace().collect();
+    let held_out: Vec<&str> = terms
+        .iter()
+        .copied()
+        .filter(|t| !listed.contains(t.to_lowercase().as_str()))
+        .collect();
+    let mut by_kind: std::collections::BTreeMap<&str, Vec<(String, String)>> = Default::default();
+    for (kind, text) in code_switch(&ko, &held_out, &mut Rng(7)) {
+        by_kind
+            .entry(kind)
+            .or_default()
+            .push((keys_of_text(&text), text));
+    }
+    for (kind, items) in by_kind.iter().filter(|(k, _)| **k == "particle") {
+        sentences(engine, &format!("cs_heldout.{kind}"), items, shown, &mut report);
     }
     words(
         engine,

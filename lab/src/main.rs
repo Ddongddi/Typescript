@@ -10,6 +10,7 @@
 //! plus cases/words.tsv and cases/sentences.tsv, which hold what *should* happen.
 
 mod corpus;
+mod scenario;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::BTreeMap;
@@ -307,6 +308,7 @@ fn main() {
     let context = |previous, partial| DecisionContext {
         previous_language: previous,
         partial,
+        ..Default::default()
     };
 
     // Warm pass, then the timed one (its outputs are the results).
@@ -344,7 +346,8 @@ fn main() {
     } else {
         corpus::run(engine.as_ref(), sample, shown)
     };
-    if let Some(report) = &big {
+    let scenarios = scenario::run(engine.as_ref(), shown);
+    for report in big.iter().chain([&scenarios]) {
         metrics.extend(report.metrics.iter().cloned());
     }
 
@@ -370,7 +373,7 @@ fn main() {
     print_report(&metrics, &buckets, baseline.as_ref());
     print_changes(&cases, &got, baseline.as_ref());
     print_misses(&cases, &got, shown);
-    if let Some(report) = &big {
+    for report in big.iter().chain([&scenarios]) {
         for (bucket, misses) in report.misses.iter().filter(|(_, m)| !m.is_empty()) {
             println!("\n  {bucket} (first {})", misses.len());
             misses.iter().for_each(|m| println!("    {m}"));

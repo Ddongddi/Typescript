@@ -1,0 +1,66 @@
+# 대화 (messenger / chat). expected text<TAB>scenario. Keys are made from the text: Hangul typed on a 2-set layout, the rest as is.
+# What the text *should* become, not what it does today: misses are the work list.
+오늘 뭐해	casual
+어제 잠을 못 잤어	casual
+지금 어디야	casual
+밥 먹었어?	casual
+퇴근하고 집에 가는 중이야	casual
+주말에 시간 돼?	casual
+그거 나도 보고 싶었는데	casual
+내일 아침 일찍 일어나야 해	casual
+비가 와서 우산 챙겼어	casual
+배고픈데 뭐 먹을까	casual
+다음 주에 같이 영화 보러 가자	casual
+방금 도착했어 어디 있어	casual
+ㅋㅋ	slang
+ㅋㅋㅋㅋ 진짜 웃기다	slang
+ㅇㅇ 알겠어	slang
+ㄱㄱ 지금 출발	slang
+ㅇㅋ 그럼 그때 봐	slang
+ㅠㅠ 너무 슬퍼	slang
+ㄴㄴ 그건 아니야	slang
+ㅎㅎ 고마워	slang
+ㅁㅊ 이게 되네	slang
+ㄹㅇ 대박이다	slang
+ㅅㄱ 수고했어	slang
+ok 그럼 그렇게 하자	loan
+lol 그게 뭐야	loan
+오 nice 잘했네	loan
+sorry 늦었어	loan
+thanks 덕분에 살았어	loan
+바로 reply 할게	loan
+이거 사진 보내줘 please	loan
+wow 진짜 예쁘다	loan
+아 맞다 깜빡했네 sorry	loan
+iPhone 샀어	brand
+Netflix 뭐 볼까	brand
+YouTube에서 봤어	brand
+유튜브 말고 Netflix로 보자	brand
+Instagram에 올렸어	brand
+카톡 말고 Telegram으로 하자	brand
+Galaxy로 바꿨는데 좋더라	brand
+Spotify 플레이리스트 공유해줘	brand
+Starbucks에서 만나	brand
+Google Maps로 찾아봐	brand
+3시에 만나	number
+5분만 기다려줘	number
+10개 샀어	number
+2명 예약했어	number
+7월 15일에 출발해	number
+1시간 걸려	number
+20분 늦을 것 같아	number
+4번 출구에서 보자	number
+30% 할인한대	number
+12시 30분에 점심	number
+What are you doing	english
+I'm on my way	english
+Let's meet at 7	english
+See you tomorrow	english
+Can you call me later?	english
+That sounds great	english
+진짜?? 대박!!	punct
+뭐라고~ 안 들려	punct
+아니야... 괜찮아	punct
+오늘 날씨 좋다~	punct
+헐 대박!	punct
+왜 그래?	punct

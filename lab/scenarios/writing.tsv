@@ -1,0 +1,57 @@
+# 글쓰기 (reports, email, essays, academic text). expected text<TAB>scenario.
+# Keys are made from the text: Hangul typed on a 2-set layout, the rest as is.
+본 보고서는 올해 매출 현황을 정리한 것이다	formal
+위 사항을 다음과 같이 보고드립니다	formal
+회의 결과를 아래와 같이 공유합니다	formal
+이번 분기 목표를 달성하지 못했습니다	formal
+앞으로의 계획은 다음과 같습니다	formal
+검토 후 회신 부탁드립니다	formal
+참석 여부를 알려주시기 바랍니다	formal
+관련 자료를 첨부하였습니다	formal
+안녕하세요 김대리입니다	email
+회의 일정을 조율하고자 연락드립니다	email
+첨부 파일 확인 부탁드립니다	email
+답장이 늦어 죄송합니다	email
+다음 주 화요일 오후 3시에 가능하신가요	email
+감사합니다 좋은 하루 보내세요	email
+문의하신 내용에 대해 답변드립니다	email
+Re: 회의 일정 변경 안내	email
+AI 모델의 성능을 평가하였다	academic
+GDP 성장률이 둔화되었다	academic
+본 연구는 CNN 기반 분류기를 제안한다	academic
+실험 결과 정확도가 12% 향상되었다	academic
+API 호출 횟수를 줄이는 방법을 분석하였다	academic
+데이터셋은 Wikipedia에서 수집하였다	academic
+p-value가 0.05보다 작았다	academic
+GPU 메모리 사용량을 측정했다	academic
+이 논문은 Transformer 구조를 다룬다	academic
+2024년 4분기 매출은 전년 대비 8.5% 증가했다	numbers
+총 3,000명이 설문에 응답하였다	numbers
+평균 온도는 25도였다	numbers
+서울의 인구는 약 950만 명이다	numbers
+제품 무게는 1.5kg이다	numbers
+2023년 3월 1일에 시행되었다	numbers
+비용은 총 120만 원이 들었다	numbers
+전체의 약 3분의 1을 차지한다	numbers
+그는 hello라고 말했다	quote
+이것을 "contents"라고 부른다	quote
+영어로는 sustainability라고 한다	quote
+'Hello World'는 첫 번째 예제다	quote
+이 단어의 뜻은 deadline이다	quote
+어린 시절 나는 바닷가 마을에서 자랐다	essay
+그날의 기억은 아직도 선명하게 남아 있다	essay
+사람들은 저마다 다른 속도로 살아간다	essay
+시간이 지나면 모든 것이 변하기 마련이다	essay
+책을 읽는 일은 세상을 넓히는 일이다	essay
+나는 그 말을 오래도록 곱씹었다	essay
+창밖으로 첫눈이 내리기 시작했다	essay
+기술의 발전은 우리의 삶을 크게 바꾸어 놓았다	essay
+The quick brown fox jumps over the lazy dog	english
+This report summarizes the results of the experiment	english
+Please find the attached document for your review	english
+We would like to schedule a meeting next week	english
+Thank you for your prompt response	english
+The results are shown in Table 1	english
+오늘날 소프트웨어는 우리 생활 곳곳에 스며들어 있으며 그 중요성은 앞으로 더욱 커질 것이다	long
+인공지능 기술이 발전함에 따라 일자리의 형태가 바뀌고 있으며 이에 대한 사회적 논의가 필요하다	long
+이 글에서는 입력기의 동작 원리와 영어 한글 자동 전환의 정확도를 높이는 방법을 설명한다	long
