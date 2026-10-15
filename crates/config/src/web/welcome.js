@@ -20,6 +20,7 @@ const PRACTICE = {
   ko: { title: () => [hl("dkssud"), " 를 쳐 보세요"], keys: "dkssud", expect: "안녕" },
   mixed: { title: () => [hl("hello dkssud"), " 를 쳐 보세요"], keys: "hello dkssud", expect: "hello 안녕" },
   ja: { title: () => [hl("nihongo"), " 를 쳐 보세요"], keys: "nihongo", expect: "にほんご" },
+  zh: { title: () => [hl("nihao"), " 를 쳐 보세요"], keys: "nihao", expect: "你好" },
 };
 const SWITCH_KEYS = { windows: ["Win", "Space"], macos: ["Control", "Space"], linux: ["Super", "Space"] };
 // Shortcuts the Han/Eng key can send, spun through the slot machine.
@@ -29,7 +30,7 @@ const COMBOS = {
   linux: [["Ctrl", "Z"], ["Ctrl", "C"], ["Ctrl", "V"], ["Super", "D"], ["Alt", "Tab"]],
 };
 const SLOT_EVERY = 1600;   // ms between flips of the slot machine: steady and slow
-const LIST_ORDER = ["en", "ko", "ja"];                     // the order they are offered in, and the Esc order they get
+const LIST_ORDER = ["en", "ko", "ja", "zh"];               // the order they are offered in, and the Esc order they get
 const DEFAULT_ON = ["en", "ko"];
 const INTRO_SEGMENTS = 5;   // hello/type, "needed?", trial, shortcut, languages
 
@@ -463,6 +464,7 @@ function steps(state) {
   if (has("ko") && has("en")) screens.push((n) => typingScreen(PRACTICE.mixed, n));
   if (has("ko")) screens.push(escScreen);
   if (has("ja")) screens.push((n) => typingScreen(PRACTICE.ja, n));
+  if (has("zh")) screens.push((n) => typingScreen(PRACTICE.zh, n));
   progress.total = INTRO_SEGMENTS + screens.length;
   skipAction = leave;
   view.later.hidden = false;

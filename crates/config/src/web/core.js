@@ -14,7 +14,7 @@ let busy = false;     // a change is on its way: controls are disabled
 let pending = null;   // which control asked for it (shows "받는 중…" and the like)
 
 const $ = (id) => document.getElementById(id);
-const GLYPH = { en: "A", ko: "가", ja: "あ" };
+const GLYPH = { en: "A", ko: "가", ja: "あ", zh: "中" };
 const mb = (n) => (n / 1048576).toFixed(1) + " MB";
 const langName = (id) => (state && state.languages.find((l) => l.id === id) || {}).name || (id === "mixed" ? "혼합" : id);
 // A field keys are typed into: the chat boxes are divs with role=textbox.

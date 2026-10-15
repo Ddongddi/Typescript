@@ -11,6 +11,7 @@
   From a checkout (builds first; needs Rust + the i686-pc-windows-msvc target):
     .\scripts\install.ps1              install or update (English + Korean language packs)
     .\scripts\install.ps1 -Japanese    also install and turn on the Japanese pack
+    .\scripts\install.ps1 -Chinese     also install and turn on the Chinese pack
     .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
@@ -31,6 +32,8 @@ param(
     # dictionary). The packs go to %LOCALAPPDATA%\Typescript\packs; settings.json "languages"
     # says which are on, in Esc order.
     [switch]$Japanese,
+    # Also install and turn on the Chinese language pack (Pinyin -> simplified hanzi, 1.4 MB).
+    [switch]$Chinese,
     # The languages to turn on, in Esc order, e.g. ko,en,ja. Without it a new install asks
     # (typescript-config setup) and an update keeps the languages already on.
     [string]$Languages = '',
@@ -296,11 +299,13 @@ function Install-Packs([string]$from) {
     $hadJapanese = [bool]$settings.PSObject.Properties['japanese'] -and $settings.japanese -eq $true
     $ids = @('en', 'ko')
     if ($Japanese -or $hadJapanese) { $ids += 'ja' }
+    if ($Chinese) { $ids += 'zh' }
     if ($settings.PSObject.Properties['languages']) {
         $ids = @($settings.languages)
         if ($Japanese -and $ids -notcontains 'ja') { $ids += 'ja' }
+        if ($Chinese -and $ids -notcontains 'zh') { $ids += 'zh' }
     }
-    # Korean and Japanese need the English pack's word list, even with English turned off.
+    # Korean, Japanese and Chinese need the English pack's word list, even with English turned off.
     $need = @($ids) + @('en') | Select-Object -Unique
     # A pack folder is never written in place: running apps keep its files mapped and Windows
     # refuses to overwrite those. A folder that is already there is the same version (versions
@@ -395,9 +400,12 @@ function Install-ReleasePacks {
     $wanted = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     if (-not $wanted.Count) { $wanted = Get-ConfiguredLanguages }
     if ($Japanese -and $wanted.Count -and $wanted -notcontains 'ja') { $wanted += 'ja' }
+    if ($Chinese -and $wanted.Count -and $wanted -notcontains 'zh') { $wanted += 'zh' }
     try {
         if ($wanted.Count) { & $config setup --languages ($wanted -join ',') }
+        elseif ($Japanese -and $Chinese) { & $config setup --languages 'en,ko,ja,zh' }
         elseif ($Japanese) { & $config setup --languages 'en,ko,ja' }
+        elseif ($Chinese) { & $config setup --languages 'en,ko,zh' }
         else { $script:FreshInstall = $true }
     } finally {
         # Do not leave the pin in the user's shell (this runs inside `irm | iex`).

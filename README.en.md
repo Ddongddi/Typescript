@@ -5,7 +5,7 @@
 <h1 align="center">Typescript</h1>
 
 <h3 align="center">
-Type English, Korean, and Japanese on one QWERTY keyboard — it works out which language you meant, word by word. No language-toggle key.
+Type English, Korean, Japanese, and Chinese (Pinyin) on one QWERTY keyboard — it works out which language you meant, word by word. No language-toggle key.
 </h3>
 
 <p align="center">
@@ -41,9 +41,10 @@ dkssudgktpdy, hello world!          →  안녕하세요, hello world!
 dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 fltpssm ghkdlxld                    →  리센느 화이팅
 kyouhaiitenkidesune                 →  きょうはいいてんきですね   (Japanese pack)
+nihao, xiexie                       →  你好, 谢谢                 (Chinese pack)
 ```
 
-Type on a plain English layout. Typescript decides, **per word**, whether you meant English, Korean (2-set Hangul), or Japanese (romaji) and converts it as you go. Wrong guess? **Press Esc once** to cycle to the next reading. Make the same correction twice and it learns the word.
+Type on a plain English layout. Typescript decides, **per word**, whether you meant English, Korean (2-set Hangul), Japanese (romaji), or Chinese (Pinyin) and converts it as you go. Wrong guess? **Press Esc once** to cycle to the next reading. Make the same correction twice and it learns the word.
 
 ## Quick start
 
@@ -92,7 +93,7 @@ One line in PowerShell downloads the latest release, installs it and registers t
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-Skip the screen with `-Languages`: any combination of `en`, `ko`, `ja` (e.g. Korean only, or Japanese → English).
+Skip the screen with `-Languages`: any combination of `en`, `ko`, `ja`, `zh` (e.g. Korean only, or Japanese → English).
 
 ```powershell
 & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Languages ko,en,ja
@@ -105,9 +106,10 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Uninstall            # remove (settings and language packs are kept)
 & $i -Version v0.8.5       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
+& $i -Chinese              # also enable Chinese (adds to -Languages if given)
 ```
 
-The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English 0.5 MB, Korean 0.4 MB, Japanese 5 MB).
+The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English 0.5 MB, Korean 0.4 MB, Japanese 5 MB, Chinese 1.4 MB).
 
 After installing, press **Win+Space** and choose the input method. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
 
@@ -124,6 +126,7 @@ Needs Rust and `rustup target add i686-pc-windows-msvc`.
 ```powershell
 .\scripts\install.ps1            # build (x64 + x86) → one UAC prompt → register
 .\scripts\install.ps1 -Japanese  # also install and enable the Japanese pack
+.\scripts\install.ps1 -Chinese   # also install and enable the Chinese pack
 .\scripts\install.ps1 -Uninstall # remove
 ```
 
@@ -162,6 +165,7 @@ Download **`typescript.apk`** from the [latest release](https://github.com/iamal
 | English & Korean | Yes | Yes | Yes | Yes |
 | Tab autocomplete & learning | Yes | No | No | No |
 | Japanese | **Japanese pack** | No | **Japanese pack** | **Japanese pack** |
+| Chinese | **Chinese pack** | No | **Chinese pack** | **Chinese pack** |
 | Pause key | Alt+Han/Eng (rebindable) | `한/영` key | Option+Space | Hangul, Pause |
 | Dashboard | Yes | No | Yes | Yes |
 
@@ -189,6 +193,7 @@ The same things from the command line:
 ```powershell
 typescript-config list                 # installed / available / enabled order
 typescript-config add ja               # download and enable the Japanese pack
+typescript-config add zh               # download and enable the Chinese pack
 typescript-config remove ja            # disable and delete it
 typescript-config order ko,en          # Esc order (among enabled languages)
 typescript-config check                # is there a new version?
@@ -255,7 +260,7 @@ The dashboard covers everything below, but the JSON is yours to edit. Location: 
 | `flipKeys` | Keys that flip the word's language (default `["Esc", "HangulKey"]`). Combos like `"Ctrl+Space"` work; `[]` disables |
 | `pauseKeys` | Pause keys (default `["Alt+HangulKey"]`). Same format; a key can't be in both lists |
 | `checkUpdates` | `false` stops automatic release checks (default on) |
-| `languages` | Enabled languages and Esc order: any non-empty mix of `"en"` `"ko"` `"ja"`. Languages without an installed pack are dropped |
+| `languages` | Enabled languages and Esc order: any non-empty mix of `"en"` `"ko"` `"ja"` `"zh"`. Languages without an installed pack are dropped |
 | `liveConversion`, `fullWidthDigits`, `fullWidthSpace` | See [Japanese](#japanese) |
 
 `apps.json` — keys are **exe file names** (case-insensitive); `"*"` is the default and app entries list only what differs. (The dashboard's *App rules* tab edits this file.)

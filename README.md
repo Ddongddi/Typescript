@@ -5,7 +5,7 @@
 <h1 align="center">Typescript</h1>
 
 <h3 align="center">
-한/영 키 없이, 치는 대로 영어·한국어·일본어를 알아서 가려 주는 입력기
+한/영 키 없이, 치는 대로 영어·한국어·일본어·중국어를 알아서 가려 주는 입력기
 </h3>
 
 <p align="center">
@@ -41,9 +41,10 @@ dkssudgktpdy, hello world!          →  안녕하세요, hello world!
 dlrjs githubdp commitgkf rjdi       →  이건 github에 commit할 거야
 fltpssm ghkdlxld                    →  리센느 화이팅
 kyouhaiitenkidesune                 →  きょうはいいてんきですね   (일본어 팩)
+nihao, xiexie                       →  你好, 谢谢                 (중국어 팩)
 ```
 
-한/영 키를 누르지 않고 **영어 자판 그대로** 칩니다. 입력기가 **단어마다** 영어인지, 한국어(두벌식)인지, 일본어(로마자)인지 판단해서 바꿔 줍니다. 틀렸으면 **Esc 한 번**이면 다른 읽기로 바뀌고, 같은 교정을 두 번 하면 그 단어를 배웁니다.
+한/영 키를 누르지 않고 **영어 자판 그대로** 칩니다. 입력기가 **단어마다** 영어인지, 한국어(두벌식)인지, 일본어(로마자)인지, 중국어(병음)인지 판단해서 바꿔 줍니다. 틀렸으면 **Esc 한 번**이면 다른 읽기로 바뀌고, 같은 교정을 두 번 하면 그 단어를 배웁니다.
 
 ## 1분 시작
 
@@ -107,7 +108,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
-받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다. 언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어 0.5MB, 한국어 0.4MB, 일본어 5MB).
+받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다. 언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어 0.5MB, 한국어 0.4MB, 일본어 5MB, 중국어 1.4MB).
 
 설치 후 **Win+Space** 로 입력기를 고릅니다. 언어 목록에서는 **영어(미국)** 아래에 있습니다 (없으면 설치가 영어(미국)을 추가합니다. 이유는 [앱 호환](#앱-호환)). 입력기는 둘입니다.
 
@@ -124,6 +125,7 @@ Rust와 `rustup target add i686-pc-windows-msvc` 가 필요합니다.
 ```powershell
 .\scripts\install.ps1            # 빌드(x64 + x86) → 관리자 권한 요청(UAC 1회) → 등록
 .\scripts\install.ps1 -Japanese  # 일본어 팩도 설치하고 켠다
+.\scripts\install.ps1 -Chinese   # 중국어 팩도 설치하고 켠다
 .\scripts\install.ps1 -Uninstall # 제거
 ```
 
@@ -177,6 +179,7 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 | 영어·한국어 | 있음 | 있음 | 있음 | 있음 |
 | 자동완성(Tab)·단어 학습 | 있음 | 없음 | 없음 | 없음 |
 | 일본어 | **일본어 팩** | 없음 | **일본어 팩** | **일본어 팩** |
+| 중국어 | **중국어 팩** | 없음 | **중국어 팩** | **중국어 팩** |
 | 일시정지 키 | Alt+한/영 (바꿀 수 있음) | `한/영` 키 | Option+Space | 한/영 (Hangul), Pause |
 | 대시보드 | 있음 | 없음 | 있음 | 있음 |
 
@@ -204,6 +207,7 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 ```powershell
 typescript-config list                 # 설치됨 / 받을 수 있음 / 켜짐 순서
 typescript-config add ja               # 일본어 팩을 받고 켠다
+typescript-config add zh               # 중국어 팩을 받고 켠다
 typescript-config remove ja            # 끄고 팩을 지운다
 typescript-config order ko,en          # Esc 순서 (켜진 언어끼리만 바꿀 수 있다)
 typescript-config check                # 새 버전이 있는지
@@ -270,7 +274,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 | `flipKeys` | 단어의 언어를 바꾸는 키 목록 (기본 `["Esc", "HangulKey"]`). `"Ctrl+Space"` 같은 조합도 되고 `[]`이면 끈다 |
 | `pauseKeys` | 일시정지 키 목록 (기본 `["Alt+HangulKey"]`). 형식은 같고 두 목록에 같은 키를 쓸 수 없다 |
 | `checkUpdates` | `false`면 새 릴리스를 자동으로 확인하지 않는다 (기본 켜짐) |
-| `languages` | 켜진 언어와 Esc 순환 순서. `"en"` `"ko"` `"ja"` 중 1개 이상, 자유 조합. 팩이 없는 언어는 빠진다 |
+| `languages` | 켜진 언어와 Esc 순환 순서. `"en"` `"ko"` `"ja"` `"zh"` 중 1개 이상, 자유 조합. 팩이 없는 언어는 빠진다 |
 | `liveConversion`, `fullWidthDigits`, `fullWidthSpace` | [일본어](#일본어) 참고 |
 
 `apps.json` — 키는 **exe 파일 이름**(대소문자 무시). `"*"` 는 기본값이고, 앱 항목에는 다른 키만 적습니다. (대시보드 *앱별 규칙* 이 이 파일을 편집합니다.)
