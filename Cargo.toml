@@ -10,8 +10,13 @@ codegen-units = 1
 strip = true
 # panic stays "unwind": the TIP catches panics at the COM boundary (DESIGN.md §3.1).
 
-# Not latency-sensitive: smaller without behaving any differently. The core engine and the
-# TIP stay at opt-level 3 (typing latency is their hot path).
+# The core engine at "s": measured (lab, 3 runs each) 3% slower per decision (21.8 vs 21.0 µs)
+# for a 12% smaller TIP (896 vs 1023 KB). "z" is 35% slower, so not that.
+[profile.release.package.typescript-core]
+opt-level = "s"
+
+# Not latency-sensitive: smaller without behaving any differently. The TIP stays at
+# opt-level 3.
 [profile.release.package.typescript-config]
 opt-level = "z"
 [profile.release.package.typescript-cli]
