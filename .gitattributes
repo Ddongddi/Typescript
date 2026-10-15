@@ -9,3 +9,7 @@ platforms/linux/Makefile text eol=lf
 platforms/linux/*.c text eol=lf
 platforms/linux/*.in text eol=lf
 platforms/macos/* text eol=lf
+
+# Checked by Prettier (endOfLine lf) in CI on Windows: never CRLF.
+crates/config/src/web/* text eol=lf
+.github/**/*.yml text eol=lf
