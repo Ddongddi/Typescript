@@ -89,8 +89,3 @@ TIP 실사용은 설치 팩을 mmap해서 embedded 벤치보다 Private이 작�
 
 일본어를 켜면 약 2배. 그래도 키 입력 프레임(16ms) 대비 2~3 order 여유가 있어
 판단이 타이핑 지연의 병목이 아니다.
-
-## 부록: 빌드 캐시
-
-`target/`은 설치 크기가 아니다. 측정 당시 49.3GB 중 `target/debug`가 46GB를 차지해 삭제 후 3.3GB로 정리.
-`release`·크로스 타깃은 유지. 전체 삭제는 `cargo clean`.
