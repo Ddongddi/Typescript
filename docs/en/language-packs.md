@@ -14,11 +14,11 @@ To keep the core engine lightweight and ensure instantaneous application startup
 ~/Library/Application Support/Typescript/packs/ (macOS)
 ├── en.pack          (~0.5 MB) - English trigrams and frequency vocabulary
 ├── ko.pack          (~0.4 MB) - Korean syllable trigrams and dictionary
-└── ja.pack          (~6.0 MB) - Romaji rules + Kana trigrams + IPADIC dictionary
+└── ja.pack          (~5.0 MB) - Romaji rules + Kana trigrams + IPADIC dictionary
 ```
 
 ### Architectural Benefits
-1. **Minimal Memory Footprint**: The DLL loaded into each client process remains under 1MB.
+1. **Minimal Memory Footprint**: The DLL loaded into each client process stays under 4MB.
 2. **Selective Downloads**: Users only download packs for the languages they actually use (e.g., the ~10MB Japanese IPADIC dictionary is optional).
 3. **Memory Mapping (`mmap`)**: All running processes share the exact same physical memory pages mapped from the `.pack` files, eliminating system RAM bloat.
 4. **Decoupled Extensibility**: Adding new language support requires minimal modifications to the core engine.

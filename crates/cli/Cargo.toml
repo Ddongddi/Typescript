@@ -10,7 +10,7 @@ name = "typescript"
 path = "src/main.rs"
 
 [features]
-# Embeds the Japanese pack too (16 MB), for tuning without installing it.
+# Embeds the Japanese pack too (10 MB), for tuning without installing it.
 japanese = ["typescript-core/embedded-ja"]
 
 [dependencies]

@@ -107,7 +107,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 
-The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English 0.5 MB, Korean 0.4 MB, Japanese 6 MB).
+The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English 0.5 MB, Korean 0.4 MB, Japanese 5 MB).
 
 After installing, press **Win+Space** and choose the input method. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
 
@@ -291,7 +291,7 @@ The dashboard covers everything below, but the JSON is yours to edit. Location: 
 - **Live preview.** A dotted underline shows the current guess — exactly what Space/Enter will commit.
 - **Esc cycling.** English → English + particle (`github에`) → Korean → Japanese, even right after committing.
 - **Per-app rules.** Strict in terminals, off in games, Esc passed through in editors.
-- **Light.** Model tables are precomputed at release time into **language packs** read via memory map. The DLL stays under 1 MB and you only download the languages you use.
+- **Light.** Model tables are precomputed at release time into **language packs** read via memory map. The DLL stays under 4 MB and you only download the languages you use.
 - **One core, four platforms.** All decision logic is an OS-agnostic Rust core; each platform feeds it keys and applies the edit commands it returns.
 
 ## Development
