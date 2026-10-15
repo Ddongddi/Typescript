@@ -9,6 +9,14 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-15
+
+### Fixed
+- The dashboard chat test did not use learned words. It now reads the same `lexicon.json` as the input method, so what works in other apps works in the chat test too.
+
+### Changed
+- The taught-words list on the language tab shows what each word turns into (`Rowla → 깨짐`) instead of the language name, sorted a–z regardless of case.
+
 ## [0.8.3] - 2026-10-15
 
 ### Added
@@ -241,7 +249,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1

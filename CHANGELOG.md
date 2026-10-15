@@ -9,6 +9,14 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-15
+
+### 수정
+- 대시보드 채팅 테스트가 배운 단어를 쓰지 않던 문제를 고쳤습니다. 이제 입력기와 같은 `lexicon.json`을 읽어서, 다른 앱에서 되던 학습이 채팅 테스트에서도 됩니다.
+
+### 변경
+- 언어 탭의 가르친 단어 목록이 `Rowla → 한국어` 대신 `Rowla → 깨짐`처럼 실제로 바뀌는 글자를 보여주고, 대소문자 구분 없이 a–z 순으로 정렬됩니다.
+
 ## [0.8.3] - 2026-10-15
 
 ### 추가
@@ -241,7 +249,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
