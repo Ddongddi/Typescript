@@ -224,6 +224,32 @@ fn leaves_whole_words_alone() {
     }
 }
 
+/// A single letter and a whole Korean word (n제, x축): the letter alone would be a stray jamo.
+#[test]
+fn splits_single_letter_and_korean_word() {
+    let e = splitting();
+    for (keys, want) in [
+        ("nwp", "n제"),
+        ("xcnr", "x축"),
+        ("Nwp", "N제"),
+        ("Brmq", "B급"),
+        ("Axla", "A팀"),
+    ] {
+        let d = e.decide(keys, &ctx());
+        assert_eq!(d.output, want, "{keys}: {}", d.explanation);
+    }
+}
+
+/// Words that spell like English stay whole, also while typing (edi → editor).
+#[test]
+fn single_letter_split_leaves_english_spelling_alone() {
+    let e = splitting();
+    for keys in ["bro", "ceo", "mak", "yah", "edi", "edit"] {
+        let d = e.decide(keys, &ctx());
+        assert_ne!(d.language, Language::Mixed, "{keys}: {}", d.explanation);
+    }
+}
+
 #[test]
 fn esc_cycles_through_readings() {
     assert_eq!(

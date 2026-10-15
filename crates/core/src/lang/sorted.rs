@@ -1,72 +1,88 @@
-//! A big sorted text blob searched in place: one `u32` per line instead of a hash map of
-//! owned strings (the TIP pays this cost in every application it is loaded into).
+//! A big sorted text blob searched in place by byte offset: no per-line index, so loading
+//! allocates nothing and touches no page (the TIP pays this cost in every application it is
+//! loaded into).
 
 pub struct SortedLines {
     text: &'static str,
-    /// Start of each non-empty line.
-    starts: Vec<u32>,
+}
+
+fn first_field(line: &str) -> &str {
+    line.split('\t').next().unwrap_or(line)
 }
 
 impl SortedLines {
     /// `text` must be sorted by the first tab-separated field, in byte order (build.rs does that).
     pub fn new(text: &'static str) -> Self {
-        let mut starts = Vec::with_capacity(text.len() / 8);
-        let mut pos = 0usize;
-        for line in text.split_inclusive('\n') {
-            if line != "\n" {
-                starts.push(pos as u32);
-            }
-            pos += line.len();
+        Self { text }
+    }
+
+    /// The line starting at byte `start`, and the offset of the next line.
+    fn line_at(&self, start: usize) -> (&'static str, usize) {
+        let rest = &self.text[start..];
+        match rest.find('\n') {
+            Some(e) => (&rest[..e], start + e + 1),
+            None => (rest, self.text.len()),
         }
-        Self { text, starts }
     }
 
-    fn line(&self, i: usize) -> &'static str {
-        self.line_at(self.starts[i])
+    /// Offset of the first line whose first field is `>= key` (`text.len()` if none).
+    fn lower_bound(&self, key: &str) -> usize {
+        let bytes = self.text.as_bytes();
+        let (mut lo, mut hi) = (0usize, bytes.len());
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            let start = bytes[lo..mid]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(lo, |p| lo + p + 1);
+            let (line, next) = self.line_at(start);
+            if first_field(line) < key {
+                lo = next;
+            } else {
+                hi = start;
+            }
+        }
+        lo
     }
 
-    fn line_at(&self, start: u32) -> &'static str {
-        let start = start as usize;
-        let end = self.text[start..]
-            .find('\n')
-            .map_or(self.text.len(), |e| start + e);
-        &self.text[start..end]
+    /// Identifies the underlying text (address, length), for caches keyed by model.
+    pub fn id(&self) -> (usize, usize) {
+        (self.text.as_ptr() as usize, self.text.len())
     }
 
+    /// Number of non-empty lines (a scan; only for statistics).
     pub fn len(&self) -> usize {
-        self.starts.len()
+        self.text.lines().filter(|l| !l.is_empty()).count()
     }
 
     #[allow(dead_code)] // pairs with len(); used by the tests
     pub fn is_empty(&self) -> bool {
-        self.starts.is_empty()
+        self.text.lines().all(str::is_empty)
     }
 
     /// The whole line whose first field is `key`.
     pub fn get(&self, key: &str) -> Option<&'static str> {
-        let (mut lo, mut hi) = (0usize, self.starts.len());
-        while lo < hi {
-            let mid = (lo + hi) / 2;
-            let line = self.line(mid);
-            let field = line.split('\t').next().unwrap_or(line);
-            match field.cmp(key) {
-                std::cmp::Ordering::Less => lo = mid + 1,
-                std::cmp::Ordering::Greater => hi = mid,
-                std::cmp::Ordering::Equal => return Some(line),
-            }
+        let start = self.lower_bound(key);
+        if start >= self.text.len() {
+            return None;
         }
-        None
+        let (line, _) = self.line_at(start);
+        (!line.is_empty() && first_field(line) == key).then_some(line)
     }
 
     /// Every line whose first field starts with `prefix` (they are contiguous in sorted order).
     pub fn with_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = &'static str> + 'a {
-        let field = |line: &'static str| line.split('\t').next().unwrap_or(line);
-        let first = self
-            .starts
-            .partition_point(|&s| field(self.line_at(s)) < prefix);
-        (first..self.starts.len())
-            .map(|i| self.line(i))
-            .take_while(move |l| field(l).starts_with(prefix))
+        let mut pos = self.lower_bound(prefix);
+        std::iter::from_fn(move || {
+            while pos < self.text.len() {
+                let (line, next) = self.line_at(pos);
+                pos = next;
+                if !line.is_empty() {
+                    return first_field(line).starts_with(prefix).then_some(line);
+                }
+            }
+            None
+        })
     }
 
     pub fn contains(&self, key: &str) -> bool {

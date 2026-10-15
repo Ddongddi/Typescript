@@ -9,6 +9,11 @@ use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::particles::{is_ending, is_single_letter_particle};
 use crate::lang::romaji::RomajiComposer;
 
+/// A single letter + Korean word (n제) needs keys that spell less like English than this
+/// (lowercase: edi, the start of editor, is -3.7; nwp is -5.8). A capital was typed on purpose.
+const SINGLE_LETTER_SPELLING_CEILING: f64 = -4.5;
+const CAPITAL_SINGLE_LETTER_SPELLING_CEILING: f64 = -3.5;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MixedWord {
     pub english: String,
@@ -204,6 +209,33 @@ impl SplittingEngine {
         self.korean.is_known_word_or_inflected(hangul)
     }
 
+    /// A single letter and a whole Korean word: `nwp` → `n제`, `xcnr` → `x축`, `Brmq` → `B급`.
+    /// The letter alone would be a stray jamo (ㅜ제), which no one types on purpose.
+    fn single_letter_then_korean_word(&self, keys: &str) -> Option<MixedWord> {
+        let first = keys.chars().next()?;
+        if !first.is_ascii_alphabetic() {
+            return None;
+        }
+        let rest = &keys[1..];
+        if !DubeolsikLayout::starts_syllable(rest.chars().next()?) {
+            return None;
+        }
+        let composed = HangulComposer::compose(rest)?;
+        let text = composed.text();
+        let plausible = composed
+            .syllables()
+            .iter()
+            .all(|s| self.korean.syllable_log_probability(*s) > UNKNOWN_SYLLABLE_LOGP);
+        if !composed.stray_jamo().is_empty() || !(plausible || self.korean.is_known_word(&text)) {
+            return None;
+        }
+        Some(MixedWord {
+            english: first.to_string(),
+            korean_keys: rest.to_string(),
+            korean: text,
+        })
+    }
+
     /// An English word with a whole Korean word typed straight after it, no space:
     /// `hellodnjfem` → `hello월드`. The front has to be a known English word (or a name typed
     /// with capitals) and the back at least two syllables; prefers the longest English front.
@@ -279,6 +311,21 @@ impl DecisionEngine for SplittingEngine {
             }
             if let Some(mixed) = MixedWord::split_single_letter(keys) {
                 if !self.english.is_known_word(keys) && !self.reads_as_korean(keys) {
+                    return Self::split_decision(&mixed);
+                }
+            }
+            if let Some(mixed) = self.single_letter_then_korean_word(keys) {
+                // Words that spell like English (bro -2.8, ceo -3.2) stay English; nwp is -5.8.
+                let capital = Self::has_english_only_capital(&mixed.english);
+                let ceiling = if capital {
+                    CAPITAL_SINGLE_LETTER_SPELLING_CEILING
+                } else {
+                    SINGLE_LETTER_SPELLING_CEILING
+                };
+                if self.english.level(keys).is_none()
+                    && self.english.average_log_probability(keys) < ceiling
+                    && (capital || !self.reads_as_korean(keys))
+                {
                     return Self::split_decision(&mixed);
                 }
             }

@@ -8,6 +8,13 @@
 use crate::decide::engine::Language;
 use crate::lang::pack::{self, PackLazy};
 use crate::lang::sorted::SortedLines;
+use std::cell::RefCell;
+
+thread_local! {
+    /// (word list identity, lowercased word, level) of the last `level` call.
+    static LAST_LEVEL: RefCell<((usize, usize), String, Option<i32>)> =
+        const { RefCell::new(((0, 0), String::new(), None)) };
+}
 
 static TRIGRAMS: PackLazy<&'static [u8]> = PackLazy::new(Language::English, || {
     pack::bytes(Language::English, "trigrams.bin")
@@ -84,17 +91,33 @@ impl EnglishModel {
     }
 
     /// The word's level, also for regular inflections of a listed word (None: not a word).
+    /// One decision asks about the same keys several times, so the last answer is remembered.
     pub fn level(&self, token: &str) -> Option<i32> {
         let w: String = token
             .to_lowercase()
             .chars()
             .filter(|c| *c != '\'')
             .collect();
-        if let Some(l) = self.listed(&w) {
+        let me = self.levels.id();
+        let hit = LAST_LEVEL.with(|c| {
+            let c = c.borrow();
+            (c.0 == me && c.1 == w).then_some(c.2)
+        });
+        if let Some(level) = hit {
+            return level;
+        }
+        let level = self.compute_level(&w);
+        LAST_LEVEL.with(|c| *c.borrow_mut() = (me, w, level));
+        level
+    }
+
+    fn compute_level(&self, w: &str) -> Option<i32> {
+        if let Some(l) = self.listed(w) {
             return Some(l);
         }
         let len = w.chars().count();
         let mut best: Option<i32> = None;
+        let mut buf = String::new();
         let mut consider = |stem: &str| {
             if let Some(l) = self.listed(stem) {
                 best = Some(best.map_or(l, |b| b.min(l)));
@@ -105,7 +128,10 @@ impl EnglishModel {
             if len > suffix.len() + 2 {
                 if let Some(stem) = w.strip_suffix(suffix) {
                     consider(stem);
-                    consider(&format!("{stem}e"));
+                    buf.clear();
+                    buf.push_str(stem);
+                    buf.push('e');
+                    consider(&buf);
                     // running → run, stopped → stop
                     let mut rev = stem.chars().rev();
                     if let (Some(last), Some(prev)) = (rev.next(), rev.next()) {
@@ -120,7 +146,10 @@ impl EnglishModel {
         for suffix in ["ies", "ied", "ier", "iest", "iers"] {
             if len > suffix.len() + 1 {
                 if let Some(stem) = w.strip_suffix(suffix) {
-                    consider(&format!("{stem}y"));
+                    buf.clear();
+                    buf.push_str(stem);
+                    buf.push('y');
+                    consider(&buf);
                 }
             }
         }
