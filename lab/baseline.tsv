@@ -1,0 +1,111 @@
+#metric	acc.ALL	99.535
+#metric	acc.en.freq/after-en	99.850
+#metric	acc.en.freq/after-ko	99.500
+#metric	acc.en.freq/none	99.650
+#metric	acc.hand.abbrev	0.000
+#metric	acc.hand.chat	100.000
+#metric	acc.hand.letter-noun	0.000
+#metric	acc.hand.letter-particle	100.000
+#metric	acc.hand.mixed	71.429
+#metric	acc.ko.vocab/after-en	98.800
+#metric	acc.ko.vocab/after-ko	100.000
+#metric	acc.ko.vocab/none	99.800
+#metric	acc.ko.words/after-en	99.950
+#metric	acc.ko.words/after-ko	99.950
+#metric	acc.ko.words/none	99.950
+#metric	acc.sentences	60.000
+#metric	commit.avg_us	23.653
+#metric	commit.p50_us	20.600
+#metric	commit.p95_us	48.900
+#metric	commit.p99_us	70.500
+#metric	heap.loaded_kb	1005.838
+#metric	heap.peak_kb	9313.768
+#metric	keystroke.avg_us	12.705
+#metric	keystroke.p50_us	8.800
+#metric	keystroke.p95_us	32.400
+#metric	keystroke.p99_us	48.100
+#metric	load.ms	8.826
+ko.words/none	rodtlsdl	-	갱신이	rod신이
+ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
+ko.words/after-en	rodtlsdl	english	갱신이	rod신이
+ko.vocab/none	altus	-	미션	altus
+ko.vocab/none	Rowl	-	깨지	Rowl
+ko.vocab/none	clao	-	치매	clao
+ko.vocab/none	Epaus	-	떼면	Epaus
+ko.vocab/after-en	thfud	english	소령	thfud
+ko.vocab/after-en	coreh	english	책도	coreh
+ko.vocab/after-en	wordl	english	잭이	wordl
+ko.vocab/after-en	shkenaus	english	놔두면	shkenaus
+ko.vocab/after-en	elffks	english	딜란	elffks
+ko.vocab/after-en	altus	english	미션	altus
+ko.vocab/after-en	ckfut	english	차렷	ckfut
+ko.vocab/after-en	Rowl	english	깨지	Rowl
+ko.vocab/after-en	zuwu	english	켜져	zuwu
+ko.vocab/after-en	clao	english	치매	clao
+ko.vocab/after-en	Thrp	english	쏘게	Thrp
+ko.vocab/after-en	alcuTsi	english	미쳤냐	alcuTsi
+ko.vocab/after-en	Tlem	english	씨드	Tlem
+ko.vocab/after-en	gnacuTwl	english	훔쳤지	gnacuTwl
+ko.vocab/after-en	akty	english	마쇼	akty
+ko.vocab/after-en	zhqm	english	코브	zhqm
+ko.vocab/after-en	rosua	english	개념	rosua
+ko.vocab/after-en	dhamffpt	english	오믈렛	dhamffpt
+ko.vocab/after-en	djEO	english	어떄	djEO
+ko.vocab/after-en	alcuTwy	english	미쳤죠	alcuTwy
+ko.vocab/after-en	sowk	english	내자	sowk
+ko.vocab/after-en	Epaus	english	떼면	Epaus
+ko.vocab/after-en	xoal	english	태미	xoal
+ko.vocab/after-en	dirl	english	야기	dirl
+en.freq/none	tha	-	tha	솜
+en.freq/none	zhao	-	zhao	코매
+en.freq/none	woah	-	woah	재모
+en.freq/none	dmv	-	dmv	읖
+en.freq/none	bb	-	bb	ㅠㅠ
+en.freq/none	vu	-	vu	펴
+en.freq/none	shep	-	shep	노데
+en.freq/after-ko	tha	korean	tha	솜
+en.freq/after-ko	zhao	korean	zhao	코매
+en.freq/after-ko	woah	korean	woah	재모
+en.freq/after-ko	fleur	korean	fleur	리뎍
+en.freq/after-ko	dmv	korean	dmv	읖
+en.freq/after-ko	coz	korean	coz	챜
+en.freq/after-ko	chandi	korean	chandi	초무야
+en.freq/after-ko	bb	korean	bb	ㅠㅠ
+en.freq/after-ko	vu	korean	vu	펴
+en.freq/after-ko	shep	korean	shep	노데
+en.freq/after-en	zhao	english	zhao	코매
+en.freq/after-en	dmv	english	dmv	읖
+en.freq/after-en	bb	english	bb	ㅠㅠ
+hand.letter-noun	nwp	korean	n제	ㅜ제
+hand.letter-noun	nwp	-	n제	nwp
+hand.letter-noun	Nwp	korean	N제	Nwp
+hand.letter-noun	Nwp	-	N제	Nwp
+hand.letter-noun	xcnr	korean	x축	ㅌ축
+hand.letter-noun	ycnr	korean	y축	ㅛ축
+hand.letter-noun	Xcnr	-	X축	Xcnr
+hand.letter-noun	cdjsdj	korean	c언어	ㅊ언어
+hand.letter-noun	Cdjsdj	-	C언어	Cdjsdj
+hand.letter-noun	brmq	korean	b급	ㅠ급
+hand.letter-noun	Brmq	-	B급	Brmq
+hand.letter-noun	Armq	korean	A급	Armq
+hand.letter-noun	xrkqt	korean	x값	ㅌ값
+hand.letter-noun	yrkqt	korean	y값	ㅛ값
+hand.letter-noun	Agud	korean	A형	Agud
+hand.letter-noun	Ztpeo	korean	Z세대	Ztpeo
+hand.letter-noun	Axla	korean	A팀	Axla
+hand.letter-noun	Bqks	korean	B반	Bqks
+hand.letter-noun	Dtk	korean	D사	Dtk
+hand.letter-noun	Axkdlq	korean	A타입	Axkdlq
+hand.letter-noun	Sfkdls	korean	S라인	Sfkdls
+hand.letter-noun	Agkrwja	korean	A학점	Agkrwja
+hand.mixed	slackdptj	-	slack에서	님차에서
+hand.mixed	QRzhem	korean	QR코드	QRzhem
+hand.abbrev	dr	korean	dr	ㅇㄱ
+hand.abbrev	ft	korean	ft	ㄹㅅ
+hand.abbrev	tc	korean	tc	ㅅㅊ
+hand.abbrev	ftl	korean	ftl	ㄹ시
+hand.abbrev	cmdr	korean	cmdr	층ㄱ
+sentences	tnsmd nwp vnfdjTek	-	수능 n제 풀었다	수능 ㅜ제 풀었다
+sentences	xcnr qkdgid	-	x축 방향	ㅌ축 방향
+sentences	cdjsdj rhdqn	-	c언어 공부	ㅊ언어 공부
+sentences	Brmq dudghk	-	B급 영화	Brmq 영화

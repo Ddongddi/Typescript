@@ -1,0 +1,417 @@
+//! Measurement lab for the English/Korean decision: accuracy per bucket (with sentence context),
+//! decide latency and heap, every run compared with `baseline.tsv`.
+//!
+//!   cargo run --release --manifest-path lab/Cargo.toml                  report + diff
+//!   cargo run --release --manifest-path lab/Cargo.toml -- --save        also record as baseline
+//!   cargo run --release --manifest-path lab/Cargo.toml -- --misses 20   misses per bucket (5)
+//!
+//! Embedded packs only and no learning file, so a run means the same on every machine.
+//! Cases: generated from crates/core/data (sampled across each whole list, not just the top),
+//! plus cases/words.tsv and cases/sentences.tsv, which hold what *should* happen.
+
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use std::time::{Duration, Instant};
+
+use typescript_core::lang::hangul::DubeolsikLayout;
+use typescript_core::{
+    make_engine, DecisionContext, DecisionEngine, Language, Languages, TextConverter,
+};
+
+const KOREAN_WORDS: &str = include_str!("../../crates/core/data/korean_words.txt");
+const KOREAN_VOCAB: &str = include_str!("../../crates/core/data/korean_vocabulary.txt");
+const ENGLISH_FREQ: &str = include_str!("../../crates/core/data/english_frequency.txt");
+const WORDS: &str = include_str!("../cases/words.tsv");
+const SENTENCES: &str = include_str!("../cases/sentences.tsv");
+
+/// Words per generated bucket, and how deep into the English frequency list they come from.
+const SAMPLE: usize = 2000;
+const ENGLISH_DEPTH: usize = 20_000;
+const DEFAULT_MISSES: usize = 5;
+
+/// Counts live heap bytes, so "lighter" is a number.
+struct Counting;
+static HEAP: AtomicUsize = AtomicUsize::new(0);
+static PEAK: AtomicUsize = AtomicUsize::new(0);
+
+// SAFETY: forwards every call to the system allocator unchanged and only counts sizes.
+unsafe impl GlobalAlloc for Counting {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let p = System.alloc(layout);
+        if !p.is_null() {
+            let now = HEAP.fetch_add(layout.size(), Relaxed) + layout.size();
+            PEAK.fetch_max(now, Relaxed);
+        }
+        p
+    }
+    unsafe fn dealloc(&self, p: *mut u8, layout: Layout) {
+        System.dealloc(p, layout);
+        HEAP.fetch_sub(layout.size(), Relaxed);
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: Counting = Counting;
+
+struct Case {
+    bucket: String,
+    keys: String,
+    previous: Option<Language>,
+    expected: String,
+}
+
+impl Case {
+    fn id(&self) -> String {
+        format!(
+            "{}\t{}\t{}",
+            self.bucket,
+            self.keys,
+            prev_name(self.previous)
+        )
+    }
+}
+
+fn prev_name(previous: Option<Language>) -> &'static str {
+    previous.map_or("-", Language::name)
+}
+
+const CHO: &str = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+const JUNG: [&str; 21] = [
+    "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅗㅏ", "ㅗㅐ", "ㅗㅣ", "ㅛ", "ㅜ",
+    "ㅜㅓ", "ㅜㅔ", "ㅜㅣ", "ㅠ", "ㅡ", "ㅡㅣ", "ㅣ",
+];
+const JONG: [&str; 28] = [
+    "", "ㄱ", "ㄲ", "ㄱㅅ", "ㄴ", "ㄴㅈ", "ㄴㅎ", "ㄷ", "ㄹ", "ㄹㄱ", "ㄹㅁ", "ㄹㅂ", "ㄹㅅ",
+    "ㄹㅌ", "ㄹㅍ", "ㄹㅎ", "ㅁ", "ㅂ", "ㅂㅅ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ",
+    "ㅎ",
+];
+
+fn key_of(jamo: char) -> char {
+    ('A'..='z')
+        .find(|k| {
+            DubeolsikLayout::jamo(*k) == Some(jamo) && (k.is_lowercase() || "QWERTOP".contains(*k))
+        })
+        .expect("every jamo has a key")
+}
+
+/// The keys that type `hangul` (syllables only) on a 2-set layout; same as core's tests/common.
+fn keys_of(hangul: &str) -> String {
+    let mut keys = String::new();
+    for c in hangul.chars() {
+        let i = c as usize - '가' as usize;
+        keys.push(key_of(CHO.chars().nth(i / 588).unwrap()));
+        JUNG[i % 588 / 28]
+            .chars()
+            .chain(JONG[i % 28].chars())
+            .for_each(|j| keys.push(key_of(j)));
+    }
+    keys
+}
+
+/// Evenly spread over the whole list: the top words alone are all right already.
+fn spread(items: Vec<&str>) -> Vec<&str> {
+    let step = (items.len() / SAMPLE).max(1);
+    items.into_iter().step_by(step).take(SAMPLE).collect()
+}
+
+fn korean_list(text: &str) -> Vec<&str> {
+    spread(
+        text.lines()
+            .filter_map(|l| l.split('\t').next())
+            .filter(|w| w.chars().count() >= 2 && w.chars().all(|c| ('가'..='힣').contains(&c)))
+            .collect(),
+    )
+}
+
+fn english_list() -> Vec<&'static str> {
+    spread(
+        ENGLISH_FREQ
+            .lines()
+            .take(ENGLISH_DEPTH)
+            .filter_map(|l| l.split_whitespace().next())
+            .filter(|w| w.len() >= 2 && w.bytes().all(|b| b.is_ascii_lowercase()))
+            .collect(),
+    )
+}
+
+fn data_lines(text: &str) -> impl Iterator<Item = Vec<&str>> {
+    text.lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| l.split('\t').collect())
+}
+
+fn parse_previous(field: &str) -> Option<Language> {
+    match field {
+        "-" => None,
+        other => Some(Language::parse(other).unwrap_or_else(|| panic!("bad previous: {other}"))),
+    }
+}
+
+/// Word cases (one decide each).
+fn word_cases() -> Vec<Case> {
+    let contexts = [
+        (None, "none"),
+        (Some(Language::Korean), "after-ko"),
+        (Some(Language::English), "after-en"),
+    ];
+    let mut cases = Vec::new();
+    let generated = [
+        ("ko.words", korean_list(KOREAN_WORDS), true),
+        ("ko.vocab", korean_list(KOREAN_VOCAB), true),
+        ("en.freq", english_list(), false),
+    ];
+    for (name, words, korean) in generated {
+        for (previous, label) in contexts {
+            for word in &words {
+                let keys = if korean {
+                    keys_of(word)
+                } else {
+                    word.to_string()
+                };
+                cases.push(Case {
+                    bucket: format!("{name}/{label}"),
+                    keys,
+                    previous,
+                    expected: word.to_string(),
+                });
+            }
+        }
+    }
+    for f in data_lines(WORDS) {
+        assert_eq!(f.len(), 4, "words.tsv: {f:?}");
+        cases.push(Case {
+            bucket: format!("hand.{}", f[3]),
+            keys: f[0].to_string(),
+            previous: parse_previous(f[1]),
+            expected: f[2].to_string(),
+        });
+    }
+    cases
+}
+
+fn sentence_cases() -> Vec<Case> {
+    data_lines(SENTENCES)
+        .map(|f| {
+            assert_eq!(f.len(), 2, "sentences.tsv: {f:?}");
+            Case {
+                bucket: "sentences".to_string(),
+                keys: f[0].to_string(),
+                previous: None,
+                expected: f[1].to_string(),
+            }
+        })
+        .collect()
+}
+
+fn micros(d: Duration) -> f64 {
+    d.as_secs_f64() * 1e6
+}
+
+/// avg, p50, p95, p99 in µs.
+fn latency(metrics: &mut BTreeMap<String, f64>, name: &str, mut times: Vec<Duration>) {
+    times.sort();
+    let at = |q: f64| micros(times[((times.len() - 1) as f64 * q) as usize]);
+    let avg = micros(times.iter().sum::<Duration>()) / times.len() as f64;
+    metrics.insert(format!("{name}.avg_us"), avg);
+    metrics.insert(format!("{name}.p50_us"), at(0.50));
+    metrics.insert(format!("{name}.p95_us"), at(0.95));
+    metrics.insert(format!("{name}.p99_us"), at(0.99));
+}
+
+/// Metrics plus the cases that failed (only those are stored; a case not listed passed).
+struct Baseline {
+    metrics: BTreeMap<String, f64>,
+    failed: std::collections::BTreeSet<String>,
+}
+
+fn baseline_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("baseline.tsv")
+}
+
+fn read_baseline() -> Option<Baseline> {
+    let text = std::fs::read_to_string(baseline_path()).ok()?;
+    let mut baseline = Baseline {
+        metrics: BTreeMap::new(),
+        failed: Default::default(),
+    };
+    for line in text.lines() {
+        let f: Vec<&str> = line.split('\t').collect();
+        match f.as_slice() {
+            ["#metric", name, value] => {
+                if let Ok(v) = value.parse() {
+                    baseline.metrics.insert(name.to_string(), v);
+                }
+            }
+            [bucket, keys, prev, _expected, _got] => {
+                baseline.failed.insert(format!("{bucket}\t{keys}\t{prev}"));
+            }
+            _ => {}
+        }
+    }
+    Some(baseline)
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let save = args.iter().any(|a| a == "--save");
+    let shown = args
+        .iter()
+        .position(|a| a == "--misses")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(DEFAULT_MISSES);
+
+    let mut metrics: BTreeMap<String, f64> = BTreeMap::new();
+
+    // Cold start: engine plus the lazy tables the first words pull in.
+    let heap_before = HEAP.load(Relaxed);
+    let start = Instant::now();
+    let engine = make_engine(None, &Languages::legacy(false));
+    for keys in ["dkssud", "hello"] {
+        engine.decide(keys, &DecisionContext::default());
+    }
+    metrics.insert("load.ms".into(), start.elapsed().as_secs_f64() * 1e3);
+    metrics.insert(
+        "heap.loaded_kb".into(),
+        HEAP.load(Relaxed).saturating_sub(heap_before) as f64 / 1024.0,
+    );
+
+    let words = word_cases();
+    let sentences = sentence_cases();
+    let context = |previous, partial| DecisionContext {
+        previous_language: previous,
+        partial,
+    };
+
+    // Warm pass, then the timed one (its outputs are the results).
+    for c in &words {
+        engine.decide(&c.keys, &context(c.previous, false));
+    }
+    let (mut commit, mut keystroke) = (Vec::new(), Vec::new());
+    let mut got: Vec<String> = Vec::with_capacity(words.len() + sentences.len());
+    for c in &words {
+        // Every prefix, as the live preview sees it while typing.
+        for (end, _) in c.keys.char_indices().skip(1) {
+            let t = Instant::now();
+            engine.decide(&c.keys[..end], &context(c.previous, true));
+            keystroke.push(t.elapsed());
+        }
+        let t = Instant::now();
+        let d = engine.decide(&c.keys, &context(c.previous, false));
+        commit.push(t.elapsed());
+        got.push(d.output);
+    }
+    let converter = TextConverter::new(engine.as_ref());
+    got.extend(sentences.iter().map(|c| converter.convert(&c.keys).0));
+    latency(&mut metrics, "commit", commit);
+    latency(&mut metrics, "keystroke", keystroke);
+    metrics.insert("heap.peak_kb".into(), PEAK.load(Relaxed) as f64 / 1024.0);
+
+    let cases: Vec<Case> = words.into_iter().chain(sentences).collect();
+    let mut buckets: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for (c, g) in cases.iter().zip(&got) {
+        let entry = buckets.entry(&c.bucket).or_default();
+        entry.1 += 1;
+        if *g == c.expected {
+            entry.0 += 1;
+        }
+    }
+    let total_ok: usize = buckets.values().map(|b| b.0).sum();
+    for (bucket, (ok, n)) in &buckets {
+        metrics.insert(format!("acc.{bucket}"), 100.0 * *ok as f64 / *n as f64);
+    }
+    metrics.insert(
+        "acc.ALL".into(),
+        100.0 * total_ok as f64 / cases.len() as f64,
+    );
+
+    let baseline = read_baseline();
+    print_report(&metrics, &buckets, baseline.as_ref());
+    print_changes(&cases, &got, baseline.as_ref());
+    print_misses(&cases, &got, shown);
+
+    if save {
+        let mut out = String::new();
+        for (name, value) in &metrics {
+            writeln!(out, "#metric\t{name}\t{value:.3}").unwrap();
+        }
+        for (c, g) in cases.iter().zip(&got).filter(|(c, g)| **g != c.expected) {
+            writeln!(out, "{}\t{}\t{}", c.id(), c.expected, g).unwrap();
+        }
+        std::fs::write(baseline_path(), out).expect("write baseline.tsv");
+        println!("\nsaved {}", baseline_path().display());
+    }
+}
+
+fn print_report(
+    metrics: &BTreeMap<String, f64>,
+    buckets: &BTreeMap<&str, (usize, usize)>,
+    baseline: Option<&Baseline>,
+) {
+    if baseline.is_none() {
+        println!("(no baseline.tsv yet: run with --save to record one)\n");
+    }
+    println!(
+        "{:<34} {:>10} {:>10} {:>9}",
+        "metric", "now", "baseline", "Δ"
+    );
+    for (name, value) in metrics {
+        let base = baseline.and_then(|b| b.metrics.get(name)).copied();
+        let n = name
+            .strip_prefix("acc.")
+            .and_then(|b| buckets.get(b))
+            .map_or(String::new(), |(_, n)| format!("  n={n}"));
+        match base {
+            Some(b) => println!("{name:<34} {value:>10.2} {b:>10.2} {:>+9.2}{n}", value - b),
+            None => println!("{name:<34} {value:>10.2} {:>10} {:>9}{n}", "-", "-"),
+        }
+    }
+    println!("\nacc: % right · times: µs per decide (keystroke = partial prefixes) · heap: KiB");
+}
+
+/// Cases that flipped since the baseline: what a change fixed and what it broke.
+fn print_changes(cases: &[Case], got: &[String], baseline: Option<&Baseline>) {
+    let Some(baseline) = baseline else { return };
+    let (mut fixed, mut broke) = (Vec::new(), Vec::new());
+    for (c, g) in cases.iter().zip(got) {
+        let (was, now) = (!baseline.failed.contains(&c.id()), *g == c.expected);
+        if now && !was {
+            fixed.push(format!("{} → {g}", c.id()));
+        } else if was && !now {
+            broke.push(format!("{} → {g} (want {})", c.id(), c.expected));
+        }
+    }
+    println!("\nfixed {} · broke {}", fixed.len(), broke.len());
+    for l in &fixed {
+        println!("  + {l}");
+    }
+    for l in &broke {
+        println!("  - {l}");
+    }
+}
+
+fn print_misses(cases: &[Case], got: &[String], shown: usize) {
+    let mut by_bucket: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+    for (c, g) in cases.iter().zip(got) {
+        if *g != c.expected {
+            by_bucket.entry(&c.bucket).or_default().push(format!(
+                "{} [{}] → {g} (want {})",
+                c.keys,
+                prev_name(c.previous),
+                c.expected
+            ));
+        }
+    }
+    if shown == 0 || by_bucket.is_empty() {
+        return;
+    }
+    println!("\nmisses (first {shown} per bucket):");
+    for (bucket, misses) in by_bucket {
+        println!("  {bucket} ({})", misses.len());
+        for m in misses.iter().take(shown) {
+            println!("    {m}");
+        }
+    }
+}
