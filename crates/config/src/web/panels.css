@@ -103,3 +103,13 @@
 .log ul { margin: 0; padding-left: 18px; }
 .log li { margin: 3px 0; }
 .log code { font: 12.5px var(--mono); color: var(--soft); background: #ffffff0f; padding: 1px 5px; border-radius: 4px; }
+
+/* 삭제: the paths that would go, the question, and the button that fills while it is held */
+.card.danger { border-color: var(--bad); }
+.targets { margin: 0 0 14px; padding-left: 18px; color: var(--mute); font: 12px/1.7 var(--mono); }
+.card .ask { margin: 0 0 12px; font-size: 14px; }
+.removal-choices { display: flex; align-items: center; gap: 10px; }
+.hold { position: relative; overflow: hidden; min-width: 200px; border-color: var(--bad); touch-action: none; user-select: none; }
+.hold .fill { position: absolute; inset: 0; background: var(--bad); transform: scaleX(0); transform-origin: left; }
+.hold .label { position: relative; }
+.hold .over { position: absolute; inset: 0; display: grid; place-items: center; color: #07090a; clip-path: inset(0 calc(100% - var(--p, 0%)) 0 0); }

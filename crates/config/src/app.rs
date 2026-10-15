@@ -335,7 +335,7 @@ impl App {
             (
                 "POST",
                 "/api/languages" | "/api/settings" | "/api/apps" | "/api/update" | "/api/try"
-                | "/api/play" | "/api/learning",
+                | "/api/play" | "/api/learning" | "/api/uninstall",
             ) => self.post(path, req),
             (
                 _,
@@ -345,7 +345,7 @@ impl App {
             | (
                 _,
                 "/api/languages" | "/api/settings" | "/api/update" | "/api/try" | "/api/play"
-                | "/api/learning",
+                | "/api/learning" | "/api/uninstall",
             ) => fail(405, "method not allowed"),
             _ => fail(404, "not found"),
         };
@@ -386,6 +386,9 @@ impl App {
                 Ok(()) => json_response(200, &crate::learning::summary(&self.env)),
                 Err(e) => fail(400, &e.to_string()),
             };
+        }
+        if path == "/api/uninstall" {
+            return self.uninstall(&body);
         }
         let slow_job = path == "/api/update" || path == "/api/languages";
         let _slow = if slow_job {
@@ -822,8 +825,40 @@ impl App {
                 "checkUpdates": true,
             },
             "apps": self.read_object(&self.env.apps),
+            "uninstall": self.uninstall_summary(),
             "version": crate::catalog::CORE_VERSION,
         })
+    }
+
+    /// Where the program runs from and whether it is a `TYPESCRIPT_HOME` test run: what decides
+    /// what removing may touch.
+    fn uninstall_plan(&self) -> (crate::uninstall::Plan, bool) {
+        let test_home = std::env::var_os("TYPESCRIPT_HOME").is_some();
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+        (
+            crate::uninstall::plan(&self.env, exe_dir.as_deref(), test_home),
+            test_home,
+        )
+    }
+
+    fn uninstall_summary(&self) -> Value {
+        let (plan, test_home) = self.uninstall_plan();
+        crate::uninstall::summary(&plan, test_home)
+    }
+
+    /// `{"confirm": "delete"}`: removes the data (and, on an installed Windows copy, hands the
+    /// program to its installer first). The page asks twice before it sends this.
+    fn uninstall(&self, body: &Value) -> Response {
+        if body["confirm"] != "delete" {
+            return fail(400, "confirm has to be delete");
+        }
+        let (plan, _) = self.uninstall_plan();
+        match crate::uninstall::execute(&plan, crate::uninstall::launch) {
+            Ok(outcome) => json_response(200, &json!({ "outcome": outcome.name() })),
+            Err(e) => fail(500, &format!("could not start the removal: {e}")),
+        }
     }
 }
 
@@ -906,6 +941,26 @@ mod tests {
         let mut api = req("GET", "/api/state", None);
         api.token = None;
         assert_eq!(app.handle(&api).status, 401);
+    }
+
+    #[test]
+    fn removing_needs_the_exact_confirmation_and_lists_what_it_would_take() {
+        let f = fixture("app-uninstall");
+        let app = app(&f);
+        for body in [
+            json!({}),
+            json!({"confirm": true}),
+            json!({"confirm": "yes"}),
+        ] {
+            let r = app.handle(&req("POST", "/api/uninstall", Some(body)));
+            assert_eq!(r.status, 400, "{}", String::from_utf8_lossy(&r.body));
+        }
+        assert_eq!(app.handle(&req("GET", "/api/uninstall", None)).status, 405);
+        let s = json_of(&app.handle(&req("GET", "/api/state", None)));
+        assert!(s["uninstall"]["targets"].is_array(), "{s}");
+        assert!(s["uninstall"]["program"].is_boolean(), "{s}");
+        // Nothing the fixture holds was touched by the refused requests.
+        assert!(f.env.settings.parent().unwrap().exists());
     }
 
     #[test]

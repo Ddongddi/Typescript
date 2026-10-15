@@ -182,7 +182,7 @@ You don't need to edit files. Open **Typescript Settings** from the Start menu (
 | **Input settings** (입력 설정) | Switches, each with an example: *Enter confirms only* (off = one Enter commits and breaks the line), *Tab autocomplete & word history*, *check for updates*, and — with Japanese on — *convert while typing*, *full-width digits*, *full-width space*. A "reset to default" button appears on anything you changed |
 | **Keys** (키) | What the **Han/Eng key** does: cycle the word's language (default), send a shortcut (Ctrl+C, Win+L, … — press it to record), or nothing. If your laptop sends Han/Eng as Right Alt, use "set Han/Eng key" and press the real key |
 | **App rules** (앱별 규칙) | Per-program behavior, keyed by exe name. Pick from running apps, type a name, or drag an `.exe` onto the page. Presets: *terminal · strict*, *game · off*, *KakaoTalk · system IME*. The *conversion threshold* slider: higher = convert only when sure, otherwise leave what you typed |
-| **Update** (업데이트) | Check for a new version, refresh language packs, update the program (runs the release installer, one prompt), and read the **changelog of every version** (from 0.1.0; newer releases too when there is one) |
+| **Update** (업데이트) | Check for a new version, refresh language packs, update the program (runs the release installer, one prompt), read the **changelog of every version** (from 0.1.0; newer releases too when there is one), and **Delete** (removes the input method and program together with what was learned, the settings and the language packs; it asks once more and the button has to be held down for 1.5 seconds, with one administrator prompt) |
 
 The same things from the command line:
 

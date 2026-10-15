@@ -15,6 +15,7 @@ pub mod languages;
 pub mod learning;
 pub mod setup;
 pub mod source;
+pub mod uninstall;
 pub mod update;
 mod web;
 

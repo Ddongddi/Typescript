@@ -104,7 +104,7 @@ function renderUpdate() {
   }
   box.append(h("div", { style: "margin-top:14px" },
     h("button", { class: "btn", "data-f": "upd-check", disabled: busy, onclick: checkUpdate }, working ? "확인 중…" : "지금 확인")));
-  p.append(box);
+  p.append(box, ...uninstallSection());
   if (updates.log) p.append(h("h2", {}, "변경 기록"), changelog(updates.log));
   else loadChangelog();
 }
