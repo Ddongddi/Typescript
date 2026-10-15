@@ -40,3 +40,9 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
    Made with wordfreq 3.1.1 (code Apache-2.0, https://github.com/rspeer/wordfreq);
    wordfreq's combined data is provided under CC BY-SA 4.0.
    https://creativecommons.org/licenses/by-sa/4.0/
+
+9. Chinese dictionary (crates/core/data/pinyin_compact.bin, made from rime-pinyin-simp)
+   https://github.com/rime/rime-pinyin-simp - Apache License 2.0 (the repository's LICENSE).
+   Derived from the Android Open Source Project's PinyinIME
+   (https://android.googlesource.com/platform/packages/inputmethods/PinyinIME,
+   Apache License 2.0). Any copy, in its original form or modified, must include this notice.
