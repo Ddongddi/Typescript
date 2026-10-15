@@ -35,6 +35,7 @@ impl InputSession {
         let ctx = DecisionContext {
             previous_language: self.previous_language,
             partial,
+            after_digit: self.word_after_digit,
         };
         let d = self.engine.decide(&self.word.keys, &ctx);
         let threshold = self.policy.conversion_threshold;
@@ -142,6 +143,7 @@ impl InputSession {
             &DecisionContext {
                 previous_language: None,
                 partial: true,
+                ..Default::default()
             },
         );
         if alone.language != Language::Korean {
@@ -178,6 +180,7 @@ impl InputSession {
         let ctx = DecisionContext {
             previous_language: Some(Language::Korean),
             partial: true,
+            ..Default::default()
         };
         let decision = self.engine.decide(keys, &ctx);
         match decision.language {

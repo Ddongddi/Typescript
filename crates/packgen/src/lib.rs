@@ -110,6 +110,10 @@ wanna gonna gotta kinda sorta outta lemme gimme dunno yeah yup nah ain cuz tho t
 goin doin nothin somethin y'all ya yo hey oi aye \
 wouldn couldn shouldn didn doesn isn wasn weren hasn haven hadn needn mustn aren mightn \
 rs rb gz cmd env htm cjs \
+graphql mongodb kubectl kubernetes javascript postgres postgresql mysql sqlite nginx webpack eslint pytest \
+numpy tensorflow fastapi nextjs nestjs nuxt redux axios lodash webhook websocket endpoint timeout breakpoint \
+regex oauth jwt csrf xss aws cloudflare gitlab bitbucket jira neovim vscode intellij venv csv scss hotfix \
+monorepo grafana datadog mutex rabbitmq nosql sql ssh ssl vpn gcp sdk cli gui zsh xcode rustup \
 makeup brooklyn shakespeare einstein techno pesto americano cosmo promo garde kanji kana romaji ramen";
 
 fn is_ascii_letters(w: &str) -> bool {

@@ -498,6 +498,7 @@ impl App {
                 &DecisionContext {
                     previous_language: previous,
                     partial: false,
+                    ..Default::default()
                 },
             );
             let kept = d.language != Language::English && d.confidence < threshold;

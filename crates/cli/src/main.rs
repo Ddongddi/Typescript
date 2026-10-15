@@ -56,6 +56,7 @@ fn main() {
                     &DecisionContext {
                         previous_language: None,
                         partial: true,
+                        ..Default::default()
                     },
                 );
                 let suggestion = suggest(None, d.language, &d.output).unwrap_or_default();
@@ -85,6 +86,7 @@ fn main() {
                     &DecisionContext {
                         previous_language: previous,
                         partial: false,
+                        ..Default::default()
                     },
                 );
                 println!(

@@ -119,6 +119,8 @@ pub struct InputSession {
     languages: Languages,
     /// The last correction handed to the learning engine: going back and forth is one correction.
     last_recorded: Option<(String, Language)>,
+    /// The word being typed started right after a digit (2024년).
+    word_after_digit: bool,
     last_trace: Option<Trace>,
     /// Counts committed words and completes with them; None: no autocomplete.
     history: Option<Arc<History>>,
@@ -170,6 +172,7 @@ impl InputSession {
                 full_width_space: false,
             },
             last_recorded: None,
+            word_after_digit: false,
             last_trace: None,
             history: None,
         }
@@ -365,6 +368,7 @@ impl InputSession {
         }
         if self.word.keys.is_empty() {
             self.last_recorded = None; // a new word
+            self.word_after_digit = self.width.after_digit;
             self.ja.live_suppressed = false;
         }
         self.ja.added_n_marker = false;

@@ -113,6 +113,7 @@ fn partial_preview_does_not_punish_pending_consonant() {
         &DecisionContext {
             previous_language: None,
             partial: true,
+            ..Default::default()
         },
     );
     assert_eq!(d.language, Language::Korean, "{}", d.explanation);
@@ -143,16 +144,19 @@ fn learning_a_word_with_an_ending_teaches_its_stem() {
     let path = temp_lexicon("stem");
     let _ = std::fs::remove_file(&path);
     let learning = LearningEngine::new(Box::new(splitting()), Some(path.clone()));
-    // kubectl is no word the lists know: unsplit until taught.
-    assert_ne!(learning.decide("kubectldp", &ctx()).output, "kubectl에");
+    // zorbitctl is no word the lists know: unsplit until taught.
+    assert_ne!(learning.decide("zorbitctldp", &ctx()).output, "zorbitctl에");
     for _ in 0..2 {
-        learning.learn("kubectldmf", Language::Mixed, Some(Language::English));
+        learning.learn("zorbitctldmf", Language::Mixed, Some(Language::English));
     }
-    assert_eq!(learning.learned().get("kubectl"), Some(&Language::English));
-    let d = learning.decide("kubectldp", &ctx());
+    assert_eq!(
+        learning.learned().get("zorbitctl"),
+        Some(&Language::English)
+    );
+    let d = learning.decide("zorbitctldp", &ctx());
     assert_eq!(
         (d.output.as_str(), d.language),
-        ("kubectl에", Language::Mixed)
+        ("zorbitctl에", Language::Mixed)
     );
     // Korean: 리센느 taught through 리센느가 also reads 리센느는.
     for _ in 0..2 {
@@ -376,4 +380,59 @@ fn consonant_only_chat_words_are_korean() {
     for word in ["as", "at", "we", "re", "tea", "set", "cat", "eat", "fast"] {
         assert_eq!(e.decide(word, &ctx()).language, Language::English, "{word}");
     }
+}
+
+/// Right after a digit a counter is Korean (sus is also a word) and a unit English (kg is no
+/// syllable), each with or without an ending.
+#[test]
+fn after_a_digit_counters_are_korean_and_units_english() {
+    let e = splitting();
+    let after_digit = DecisionContext {
+        after_digit: true,
+        ..ctx()
+    };
+    for (keys, expected) in [
+        ("sus", "년"),
+        ("dnjfdp", "월에"),
+        ("qns", "분"),
+        ("kg", "kg"),
+        ("kgdlek", "kg이다"),
+        ("gb", "gb"),
+        ("mbdp", "mb에"),
+    ] {
+        let d = e.decide(keys, &after_digit);
+        assert_eq!(d.output, expected, "{keys}: {}", d.explanation);
+    }
+    // Without the digit nothing changes: sus stays the English word.
+    assert_eq!(e.decide("sus", &ctx()).output, "sus");
+}
+
+/// A name typed as an identifier (a capital no shifted jamo explains) takes its particle.
+#[test]
+fn camel_case_identifier_takes_a_particle() {
+    let e = splitting();
+    for (keys, expected) in [
+        ("isValidrk", "isValid가"),
+        ("getUserNamedmf", "getUserName을"),
+    ] {
+        assert_eq!(e.decide(keys, &ctx()).output, expected, "{keys}");
+    }
+}
+
+/// Tool names the SCOWL lists miss, with a particle.
+#[test]
+fn developer_tool_names_take_particles() {
+    let e = splitting();
+    for (keys, expected) in [
+        ("mongodbfmf", "mongodb를"),
+        ("kubectldmf", "kubectl을"),
+        ("graphqldmf", "graphql을"),
+        ("timeoutdl", "timeout이"),
+        ("postgresfh", "postgres로"),
+        ("sqldmf", "sql을"),
+    ] {
+        assert_eq!(e.decide(keys, &ctx()).output, expected, "{keys}");
+    }
+    // A Korean word that the keys also spell stays Korean.
+    assert_eq!(e.decide("dns", &ctx()).output, "운");
 }

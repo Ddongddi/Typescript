@@ -14,6 +14,14 @@ use crate::lang::romaji::RomajiComposer;
 const SINGLE_LETTER_SPELLING_CEILING: f64 = -4.5;
 const CAPITAL_SINGLE_LETTER_SPELLING_CEILING: f64 = -3.5;
 
+/// Counters that follow a number (년월일시분초 개명원번 살층대권).
+const COUNTERS: &str = "년월일시분초개명원번살층대권";
+/// Units written in Latin letters after a number, longest first within a shared start.
+const UNITS: [&str; 20] = [
+    "kwh", "khz", "mhz", "ghz", "kg", "km", "cm", "mm", "ml", "mg", "gb", "mb", "kb", "tb", "hz",
+    "ms", "px", "fps", "rpm", "kw",
+];
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MixedWord {
     pub english: String,
@@ -196,6 +204,61 @@ impl SplittingEngine {
             .unwrap_or(true)
     }
 
+    /// isValid, useState, getUserName: lowercase start, then a capital that no shifted jamo
+    /// explains. Typed on purpose as an identifier.
+    fn is_camel_identifier(front: &str) -> bool {
+        front.chars().count() >= 3
+            && front.chars().all(|c| c.is_ascii_alphabetic())
+            && front.starts_with(|c: char| c.is_ascii_lowercase())
+            && Self::has_english_only_capital(front)
+    }
+
+    /// Right after a digit: a counter (2024년, 3개, 5분) is Korean, a unit (1.5kg, 10gb) English.
+    /// Either may carry an ending (1.5kg이다, 3개를). Spelled alone these read the other way
+    /// (sus is a word, kg is no syllable).
+    fn after_digit_word(keys: &str) -> Option<Decision> {
+        let composed = HangulComposer::compose(keys)?;
+        let text = composed.text();
+        let mut chars = text.chars();
+        let counter = chars.next().filter(|c| COUNTERS.contains(*c));
+        if let Some(counter) = counter {
+            let rest: String = chars.collect();
+            if composed.stray_jamo().is_empty() && (rest.is_empty() || is_ending(&rest)) {
+                return Some(Decision {
+                    language: Language::Korean,
+                    confidence: Self::CONFIDENCE,
+                    output: text.clone(),
+                    explanation: format!("counter {counter} after a digit"),
+                    runner_up: None,
+                });
+            }
+        }
+        let lower = keys.to_ascii_lowercase();
+        UNITS
+            .iter()
+            .filter(|u| lower.starts_with(**u))
+            .find_map(|unit| {
+                let (front, back) = keys.split_at(unit.len());
+                if back.is_empty() {
+                    return Some(Decision {
+                        language: Language::English,
+                        confidence: Self::CONFIDENCE,
+                        output: keys.to_string(),
+                        explanation: format!("unit {unit} after a digit"),
+                        runner_up: None,
+                    });
+                }
+                let korean = HangulComposer::compose(back).filter(|c| c.stray_jamo().is_empty())?;
+                (MixedWord::is_ending_keys(back)).then(|| {
+                    Self::split_decision(&MixedWord {
+                        english: front.to_string(),
+                        korean_keys: back.to_string(),
+                        korean: korean.text(),
+                    })
+                })
+            })
+    }
+
     fn has_english_only_capital(front: &str) -> bool {
         front
             .chars()
@@ -330,8 +393,14 @@ impl SplittingEngine {
 impl DecisionEngine for SplittingEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
         if self.korean_on {
+            if context.after_digit {
+                if let Some(decision) = Self::after_digit_word(keys) {
+                    return decision;
+                }
+            }
             if let Some(mixed) = MixedWord::split(keys) {
                 let front_ok = Self::is_acronym(&mixed.english)
+                    || Self::is_camel_identifier(&mixed.english)
                     || Self::is_shifted_acronym(&mixed.english)
                     || Self::is_capitalized_name(&mixed.english)
                     || (mixed.english.chars().count() >= 3 && self.looks_english(&mixed.english));

@@ -9,6 +9,11 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+- Words right after a digit are read better: counters such as `2024년`, `3개`, `5분` come out Korean, units such as `1.5kg이다`, `10gb`, `100ms` come out English.
+- A camelCase identifier followed by a particle (`isValid가`, `getUserName을`) is split as English.
+- About 60 developer tool names the dictionary lacked are recognised as English with a particle: `mongodb를`, `kubectl을`, `graphql을`, `timeout이`, `postgres로`, `sql을`. `ssh` is English with Japanese on too.
+
 ## [0.8.6] - 2026-10-16
 
 ### Added

@@ -114,6 +114,9 @@ pub struct DecisionContext {
     pub previous_language: Option<Language>,
     /// The token is still being typed (used for the live preview).
     pub partial: bool,
+    /// The token starts right after a digit (2024년, 1.5kg), where a counter or a unit is
+    /// the likely word.
+    pub after_digit: bool,
 }
 
 #[derive(Clone, Debug)]

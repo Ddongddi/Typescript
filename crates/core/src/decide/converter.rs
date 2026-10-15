@@ -22,17 +22,20 @@ impl<'a> TextConverter<'a> {
         let mut words = Vec::new();
         let mut token = String::new();
         let mut previous = None;
+        let (mut after_digit, mut last) = (false, ' ');
 
         let flush = |token: &mut String,
                      output: &mut String,
                      words: &mut Vec<Word>,
-                     previous: &mut Option<_>| {
+                     previous: &mut Option<_>,
+                     after_digit: bool| {
             if token.is_empty() {
                 return;
             }
             let ctx = DecisionContext {
                 previous_language: *previous,
                 partial: false,
+                after_digit,
             };
             let decision = self.engine.decide(token, &ctx);
             output.push_str(&decision.output);
@@ -45,16 +48,32 @@ impl<'a> TextConverter<'a> {
 
         for ch in text.chars() {
             if ch.is_ascii_alphabetic() {
+                if token.is_empty() {
+                    after_digit = last.is_ascii_digit();
+                }
                 token.push(ch);
             } else {
-                flush(&mut token, &mut output, &mut words, &mut previous);
+                flush(
+                    &mut token,
+                    &mut output,
+                    &mut words,
+                    &mut previous,
+                    after_digit,
+                );
                 output.push(ch);
                 if ch == '\n' || ch == '\r' {
                     previous = None;
                 }
             }
+            last = ch;
         }
-        flush(&mut token, &mut output, &mut words, &mut previous);
+        flush(
+            &mut token,
+            &mut output,
+            &mut words,
+            &mut previous,
+            after_digit,
+        );
         (output, words)
     }
 }

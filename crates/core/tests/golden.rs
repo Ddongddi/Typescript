@@ -171,6 +171,7 @@ fn decide_snapshot(japanese: bool) -> String {
                 let ctx = DecisionContext {
                     previous_language: *prev,
                     partial,
+                    ..Default::default()
                 };
                 let d = engine.decide(&keys, &ctx);
                 writeln!(

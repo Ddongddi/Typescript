@@ -141,6 +141,7 @@ impl InputSession {
             let context = DecisionContext {
                 previous_language: self.previous_language,
                 partial: true,
+                ..Default::default()
             };
             let mut keys = self.word.keys.clone();
             keys.push(ch);
@@ -726,6 +727,7 @@ impl InputSession {
                 &DecisionContext {
                     previous_language: self.previous_language,
                     partial: false,
+                    ..Default::default()
                 },
             );
             if decision.language != Language::Japanese || decision.confidence < 0.9 {

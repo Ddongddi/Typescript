@@ -243,6 +243,7 @@ fn japanese_context_helps_ambiguous_words() {
         &DecisionContext {
             previous_language: Some(Language::Japanese),
             partial: false,
+            ..Default::default()
         },
     );
     assert_eq!(d.language, Language::Japanese, "{}", d.explanation);
