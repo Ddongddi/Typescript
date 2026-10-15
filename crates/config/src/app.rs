@@ -315,7 +315,7 @@ impl App {
                 Ok(v) => json_response(200, &v),
                 Err(message) => fail(502, &message),
             },
-            ("GET", "/api/learning") => json_response(200, &crate::learning::summary(&self.env)),
+            ("GET", "/api/learning") => json_response(200, &self.learning_summary()),
             ("GET", "/api/health") => json_response(
                 200,
                 &json!({
@@ -383,7 +383,7 @@ impl App {
         }
         if path == "/api/learning" {
             return match crate::learning::change(&self.env, &body) {
-                Ok(()) => json_response(200, &crate::learning::summary(&self.env)),
+                Ok(()) => json_response(200, &self.learning_summary()),
                 Err(e) => fail(400, &e.to_string()),
             };
         }
@@ -446,12 +446,22 @@ impl App {
         let mut slot = self.engine.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((built_for, engine)) = slot.as_ref() {
             if *built_for == on {
+                engine.reload(); // the input method may have learned a word since
                 return Ok((on, engine.clone()));
             }
         }
-        let engine = make_engine(None, &on);
+        // The same lexicon.json the input method reads, so what it learned works in the chat too.
+        let engine = make_engine(Some(self.env.settings.with_file_name("lexicon.json")), &on);
         *slot = Some((on.clone(), engine.clone()));
         Ok((on, engine))
+    }
+
+    /// The learned words, each with what it turns into (needs a language pack to show).
+    fn learning_summary(&self) -> Value {
+        let engine = self.engine().ok().map(|(_, engine)| engine);
+        crate::learning::summary(&self.env, |keys, language| {
+            engine.as_ref().map(|e| e.render(keys, language))
+        })
     }
 
     /// Reads `text` as typed on a QWERTY keyboard, word by word, as the input method would:

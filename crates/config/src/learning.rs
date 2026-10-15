@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use serde_json::{json, Value};
 use typescript_core::decide::learning::Store;
 use typescript_core::store::{load_or_quarantine, persist};
-use typescript_core::History;
+use typescript_core::{History, Language};
 
 use crate::env::Env;
 use crate::error::{err, Result};
@@ -29,14 +29,18 @@ fn history_path(env: &Env) -> PathBuf {
 
 /// The learned words (up to `SHOWN`), how many are waiting for a second correction, and how many
 /// words Tab completion remembers.
-pub fn summary(env: &Env) -> Value {
+pub fn summary(env: &Env, render: impl Fn(&str, Language) -> Option<String>) -> Value {
     let store: Store = load_or_quarantine(Some(&lexicon_path(env)));
     let history = History::new(Some(history_path(env)));
-    let learned: Vec<Value> = store
-        .learned
-        .iter()
+    // a–z whatever the case; `out` is what the word turns into (none when its pack is not here)
+    let mut words: Vec<_> = store.learned.iter().collect();
+    words.sort_by_cached_key(|(keys, _)| (keys.to_lowercase(), keys.to_string()));
+    let learned: Vec<Value> = words
+        .into_iter()
         .take(SHOWN)
-        .map(|(keys, language)| json!({ "keys": keys, "language": language.id() }))
+        .map(|(keys, language)| {
+            json!({ "keys": keys, "language": language.id(), "out": render(keys, *language) })
+        })
         .collect();
     json!({
         "learned": learned,
@@ -80,13 +84,17 @@ fn save(path: &std::path::Path, store: &Store) -> Result<()> {
 mod tests {
     use super::*;
     use crate::testutil::fixture;
-    use typescript_core::Language;
+    fn plain(keys: &str, _: Language) -> Option<String> {
+        Some(format!("<{keys}>"))
+    }
 
     #[test]
     fn taught_words_are_listed_and_forgotten_and_the_history_is_cleared() {
         let f = fixture("learning");
         let mut store = Store::default();
         store.learned.insert("rjtm".into(), Language::Korean);
+        store.learned.insert("Zed".into(), Language::Korean);
+        store.learned.insert("apple".into(), Language::Korean);
         store.once.insert("hello".into(), Language::Korean);
         persist(&lexicon_path(&f.env), &store).unwrap();
         let history = History::new(Some(history_path(&f.env)));
@@ -96,21 +104,28 @@ mod tests {
         history.record("zebrastripe");
         history.flush();
 
-        let s = summary(&f.env);
-        assert_eq!(s["learnedCount"], 1);
+        let s = summary(&f.env, plain);
+        assert_eq!(s["learnedCount"], 3);
         assert_eq!(s["pendingCount"], 1);
-        assert_eq!(s["learned"][0]["keys"], "rjtm");
-        assert_eq!(s["learned"][0]["language"], "ko");
+        let order: Vec<_> = s["learned"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|w| w["keys"].clone())
+            .collect();
+        assert_eq!(order, ["apple", "rjtm", "Zed"]);
+        assert_eq!(s["learned"][1]["language"], "ko");
+        assert_eq!(s["learned"][1]["out"], "<rjtm>");
         assert_eq!(s["historyWords"], 2);
         assert_eq!(s["historySuggestible"], 1);
 
         change(&f.env, &json!({ "action": "forget", "keys": "rjtm" })).unwrap();
         assert!(change(&f.env, &json!({ "action": "forget", "keys": "rjtm" })).is_err());
-        assert_eq!(summary(&f.env)["learnedCount"], 0);
+        assert_eq!(summary(&f.env, plain)["learnedCount"], 2);
         change(&f.env, &json!({ "action": "forgetAll" })).unwrap();
-        assert_eq!(summary(&f.env)["pendingCount"], 0);
+        assert_eq!(summary(&f.env, plain)["pendingCount"], 0);
         change(&f.env, &json!({ "action": "clearHistory" })).unwrap();
-        assert_eq!(summary(&f.env)["historyWords"], 0);
+        assert_eq!(summary(&f.env, plain)["historyWords"], 0);
         assert!(change(&f.env, &json!({ "action": "x" })).is_err());
     }
 }

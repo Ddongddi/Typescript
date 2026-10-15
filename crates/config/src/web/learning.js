@@ -46,7 +46,7 @@ function taughtWords() {
   } else {
     box.append(h("ul", { class: "taught" }, ...d.learned.map((w) =>
       h("li", {},
-        h("code", {}, w.keys), h("span", {}, "→ " + langName(w.language)),
+        h("code", {}, w.keys), h("span", {}, "→ " + (w.out || langName(w.language))),
         h("button", {
           class: "btn quiet", type: "button", disabled: busy, "aria-label": w.keys + " 잊기",
           onclick: () => changeLearning({ action: "forget", keys: w.keys }, "잊었습니다"),
