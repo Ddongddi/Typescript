@@ -9,6 +9,22 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-10-16
+
+### Added
+- An English word you teach once also teaches the other forms with a particle or ending: correct `kubectl을` once and `kubectl하고`, `kubectl로` come out right without correcting each. Korean words work the same way.
+- Better results for a single letter (or capital acronym) followed by a Korean word (`n제`, `x축`, `PR은`, `QR코드`) and for an English word followed by a particle (`slack에서`).
+- `cd` now comes out as English instead of the Hangul letters `ㅊㅇ`. File extensions and commands such as `rs`, `rb`, `gz`, `cmd`, `env`, `htm`, `cjs` are treated as English too.
+
+### Changed
+- The English pack drops an unused frequency column (about 9% smaller) and the engines share one Korean syllable table. Memory right after loading the packs goes from 1006 KiB to 67 KiB, and peak memory from 9.3 to 8.0 MiB.
+- The core engine is built for size (`opt-level = "s"`): the input method DLL is about 12% smaller, and deciding one word is about 3% slower (about 20 microseconds on average).
+- New `docs/report.md`: every release measures size, accuracy, speed and memory the same way and adds the result there.
+
+### Fixed
+- A lone jamo at the edge of a long key sequence (`cmdr`) being read as Korean.
+- English with capitals such as `GDP` being broken by the single-letter rule.
+
 ## [0.8.5] - 2026-10-15
 
 ### Fixed
@@ -254,7 +270,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3

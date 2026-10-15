@@ -9,6 +9,22 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-10-16
+
+### 추가
+- 한 번 가르친 영어 단어는 뒤에 조사·어미가 붙은 다른 꼴도 같이 배웁니다. `kubectl을`을 한 번 고치면 `kubectl하고`, `kubectl로`도 따로 고칠 필요 없이 맞습니다. 한국어 단어도 같습니다.
+- `n제`, `x축`, `PR은`, `QR코드`처럼 한 글자(또는 대문자 약어)에 한국어 단어가 붙은 말, `slack에서`처럼 영어 단어에 조사가 붙은 말이 더 정확하게 바뀝니다.
+- `cd`가 한글 자모(`ㅊㅇ`)가 아니라 영어로 나옵니다. `rs`, `rb`, `gz`, `cmd`, `env`, `htm`, `cjs` 같은 확장자와 명령어도 영어로 봅니다.
+
+### 변경
+- 영어 팩에서 쓰지 않던 빈도 열을 뺐고(팩 약 9% 감소), 한국어 음절 표를 엔진끼리 공유합니다. 팩을 올린 직후 메모리가 1006 KiB에서 67 KiB로, 최대 메모리가 9.3에서 8.0 MiB로 줄었습니다.
+- 코어 엔진을 크기 위주(`opt-level = "s"`)로 빌드해 입력기 DLL이 약 12% 작아졌습니다. 글자 하나를 정하는 시간은 약 3% 느립니다(평균 약 20 마이크로초).
+- `docs/report.md`가 생겼습니다. 릴리즈마다 크기·정확도·속도·메모리를 같은 방법으로 재서 쌓습니다.
+
+### 수정
+- `cmdr`처럼 긴 키 입력의 가장자리에 자모 하나가 남아 한글로 읽히던 문제.
+- `GDP`처럼 대문자가 섞인 영어가 한 글자 규칙에 걸려 깨지던 문제.
+
 ## [0.8.5] - 2026-10-15
 
 ### 수정
@@ -254,7 +270,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
