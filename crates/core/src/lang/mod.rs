@@ -11,6 +11,7 @@ pub mod korean;
 pub mod module;
 pub mod pack;
 pub mod particles;
+pub mod pinyin;
 pub mod registry;
 pub mod romaji;
 pub mod set;
