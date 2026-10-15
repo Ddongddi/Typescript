@@ -23,17 +23,32 @@
 #metric	acc.ko.words/after-ko	99.950
 #metric	acc.ko.words/none	99.950
 #metric	acc.sentences	100.000
-#metric	commit.avg_us	24.408
-#metric	commit.p50_us	21.400
-#metric	commit.p95_us	52.500
-#metric	commit.p99_us	77.900
+#metric	big.cs.bare.sentence	95.657
+#metric	big.cs.bare.token	99.365
+#metric	big.cs.number.sentence	96.948
+#metric	big.cs.number.token	99.542
+#metric	big.cs.particle.sentence	86.821
+#metric	big.cs.particle.token	98.079
+#metric	big.en.sent.sentence	99.967
+#metric	big.en.sent.token	99.995
+#metric	big.ko.sent.sentence	97.100
+#metric	big.ko.sent.token	99.453
+#metric	big.ko.title.after-en	98.567
+#metric	big.ko.title.after-ko	99.967
+#metric	big.ko.title.none	99.867
+#metric	big.learn.other_forms_after	98.214
+#metric	big.learn.other_forms_before	87.500
+#metric	commit.avg_us	27.260
+#metric	commit.p50_us	25.500
+#metric	commit.p95_us	57.300
+#metric	commit.p99_us	81.600
 #metric	heap.loaded_kb	66.701
 #metric	heap.peak_kb	7995.814
-#metric	keystroke.avg_us	13.961
-#metric	keystroke.p50_us	9.400
-#metric	keystroke.p95_us	36.000
-#metric	keystroke.p99_us	55.000
-#metric	load.ms	2.554
+#metric	keystroke.avg_us	15.909
+#metric	keystroke.p50_us	10.000
+#metric	keystroke.p95_us	40.700
+#metric	keystroke.p99_us	60.400
+#metric	load.ms	3.333
 ko.words/none	rodtlsdl	-	갱신이	rod신이
 ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
 ko.words/after-en	rodtlsdl	english	갱신이	rod신이

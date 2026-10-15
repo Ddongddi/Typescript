@@ -9,6 +9,8 @@
 //! Cases: generated from crates/core/data (sampled across each whole list, not just the top),
 //! plus cases/words.tsv and cases/sentences.tsv, which hold what *should* happen.
 
+mod corpus;
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -32,6 +34,8 @@ const CODE_SWITCH: &str = include_str!("../cases/codeswitch.tsv");
 const SAMPLE: usize = 2000;
 const ENGLISH_DEPTH: usize = 20_000;
 const DEFAULT_MISSES: usize = 5;
+/// Items per big set (`--corpus N`); the sets in lab/data hold tens of thousands.
+const DEFAULT_CORPUS: usize = 3000;
 
 /// Counts live heap bytes, so "lighter" is a number.
 struct Counting;
@@ -329,6 +333,21 @@ fn main() {
     latency(&mut metrics, "keystroke", keystroke);
     metrics.insert("heap.peak_kb".into(), PEAK.load(Relaxed) as f64 / 1024.0);
 
+    // The big sets come after the heap numbers: they allocate a lot.
+    let sample = args
+        .iter()
+        .position(|a| a == "--corpus")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(DEFAULT_CORPUS);
+    let big = if args.iter().any(|a| a == "--no-corpus") {
+        None
+    } else {
+        corpus::run(engine.as_ref(), sample, shown)
+    };
+    if let Some(report) = &big {
+        metrics.extend(report.metrics.iter().cloned());
+    }
+
     let cases: Vec<Case> = words.into_iter().chain(sentences).collect();
     let mut buckets: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
     for (c, g) in cases.iter().zip(&got) {
@@ -351,6 +370,12 @@ fn main() {
     print_report(&metrics, &buckets, baseline.as_ref());
     print_changes(&cases, &got, baseline.as_ref());
     print_misses(&cases, &got, shown);
+    if let Some(report) = &big {
+        for (bucket, misses) in report.misses.iter().filter(|(_, m)| !m.is_empty()) {
+            println!("\n  {bucket} (first {})", misses.len());
+            misses.iter().for_each(|m| println!("    {m}"));
+        }
+    }
 
     if save {
         let mut out = String::new();

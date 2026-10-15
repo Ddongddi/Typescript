@@ -55,6 +55,15 @@ impl MixedWord {
         })
     }
 
+    /// Whether these keys alone type a Korean particle or ending (rk → 가, dp → 에).
+    pub fn is_ending_keys(keys: &str) -> bool {
+        keys.chars()
+            .next()
+            .is_some_and(DubeolsikLayout::starts_syllable)
+            && HangulComposer::compose(keys)
+                .is_some_and(|c| c.stray_jamo().is_empty() && is_ending(&c.text()))
+    }
+
     /// Splits off the longest Korean particle/ending at the end of `keys`. Only the shape is
     /// checked here; whether the front really is English is up to the caller (`SplittingEngine`).
     pub fn split(keys: &str) -> Option<MixedWord> {
@@ -238,6 +247,13 @@ impl SplittingEngine {
         if !DubeolsikLayout::starts_syllable(rest.chars().next()?) {
             return None;
         }
+        // A capital that is no shifted jamo inside the rest (GDP: D) means all-caps English.
+        if rest
+            .chars()
+            .any(|c| c.is_ascii_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
+        {
+            return None;
+        }
         let composed = HangulComposer::compose(rest)?;
         let text = composed.text();
         let plausible = composed
@@ -335,7 +351,14 @@ impl DecisionEngine for SplittingEngine {
                     return Self::split_decision(&mixed);
                 }
             }
-            if let Some(mixed) = self.single_letter_then_korean_word(keys) {
+            // Listed English words are skipped before any Hangul is composed (cheap, cached).
+            if let Some(mixed) = self
+                .english
+                .level(keys)
+                .is_none()
+                .then(|| self.single_letter_then_korean_word(keys))
+                .flatten()
+            {
                 // Words that spell like English (bro -2.8, ceo -3.2) stay English; nwp is -5.8.
                 let capital = Self::has_english_only_capital(&mixed.english);
                 let ceiling = if capital {

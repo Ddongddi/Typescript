@@ -20,6 +20,19 @@ use crate::support_dir;
 /// are the ambiguous ones, they stay word by word.
 const MIN_STEM_KEYS: usize = 3;
 
+/// The learned language of a stem that `keys` continue with a particle or ending. Looks the
+/// prefixes up in the map first (cheap), and only checks the ending of the ones that are there.
+fn learned_stem(learned: &BTreeMap<String, Language>, keys: &str) -> Option<Language> {
+    if learned.is_empty() {
+        return None;
+    }
+    keys.char_indices()
+        .skip(MIN_STEM_KEYS)
+        .filter_map(|(i, _)| Some((learned.get(&keys[..i])?, &keys[i..])))
+        .find(|(_, tail)| MixedWord::is_ending_keys(tail))
+        .map(|(language, _)| *language)
+}
+
 /// The stem of `keys` when a particle or ending is typed straight after it: fltpssmrk → fltpssm.
 fn stem_of(keys: &str) -> Option<String> {
     MixedWord::split(keys)
@@ -187,7 +200,7 @@ impl DecisionEngine for LearningEngine {
             .copied()
             .filter(|l| self.languages.allows(*l));
         let stem = || {
-            let language = self.lock().store.learned.get(&stem_of(keys)?).copied()?;
+            let language = learned_stem(&self.lock().store.learned, keys)?;
             match language {
                 Language::English if self.languages.allows(Language::Korean) => {
                     Some(Language::Mixed)
