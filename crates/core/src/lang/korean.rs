@@ -15,6 +15,12 @@ pub const TIER2_LOGP: f64 = -6.5;
 pub const TIER3_LOGP: f64 = -8.0;
 pub const UNKNOWN_SYLLABLE_LOGP: f64 = -11.0;
 pub const STRAY_JAMO_LOGP: f64 = -13.0;
+/// Keys with exactly one stray jamo score at most this once they are this long (the penalty is
+/// otherwise averaged over the keystrokes and fades).
+const STRAY_WORD_LOGP: f64 = -9.0;
+const STRAY_WORD_MIN_KEYS: usize = 4;
+/// Longer tokens are English + Korean typed together (dhsmfdmsgoogledptj): leave those alone.
+const STRAY_WORD_MAX_KEYS: usize = 9;
 /// Typing the first consonant of the next syllable is normal mid-word.
 pub const PENDING_CONSONANT_LOGP: f64 = -3.5;
 /// ㅋㅋ, ㅎㅎ, ㅠㅠ and friends.
@@ -205,6 +211,7 @@ impl KoreanModel {
                         .iter()
                         .all(|u| matches!(u, Unit::Jamo(j) if is_consonant(*j)))));
         let mut total = 0.0;
+        let mut strays = 0;
         for (i, unit) in units.iter().enumerate() {
             total += match unit {
                 Unit::Syllable(s) => self.syllable_log_probability(*s),
@@ -214,13 +221,23 @@ impl KoreanModel {
                     } else if partial && i == units.len() - 1 && is_consonant(*j) {
                         PENDING_CONSONANT_LOGP
                     } else {
+                        strays += 1;
                         STRAY_JAMO_LOGP
                     }
                 }
             };
         }
+        let count = keys.chars().count();
+        let mut average = total / count as f64;
+        // A stray jamo inside a longer word (층ㄱ for cmdr) must not be averaged away by the
+        // syllables around it.
+        let at_edge = matches!(units.first(), Some(Unit::Jamo(_)))
+            || matches!(units.last(), Some(Unit::Jamo(_)));
+        if strays == 1 && at_edge && (STRAY_WORD_MIN_KEYS..=STRAY_WORD_MAX_KEYS).contains(&count) {
+            average = average.min(STRAY_WORD_LOGP);
+        }
         Some(KoreanScore {
-            average_log_probability: total / keys.chars().count() as f64,
+            average_log_probability: average,
             composition,
         })
     }

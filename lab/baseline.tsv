@@ -1,8 +1,8 @@
-#metric	acc.ALL	99.657
+#metric	acc.ALL	99.662
 #metric	acc.en.freq/after-en	99.800
 #metric	acc.en.freq/after-ko	99.450
 #metric	acc.en.freq/none	99.600
-#metric	acc.hand.abbrev	0.000
+#metric	acc.hand.abbrev	20.000
 #metric	acc.hand.chat	100.000
 #metric	acc.hand.letter-noun	95.455
 #metric	acc.hand.letter-particle	100.000
@@ -14,17 +14,17 @@
 #metric	acc.ko.words/after-ko	99.950
 #metric	acc.ko.words/none	99.950
 #metric	acc.sentences	100.000
-#metric	commit.avg_us	31.291
-#metric	commit.p50_us	27.300
-#metric	commit.p95_us	71.900
-#metric	commit.p99_us	106.900
+#metric	commit.avg_us	30.725
+#metric	commit.p50_us	26.100
+#metric	commit.p95_us	70.300
+#metric	commit.p99_us	107.800
 #metric	heap.loaded_kb	100.717
-#metric	heap.peak_kb	8012.230
-#metric	keystroke.avg_us	16.923
-#metric	keystroke.p50_us	11.200
-#metric	keystroke.p95_us	45.300
-#metric	keystroke.p99_us	71.900
-#metric	load.ms	2.949
+#metric	heap.peak_kb	8012.227
+#metric	keystroke.avg_us	16.543
+#metric	keystroke.p50_us	11.000
+#metric	keystroke.p95_us	44.100
+#metric	keystroke.p99_us	70.900
+#metric	load.ms	3.091
 ko.words/none	rodtlsdl	-	갱신이	rod신이
 ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
 ko.words/after-en	rodtlsdl	english	갱신이	rod신이
@@ -86,4 +86,3 @@ hand.abbrev	dr	korean	dr	ㅇㄱ
 hand.abbrev	ft	korean	ft	ㄹㅅ
 hand.abbrev	tc	korean	tc	ㅅㅊ
 hand.abbrev	ftl	korean	ftl	f시
-hand.abbrev	cmdr	korean	cmdr	층ㄱ
