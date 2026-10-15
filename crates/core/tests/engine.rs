@@ -137,6 +137,36 @@ fn learning_overrides_base() {
     let _ = std::fs::remove_file(&path);
 }
 
+/// A correction made twice teaches the stem too: every other particle on it follows.
+#[test]
+fn learning_a_word_with_an_ending_teaches_its_stem() {
+    let path = temp_lexicon("stem");
+    let _ = std::fs::remove_file(&path);
+    let learning = LearningEngine::new(Box::new(splitting()), Some(path.clone()));
+    // kubectl is no word the lists know: unsplit until taught.
+    assert_ne!(learning.decide("kubectldp", &ctx()).output, "kubectl에");
+    for _ in 0..2 {
+        learning.learn("kubectldmf", Language::Mixed, Some(Language::English));
+    }
+    assert_eq!(learning.learned().get("kubectl"), Some(&Language::English));
+    let d = learning.decide("kubectldp", &ctx());
+    assert_eq!(
+        (d.output.as_str(), d.language),
+        ("kubectl에", Language::Mixed)
+    );
+    // Korean: 리센느 taught through 리센느가 also reads 리센느는.
+    for _ in 0..2 {
+        learning.learn("fltpssmrk", Language::Korean, Some(Language::English));
+    }
+    assert_eq!(learning.decide("fltpssmsms", &ctx()).output, "리센느는");
+    // Short stems stay word by word.
+    for _ in 0..2 {
+        learning.learn("godp", Language::Mixed, Some(Language::Korean));
+    }
+    assert!(!learning.learned().contains_key("go"));
+    let _ = std::fs::remove_file(&path);
+}
+
 /// A lexicon.json it can't read (hand-edited, another version) is set aside, not overwritten.
 #[test]
 fn unreadable_lexicon_is_kept_aside() {

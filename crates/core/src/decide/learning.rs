@@ -12,8 +12,20 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::mixed::MixedWord;
 use crate::lang::set::Languages;
 use crate::support_dir;
+
+/// A stem shorter than this many keys isn't learned on its own (go, so, 하): the short words
+/// are the ambiguous ones, they stay word by word.
+const MIN_STEM_KEYS: usize = 3;
+
+/// The stem of `keys` when a particle or ending is typed straight after it: fltpssmrk → fltpssm.
+fn stem_of(keys: &str) -> Option<String> {
+    MixedWord::split(keys)
+        .map(|m| m.english)
+        .filter(|stem| stem.chars().count() >= MIN_STEM_KEYS)
+}
 
 /// lexicon.json: words learned for good, and words corrected once. Both fields are required
 /// so a file from another version (`{"de": "japanese"}`) fails to decode and is kept aside.
@@ -139,6 +151,16 @@ impl LearningEngine {
             s.store.learned.insert(keys.to_string(), language);
             s.store.once.remove(keys);
             s.last_learned = Some(keys.to_string());
+            // English + ending corrected to Mixed teaches the English stem (kubectl); a Korean
+            // correction teaches the Korean one. Then every other ending on it follows.
+            let stem_language = match language {
+                Language::Mixed => Some(Language::English),
+                Language::Korean => Some(Language::Korean),
+                _ => None,
+            };
+            if let (Some(stem), Some(l)) = (stem_of(keys), stem_language) {
+                s.store.learned.entry(stem).or_insert(l);
+            }
         } else {
             // A different correction than before: it starts over.
             s.store.learned.remove(keys);
@@ -164,12 +186,27 @@ impl DecisionEngine for LearningEngine {
             .get(keys)
             .copied()
             .filter(|l| self.languages.allows(*l));
-        if let Some(language) = learned {
+        let stem = || {
+            let language = self.lock().store.learned.get(&stem_of(keys)?).copied()?;
+            match language {
+                Language::English if self.languages.allows(Language::Korean) => {
+                    Some(Language::Mixed)
+                }
+                Language::Korean if self.languages.allows(Language::Korean) => {
+                    Some(Language::Korean)
+                }
+                _ => None,
+            }
+        };
+        if let Some((language, why)) = learned
+            .map(|l| (l, "learned"))
+            .or_else(|| stem().map(|l| (l, "learned stem")))
+        {
             return Decision {
                 language,
                 confidence: 1.0,
                 output: self.base.render(keys, language),
-                explanation: "learned".to_string(),
+                explanation: why.to_string(),
                 runner_up: None,
             };
         }
