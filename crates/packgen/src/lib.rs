@@ -97,7 +97,7 @@ const EXTRA_LEVEL: i32 = 35;
 const SYMBOLS: usize = 27;
 
 const SHORT_WORDS: &str = "a i ad ah am an as at aw ax be by do eh go ha he hi hm if in is it lo ma me mo my no of oh ok on or ow ox pa \
-pc so to tv uh um up us we ya ye yo id ex vs ai ui ux os js ts rs rb gz";
+pc so to tv uh um up us we ya ye yo id ex vs ai ui ux os js ts rs rb gz cd";
 
 /// Everyday/technical words SCOWL is missing or ranks rare.
 const COMMON_WORDS: &str = "ok okay hi hey yeah yep nope lol omg btw thx thanks pls please email emails app apps api apis url urls \
