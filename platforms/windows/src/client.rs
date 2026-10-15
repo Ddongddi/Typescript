@@ -47,8 +47,10 @@ impl ITfEditSession_Impl for EditSession_Impl {
 }
 
 /// Deletes the selected text of the focused edit box of this thread (EM_REPLACESEL with nothing),
-/// as typing over a selection does. False when the focus is not a plain Edit/RichEdit control.
+/// as typing over a selection does; nothing selected leaves the box (and its undo) alone.
+/// False when the focus is not a plain Edit/RichEdit control.
 fn delete_focused_selection() -> bool {
+    const EM_GETSEL: u32 = 0x00B0;
     const EM_REPLACESEL: u32 = 0x00C2;
     // SAFETY: plain Win32 queries about this thread's own windows; the string outlives the call.
     unsafe {
@@ -65,6 +67,16 @@ fn delete_focused_selection() -> bool {
         let class = String::from_utf16_lossy(&name[..len]).to_lowercase();
         if class != "edit" && !class.starts_with("richedit") {
             return false;
+        }
+        let (mut start, mut end) = (0u32, 0u32);
+        SendMessageW(
+            info.hwndFocus,
+            EM_GETSEL,
+            Some(WPARAM(&mut start as *mut u32 as usize)),
+            Some(LPARAM(&mut end as *mut u32 as isize)),
+        );
+        if start == end {
+            return true;
         }
         SendMessageW(
             info.hwndFocus,
@@ -220,6 +232,25 @@ impl TsfClient<'_> {
         };
     }
 
+    /// Clears the live selection, for hosts whose QUERYONLY insertion range doesn't
+    /// cover it (File Explorer's rename box reports an empty range while the old name
+    /// stays selected). True when a non-empty selection was cleared.
+    fn clear_live_selection(&self) -> bool {
+        let Ok(sel) = self.selection() else {
+            return false;
+        };
+        let selected = unsafe { sel.IsEmpty(self.ec) }
+            .map(|empty| !empty.as_bool())
+            .unwrap_or(false);
+        if !selected {
+            return false;
+        }
+        self.logged("clear live selection", unsafe {
+            sel.SetText(self.ec, 0, &[])
+        })
+        .is_ok()
+    }
+
     fn set_marked(&self, text: &str) -> Result<()> {
         let chars = utf16(text);
         let mut slot = self.inner.composition.borrow_mut();
@@ -240,19 +271,28 @@ impl TsfClient<'_> {
                 })
             };
             let mut at = query()?;
-            // Typing over a selection (File Explorer's rename box selects the old name) replaces it
-            // at the first key: a composition started on a non-empty range would leave that text in
-            // place. An IMM32 edit box only shows the composition and keeps the selected text until
-            // the word is confirmed, so there the box itself drops the selection.
-            if !self
+            // Typing over a selection (Win+R, File Explorer's rename box) replaces it at the first
+            // key: a composition started on a non-empty range would leave that text in place.
+            // An IMM32 edit box (a transitory context) only mirrors the composition, so its
+            // selection never shows in `at`: the box itself drops it, whatever `at` says.
+            if is_transitory(self.context) && delete_focused_selection() {
+                at = query()?;
+            } else if !self
                 .logged("IsEmpty", unsafe { at.IsEmpty(self.ec) })?
                 .as_bool()
             {
-                if is_transitory(self.context) && delete_focused_selection() {
-                    at = query()?;
-                } else {
-                    self.logged("clear selection", unsafe { at.SetText(self.ec, 0, &[]) })?;
+                match self.logged("clear selection", unsafe { at.SetText(self.ec, 0, &[]) }) {
+                    Ok(_) => at = query()?,
+                    // The QUERYONLY range may refuse SetText: clear through the live
+                    // selection instead (see clear_live_selection).
+                    Err(_) if self.clear_live_selection() => at = query()?,
+                    Err(e) => return Err(e),
                 }
+            } else if self.clear_live_selection() {
+                // Some hosts report an empty insertion range while the old text is still
+                // selected (Explorer's rename box): without this the composition would anchor
+                // after it and the preview would append instead of replacing.
+                at = query()?;
             }
             let composing: ITfContextComposition =
                 self.logged("cast ITfContextComposition", self.context.cast())?;
