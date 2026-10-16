@@ -365,6 +365,49 @@ fn main() {
         println!("event {word}+{tail}: {:.1} µs", micros(spent) / 20000.0);
         return;
     }
+    // `--type KEYS`: what each key costs while KEYS is typed one key at a time (mean of many
+    // times over, the token and all after the one before it).
+    if let Some(keys) = args.iter().position(|a| a == "--type").and_then(|i| args.get(i + 1)) {
+        let engine = make_engine(None, &Languages::legacy(false));
+        let previous = args
+            .iter()
+            .position(|a| a == "--prev")
+            .and_then(|i| args.get(i + 1))
+            .map(|l| if l == "ko" { Language::Korean } else { Language::English });
+        let context = DecisionContext {
+            partial: true,
+            previous_language: previous,
+            ..Default::default()
+        };
+        let ends: Vec<usize> = keys.char_indices().skip(1).map(|(end, _)| end).collect();
+        let mut spent = vec![Duration::ZERO; ends.len()];
+        // `--noisy`: the words of the lab are typed between the rounds, which cools the caches.
+        let noise = if args.iter().any(|a| a == "--noisy") {
+            word_cases()
+        } else {
+            Vec::new()
+        };
+        let mut next = 0;
+        for round in 0..6000 {
+            for _ in 0..(noise.len() > 0) as usize * 40 {
+                let c = &noise[next % noise.len()];
+                next += 7;
+                for (end, _) in c.keys.char_indices().skip(1) {
+                    engine.decide(&c.keys[..end], &context);
+                }
+            }
+            for (slot, end) in ends.iter().enumerate() {
+                let t = Instant::now();
+                engine.decide(&keys[..*end], &context);
+                if round >= 1000 {
+                    spent[slot] += t.elapsed();
+                }
+            }
+        }
+        let line: Vec<String> = spent.iter().map(|d| format!("{:.1}", micros(*d) / 5000.0)).collect();
+        println!("type {keys}: {}", line.join(" "));
+        return;
+    }
     // `--probe FILE`: convert each line (the text as it should come out) and print what came out.
     if let Some(path) = args.iter().position(|a| a == "--probe").and_then(|i| args.get(i + 1)) {
         let engine = make_engine(None, &Languages::legacy(false));
