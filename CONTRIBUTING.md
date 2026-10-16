@@ -69,7 +69,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 1. `[Unreleased]` 아래 내용을 `## [X.Y.Z] - 날짜`로 옮기고 아래쪽 비교 링크를 갱신합니다.
 2. 버전을 올립니다: 각 `Cargo.toml`(7곳), `Cargo.lock`, README의 예시 버전.
    패키징한 뒤(`scripts/package.ps1`) `sh lab/report.sh`로 크기·정확도·속도·메모리를 재서
-   [docs/report/performance.md](docs/report/performance.md) 맨 위에 새 절로 붙입니다.
+   [docs/report/performance.md](docs/report/performance.md) 맨 위에 붙입니다. 출력은 `## 한눈에`(직전 → 이번 비교, 이전 블록을 갈아끼움)와 새 버전 절이고, `sh lab/report.sh --selftest`로 숫자를 확인합니다.
 3. `v` 태그(`git tag vX.Y.Z && git push origin vX.Y.Z`)를 푸시하면 릴리스 워크플로가 해당 버전의 항목을
    릴리스 노트로 올립니다. 항목이 없으면 GitHub가 만든 노트가 올라가니 꼭 채워 두세요.
    (`sh scripts/release-notes.sh vX.Y.Z`로 미리 볼 수 있습니다.)
@@ -168,7 +168,9 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 1. Move the `[Unreleased]` entries under `## [X.Y.Z] - date` and update the compare links at the bottom.
 2. Bump the version: each `Cargo.toml` (7), `Cargo.lock`, and the example version in the README.
    After packaging (`scripts/package.ps1`), run `sh lab/report.sh` to measure size, accuracy, speed and
-   memory, and add the result as a new section at the top of [docs/report/performance.md](docs/report/performance.md) (Korean).
+   memory, and put the output at the top of [docs/report/performance.md](docs/report/performance.md) (Korean).
+    The output is a `## 한눈에` block (previous → current comparison, replacing the old block) plus the new
+    version section. Check the numbers with `sh lab/report.sh --selftest`.
 3. Push a `v` tag (`git tag vX.Y.Z && git push origin vX.Y.Z`). The release workflow publishes that version's
    entry as the release notes; with no entry GitHub generates them, so fill it in. Preview with
    `sh scripts/release-notes.sh vX.Y.Z`.
