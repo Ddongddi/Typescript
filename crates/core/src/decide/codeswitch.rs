@@ -31,6 +31,8 @@ const KO_MAX_SYLLABLES: usize = 8;
 const LOOKBACK: usize = KO_MAX_SYLLABLES * 5 + 8;
 /// Shorter English words lead a Korean-reading token by chance (gus in gusrl).
 const LEAD_WORD_KEYS: usize = 4;
+/// Edges that start at one key, usually: room for them from the first.
+const EDGES_AT_START: usize = 16;
 /// A token that comes in longer than this at once is searched in pieces of this many keys.
 const CHUNK: usize = 128;
 /// A lone syllable counts as a Korean word when it is said more than about once in a thousand
@@ -1035,7 +1037,7 @@ impl CodeSwitch {
         // Everything that ends before the shared start of the two tokens is as it was.
         let kept = shared(&cache.keys, keys);
         let n = keys.len();
-        cache.edges.resize(n, Vec::new());
+        cache.edges.resize_with(n, || Vec::with_capacity(EDGES_AT_START));
         // A new key makes the last one no longer the end of the token, which changes the
         // edges that were built for the end: English ones (the letters' closing) and a lone
         // first consonant. A Korean edge is the same either way: keep it.
