@@ -9,7 +9,7 @@ use crate::decide::engine::Language;
 use crate::lang::pack::{self, PackLazy};
 use crate::lang::sorted::SortedLines;
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering::Relaxed};
 
 thread_local! {
     /// (word list identity, lowercased word, level) of the last `level` call.
@@ -47,6 +47,9 @@ pub struct EnglishModel {
     /// The same for three and four letters, as many as fit: a direct-mapped cache of
     /// (letters, first line, end) packed in 20 + 22 + 22 bits (so only for a list under 4 MB).
     deep: Vec<AtomicU64>,
+    /// The log probability of the word ending after each two letters (27²), as the bits of an
+    /// f32 (it is one): found the first time, 0 until then.
+    closing: Vec<AtomicU32>,
 }
 
 /// Slots of `EnglishModel::starts`.
@@ -159,6 +162,7 @@ impl EnglishModel {
             levels,
             starts: (0..START_SLOTS).map(|_| AtomicU64::new(0)).collect(),
             deep: (0..DEEP_SLOTS).map(|_| AtomicU64::new(0)).collect(),
+            closing: (0..SYMBOLS * SYMBOLS).map(|_| AtomicU32::new(0)).collect(),
         }
     }
 
@@ -309,7 +313,17 @@ impl EnglishModel {
 
     /// `word_log_probability` of the first `len` letters.
     pub fn walk_word_log_probability(&self, walk: &Walk, len: usize) -> Option<f64> {
-        let level = self.walk_level(walk, len).filter(|l| *l <= KNOWN_LEVEL)?;
+        self.walk_word_log_probability_up_to(walk, len, KNOWN_LEVEL)
+    }
+
+    /// The same for a word of at most `max_level` (`COMMON_LEVEL`: an everyday one).
+    pub fn walk_word_log_probability_up_to(
+        &self,
+        walk: &Walk,
+        len: usize,
+        max_level: i32,
+    ) -> Option<f64> {
+        let level = self.walk_level(walk, len).filter(|l| *l <= max_level)?;
         Some(Self::price(
             self.walk_line(walk, len)
                 .and_then(|line| line.split('\t').nth(2)?.parse::<f64>().ok()),
@@ -324,7 +338,19 @@ impl EnglishModel {
             return open;
         }
         let letters = &walk.letters[..len];
-        open + trigram_term(letter_code(letters, 2), letter_code(letters, 1), 0)
+        open + self.closing(letter_code(letters, 2), letter_code(letters, 1))
+    }
+
+    /// `trigram_term(a, b, 0)`, remembered.
+    fn closing(&self, a: usize, b: usize) -> f64 {
+        let cell = &self.closing[a * SYMBOLS + b];
+        let bits = cell.load(Relaxed);
+        if bits != 0 {
+            return f64::from(f32::from_bits(bits));
+        }
+        let term = trigram_term(a, b, 0);
+        cell.store((term as f32).to_bits(), Relaxed);
+        term
     }
 
     /// One model per process, built lazily.

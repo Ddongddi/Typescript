@@ -15,7 +15,7 @@
 use std::cell::RefCell;
 
 use crate::decide::engine::{Decision, DecisionContext, Language};
-use crate::lang::english::{EnglishModel, Walk};
+use crate::lang::english::{EnglishModel, Walk, COMMON_LEVEL};
 use crate::lang::hangul::{is_consonant, ComposerState, DubeolsikLayout, HangulComposer, Unit};
 use crate::lang::korean::{KoreanModel, WordLines, PENDING_CONSONANT_LOGP, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::particles::{is_ending, is_single_letter_particle};
@@ -1354,8 +1354,10 @@ impl CodeSwitch {
 
     /// A listed English word of an edge's length: any from three letters, an everyday one of two.
     fn word_logp(&self, walk: &Walk, len: usize) -> Option<f64> {
-        if len == 2 && !self.english.walk_is_common(walk, len) {
-            return None;
+        if len == 2 {
+            return self
+                .english
+                .walk_word_log_probability_up_to(walk, len, COMMON_LEVEL);
         }
         self.english.walk_word_log_probability(walk, len)
     }
