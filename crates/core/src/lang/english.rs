@@ -9,6 +9,7 @@ use crate::decide::engine::Language;
 use crate::lang::pack::{self, PackLazy};
 use crate::lang::sorted::SortedLines;
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
 thread_local! {
     /// (word list identity, lowercased word, level) of the last `level` call.
@@ -39,10 +40,20 @@ const UNLISTED_LEVEL_STEP: f64 = 0.1;
 
 pub struct EnglishModel {
     levels: SortedLines,
+    /// The lines of the word list that start with each one letter and each two letters
+    /// (26 + 26²), found the first time they are asked: the first steps of a walk would
+    /// otherwise search the whole list. 0: not yet; else the end of the range + 1 over its start.
+    starts: Vec<AtomicU64>,
 }
 
-static SHARED: PackLazy<EnglishModel> = PackLazy::new(Language::English, || EnglishModel {
-    levels: SortedLines::new(pack::text(Language::English, "english_levels.txt")),
+/// Slots of `EnglishModel::starts`.
+const START_SLOTS: usize = 26 + 26 * 26;
+
+static SHARED: PackLazy<EnglishModel> = PackLazy::new(Language::English, || {
+    EnglishModel::new(SortedLines::new(pack::text(
+        Language::English,
+        "english_levels.txt",
+    )))
 });
 
 /// [^, ^, letters..., $] with ^ and $ both encoded as 0.
@@ -136,6 +147,32 @@ impl Walk {
 }
 
 impl EnglishModel {
+    fn new(levels: SortedLines) -> Self {
+        Self {
+            levels,
+            starts: (0..START_SLOTS).map(|_| AtomicU64::new(0)).collect(),
+        }
+    }
+
+    /// The lines that start with `letters` (lowercase), inside the lines `within` of their
+    /// first letters but one.
+    fn lines_of(&self, letters: &[u8], within: (usize, usize)) -> (usize, usize) {
+        let code = |i: usize| usize::from(letters[i] - b'a');
+        let slot = match letters.len() {
+            1 => code(0),
+            2 => 26 + code(0) * 26 + code(1),
+            _ => return self.levels.prefix_range(within, letters),
+        };
+        let cell = &self.starts[slot];
+        let packed = cell.load(Relaxed);
+        if packed != 0 {
+            return ((packed & 0xFFFF_FFFF) as usize, (packed >> 32) as usize - 1);
+        }
+        let (lo, hi) = self.levels.prefix_range(within, letters);
+        cell.store((hi as u64 + 1) << 32 | lo as u64, Relaxed);
+        (lo, hi)
+    }
+
     /// Walks `keys` (letters, at most `WALK_MAX`), from where the walk already is.
     pub fn walk_to(&self, walk: &mut Walk, keys: &[u8]) {
         let keys = &keys[..keys.len().min(WALK_MAX)];
@@ -157,9 +194,7 @@ impl EnglishModel {
             let lines = if lo == hi {
                 (lo, hi)
             } else {
-                let (lo, hi) = self
-                    .levels
-                    .prefix_range((lo as usize, hi as usize), &walk.letters);
+                let (lo, hi) = self.lines_of(&walk.letters, (lo as usize, hi as usize));
                 (lo as u32, hi as u32)
             };
             walk.steps.push(Step { lines, open });
@@ -570,9 +605,7 @@ mod empty_data {
 
     #[test]
     fn empty_word_list_knows_nothing() {
-        let model = EnglishModel {
-            levels: SortedLines::new(""),
-        };
+        let model = EnglishModel::new(SortedLines::new(""));
         assert!(!model.is_known_word("hello"));
         assert_eq!(model.word_count(), 0);
     }
