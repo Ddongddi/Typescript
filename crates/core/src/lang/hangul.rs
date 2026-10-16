@@ -307,10 +307,20 @@ impl ComposerState {
         self.units.len()
     }
 
+    /// The closed unit at `index` (below `closed_len`).
+    pub fn closed_unit(&self, index: usize) -> Unit {
+        self.units[index]
+    }
+
     /// Calls `f` on every unit of the composition so far, the open syllable included, without
     /// closing it: the same units `finish` would return, with no allocation.
     pub fn for_each_unit(&self, mut f: impl FnMut(Unit)) {
         self.units.iter().for_each(|u| f(*u));
+        self.for_each_open(f);
+    }
+
+    /// Calls `f` on the units that are not closed yet: the syllable being built, or its lone jamo.
+    pub fn for_each_open(&self, mut f: impl FnMut(Unit)) {
         match (self.cho, self.jung) {
             (Some(c), Some(v)) => f(Unit::Syllable(syllable(c, v, self.jong))),
             (cho, jung) => {

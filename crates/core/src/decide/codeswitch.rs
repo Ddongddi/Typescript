@@ -445,6 +445,13 @@ struct KoWalk {
     judged: Option<(usize, bool, bool)>,
     /// The composed Hangul of the last stretch judged.
     word: String,
+    /// What the closed units come to, so that judging a stretch only goes over the open one:
+    /// how many are summed, their syllables, probabilities and text, or that one is no syllable.
+    sum_units: usize,
+    sum_syllables: usize,
+    sum_oov: f64,
+    sum_word: String,
+    sum_stray: bool,
     /// The words that start like the first `closed` syllables of `word`.
     closed: usize,
     lines: WordLines,
@@ -473,6 +480,11 @@ impl KoWalk {
             capitals: 0,
             judged: None,
             word: String::new(),
+            sum_units: 0,
+            sum_syllables: 0,
+            sum_oov: 0.0,
+            sum_word: String::new(),
+            sum_stray: false,
             closed: 0,
             lines: KoreanModel::word_lines(),
         }
@@ -485,6 +497,11 @@ impl KoWalk {
         self.over = false;
         self.capitals = 0;
         self.judged = None;
+        self.sum_units = 0;
+        self.sum_syllables = 0;
+        self.sum_oov = 0.0;
+        self.sum_word.clear();
+        self.sum_stray = false;
         self.closed = 0;
         self.lines = KoreanModel::word_lines();
     }
@@ -496,11 +513,34 @@ impl KoWalk {
         if self.over {
             return (Verdict::Stop, self.dead);
         }
-        let (mut dead, mut syllables) = (self.dead, 0usize);
-        let (mut feasible, mut pending, mut oov) = (true, false, 0.0);
+        // Closed units never change: sum the new ones once. Syllables only; a stray among them
+        // takes the slow way below, which goes over every unit.
+        let closed = self.state.closed_len();
+        while self.sum_units < closed && !self.sum_stray {
+            match self.state.closed_unit(self.sum_units) {
+                Unit::Syllable(s) => {
+                    self.sum_oov += korean.plausible_log_probability(s);
+                    self.sum_syllables += 1;
+                    self.sum_word.push(s);
+                }
+                Unit::Jamo(_) => self.sum_stray = true,
+            }
+            self.sum_units += 1;
+        }
+        // With nothing to flag among the closed syllables, start from what they come to.
+        let fast = !self.sum_stray;
+        let (mut syllables, mut oov) = if fast {
+            (self.sum_syllables, self.sum_oov)
+        } else {
+            (0, 0.0)
+        };
+        let (mut dead, mut feasible, mut pending) = (self.dead, true, false);
         let word = &mut self.word;
         word.clear();
-        self.state.for_each_unit(|unit| {
+        if fast {
+            word.push_str(&self.sum_word);
+        }
+        let judge_unit = |unit: Unit| {
             // A stray before a later unit stays a stray however long the stretch gets.
             dead |= !feasible;
             // Only the last unit may be the next syllable's first consonant.
@@ -514,7 +554,12 @@ impl KoWalk {
                 Unit::Jamo(jamo) if partial && at_end && is_consonant(jamo) => pending = true,
                 Unit::Jamo(_) => feasible = false,
             }
-        });
+        };
+        if fast {
+            self.state.for_each_open(judge_unit);
+        } else {
+            self.state.for_each_unit(judge_unit);
+        }
         let verdict = if !feasible {
             if dead {
                 Verdict::Stop
