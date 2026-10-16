@@ -81,7 +81,8 @@ def l_budget(m):
 def l_reg(m, ref):
     if ref is None:
         return 0
-    lat = lambda x, r, tau, sig: max(0, log(x / r) - log(1 + tau)) / sig
+    # 기준에 없던 지표(r == 0, 예: 팩이 없던 시절의 팩 크기)는 나빠질 수 없으니 0
+    lat = lambda x, r, tau, sig: max(0, log(x / r) - log(1 + tau)) / sig if r > 0 else 0
     z = {}
     ks = [k for k in REG_ACC if k in m and k in ref]
     z['acc'] = sum((max(0, (ref[k] - m[k]) - 0.05) / 0.5) ** 2 for k in ks) / len(ks)
