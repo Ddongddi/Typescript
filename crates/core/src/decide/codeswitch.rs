@@ -31,6 +31,8 @@ const KO_MAX_SYLLABLES: usize = 8;
 const LOOKBACK: usize = KO_MAX_SYLLABLES * 5 + 8;
 /// Shorter English words lead a Korean-reading token by chance (gus in gusrl).
 const LEAD_WORD_KEYS: usize = 4;
+/// A token that comes in longer than this at once is searched in pieces of this many keys.
+const CHUNK: usize = 128;
 /// A lone syllable counts as a Korean word when it is said more than about once in a thousand
 /// words (좀 and 해 are, 맥 and 리 are not).
 const LONE_KNOWN_LOGP: f64 = -7.0;
@@ -868,56 +870,69 @@ impl CodeSwitch {
                 *slot = Some(cache);
                 return None;
             }
-            // Everything that ends before the shared start of the two tokens is as it was.
-            let mut kept = cache
-                .keys
-                .bytes()
-                .zip(keys.bytes())
-                .take_while(|(a, b)| a == b)
-                .count();
+            let mut reached = shared(&cache.keys, keys);
             // Too little of what was dropped is left to go on from: search the token afresh.
-            if cache.floor > 0 && kept < cache.floor + LOOKBACK {
-                kept = 0;
+            if cache.floor > 0 && reached < cache.floor + LOOKBACK {
+                reached = 0;
+                cache.keys.clear();
                 cache.edges.clear();
                 cache.table = Table::new();
                 cache.floor = 0;
             }
-            let n = keys.len();
-            cache.edges.resize(n, Vec::new());
-            // A new key makes the last one no longer the end of the token, which changes the
-            // edges that were built for the end: English ones (the letters' closing) and a lone
-            // first consonant. A Korean edge is the same either way: keep it.
-            let carry = kept < n;
-            for list in &mut cache.edges[kept.saturating_sub(LOOKBACK).min(n)..] {
-                list.retain(|e| {
-                    e.end() < kept
-                        || (carry
-                            && e.end() == kept
-                            && e.class.kind() == Kind::Korean
-                            && !e.pending)
-                });
+            // A token that comes in at once (a paste, a story) is searched in pieces, as if it
+            // were typed that fast: what is behind is dropped on the way, not all kept at the end.
+            while keys.len() - reached > CHUNK {
+                reached += CHUNK;
+                self.extend(&mut cache, &keys[..reached], context, trim)?;
             }
-            self.korean_edges(keys, context, &mut cache.edges, &mut cache.walks, kept)?;
-            self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
-            cache.table.truncate(kept);
-            cache.table.resize(n + 1);
-            self.search(n, &cache.edges, &mut cache.table, kept);
-            cache.keys.clear();
-            cache.keys.push_str(keys);
+            self.extend(&mut cache, keys, context, trim)?;
             let out = f(&cache.edges, &cache.table);
-            // The search only looks back `LOOKBACK` keys: keep twice that and drop the rest,
-            // each time a `LOOKBACK` more has gone by.
-            if trim && n >= cache.floor + 3 * LOOKBACK {
-                let floor = n - 2 * LOOKBACK;
-                for list in &mut cache.edges[cache.floor..floor] {
-                    *list = Vec::new();
-                }
-                cache.table.trim(floor);
-                cache.floor = floor;
-            }
             *slot = Some(cache);
             Some(out)
         })
+    }
+
+    /// Searches `keys`, which shares its first keys with the token in `cache` (the last one
+    /// searched): only what ends after those is built.
+    fn extend(
+        &self,
+        cache: &mut Cache,
+        keys: &str,
+        context: &DecisionContext,
+        trim: bool,
+    ) -> Option<()> {
+        // Everything that ends before the shared start of the two tokens is as it was.
+        let kept = shared(&cache.keys, keys);
+        let n = keys.len();
+        cache.edges.resize(n, Vec::new());
+        // A new key makes the last one no longer the end of the token, which changes the
+        // edges that were built for the end: English ones (the letters' closing) and a lone
+        // first consonant. A Korean edge is the same either way: keep it.
+        let carry = kept < n;
+        for list in &mut cache.edges[kept.saturating_sub(LOOKBACK).min(n)..] {
+            list.retain(|e| {
+                e.end() < kept
+                    || (carry && e.end() == kept && e.class.kind() == Kind::Korean && !e.pending)
+            });
+        }
+        self.korean_edges(keys, context, &mut cache.edges, &mut cache.walks, kept)?;
+        self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
+        cache.table.truncate(kept);
+        cache.table.resize(n + 1);
+        self.search(n, &cache.edges, &mut cache.table, kept);
+        cache.keys.clear();
+        cache.keys.push_str(keys);
+        // The search only looks back `LOOKBACK` keys: keep twice that and drop the rest,
+        // each time a `LOOKBACK` more has gone by.
+        if trim && n >= cache.floor + 3 * LOOKBACK {
+            let floor = n - 2 * LOOKBACK;
+            for list in &mut cache.edges[cache.floor..floor] {
+                *list = Vec::new();
+            }
+            cache.table.trim(floor);
+            cache.floor = floor;
+        }
+        Some(())
     }
 
     /// The edges that end at `min_end` or later (the earlier ones are in `edges` already).
@@ -1237,6 +1252,11 @@ impl CodeSwitch {
     }
 }
 
+/// How many keys two tokens start with in common.
+fn shared(a: &str, b: &str) -> usize {
+    a.bytes().zip(b.bytes()).take_while(|(a, b)| a == b).count()
+}
+
 /// One letter, or 2-4 capitals: what is typed in front of a word to name it (n제, A급, QR코드).
 pub(crate) fn is_label(seg: &str) -> bool {
     seg.len() == 1 || ((2..=4).contains(&seg.len()) && seg.chars().all(|c| c.is_ascii_uppercase()))
@@ -1284,6 +1304,7 @@ mod tests {
             "dhsmfgithubdppushgoTsmsepbuildrkRowuTdj",
             "greenappleshfowhgekkakaotalkaptlswjxcnrQRzhem",
             "dhsmfgithubdppushgoTsmsepbuildrkRowuTdj".repeat(4).as_str(),
+            "dhsmfgithubdppushgoTsmsepbuildrkRowuTdj".repeat(9).as_str(),
         ] {
             for partial in [true, false] {
                 let context = DecisionContext {
