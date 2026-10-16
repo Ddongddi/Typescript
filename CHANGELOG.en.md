@@ -9,6 +9,9 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+- Converting Japanese to kanji now shows a **candidate list window**: the selected line is highlighted, 1–9 pick from the current page, lists past nine candidates page as `1/2`, and the list flips above the word when it would run off the bottom of the screen.
+
 ## [0.8.7] - 2026-10-16
 
 ### Added

@@ -5,7 +5,7 @@
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 
-use typescript_core::session::{Range, TextClient, NOT_FOUND};
+use typescript_core::session::{CandidatePage, Range, TextClient, NOT_FOUND};
 use windows::core::{implement, w, Error, Interface, Result, BOOL};
 use windows::Win32::Foundation::{E_FAIL, LPARAM, RECT, WPARAM};
 use windows::Win32::System::Com::CoTaskMemFree;
@@ -192,6 +192,16 @@ impl TsfClient<'_> {
         match (hint, rect) {
             (Some(text), Some(rect)) => self.inner.ghost.show(text, rect),
             _ => self.inner.ghost.hide(),
+        }
+    }
+
+    /// Shows the conversion's candidate page under the word, or hides the window
+    /// (best effort).
+    pub fn show_candidates(&self, page: Option<&CandidatePage>) {
+        let rect = page.and_then(|_| self.word_rect());
+        match (page, rect) {
+            (Some(page), Some(rect)) => self.inner.candidates.show(page, rect),
+            _ => self.inner.candidates.hide(),
         }
     }
 

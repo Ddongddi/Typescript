@@ -10,10 +10,11 @@ use std::cell::{Cell, RefCell};
 use std::sync::Once;
 
 use windows::core::w;
-use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, RECT, SIZE, WPARAM};
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::*;
-use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 use windows::Win32::UI::WindowsAndMessaging::*;
+
+use crate::popup::{extent, font, palette, px, scale};
 
 /// Logical pixels at 96 dpi.
 const HEIGHT: i32 = 28;
@@ -27,105 +28,12 @@ const GAP: i32 = 4;
 const TEXT_SIZE: i32 = 13;
 const KEY_SIZE: i32 = 10;
 
-const FONT_FACE: windows::core::PCWSTR = w!("Segoe UI");
-
 thread_local! {
     /// What the window paints; the window procedure has no other way to reach it.
     static WORD: RefCell<Vec<u16>> = const { RefCell::new(Vec::new()) };
 }
 
 static REGISTER: Once = Once::new();
-
-#[derive(Clone, Copy)]
-struct Palette {
-    background: COLORREF,
-    border: COLORREF,
-    text: COLORREF,
-    muted: COLORREF,
-}
-
-const fn rgb(r: u32, g: u32, b: u32) -> COLORREF {
-    COLORREF(r | (g << 8) | (b << 16))
-}
-
-const LIGHT: Palette = Palette {
-    background: rgb(252, 252, 253),
-    border: rgb(222, 222, 228),
-    text: rgb(24, 24, 27),
-    muted: rgb(140, 140, 150),
-};
-const DARK: Palette = Palette {
-    background: rgb(32, 32, 36),
-    border: rgb(58, 58, 64),
-    text: rgb(244, 244, 246),
-    muted: rgb(140, 140, 152),
-};
-
-/// The apps theme from Settings > Personalization > Colors (light when unreadable).
-fn palette() -> Palette {
-    let mut value = 1u32;
-    let mut size = std::mem::size_of::<u32>() as u32;
-    // SAFETY: `value` and `size` are valid for the call.
-    let status = unsafe {
-        RegGetValueW(
-            HKEY_CURRENT_USER,
-            w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-            w!("AppsUseLightTheme"),
-            RRF_RT_REG_DWORD,
-            None,
-            Some((&mut value as *mut u32).cast()),
-            Some(&mut size),
-        )
-    };
-    if status.is_ok() && value == 0 {
-        DARK
-    } else {
-        LIGHT
-    }
-}
-
-fn scale(hdc: HDC) -> f32 {
-    // SAFETY: plain GDI query on a live DC.
-    let dpi = unsafe { GetDeviceCaps(Some(hdc), LOGPIXELSY) };
-    if dpi > 0 {
-        dpi as f32 / 96.0
-    } else {
-        1.0
-    }
-}
-
-fn px(logical: i32, scale: f32) -> i32 {
-    (logical as f32 * scale).round() as i32
-}
-
-fn font(size: i32, weight: i32, scale: f32) -> HFONT {
-    // SAFETY: plain GDI call; the caller deletes the font.
-    unsafe {
-        CreateFontW(
-            -px(size, scale),
-            0,
-            0,
-            0,
-            weight,
-            0,
-            0,
-            0,
-            DEFAULT_CHARSET,
-            OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS,
-            CLEARTYPE_QUALITY,
-            0,
-            FONT_FACE,
-        )
-    }
-}
-
-fn extent(hdc: HDC, text: &[u16]) -> SIZE {
-    let mut size = SIZE::default();
-    // SAFETY: live DC, valid slice.
-    let _ = unsafe { GetTextExtentPoint32W(hdc, text, &mut size) };
-    size
-}
 
 /// Where everything goes, in device pixels.
 struct Layout {

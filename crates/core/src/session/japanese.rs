@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 
+use super::candidates::{page_of, PAGE_SIZE};
 use super::{char_count, InputSession, Key, TextClient};
 use crate::decide::convert::ConversionCandidate;
 use crate::decide::engine::{DecisionContext, DecisionEngine, Language};
@@ -431,11 +432,20 @@ impl InputSession {
                     (0xFF10..=0xFF19).contains(&v).then(|| v - 0xFF10)
                 });
                 self.ja.conversion = Some(conversion);
-                let count = self.ja.conversion.as_ref().unwrap().candidates.len();
                 if let Some(n) = n {
-                    if n >= 1 && (n as usize) <= std::cmp::min(9, count) {
-                        self.choose(n as usize - 1, client);
-                        return true;
+                    // 1-9 pick the current page's lines; a number the page doesn't reach
+                    // confirms the selection and types on, as it did for numbers past 9.
+                    if n >= 1 && (n as usize) <= PAGE_SIZE {
+                        let target = {
+                            let conversion = self.ja.conversion.as_ref().unwrap();
+                            let (page, _, _) =
+                                page_of(conversion.selected, conversion.candidates.len());
+                            page * PAGE_SIZE + n as usize - 1
+                        };
+                        if target < self.ja.conversion.as_ref().unwrap().candidates.len() {
+                            self.choose(target, client);
+                            return true;
+                        }
                     }
                 }
                 self.commit(client);

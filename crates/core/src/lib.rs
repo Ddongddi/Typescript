@@ -22,7 +22,7 @@ pub use lang::japanese::JapaneseModel;
 pub use lang::pack;
 pub use lang::romaji::RomajiComposer;
 pub use lang::set::Languages;
-pub use session::{Conversion, InputSession, Key, Range, TextClient};
+pub use session::{CandidatePage, Conversion, InputSession, Key, Range, TextClient};
 pub use store::history::History;
 pub use store::policy::{AppPolicies, AppPolicy, Settings};
 
