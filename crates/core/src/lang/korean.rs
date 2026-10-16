@@ -45,6 +45,10 @@ struct JamoPrior {
     initial: [f64; 19],
     vowel: [f64; 21],
     last: [f64; 28],
+    /// Added to the product of the three for a syllable no text has shown: the product is a
+    /// distribution over all syllables, but the unseen ones share only the mass that a syllable
+    /// seen once points to (Good-Turing: the count of those over all running syllables).
+    unseen: f64,
 }
 
 /// Log probability of each syllable seen in korean_syllable_counts.txt (a large sample of text;
@@ -55,6 +59,7 @@ static SYLLABLE_LOGP: PackLazy<SyllableMap> = PackLazy::new(Language::Korean, ||
         .filter_map(|line| {
             let mut fields = line.split('\t');
             let s = fields.next()?.chars().next()?;
+            parts(s)?;
             Some((s, fields.next()?.trim().parse().ok()?))
         })
         .collect();
@@ -91,10 +96,28 @@ static JAMO_PRIOR: PackLazy<JamoPrior> = PackLazy::new(Language::Korean, || {
             .collect::<Vec<f64>>()
     };
     let (i, v, f) = (log(&counts.0), log(&counts.1), log(&counts.2));
+    // The line `~ <count>` is how many syllables were seen once (the file keeps those out).
+    let once: f64 = pack::text(Language::Korean, "korean_syllable_counts.txt")
+        .lines()
+        .find_map(|line| line.strip_prefix('~')?.trim().parse().ok())
+        .unwrap_or(0.0);
+    let seen = SYLLABLE_LOGP.get();
+    let running: f64 = counts.0.iter().sum::<f64>() - 19.0 + once;
+    // What the product gives the syllables that have no entry of their own.
+    let unseen_prior: f64 = ('가'..='힣')
+        .filter(|c| !seen.contains_key(c))
+        .filter_map(|c| parts(c).map(|(a, b, d)| (i[a] + v[b] + f[d]).exp()))
+        .sum();
+    let unseen = if once > 0.0 {
+        (once / running).ln() - unseen_prior.ln()
+    } else {
+        0.0
+    };
     JamoPrior {
         initial: i.try_into().unwrap_or([0.0; 19]),
         vowel: v.try_into().unwrap_or([0.0; 21]),
         last: f.try_into().unwrap_or([0.0; 28]),
+        unseen,
     }
 });
 
@@ -377,7 +400,7 @@ impl KoreanModel {
             Some(logp) => *logp,
             None => parts(syllable).map_or(UNKNOWN_SYLLABLE_LOGP, |(i, v, f)| {
                 let prior = JAMO_PRIOR.get();
-                prior.initial[i] + prior.vowel[v] + prior.last[f]
+                prior.initial[i] + prior.vowel[v] + prior.last[f] + prior.unseen
             }),
         }
     }

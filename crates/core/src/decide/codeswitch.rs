@@ -110,6 +110,10 @@ pub struct Params {
     pub cap_penalty: f64,
     /// How far the best mixed path has to beat the best single-language one.
     pub margin: f64,
+    /// Paid by a path that starts in English and goes over to Korean when the word before was
+    /// Korean: a Korean sentence goes on in Korean more often than not (the flap of 리메이크).
+    /// Against a reading that is English all through it is not paid.
+    pub lead_en: f64,
     /// Extra when no Korean word, case particle or label noun is in the mixed path: Korean
     /// that is only strays and endings (the 맥 of aortosclerosis) is what any key string makes.
     pub weak_margin: f64,
@@ -132,6 +136,7 @@ impl Default for Params {
             label_noun: 3.5,
             cap_penalty: 10.0,
             margin: 0.0,
+            lead_en: 5.0,
             weak_margin: 8.0,
         }
     }
@@ -164,6 +169,7 @@ impl Params {
                 "cap_penalty" => self.cap_penalty = v,
                 "margin" => self.margin = v,
                 "weak_margin" => self.weak_margin = v,
+                "lead_en" => self.lead_en = v,
                 _ => {}
             }
         }
@@ -333,6 +339,8 @@ impl Table {
 struct Cache {
     params: Params,
     after_digit: bool,
+    /// The language of the word before, as the engine reads it.
+    previous: Option<Language>,
     keys: String,
     edges: Vec<Vec<Edge>>,
     table: Table,
@@ -743,13 +751,19 @@ impl CodeSwitch {
                         && !self.starts_with_word(head)))
         };
         let weak_margin = self.params.weak_margin;
+        let lead_en = self.lead_en_after(previous(context));
         self.with_lattice(keys, context, skip, true, |_, table| {
-            Self::read_path(keys, table, weak_margin, min_gap)
+            Self::read_path(keys, table, (weak_margin, lead_en), min_gap)
         })?
     }
 
     /// The best path into the end of `keys`, read back from the table.
-    fn read_path(keys: &str, table: &Table, weak_margin: f64, min_gap: f64) -> Option<Split> {
+    fn read_path(
+        keys: &str,
+        table: &Table,
+        (weak_margin, lead_en): (f64, f64),
+        min_gap: f64,
+    ) -> Option<Split> {
         let n = keys.len();
         // (score less the weak margin, score, class, state) of the best path that switches.
         let mixed = CLASSES
@@ -766,14 +780,31 @@ impl CodeSwitch {
                 Some((score - weak, score, class, state))
             })
             .max_by(|a, b| a.0.total_cmp(&b.0))?;
-        let pure = CLASSES
-            .iter()
-            .filter(|c| **c != Class::EnLabel)
-            .flat_map(|c| (0..STATES).map(|state| (c.index(), state)))
-            .filter(|(_, state)| state & SWITCHED == 0)
-            .filter_map(|(class, state)| table.score(n, class, state))
-            .max_by(f64::total_cmp);
-        let gap = pure.map_or(f64::INFINITY, |p| mixed.0 - p);
+        // The best reading of each language all through.
+        let pure = |kind: Kind| {
+            CLASSES
+                .iter()
+                .filter(|c| **c != Class::EnLabel && c.kind() == kind)
+                .flat_map(|c| (0..STATES).map(|state| (c.index(), state)))
+                .filter(|(_, state)| state & SWITCHED == 0)
+                .filter_map(|(class, state)| table.score(n, class, state))
+                .max_by(f64::total_cmp)
+        };
+        // `lead_en` was paid on the way if the path began in English; English all through
+        // is not a reading it counts against.
+        let paid = if Self::first_kind(table, n, mixed.2, mixed.3) == Some(Kind::English) {
+            lead_en
+        } else {
+            0.0
+        };
+        let gap = [
+            pure(Kind::Korean).map(|p| mixed.0 - p),
+            pure(Kind::English).map(|p| mixed.0 + paid - p),
+        ]
+        .into_iter()
+        .flatten()
+        .min_by(f64::total_cmp)
+        .unwrap_or(f64::INFINITY);
         if gap < min_gap {
             return None;
         }
@@ -808,6 +839,17 @@ impl CodeSwitch {
             score: mixed.1,
             gap,
         })
+    }
+
+    /// The language of the first edge of the path into a cell.
+    fn first_kind(table: &Table, n: usize, class: usize, state: usize) -> Option<Kind> {
+        let (mut pos, mut class, mut state) = (n, class, state);
+        let mut first = None;
+        while pos > 0 {
+            first = Some(CLASSES[class].kind());
+            (pos, class, state) = table.from(pos, class, state)?;
+        }
+        first
     }
 
     /// For `lab --trace`: the best path of each kind, edge by edge with its score (and every
@@ -894,10 +936,17 @@ impl CodeSwitch {
         LAST.with(|last| {
             let mut slot = last.borrow_mut();
             let mut cache = match slot.take() {
-                Some(c) if c.params == self.params && c.after_digit == context.after_digit => c,
+                Some(c)
+                    if c.params == self.params
+                        && c.after_digit == context.after_digit
+                        && c.previous == previous(context) =>
+                {
+                    c
+                }
                 _ => Cache {
                     params: self.params,
                     after_digit: context.after_digit,
+                    previous: previous(context),
                     keys: String::new(),
                     edges: Vec::new(),
                     table: Table::new(),
@@ -961,7 +1010,14 @@ impl CodeSwitch {
         self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
         cache.table.truncate(kept);
         cache.table.resize(n + 1);
-        self.search(n, &cache.edges, &mut cache.table, &mut cache.fresh, kept);
+        let lead = self.lead_en_after(cache.previous);
+        self.search(
+            n,
+            &cache.edges,
+            &mut cache.table,
+            &mut cache.fresh,
+            (kept, lead),
+        );
         cache.keys.clear();
         cache.keys.push_str(keys);
         // The search only looks back `LOOKBACK` keys: keep twice that and drop the rest,
@@ -1154,6 +1210,15 @@ impl CodeSwitch {
         self.english.walk_word_log_probability(walk, len)
     }
 
+    /// `lead_en` when the word before was Korean, else nothing to pay.
+    fn lead_en_after(&self, previous: Option<Language>) -> f64 {
+        if previous == Some(Language::Korean) {
+            self.params.lead_en
+        } else {
+            0.0
+        }
+    }
+
     /// Whether a case particle can attach to `edge` (which comes after an edge of class `prev`):
     /// English, a Korean word, a run of syllables, a lone syllable said as a word (좀).
     fn hosts(edge: &Edge, prev: Class) -> bool {
@@ -1212,7 +1277,7 @@ impl CodeSwitch {
         edges: &[Vec<Edge>],
         table: &mut Table,
         fresh: &mut Vec<u32>,
-        settled: usize,
+        (settled, lead_en): (usize, f64),
     ) {
         for edge in &edges[0] {
             // A particle or ending needs a word before it to attach to.
@@ -1264,7 +1329,11 @@ impl CodeSwitch {
                             | (switched & STRONG)
                             | if strong { STRONG } else { 0 }
                             | if Self::hosts(edge, prev) { HOST } else { 0 };
-                        let total = score + edge.score - cost;
+                        // The first switch, English to Korean: a path that began in English.
+                        let began_in_english =
+                            changes && switched & SWITCHED == 0 && prev.kind() == Kind::English;
+                        let lead = if began_in_english { lead_en } else { 0.0 };
+                        let total = score + edge.score - cost - lead;
                         table.offer(
                             edge.end(),
                             (edge.class.index(), now),
@@ -1329,6 +1398,11 @@ impl CodeSwitch {
             self.english.is_known_word(keys)
         }
     }
+}
+
+/// The language of the word before, as the engine reads it (a mixed word ends in Korean).
+fn previous(context: &DecisionContext) -> Option<Language> {
+    context.previous_language.map(Language::sentence_language)
 }
 
 /// How many keys two tokens start with in common.
