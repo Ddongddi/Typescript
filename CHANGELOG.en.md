@@ -9,20 +9,26 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-16
+
 ### Added
 - English and Korean typed with no space are split: `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `KakaoTalk메신저`. The English word need not be in the dictionary and the Korean may be one syllable.
 - Words right after a digit are read better: counters such as `2024년`, `3개`, `5분` come out Korean, units such as `1.5kg이다`, `10gb`, `100ms` come out English.
 - A camelCase identifier followed by a particle (`isValid가`, `getUserName을`) is split as English.
 - About 60 developer tool names the dictionary lacked are recognised as English with a particle: `mongodb를`, `kubectl을`, `graphql을`, `timeout이`, `postgres로`, `sql을`. `ssh` is English with Japanese on too.
+- A whole sentence typed with no space is split too. The limit went from 32 to 96 keys, so a sentence that mixes English and Korean several times, like `확인dkssudhello바라…`, is read piece by piece.
+- Esc also teaches the **kind** of word you corrected. After you correct a few different short consonant abbreviations, such as `ss` to `ㄴㄴ`, similar ones like `ac` → `ㅁㅊ` come out right without correcting each. Only English/Korean calls that were close to a coin flip change; English it was sure of stays.
 
 ### Changed
 - `heh`, `meh`, `yeh`, `tsk` are listed as English words. They also read as a letter + `도`/`나`, and with splitting now scored, being in the dictionary is what keeps them English.
 - English + Korean splitting is now **one score** instead of several rules for particular cases. Every possible cut is compared on one scale and the best wins; the weights are fitted to data by `lab --tune`. Developer terms the dictionary lacks followed by a particle (`vite한테`, `rebase한테`) go from 95.95% to 98.03% right, and English words followed by a particle in sentences from 96.76% to 98.27%.
 - The live preview jitters less: `pre야` no longer flashes while you type `predisposable`.
 - Deciding one word is faster (`commit` p99 165 → about 60 µs, keystroke p99 120 → about 90 µs), and the input method uses about 26 KiB less memory.
+- When a whole text is converted at once, a word that was close to a coin flip is decided again in the language of a sure word after it on the same line. Chat-style sentences go from 82.35% to 88.24% right and all sentences from 97.74% to 98.12%, with nothing lower. The preview while you type is not affected.
 
 ### Fixed
 - Two very rare English words are read as mixed with Korean: `armscye` becomes `a근쵿`, and `nihongo` becomes `nihon해` without the Japanese pack. Esc turns them back to English, and correcting twice teaches them.
+- `nodejs의` no longer comes out as `nod던의`: a two-syllable tail that is neither a word nor an ending now costs a penalty. English + particle sentences go from 96.73% to 97.31% right.
 
 ## [0.8.6] - 2026-10-16
 
@@ -285,7 +291,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4

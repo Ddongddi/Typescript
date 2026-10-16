@@ -17,7 +17,100 @@ sh lab/report.sh > section.md                 # 이 파일에 붙일 표
 - 속도는 결정 한 번(`commit`)과 키 입력 한 번(`keystroke`)의 마이크로초이고, 5회 중앙값입니다. 같은 컴퓨터에서도 백그라운드 작업에 따라 10~20% 흔들리므로 릴리즈 사이의 작은 차이는 잡음으로 봅니다.
 - 메모리는 팩을 올린 뒤 힙(`heap.loaded_kb`)과 측정 중 최대 힙(`heap.peak_kb`)입니다.
 
-## 미출시 (0.8.6 이후): 유형별 시나리오 측정과 첫 고도화
+## 0.8.7
+
+commit 9527580, 2026-10-16, rustc 1.93.1 (01f6ddf75 2026-02-11)
+
+### 크기 (KiB)
+
+| 항목 | KiB |
+| --- | ---: |
+| `typescript_tip.dll` (x64) | 3460 |
+| `typescript_tip.dll` (x86) | 724 |
+| `typescript.exe` | 3110 |
+| `typescript-config.exe` | 5793 |
+| `typescript-windows.zip` | 5069 |
+| `typescript-pack-en-0.8.7.zip` | 446 |
+| `typescript-pack-ko-0.8.7.zip` | 387 |
+| `typescript-pack-ja-0.8.7.zip` | 4763 |
+
+### 정확도 (%)
+
+| 세트 | 정확도 |
+| --- | ---: |
+| `acc.ALL` | 99.78 |
+| `acc.en.freq/none` | 99.50 |
+| `acc.en.freq/after-ko` | 99.40 |
+| `acc.ko.words/none` | 100.00 |
+| `acc.ko.vocab/none` | 100.00 |
+| `big.ko.sent.sentence` | 98.43 |
+| `big.ko.sent.token` | 99.70 |
+| `big.ko.phrase.sentence` | 98.87 |
+| `big.ko.long.sentence` | 97.00 |
+| `big.en.sent.sentence` | 99.97 |
+| `big.cs.particle.sentence` | 97.31 |
+| `big.cs.particle.token` | 99.60 |
+| `big.cs_heldout.particle.sentence` | 97.66 |
+| `big.cs.bare.sentence` | 96.71 |
+| `big.cs.number.sentence` | 98.81 |
+| `big.ko.title.none` | 99.87 |
+| `big.ko.title.after-en` | 98.03 |
+| `big.learn.other_forms_before` | 99.84 |
+| `big.learn.other_forms_after` | 99.84 |
+
+### 유형별 시나리오 (문장 정답률 %, token은 단어 단위, chain은 4문장 이어 입력)
+
+| 유형 | 문장 | token | chain.token | µs/글자 |
+| --- | ---: | ---: | ---: | ---: |
+| chat | 96.51 | 98.78 | 99.17 | 2.84 |
+| dev | 98.98 | 99.69 | 99.68 | 2.97 |
+| writing | 98.78 | 99.77 | 99.75 | 3.48 |
+| 전체 | 98.12 | 99.50 | | |
+
+| 시나리오 | 문장 정답률 |
+| --- | ---: |
+| `chat.brand` | 100.00 |
+| `chat.casual` | 100.00 |
+| `chat.english` | 100.00 |
+| `chat.loan` | 92.31 |
+| `chat.number` | 100.00 |
+| `chat.punct` | 100.00 |
+| `chat.slang` | 88.24 |
+| `dev.commit` | 100.00 |
+| `dev.error` | 100.00 |
+| `dev.identifier` | 100.00 |
+| `dev.issue` | 100.00 |
+| `dev.review` | 100.00 |
+| `dev.terminal` | 96.00 |
+| `dev.tool` | 100.00 |
+| `writing.academic` | 92.86 |
+| `writing.email` | 100.00 |
+| `writing.english` | 100.00 |
+| `writing.essay` | 100.00 |
+| `writing.formal` | 100.00 |
+| `writing.long` | 100.00 |
+| `writing.numbers` | 100.00 |
+| `writing.quote` | 100.00 |
+
+### 속도·메모리 (중앙값, 5회)
+
+| 항목 | 값 |
+| --- | ---: |
+| `commit.avg_us` | 17.46 |
+| `commit.p50_us` | 14.80 |
+| `commit.p95_us` | 33.10 |
+| `commit.p99_us` | 70.80 |
+| `keystroke.avg_us` | 17.13 |
+| `keystroke.p50_us` | 13.40 |
+| `keystroke.p95_us` | 37.40 |
+| `keystroke.p99_us` | 93.80 |
+| `load.ms` | 3.48 |
+| `heap.loaded_kb` | 35.67 |
+| `heap.peak_kb` | 7990.30 |
+
+이번 릴리즈에서 시도하고 접은 것(연쇄 재채점, 한국어 언어모델, 기술 용어 trigram 등)과 수치는 [trial.md](trial.md)에 있습니다.
+
+### 0.8.6 → 0.8.7: 유형별 시나리오 측정과 첫 고도화
 
 측정에 유형별 시나리오를 더했습니다(`lab/scenarios/{chat,dev,writing}.tsv`, 대화 64·개발 66·글쓰기 55문장, 시나리오 태그별). 문장 하나씩(`sentence`, `token`)과 같은 유형 4문장을 이어 입력한 경우(`chain.token`, 앞 단어의 언어가 다음 단어로 이어지는 상황)를 잽니다. 직접 쓴 문장이라 편향이 있고, 틀린 것을 일감으로 쓰는 세트입니다. 아래는 같은 세트를 0.8.6 엔진과 개선 후 엔진에 돌린 값입니다.
 
