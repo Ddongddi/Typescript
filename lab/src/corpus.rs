@@ -241,6 +241,86 @@ fn learning(terms: &[&str], report: &mut Report) {
     let _ = fs::remove_file(&store);
 }
 
+/// The language an Esc correction to `want` teaches.
+fn taught_language(keys: &str, want: &str) -> Language {
+    if want == keys {
+        Language::English
+    } else if want.chars().any(|c| c.is_ascii_alphabetic()) {
+        Language::Mixed
+    } else {
+        Language::Korean
+    }
+}
+
+/// Esc generalization: correct half of the engine's misses twice (as a user would), then look
+/// at the *other* items of the same set. `fixed` = share of the unseen misses now right,
+/// `broken` = items right before that are wrong after, `net` = fixed count - broken count.
+/// An engine that only remembers the exact keys scores about 0 here.
+fn transfer(
+    name: &str,
+    items: &[(String, String, String)],
+    controls: &[(String, String)],
+    context: &DecisionContext,
+    report: &mut Report,
+) {
+    let store = std::env::temp_dir().join(format!("typescript-lab-t-{}.json", std::process::id()));
+    let _ = fs::remove_file(&store);
+    let engine = make_engine(Some(store.clone()), &Languages::legacy(false));
+    let right = |engine: &dyn DecisionEngine, (_, keys, want): &(String, String, String)| {
+        engine.decide(keys, context).output == *want
+    };
+    let (misses, hits): (Vec<_>, Vec<_>) = items.iter().partition(|i| !right(engine.as_ref(), i));
+    // Words of the other language that must stay as they are, whatever was taught.
+    let control_ok = |engine: &dyn DecisionEngine| -> Vec<bool> {
+        controls
+            .iter()
+            .map(|(k, w)| right(engine, &(String::new(), k.clone(), w.clone())))
+            .collect()
+    };
+    let control_before = control_ok(engine.as_ref());
+    // Whole groups (a term in all its forms) are taught or unseen: a form of a taught group
+    // is no test of generalization.
+    let mut groups: Vec<&str> = misses.iter().map(|(g, _, _)| g.as_str()).collect();
+    groups.dedup();
+    let taught_group = |g: &str| {
+        groups
+            .iter()
+            .position(|x| *x == g)
+            .is_some_and(|i| i % 2 == 0)
+    };
+    let unseen: Vec<_> = misses.iter().filter(|(g, _, _)| !taught_group(g)).collect();
+    for (_, keys, want) in misses.iter().filter(|(g, _, _)| taught_group(g)) {
+        let language = taught_language(keys, want);
+        for _ in 0..2 {
+            engine.learn(keys, language, None);
+        }
+    }
+    let fixed = unseen
+        .iter()
+        .filter(|i| right(engine.as_ref(), **i))
+        .count();
+    let control_after = control_ok(engine.as_ref());
+    let broken_controls = control_before
+        .iter()
+        .zip(&control_after)
+        .filter(|(before, after)| **before && !**after)
+        .count();
+    let broken = hits.iter().filter(|i| !right(engine.as_ref(), **i)).count() + broken_controls;
+    let hits_total = hits.len() + control_before.iter().filter(|b| **b).count();
+    let pct = |n: usize, of: usize| 100.0 * n as f64 / of.max(1) as f64;
+    for (metric, value) in [
+        ("fixed", pct(fixed, unseen.len())),
+        ("broken", pct(broken, hits_total)),
+        ("net", fixed as f64 - broken as f64),
+        ("misses", misses.len() as f64),
+    ] {
+        report
+            .metrics
+            .push((format!("big.transfer.{name}.{metric}"), value));
+    }
+    let _ = fs::remove_file(&store);
+}
+
 /// All big sets. None when lab/data is missing.
 pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<Report> {
     let (Some(ko), Some(en), Some(titles)) = (
@@ -267,6 +347,24 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
             .collect()
     };
     sentences(engine, "ko.sent", &pairs(&ko), shown, &mut report);
+    if let Some(phrases) = read_lines("ko_phrases.txt") {
+        sentences(
+            engine,
+            "ko.phrase",
+            &pairs(&spread(&phrases, sample)),
+            shown,
+            &mut report,
+        );
+    }
+    if let Some(long) = read_lines("ko_long.txt") {
+        sentences(
+            engine,
+            "ko.long",
+            &pairs(&spread(&long, sample.min(1000))),
+            shown,
+            &mut report,
+        );
+    }
     let en = spread(&en, sample);
     let en_pairs: Vec<(String, String)> =
         en.iter().map(|s| (s.to_string(), s.to_string())).collect();
@@ -299,7 +397,13 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
             .push((keys_of_text(&text), text));
     }
     for (kind, items) in by_kind.iter().filter(|(k, _)| **k == "particle") {
-        sentences(engine, &format!("cs_heldout.{kind}"), items, shown, &mut report);
+        sentences(
+            engine,
+            &format!("cs_heldout.{kind}"),
+            items,
+            shown,
+            &mut report,
+        );
     }
     words(
         engine,
@@ -309,5 +413,72 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
         &mut report,
     );
     learning(&terms, &mut report);
+    // Esc generalization: other terms with a particle, and Korean words after English.
+    let particle_items: Vec<(String, String, String)> = held_out
+        .iter()
+        .filter(|t| t.chars().count() >= 4)
+        .flat_map(|t| {
+            ["가", "에서", "으로", "를"].iter().map(move |p| {
+                (
+                    t.to_string(),
+                    format!("{t}{}", keys_of(p)),
+                    format!("{t}{p}"),
+                )
+            })
+        })
+        .collect();
+    // Plain English words, to see that nothing taught pulls them to Korean.
+    let english_words: Vec<(String, String)> = {
+        let mut seen = std::collections::BTreeSet::new();
+        en.iter()
+            .flat_map(|s| s.split(' ').map(str::to_lowercase).collect::<Vec<_>>())
+            .filter(|w| (4..=8).contains(&w.len()) && w.bytes().all(|b| b.is_ascii_lowercase()))
+            .filter(|w| seen.insert(w.clone()))
+            .map(|w| (w.clone(), w))
+            .collect()
+    };
+    transfer(
+        "particle",
+        &particle_items,
+        &english_words,
+        &DecisionContext::default(),
+        &mut report,
+    );
+    // Chat jamo: consonant-only keys, each its own group.
+    let jamo_items: Vec<(String, String, String)> = [
+        "ㄴㄴ", "ㅁㅊ", "ㄹㅇ", "ㅇㅈ", "ㅅㄱ", "ㄱㄱ", "ㅇㅋ", "ㅈㄴ", "ㅂㅅ", "ㅅㅂ", "ㅈㅅ",
+        "ㄱㅅ", "ㅇㅇ", "ㅋㅋ", "ㅎㅎ", "ㄷㄷ", "ㅊㅊ", "ㅌㅌ", "ㄱㅊ", "ㅁㅈ", "ㅈㄹ", "ㅇㄷ",
+        "ㅅㅅ", "ㅂㅂ",
+    ]
+    .iter()
+    .map(|j| (j.to_string(), keys_of_text(j), j.to_string()))
+    .collect();
+    let abbreviations: Vec<(String, String)> = [
+        "pm", "hd", "fx", "gb", "kb", "mb", "cpu", "gpu", "ssd", "hdd",
+    ]
+    .iter()
+    .map(|w| (w.to_string(), w.to_string()))
+    .collect();
+    transfer(
+        "jamo",
+        &jamo_items,
+        &abbreviations,
+        &DecisionContext::default(),
+        &mut report,
+    );
+    let title_items: Vec<(String, String, String)> = pairs(&spread(&titles, sample))
+        .into_iter()
+        .map(|(keys, want)| (keys.clone(), keys, want))
+        .collect();
+    transfer(
+        "title_after_en",
+        &title_items,
+        &english_words,
+        &DecisionContext {
+            previous_language: Some(Language::English),
+            ..Default::default()
+        },
+        &mut report,
+    );
     Some(report)
 }

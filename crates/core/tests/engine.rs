@@ -107,6 +107,34 @@ fn context_resolves_short_collisions() {
 }
 
 #[test]
+fn a_coin_flip_word_follows_the_sure_word_after_it() {
+    let e = heuristic();
+    // Alone, `so` is English; with Korean after it on the line, it is 내.
+    assert_eq!(
+        TextConverter::new(&e).convert("so dlrltlarhk").0,
+        "내 이기심과"
+    );
+    assert_eq!(
+        TextConverter::new(&e)
+            .without_look_ahead()
+            .convert("so dlrltlarhk")
+            .0,
+        "so 이기심과"
+    );
+    // A line break ends the look: the next line says nothing about this one.
+    assert_eq!(
+        TextConverter::new(&e)
+            .convert(
+                "so
+dlrltlarhk"
+            )
+            .0,
+        "so
+이기심과"
+    );
+}
+
+#[test]
 fn partial_preview_does_not_punish_pending_consonant() {
     let d = heuristic().decide(
         "dkss",
@@ -135,6 +163,34 @@ fn learning_overrides_base() {
     // Learning the base choice removes the override.
     reloaded.learn("hello", Language::English, None);
     assert_eq!(reloaded.decide("hello", &ctx()).language, Language::English);
+    let _ = std::fs::remove_file(&path);
+}
+
+/// One correction teaches the kind of word, not only the word: after `ss` is corrected to
+/// ㄴㄴ, the other consonant-only keys the engine was unsure of (`ec`) follow, while the ones it
+/// was sure about (`tv`, `weekend`) stay as they were. Enough corrections move a surer one.
+#[test]
+fn a_correction_teaches_the_kind_of_word() {
+    let path = temp_lexicon("shape");
+    let _ = std::fs::remove_file(&path);
+    let learning = LearningEngine::new(Box::new(splitting()), Some(path.clone()));
+    let language = |keys: &str| learning.decide(keys, &ctx()).language;
+    assert_eq!(language("ec"), Language::English);
+    learning.learn("ss", Language::Korean, Some(Language::English));
+    assert_eq!(learning.decide("ec", &ctx()).output, "ㄷㅊ");
+    assert_eq!(language("ac"), Language::English, "sure enough to stay");
+    assert_eq!(language("tv"), Language::Korean);
+    assert_eq!(language("weekend"), Language::English);
+    // The same keys again are one word, not more evidence.
+    learning.learn("ss", Language::Korean, Some(Language::English));
+    assert_eq!(language("ac"), Language::English);
+    // Two more different keys: ac is no longer sure enough.
+    learning.learn("ec", Language::Korean, Some(Language::English));
+    learning.learn("fq", Language::Korean, Some(Language::English));
+    assert_eq!(learning.decide("ac", &ctx()).output, "ㅁㅊ");
+    // It survives a restart.
+    let reloaded = LearningEngine::new(Box::new(splitting()), Some(path.clone()));
+    assert_eq!(reloaded.decide("ac", &ctx()).output, "ㅁㅊ");
     let _ = std::fs::remove_file(&path);
 }
 

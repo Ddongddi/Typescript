@@ -345,7 +345,7 @@ fn objective(cs: &CodeSwitch, sets: &[Set]) -> f64 {
 
 type Field = (&'static str, fn(&mut Params) -> &mut f64, &'static [f64]);
 
-const FIELDS: [Field; 10] = [
+const FIELDS: [Field; 11] = [
     (
         "lead_ko",
         |p| &mut p.lead_ko,
@@ -390,6 +390,11 @@ const FIELDS: [Field; 10] = [
         "cap_penalty",
         |p| &mut p.cap_penalty,
         &[0.0, 3.0, 6.0, 10.0],
+    ),
+    (
+        "bare_tail",
+        |p| &mut p.bare_tail,
+        &[0.0, -2.0, -4.0, -6.0, -8.0],
     ),
     (
         "margin",

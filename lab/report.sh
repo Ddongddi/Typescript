@@ -1,5 +1,5 @@
 #!/bin/sh
-# Prints one report section (markdown) for docs/report.md: build sizes, pack sizes, and the lab
+# Prints one report section (markdown) for docs/report/performance.md: build sizes, pack sizes, and the lab
 # metrics (accuracy; latency and memory as the median of RUNS runs). Run after packaging:
 #   cargo build --release -p typescript-tip -p typescript-cli -p typescript-config
 #   cargo build --release -p typescript-tip --target i686-pc-windows-msvc
@@ -46,7 +46,7 @@ echo
 echo "| 세트 | 정확도 |"
 echo "| --- | ---: |"
 for m in acc.ALL acc.en.freq/none acc.en.freq/after-ko acc.ko.words/none acc.ko.vocab/none \
-  big.ko.sent.sentence big.ko.sent.token big.en.sent.sentence big.cs.particle.sentence \
+  big.ko.sent.sentence big.ko.sent.token big.ko.phrase.sentence big.ko.long.sentence big.en.sent.sentence big.cs.particle.sentence \
   big.cs.particle.token big.cs_heldout.particle.sentence big.cs.bare.sentence big.cs.number.sentence big.ko.title.none \
   big.ko.title.after-en big.learn.other_forms_before big.learn.other_forms_after; do
   echo "| \`$m\` | $(metric $m) |"

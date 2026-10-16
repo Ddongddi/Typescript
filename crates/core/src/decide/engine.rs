@@ -162,7 +162,7 @@ const COMMON_SHORT_WORD_MARGIN: f64 = 0.1;
 /// With no second reading to compare with, the best one is taken to lead by this much.
 const NO_RUNNER_UP_MARGIN: f64 = 5.0;
 /// Steepness of the margin → confidence curve (a logistic: margin 0 is a coin flip).
-const CONFIDENCE_SLOPE: f64 = 2.0;
+pub(crate) const CONFIDENCE_SLOPE: f64 = 2.0;
 
 /// Scores the same keystrokes as English (character trigrams + word list), Korean
 /// (2-set syllables) and, when enabled, Japanese (romaji → kana trigrams), each as

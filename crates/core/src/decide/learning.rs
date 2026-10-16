@@ -11,15 +11,26 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
+use crate::decide::engine::CONFIDENCE_SLOPE;
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
 use crate::decide::mixed::MixedWord;
+use crate::decide::shape::shape_of;
 use crate::lang::hangul::HangulComposer;
+use crate::lang::registry;
 use crate::lang::set::Languages;
 use crate::support_dir;
 
 /// A stem shorter than this many keys isn't learned on its own (go, so, 하): the short words
 /// are the ambiguous ones, they stay word by word.
 const MIN_STEM_KEYS: usize = 3;
+
+/// How far one corrected word of a kind moves the engine's margin toward the language it was
+/// corrected to, and the most a kind can move it: a coin flip follows one correction, a word
+/// the engine is fairly sure of takes several.
+const SHAPE_STEP: f64 = 0.4;
+const SHAPE_MAX_BIAS: f64 = 1.6;
+/// A flip by the kind never reads as surer than this.
+const SHAPE_MAX_CONFIDENCE: f64 = 0.75;
 
 /// The learned language of a stem that `keys` continue with a particle or ending, and where
 /// the ending starts. Looks the prefixes up in the map first (cheap), and only checks the
@@ -47,6 +58,15 @@ fn stem_of(keys: &str) -> Option<String> {
 pub struct Store {
     pub learned: BTreeMap<String, Language>,
     pub once: BTreeMap<String, Language>,
+    /// How many different words of a kind were corrected to a language: `"jamo:korean"`.
+    /// Optional, so a file from before kinds were learned still reads (an older program
+    /// ignores the field).
+    #[serde(default)]
+    pub shapes: BTreeMap<String, u32>,
+}
+
+fn shape_key(shape: &str, language: Language) -> String {
+    format!("{shape}:{}", language.name())
 }
 
 pub struct LearningEngine {
@@ -156,6 +176,18 @@ impl LearningEngine {
         if s.store.learned.get(keys) == Some(&language) {
             return;
         }
+        // A new word corrected this way is evidence for its kind of word, once.
+        if language != base_choice
+            && language != Language::Japanese
+            && s.store.once.get(keys) != Some(&language)
+        {
+            let count = s
+                .store
+                .shapes
+                .entry(shape_key(shape_of(keys), language))
+                .or_insert(0);
+            *count = count.saturating_add(1);
+        }
         if language == base_choice {
             s.store.learned.remove(keys);
             s.store.once.remove(keys);
@@ -187,6 +219,51 @@ impl LearningEngine {
     fn persist(&self, store: &Store) {
         if let Some(path) = &self.store_path {
             let _ = crate::store::persist(path, store);
+        }
+    }
+}
+
+impl LearningEngine {
+    /// The engine's own pick, unless the corrections made to words of this kind weigh more than
+    /// how sure the engine was: a coin flip follows one correction, a sure word stays. Only
+    /// between English and Korean (the English + Korean cut has its own stem learning: moving
+    /// words into it by kind broke plain English words in the lab), and only where the keys
+    /// read in the other language.
+    fn by_shape(&self, keys: &str, base: Decision) -> Decision {
+        let sure = base.confidence >= 1.0 - f64::EPSILON;
+        if sure || !matches!(base.language, Language::English | Language::Korean) {
+            return base;
+        }
+        // Nothing corrected yet (most users, most of the time): no cost.
+        let shapes = self.lock().store.shapes.clone();
+        if shapes.is_empty() {
+            return base;
+        }
+        let shape = shape_of(keys);
+        let evidence = |l: Language| shapes.get(&shape_key(shape, l)).copied().unwrap_or(0);
+        let against = evidence(base.language);
+        let Some((language, bias)) = [Language::English, Language::Korean]
+            .into_iter()
+            .filter(|l| *l != base.language && self.languages.allows(*l))
+            .filter_map(|l| {
+                let net = f64::from(evidence(l)) - f64::from(against);
+                (net > 0.0).then(|| (l, (net * SHAPE_STEP).min(SHAPE_MAX_BIAS)))
+            })
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+        else {
+            return base;
+        };
+        let margin = (base.confidence / (1.0 - base.confidence)).ln() / CONFIDENCE_SLOPE;
+        if margin >= bias || registry::reading(language, keys).is_none() {
+            return base;
+        }
+        let confidence = 1.0 / (1.0 + (-(bias - margin) * CONFIDENCE_SLOPE).exp());
+        Decision {
+            language,
+            confidence: confidence.min(SHAPE_MAX_CONFIDENCE),
+            output: self.base.render(keys, language),
+            explanation: format!("learned kind {shape}: {}", base.explanation),
+            runner_up: Some(base.language),
         }
     }
 }
@@ -235,7 +312,7 @@ impl DecisionEngine for LearningEngine {
                 runner_up: None,
             };
         }
-        self.base.decide(keys, context)
+        self.by_shape(keys, self.base.decide(keys, context))
     }
 
     fn render(&self, keys: &str, language: Language) -> String {

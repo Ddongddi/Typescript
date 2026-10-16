@@ -9,3 +9,4 @@ pub mod kanji;
 pub mod learning;
 pub mod mixed;
 pub mod segmenter;
+pub mod shape;

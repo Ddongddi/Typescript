@@ -84,6 +84,9 @@ pub struct Params {
     pub word_bonus: f64,
     /// Per capital in a Korean stretch that no shifted jamo explains (the S of Slack).
     pub cap_penalty: f64,
+    /// For a Korean tail behind English with no evidence (no word, no ending): any two
+    /// syllables pass as a tail, so nod + 던의 competes with nodejs + 의. Negative.
+    pub bare_tail: f64,
     /// How far the best mixed cut has to beat the best single-language reading.
     pub margin: f64,
 }
@@ -101,6 +104,7 @@ impl Default for Params {
             label_logp: -2.0,
             word_bonus: 0.0,
             cap_penalty: 6.0,
+            bare_tail: -4.0,
             margin: 1.0,
         }
     }
@@ -225,7 +229,57 @@ impl CodeSwitch {
 
     /// The best cut with both languages and how far ahead of the single-language readings it
     /// is, whatever the margin (`gap` may be negative). None when no such cut exists.
+    ///
+    /// A hyphen is no Korean key: Wi-Fieh is cut as WiFieh and the hyphens go back into the
+    /// English stretches. One that would fall inside a Korean stretch rules the cut out.
     pub fn analyze(&self, keys: &str, context: &DecisionContext) -> Option<Split> {
+        if !keys.contains('-') {
+            return self.analyze_letters(keys, context);
+        }
+        let parts: Vec<&str> = keys.split('-').collect();
+        if parts
+            .iter()
+            .any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_alphabetic()))
+        {
+            return None;
+        }
+        let letters: String = parts.concat();
+        let mut split = self.analyze_letters(&letters, context)?;
+        // Where each hyphen sat, counted in letters.
+        let cuts: Vec<usize> = parts
+            .iter()
+            .scan(0, |at, p| {
+                *at += p.len();
+                Some(*at)
+            })
+            .take(parts.len() - 1)
+            .collect();
+        let mut start = 0;
+        for piece in &mut split.pieces {
+            let end = start + piece.keys.len();
+            // The hyphens at or inside this stretch, counted from its start. One between two
+            // stretches is kept by the English one: a Korean stretch just ignores it.
+            let here: Vec<usize> = cuts
+                .iter()
+                .filter(|c| (start..=end).contains(c))
+                .map(|c| c - start)
+                .collect();
+            if piece.kind == Kind::Korean {
+                if here.iter().any(|h| (1..end - start).contains(h)) {
+                    return None;
+                }
+            } else {
+                for h in here.into_iter().rev() {
+                    piece.keys.insert(h, '-');
+                    piece.text.insert(h, '-');
+                }
+            }
+            start = end;
+        }
+        Some(split)
+    }
+
+    fn analyze_letters(&self, keys: &str, context: &DecisionContext) -> Option<Split> {
         let n = keys.len();
         if !(MIN_KEYS..=MAX_KEYS).contains(&n) || !keys.bytes().all(|b| b.is_ascii_alphabetic()) {
             return None;
@@ -567,6 +621,9 @@ impl CodeSwitch {
         if known.word && !at_start && !ending {
             score += self.params.word_bonus;
         }
+        if !at_start && at_end && !ending && !counter && !known.word && !after_label {
+            score += self.params.bare_tail;
+        }
         if counter {
             score += self.params.digit_bonus;
         } else if ending {
@@ -624,8 +681,30 @@ mod tests {
             ("commitgotj", "commit해서"),
             ("mongodbfmf", "mongodb를"),
             ("slackdptj", "slack에서"),
+            // Not nod + 던의: two syllables with no word or ending behind them are weak.
+            ("nodejsdml", "nodejs의"),
+            ("nodejsdptj", "nodejs에서"),
+            ("nodejsgoTdj", "nodejs했어"),
         ] {
             assert_eq!(split(keys).as_deref(), Some(text), "{keys}");
+        }
+    }
+
+    /// A hyphen is no Korean key, so it can only sit inside an English stretch.
+    #[test]
+    fn a_hyphen_stays_inside_the_english_stretch() {
+        for (keys, text) in [
+            ("Wi-Fieh", "Wi-Fi도"),
+            ("Wi-FiRkwl", "Wi-Fi까지"),
+            ("e-mailfmf", "e-mail를"),
+            ("wi-fieh", "wi-fi도"),
+            ("dkssud-hello", "안녕-hello"),
+        ] {
+            assert_eq!(split(keys).as_deref(), Some(text), "{keys}");
+        }
+        // Not between two letters, or inside what would be Korean: left alone.
+        for keys in ["-Fieh", "Wi-", "Wi--Fieh", "dkssud-dkssud", "hello-world"] {
+            assert_eq!(split(keys), None, "{keys}");
         }
     }
 

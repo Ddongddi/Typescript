@@ -69,7 +69,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 1. `[Unreleased]` 아래 내용을 `## [X.Y.Z] - 날짜`로 옮기고 아래쪽 비교 링크를 갱신합니다.
 2. 버전을 올립니다: 각 `Cargo.toml`(7곳), `Cargo.lock`, README의 예시 버전.
    패키징한 뒤(`scripts/package.ps1`) `sh lab/report.sh`로 크기·정확도·속도·메모리를 재서
-   [docs/report.md](docs/report.md) 맨 위에 새 절로 붙입니다.
+   [docs/report/performance.md](docs/report/performance.md) 맨 위에 새 절로 붙입니다.
 3. `v` 태그(`git tag vX.Y.Z && git push origin vX.Y.Z`)를 푸시하면 릴리스 워크플로가 해당 버전의 항목을
    릴리스 노트로 올립니다. 항목이 없으면 GitHub가 만든 노트가 올라가니 꼭 채워 두세요.
    (`sh scripts/release-notes.sh vX.Y.Z`로 미리 볼 수 있습니다.)
@@ -96,6 +96,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 - [<img src="https://github.com/noth3dev.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="noth3dev"> **@noth3dev**](https://github.com/noth3dev) (Necessity) — 프로젝트 운영과 핵심 개발
 - [<img src="https://github.com/Ddongddi.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Ddongddi"> **@Ddongddi**](https://github.com/Ddongddi) — 일본어 지원 추가
+- [<img src="https://github.com/Seungchan0325.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Seungchan0325"> **@Seungchan0325**](https://github.com/Seungchan0325) — GeekNews에 소개
 
 이 프로젝트는 [@aimdevlee](https://github.com/aimdevlee)의 [Seamtype](https://github.com/aimdevlee/seamtype) (MIT) Rust 포트로 시작되었으며, Seamtype의 모델은 [@yksr-melt](https://github.com/yksr-melt)의 [Meltype](https://github.com/yksr-melt/Meltype)에서 영감을 받았습니다. 자세한 고지는 [NOTICE](NOTICE)에 있습니다.
 
@@ -167,7 +168,7 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 1. Move the `[Unreleased]` entries under `## [X.Y.Z] - date` and update the compare links at the bottom.
 2. Bump the version: each `Cargo.toml` (7), `Cargo.lock`, and the example version in the README.
    After packaging (`scripts/package.ps1`), run `sh lab/report.sh` to measure size, accuracy, speed and
-   memory, and add the result as a new section at the top of [docs/report.md](docs/report.md) (Korean).
+   memory, and add the result as a new section at the top of [docs/report/performance.md](docs/report/performance.md) (Korean).
 3. Push a `v` tag (`git tag vX.Y.Z && git push origin vX.Y.Z`). The release workflow publishes that version's
    entry as the release notes; with no entry GitHub generates them, so fill it in. Preview with
    `sh scripts/release-notes.sh vX.Y.Z`.
@@ -197,5 +198,6 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 
 - [<img src="https://github.com/noth3dev.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="noth3dev"> **@noth3dev**](https://github.com/noth3dev) (Necessity) — project lead and core development
 - [<img src="https://github.com/Ddongddi.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Ddongddi"> **@Ddongddi**](https://github.com/Ddongddi) — added Japanese support
+- [<img src="https://github.com/Seungchan0325.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Seungchan0325"> **@Seungchan0325**](https://github.com/Seungchan0325) — shared the project on GeekNews
 
 The project began as a Rust port of [Seamtype](https://github.com/aimdevlee/seamtype) by [@aimdevlee](https://github.com/aimdevlee) (MIT), which was inspired by [Meltype](https://github.com/yksr-melt/Meltype) by [@yksr-melt](https://github.com/yksr-melt); see [NOTICE](NOTICE) for the notices.
