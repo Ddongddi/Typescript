@@ -47,6 +47,8 @@ static REGISTER: Once = Once::new();
 /// the "2/3" footer.
 #[derive(Default)]
 struct Page {
+    /// Where everything goes, worked out once by `show` (the paint reuses it).
+    layout: Option<Layout>,
     rows: Vec<Row>,
     footer: Vec<u16>,
 }
@@ -75,10 +77,15 @@ fn page_of(page: &CandidatePage) -> Page {
     } else {
         Vec::new()
     };
-    Page { rows, footer }
+    Page {
+        layout: None,
+        rows,
+        footer,
+    }
 }
 
 /// Where everything goes, in device pixels.
+#[derive(Clone)]
 struct Layout {
     width: i32,
     height: i32,
@@ -162,9 +169,13 @@ unsafe fn paint(hwnd: HWND) {
                 })
                 .collect(),
             footer: page.footer.clone(),
+            layout: page.layout.clone(),
         }
     });
-    let l = layout(hdc, &page, scale);
+    let l = page
+        .layout
+        .clone()
+        .unwrap_or_else(|| layout(hdc, &page, scale));
     let radius = px(RADIUS, scale);
 
     // Background first; the window region already rounds the corners.
@@ -306,13 +317,14 @@ impl CandidateWindow {
     /// when the list would run off the monitor's work area.
     pub fn show(&self, page: &CandidatePage, anchor: RECT) {
         let Some(hwnd) = self.window() else { return };
-        let data = page_of(page);
+        let mut data = page_of(page);
         // SAFETY: `hwnd` is this thread's window; the DC is released before returning.
         unsafe {
             let hdc = GetDC(Some(hwnd));
             let scale = scale(hdc);
             let l = layout(hdc, &data, scale);
             ReleaseDC(Some(hwnd), hdc);
+            data.layout = Some(l.clone());
             PAGE.with(|p| *p.borrow_mut() = data);
             let radius = px(RADIUS, scale) * 2;
             // +1: the region excludes its right/bottom edge.
