@@ -106,6 +106,8 @@ pub struct Params {
     pub label_logp: f64,
     /// A label names the noun that follows: that switch costs this much less.
     pub label_noun: f64,
+    /// A noun that a label names and more of the token follows (B급의) costs this much more.
+    pub label_mid: f64,
     /// Per capital in a Korean edge that no shifted jamo explains (the S of Slack).
     pub cap_penalty: f64,
     /// How far the best mixed path has to beat the best single-language one.
@@ -134,6 +136,7 @@ impl Default for Params {
             digit_bonus: 6.0,
             label_logp: -10.0,
             label_noun: 3.5,
+            label_mid: 6.0,
             cap_penalty: 10.0,
             margin: 0.0,
             lead_en: 5.0,
@@ -166,6 +169,7 @@ impl Params {
                 "digit_bonus" => self.digit_bonus = v,
                 "label_logp" => self.label_logp = v,
                 "label_noun" => self.label_noun = v,
+                "label_mid" => self.label_mid = v,
                 "cap_penalty" => self.cap_penalty = v,
                 "margin" => self.margin = v,
                 "weak_margin" => self.weak_margin = v,
@@ -1224,7 +1228,7 @@ impl CodeSwitch {
     fn hosts(edge: &Edge, prev: Class) -> bool {
         match edge.class {
             Class::EnWord | Class::EnOov | Class::EnLabel | Class::KoWord => true,
-            Class::KoOov => edge.known || prev == Class::KoOov,
+            Class::KoOov => edge.known || matches!(prev, Class::KoOov | Class::EnLabel),
             Class::KoEnding | Class::KoCase => false,
         }
     }
@@ -1241,12 +1245,14 @@ impl CodeSwitch {
         if edge.class == Class::EnLabel || (edge.pending && prev.kind() != Kind::Korean) {
             return None;
         }
-        // A label names the noun that ends the token (n제, x축) or takes a case particle (x에).
+        // A label names the noun that follows (n제, x축, B급의) or takes a case particle (x에).
         if prev == Class::EnLabel {
             return match edge.class {
                 Class::KoCase => Some((p.switch_cost, true)),
-                Class::KoWord | Class::KoOov if edge.end() == n && !edge.ending_like => {
-                    Some((p.switch_cost - p.label_noun, true))
+                Class::KoWord | Class::KoOov if !edge.ending_like => {
+                    // One that more of the token follows has to be worth it.
+                    let more = if edge.end() == n { 0.0 } else { p.label_mid };
+                    Some((p.switch_cost - p.label_noun + more, true))
                 }
                 _ => None,
             };
