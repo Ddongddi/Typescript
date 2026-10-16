@@ -318,6 +318,29 @@ fn main() {
         println!("{}", search.trace(&keys_of_text(text), &context, all));
         return;
     }
+    // `--cold KEYS`: what deciding KEYS costs when nothing of it is remembered (the first key of a
+    // token that was skipped until now), by alternating it with a token that shares nothing.
+    if let Some(keys) = args.iter().position(|a| a == "--cold").and_then(|i| args.get(i + 1)) {
+        let engine = make_engine(None, &Languages::legacy(false));
+        let context = DecisionContext {
+            partial: true,
+            ..Default::default()
+        };
+        let other = "zmfltmxldksdlqsle";
+        for _ in 0..2000 {
+            engine.decide(other, &context);
+            engine.decide(keys, &context);
+        }
+        let mut spent = Duration::ZERO;
+        for _ in 0..20000 {
+            engine.decide(other, &context);
+            let t = Instant::now();
+            engine.decide(keys, &context);
+            spent += t.elapsed();
+        }
+        println!("cold {keys}: {:.1} µs", micros(spent) / 20000.0);
+        return;
+    }
     // `--probe FILE`: convert each line (the text as it should come out) and print what came out.
     if let Some(path) = args.iter().position(|a| a == "--probe").and_then(|i| args.get(i + 1)) {
         let engine = make_engine(None, &Languages::legacy(false));
@@ -381,9 +404,19 @@ fn main() {
     for c in &words {
         engine.decide(&c.keys, &context(c.previous, false));
     }
+    // `--steady`: one untimed pass over every prefix first, so the timings leave out what is
+    // looked up for the first time (the caches that fill as words come up).
+    if args.iter().any(|a| a == "--steady") {
+        for c in &words {
+            for (end, _) in c.keys.char_indices().skip(1) {
+                engine.decide(&c.keys[..end], &context(c.previous, true));
+            }
+        }
+    }
     let (mut commit, mut keystroke) = (Vec::new(), Vec::new());
     let mut slowest: Vec<(Duration, String)> = Vec::new();
     let track_slowest = args.iter().any(|a| a == "--slow");
+    let mut by_len: std::collections::BTreeMap<usize, Vec<Duration>> = Default::default();
     let mut got: Vec<String> = Vec::with_capacity(words.len() + sentences.len());
     for c in &words {
         // Every prefix, as the live preview sees it while typing.
@@ -392,6 +425,7 @@ fn main() {
             engine.decide(&c.keys[..end], &context(c.previous, true));
             let spent = t.elapsed();
             keystroke.push(spent);
+            by_len.entry(end).or_default().push(spent);
             if track_slowest {
                 slowest.push((spent, c.keys[..end].to_string()));
             }
@@ -406,6 +440,14 @@ fn main() {
     slowest.sort_by(|a, b| b.0.cmp(&a.0));
     for (spent, keys) in slowest.iter().take(25) {
         println!("slow keystroke {:7.1}µs  {keys}", micros(*spent));
+    }
+    // `--bylen`: how long one more key takes while the token is this long.
+    if args.iter().any(|a| a == "--bylen") {
+        for (len, spent) in &mut by_len {
+            spent.sort();
+            let mean = spent.iter().map(|d| micros(*d)).sum::<f64>() / spent.len() as f64;
+            println!("bylen {len:3} n={:6} mean {mean:6.1}µs  p99 {:6.1}µs", spent.len(), micros(spent[spent.len() * 99 / 100]));
+        }
     }
     latency(&mut metrics, "commit", commit);
     latency(&mut metrics, "keystroke", keystroke);
