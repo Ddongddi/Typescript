@@ -23,6 +23,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::TextServices::*;
 
+use crate::candidates::CandidateWindow;
 use crate::client::{EditSession, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
@@ -93,6 +94,8 @@ pub struct Inner {
     pub da_atom: Cell<u32>,
     /// The Tab-completion hint under the word being typed.
     pub ghost: Ghost,
+    /// The candidate list under the word being converted.
+    pub candidates: CandidateWindow,
     /// The active profile is the one with Tab completion (the picker offers both).
     completion_profile: Cell<bool>,
     /// The document manager that last got focus (a raw pointer, only ever compared).
@@ -122,6 +125,7 @@ impl Inner {
             comp_sink: RefCell::new(None),
             da_atom: Cell::new(0),
             ghost: Ghost::default(),
+            candidates: CandidateWindow::default(),
             completion_profile: Cell::new(true),
             last_focus: Cell::new(0),
             cookie: Cell::new(0),
@@ -255,6 +259,7 @@ impl Inner {
         let Some(key) = key_for(vk) else { return false };
         matches!(key, Key::Letter(_))
             || session.is_composing()
+            || session.is_converting()
             || session.has_flip_window()
             || session.claims_key(key)
     }
@@ -345,6 +350,7 @@ impl Inner {
                 }
             };
             client.show_hint(session.suggestion().as_deref());
+            client.show_candidates(session.candidate_page().as_ref());
             handled
         });
         if resend.get() {
@@ -431,6 +437,7 @@ impl Inner {
                 }
             };
             client.show_hint(session.suggestion().as_deref());
+            client.show_candidates(session.candidate_page().as_ref());
             handled
         })
     }
@@ -439,6 +446,7 @@ impl Inner {
     /// starts over, and files edited meanwhile (settings, apps, lexicon) are picked up.
     fn focus_changed(&self) {
         self.ghost.hide();
+        self.candidates.hide();
         if let Ok(mut composition) = self.composition.try_borrow_mut() {
             *composition = None;
         }
@@ -592,6 +600,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         guard(|| {
             let inner = &self.inner;
             inner.ghost.destroy();
+            inner.candidates.destroy();
             crate::hook::remove();
             if let Ok(mut slot) = inner.session.try_borrow_mut() {
                 if let Some(session) = slot.as_mut() {
@@ -725,6 +734,7 @@ impl ITfCompositionSink_Impl for CompositionSink_Impl {
             if let Some(inner) = self.inner.upgrade() {
                 inner.trace("composition ended by app");
                 inner.ghost.hide();
+                inner.candidates.hide();
                 if let Ok(mut composition) = inner.composition.try_borrow_mut() {
                     *composition = None;
                 }

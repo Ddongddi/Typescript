@@ -8,6 +8,7 @@
 
 #![allow(non_snake_case)]
 
+mod candidates;
 mod client;
 mod delegate;
 mod display;
@@ -16,6 +17,7 @@ mod global;
 mod guids;
 mod hook;
 mod keymap;
+mod popup;
 mod registry;
 mod service;
 mod shared;

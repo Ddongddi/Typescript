@@ -31,6 +31,7 @@
 //! Right after a word was committed with space/punctuation, Esc / Shift+Esc cycle that
 //! committed word the same way. The same correction made twice is learned for good.
 
+mod candidates;
 mod client;
 mod flip;
 mod japanese;
@@ -39,6 +40,7 @@ mod preview;
 pub mod testing;
 mod word;
 
+pub use candidates::CandidatePage;
 pub use client::{NoopClient, Range, TextClient, NOT_FOUND};
 use flip::Committed;
 pub use japanese::Conversion;
@@ -237,6 +239,11 @@ impl InputSession {
     /// A word is being composed.
     pub fn is_composing(&self) -> bool {
         !self.word.is_empty()
+    }
+    /// A Japanese conversion (the candidate list) is open: Space, the arrows and the
+    /// digits act on it, not on the app.
+    pub fn is_converting(&self) -> bool {
+        self.ja.conversion.is_some()
     }
     /// A just-committed word can still be flipped with Esc.
     pub fn has_flip_window(&self) -> bool {

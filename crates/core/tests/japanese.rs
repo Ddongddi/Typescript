@@ -67,6 +67,10 @@ impl JapaneseConverter for FakeConverter {
                 ConversionCandidate::new("123", 3),
                 ConversionCandidate::new(kana, 3),
             ],
+            // More candidates than fit on one page.
+            "くかく" => (1..=12)
+                .map(|i| ConversionCandidate::new(format!("候補{i}"), 3))
+                .collect(),
             _ => vec![ConversionCandidate::new(kana, count)],
         }
     }
@@ -301,6 +305,69 @@ fn space_cycles_candidates_and_numbers_pick() {
     r.type_("3");
     assert_eq!(r.text(), "編纂");
     assert!(r.session.conversion().is_none());
+}
+
+#[test]
+fn candidate_pages_follow_the_selection() {
+    let mut r = JaRig::new("ja-pages");
+    r.type_("kukaku ");
+    let page = r.session.candidate_page().unwrap();
+    assert_eq!((page.page, page.selected, page.pages), (0, 0, 2));
+    assert_eq!(page.texts.len(), 9);
+    assert_eq!(page.texts[0], "候補1");
+    assert_eq!(page.texts[8], "候補9");
+    // Space nine times lands on the tenth candidate: the second page's first line.
+    for _ in 0..9 {
+        r.key(Key::Printable(' '));
+    }
+    assert_eq!(r.text(), "候補10");
+    let page = r.session.candidate_page().unwrap();
+    assert_eq!((page.page, page.selected, page.pages), (1, 0, 2));
+    assert_eq!(page.texts, ["候補10", "候補11", "候補12"]);
+    // Space wraps back to the start.
+    for _ in 0..3 {
+        r.key(Key::Printable(' '));
+    }
+    assert_eq!(r.text(), "候補1");
+    let page = r.session.candidate_page().unwrap();
+    assert_eq!((page.page, page.selected), (0, 0));
+}
+
+#[test]
+fn numbers_pick_from_the_current_page() {
+    let mut r = JaRig::new("ja-numpages");
+    r.type_("kukaku ");
+    // On the second page, "1" picks its first line.
+    for _ in 0..9 {
+        r.key(Key::Printable(' '));
+    }
+    r.type_("1");
+    assert_eq!(r.text(), "候補10");
+    assert!(r.session.conversion().is_none());
+    assert_eq!(r.converter.learned(), ["候補10"]);
+}
+
+#[test]
+fn a_number_past_the_page_confirms_and_types_on() {
+    let mut r = JaRig::new("ja-numpast");
+    r.type_("kukaku ");
+    for _ in 0..9 {
+        r.key(Key::Printable(' '));
+    }
+    r.type_("4");
+    assert_eq!(r.text(), "候補104");
+    assert!(r.session.conversion().is_none());
+}
+
+#[test]
+fn candidate_page_needs_a_list() {
+    let mut r = JaRig::new("ja-pagelist");
+    assert!(r.session.candidate_page().is_none());
+    // A reading with a single candidate (the fake converter's default) shows no window.
+    r.type_("takusan ");
+    assert_eq!(r.text(), "たくさん");
+    assert!(r.session.conversion().is_some());
+    assert!(r.session.candidate_page().is_none());
 }
 
 #[test]
