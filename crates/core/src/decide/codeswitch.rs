@@ -1037,7 +1037,9 @@ impl CodeSwitch {
         // Everything that ends before the shared start of the two tokens is as it was.
         let kept = shared(&cache.keys, keys);
         let n = keys.len();
-        cache.edges.resize_with(n, || Vec::with_capacity(EDGES_AT_START));
+        cache
+            .edges
+            .resize_with(n, || Vec::with_capacity(EDGES_AT_START));
         // A new key makes the last one no longer the end of the token, which changes the
         // edges that were built for the end: English ones (the letters' closing) and a lone
         // first consonant. A Korean edge is the same either way: keep it.
