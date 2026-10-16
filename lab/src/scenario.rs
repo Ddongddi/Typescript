@@ -22,7 +22,7 @@ const TYPES: [(&str, &str); 3] = [
 const CHAIN: usize = 4;
 
 #[derive(Default)]
-struct Tally {
+pub(crate) struct Tally {
     sentences: usize,
     exact: usize,
     tokens: usize,
@@ -30,7 +30,7 @@ struct Tally {
 }
 
 impl Tally {
-    fn add(&mut self, expected: &str, got: &str) {
+    pub(crate) fn add(&mut self, expected: &str, got: &str) {
         let (hits, n) = token_hits(expected, got);
         self.sentences += 1;
         self.exact += usize::from(expected == got);
@@ -38,14 +38,14 @@ impl Tally {
         self.token_hits += hits;
     }
 
-    fn merge(&mut self, other: &Tally) {
+    pub(crate) fn merge(&mut self, other: &Tally) {
         self.sentences += other.sentences;
         self.exact += other.exact;
         self.tokens += other.tokens;
         self.token_hits += other.token_hits;
     }
 
-    fn sentence_pct(&self) -> f64 {
+    pub(crate) fn sentence_pct(&self) -> f64 {
         100.0 * self.exact as f64 / self.sentences.max(1) as f64
     }
 
