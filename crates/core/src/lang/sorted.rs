@@ -27,8 +27,12 @@ impl SortedLines {
 
     /// Offset of the first line whose first field is `>= key` (`text.len()` if none).
     fn lower_bound(&self, key: &str) -> usize {
+        self.lower_bound_in(0, self.text.len(), key.as_bytes())
+    }
+
+    /// The same inside the lines from `lo` to `hi` (both at the start of a line).
+    fn lower_bound_in(&self, mut lo: usize, mut hi: usize, key: &[u8]) -> usize {
         let bytes = self.text.as_bytes();
-        let (mut lo, mut hi) = (0usize, bytes.len());
         while lo < hi {
             let mid = lo + (hi - lo) / 2;
             let start = bytes[lo..mid]
@@ -36,13 +40,41 @@ impl SortedLines {
                 .rposition(|&b| b == b'\n')
                 .map_or(lo, |p| lo + p + 1);
             let (line, next) = self.line_at(start);
-            if first_field(line) < key {
+            if first_field(line).as_bytes() < key {
                 lo = next;
             } else {
                 hi = start;
             }
         }
         lo
+    }
+
+    /// All the text, as the range of lines `prefix_range` narrows.
+    pub fn span(&self) -> (usize, usize) {
+        (0, self.text.len())
+    }
+
+    /// The lines of `within` (a range of lines) whose first field starts with `prefix`. Walking
+    /// a word letter by letter narrows the range each time, so a step costs a search over a
+    /// handful of lines instead of the whole list. `prefix` is ASCII, under 32 bytes.
+    pub fn prefix_range(&self, within: (usize, usize), prefix: &[u8]) -> (usize, usize) {
+        let lo = self.lower_bound_in(within.0, within.1, prefix);
+        let mut after = [0u8; 32];
+        let after = &mut after[..prefix.len()];
+        after.copy_from_slice(prefix);
+        if let Some(last) = after.last_mut() {
+            *last += 1;
+        }
+        (lo, self.lower_bound_in(lo, within.1, after))
+    }
+
+    /// The first line of `lines` when its first field is `key`.
+    pub fn exact_in(&self, lines: (usize, usize), key: &[u8]) -> Option<&'static str> {
+        if lines.0 >= lines.1 {
+            return None;
+        }
+        let (line, _) = self.line_at(lines.0);
+        (first_field(line).as_bytes() == key).then_some(line)
     }
 
     /// Identifies the underlying text (address, length), for caches keyed by model.

@@ -15,7 +15,7 @@
 use std::cell::RefCell;
 
 use crate::decide::engine::{Decision, DecisionContext, Language};
-use crate::lang::english::EnglishModel;
+use crate::lang::english::{EnglishModel, Walk};
 use crate::lang::hangul::{is_consonant, ComposerState, DubeolsikLayout, HangulComposer, Unit};
 use crate::lang::korean::{KoreanModel, PENDING_CONSONANT_LOGP, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::particles::{is_ending, is_single_letter_particle};
@@ -251,6 +251,36 @@ struct Cache {
     keys: String,
     edges: Vec<Vec<Edge>>,
     table: Table,
+    walks: Walks,
+}
+
+/// The English word list and letter model walked along the letters from each start key: the
+/// first key's walk (the whole token is asked about it) and one per start of the last
+/// `EN_MAX` keys, in slots by start.
+struct Walks {
+    head: Walk,
+    ring: Vec<(usize, Walk)>,
+}
+
+impl Walks {
+    fn new() -> Self {
+        Self {
+            head: Walk::default(),
+            ring: (0..EN_MAX).map(|_| (0, Walk::default())).collect(),
+        }
+    }
+
+    /// The walk of the stretches that start at key `i` (empty if it was another start's).
+    fn of(&mut self, i: usize) -> &mut Walk {
+        if i == 0 {
+            return &mut self.head;
+        }
+        let slot = &mut self.ring[i % EN_MAX];
+        if slot.0 != i {
+            *slot = (i, Walk::default());
+        }
+        &mut slot.1
+    }
 }
 
 const EMPTY_ROW: [[Cell; STATES]; 7] = [[None; STATES]; 7];
@@ -413,15 +443,15 @@ impl CodeSwitch {
         // A token that is already a listed English word or a clean Korean word is not worth a
         // search (it would only win by a bonus it already has). After a digit it may still be a
         // counter or a unit.
-        if !context.after_digit
-            && !context.before_digit
-            && (self.is_english_word(keys)
-                || (self.reads_as_korean(keys, context.partial) && !self.starts_with_word(keys)))
-        {
-            return None;
-        }
+        let skip = |head: &Walk| {
+            !context.after_digit
+                && !context.before_digit
+                && (self.is_english_word(keys, head)
+                    || (self.reads_as_korean(keys, context.partial)
+                        && !self.starts_with_word(head)))
+        };
         let weak_margin = self.params.weak_margin;
-        self.with_lattice(keys, context, |_, table| {
+        self.with_lattice(keys, context, skip, |_, table| {
             Self::read_path(keys, table, weak_margin)
         })?
     }
@@ -488,9 +518,12 @@ impl CodeSwitch {
     /// For `lab --trace`: the best path of each kind, edge by edge with its score (and every
     /// edge when `all`).
     pub fn trace(&self, keys: &str, context: &DecisionContext, all: bool) -> String {
-        self.with_lattice(keys, context, |edges, table| {
-            Self::trace_of(keys, edges, table, all)
-        })
+        self.with_lattice(
+            keys,
+            context,
+            |_| false,
+            |edges, table| Self::trace_of(keys, edges, table, all),
+        )
         .unwrap_or_else(|| "no edges".into())
     }
 
@@ -547,13 +580,15 @@ impl CodeSwitch {
         out
     }
 
-    /// Runs `f` on the edges (grouped by where they start) and the table of `keys`. Typing adds
-    /// one key at a time and a key only changes what ends at the end, so what the last token
-    /// searched already settled is kept: only the last `LOOKBACK` keys are searched again.
+    /// Runs `f` on the edges (grouped by where they start) and the table of `keys`; None when
+    /// `skip` (asked with the walk of the whole token) says the token needs no search. Typing
+    /// adds one key at a time and a key only changes what ends at the end, so what the last
+    /// token searched already settled is kept: only the last `LOOKBACK` keys are searched again.
     fn with_lattice<R>(
         &self,
         keys: &str,
         context: &DecisionContext,
+        skip: impl FnOnce(&Walk) -> bool,
         f: impl FnOnce(&[Vec<Edge>], &Table) -> R,
     ) -> Option<R> {
         LAST.with(|last| {
@@ -566,8 +601,15 @@ impl CodeSwitch {
                     keys: String::new(),
                     edges: Vec::new(),
                     table: Vec::new(),
+                    walks: Walks::new(),
                 },
             };
+            let head = &keys.as_bytes()[..keys.len().min(EN_MAX)];
+            self.english.walk_to(&mut cache.walks.head, head);
+            if skip(&cache.walks.head) {
+                *slot = Some(cache);
+                return None;
+            }
             // Everything that ends before the shared start of the two tokens is as it was.
             let kept = cache
                 .keys
@@ -581,7 +623,7 @@ impl CodeSwitch {
                 list.retain(|e| e.end() < kept);
             }
             self.korean_edges(keys, context, &mut cache.edges, kept)?;
-            self.english_edges(keys, context, &mut cache.edges, kept);
+            self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
             cache.table.truncate(kept);
             cache.table.resize(n + 1, EMPTY_ROW);
             self.search(n, &cache.edges, &mut cache.table, kept);
@@ -703,13 +745,18 @@ impl CodeSwitch {
         keys: &str,
         context: &DecisionContext,
         edges: &mut [Vec<Edge>],
+        walks: &mut Walks,
         min_end: usize,
     ) {
         let n = keys.len();
         let p = &self.params;
         for i in min_end.saturating_sub(LOOKBACK)..n {
+            let walk = walks.of(i);
+            self.english
+                .walk_to(walk, &keys.as_bytes()[i..n.min(i + EN_MAX)]);
             for j in (i + 1).max(min_end)..=n.min(i + EN_MAX) {
                 let seg = &keys[i..j];
+                let len = j - i;
                 if i == 0 && is_label(seg) {
                     edges[i].push(Edge::new(j, Class::EnLabel, p.label_logp));
                 }
@@ -731,19 +778,16 @@ impl CodeSwitch {
                     0.0
                 };
                 let listed = if one_word {
-                    self.english.word_log_probability(seg)
+                    self.english.walk_word_log_probability(walk, len)
                 } else {
-                    (j - i >= 2).then(|| self.word_logp(seg)).flatten()
+                    (len >= 2).then(|| self.word_logp(walk, len)).flatten()
                 };
                 if let Some(logp) = listed {
                     edges[i].push(Edge::new(j, Class::EnWord, logp + bonus));
                     continue;
                 }
-                let letters = if (context.partial || tail) && j == n {
-                    self.english.prefix_log_probability(seg)
-                } else {
-                    self.english.total_log_probability(seg)
-                };
+                let closed = !((context.partial || tail) && j == n);
+                let letters = self.english.walk_letters(walk, len, closed);
                 edges[i].push(if unit {
                     Edge::new(j, Class::EnWord, letters + bonus)
                 } else {
@@ -754,11 +798,11 @@ impl CodeSwitch {
     }
 
     /// A listed English word of an edge's length: any from three letters, an everyday one of two.
-    fn word_logp(&self, seg: &str) -> Option<f64> {
-        if seg.len() == 2 && !self.english.is_common_word(seg) {
+    fn word_logp(&self, walk: &Walk, len: usize) -> Option<f64> {
+        if len == 2 && !self.english.walk_is_common(walk, len) {
             return None;
         }
-        self.english.word_log_probability(seg)
+        self.english.walk_word_log_probability(walk, len)
     }
 
     /// The cost of the step from an edge of class `prev` to `edge`, and whether it changes the
@@ -846,8 +890,8 @@ impl CodeSwitch {
 
     /// Whether a listed English word of at least `LEAD_WORD_KEYS` letters leads the token
     /// (slack in slackdptj, which also reads as Korean): the search may still prefer it.
-    fn starts_with_word(&self, keys: &str) -> bool {
-        (LEAD_WORD_KEYS..keys.len().min(EN_MAX)).any(|end| self.is_english_word(&keys[..end]))
+    fn starts_with_word(&self, head: &Walk) -> bool {
+        (LEAD_WORD_KEYS..head.len()).any(|end| self.english.walk_is_known(head, end))
     }
 
     /// Whether the whole token reads as Korean on its own: it composes to syllables people
@@ -882,8 +926,13 @@ impl CodeSwitch {
         syllables > 0
     }
 
-    fn is_english_word(&self, text: &str) -> bool {
-        self.english.is_known_word(text)
+    /// `head` is the walk of the token's first `EN_MAX` keys: a longer token is asked afresh.
+    fn is_english_word(&self, keys: &str, head: &Walk) -> bool {
+        if keys.len() <= EN_MAX {
+            self.english.walk_is_known(head, keys.len())
+        } else {
+            self.english.is_known_word(keys)
+        }
     }
 }
 

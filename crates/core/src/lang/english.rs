@@ -65,7 +65,195 @@ fn count(index: usize) -> f32 {
         .map_or(0.0, |b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
 }
 
+/// Log probability of letter `c` after `a b` (0 = word boundary).
+fn trigram_term(a: usize, b: usize, c: usize) -> f64 {
+    let n = SYMBOLS;
+    let seen = count((a * n + b) * n + c);
+    let context = count(n * n * n + a * n + b);
+    f64::from(((seen + SMOOTHING) / (context + SMOOTHING * n as f32)).ln())
+}
+
+/// The level column of a line of the word list.
+fn level_of(line: &str) -> Option<i32> {
+    line.split('\t').nth(1)?.parse().ok()
+}
+
+/// The code of a lowercase letter in the trigram table (a = 1), 0 for none.
+fn letter_code(letters: &[u8], from_end: usize) -> usize {
+    letters
+        .len()
+        .checked_sub(from_end)
+        .map_or(0, |i| usize::from(letters[i] - b'a') + 1)
+}
+
+/// The word list and the letter model followed along the letters of one stretch of keys, one
+/// letter at a time. The stretches that start at the same key share all of it: a longer one
+/// only adds a letter (a step in the word list over a few lines, a term of the letter
+/// probability), where asking `level` about each of them starts from scratch.
+#[derive(Default)]
+pub struct Walk {
+    /// Lowercase, as walked.
+    letters: Vec<u8>,
+    steps: Vec<Step>,
+}
+
+#[derive(Clone, Copy)]
+struct Step {
+    /// The lines of the word list that start with the letters so far (a byte range).
+    lines: (u32, u32),
+    /// Log probability of the letters so far, without the word end.
+    open: f64,
+}
+
+/// The longest stretch walked.
+pub const WALK_MAX: usize = 31;
+
+impl Walk {
+    pub fn len(&self) -> usize {
+        self.letters.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.letters.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.letters.clear();
+        self.steps.clear();
+    }
+
+    /// Keeps the letters that `keys` starts with too.
+    fn follow(&mut self, keys: &[u8]) {
+        let keep = self
+            .letters
+            .iter()
+            .zip(keys)
+            .take_while(|(a, b)| **a == b.to_ascii_lowercase())
+            .count();
+        self.letters.truncate(keep);
+        self.steps.truncate(keep);
+    }
+}
+
 impl EnglishModel {
+    /// Walks `keys` (letters, at most `WALK_MAX`), from where the walk already is.
+    pub fn walk_to(&self, walk: &mut Walk, keys: &[u8]) {
+        let keys = &keys[..keys.len().min(WALK_MAX)];
+        walk.follow(keys);
+        for &key in &keys[walk.len()..] {
+            let letter = key.to_ascii_lowercase();
+            let (before, last) = (&walk.letters[..], walk.steps.last());
+            let (a, b) = (letter_code(before, 2), letter_code(before, 1));
+            let open =
+                last.map_or(0.0, |s| s.open) + trigram_term(a, b, usize::from(letter - b'a') + 1);
+            let (lo, hi) = last.map_or_else(
+                || {
+                    let (lo, hi) = self.levels.span();
+                    (lo as u32, hi as u32)
+                },
+                |s| s.lines,
+            );
+            walk.letters.push(letter);
+            let lines = if lo == hi {
+                (lo, hi)
+            } else {
+                let (lo, hi) = self
+                    .levels
+                    .prefix_range((lo as usize, hi as usize), &walk.letters);
+                (lo as u32, hi as u32)
+            };
+            walk.steps.push(Step { lines, open });
+        }
+    }
+
+    /// The listed line of the first `len` letters, if the word list has them as a word.
+    fn walk_line(&self, walk: &Walk, len: usize) -> Option<&'static str> {
+        let (lo, hi) = walk.steps[len - 1].lines;
+        self.levels
+            .exact_in((lo as usize, hi as usize), &walk.letters[..len])
+    }
+
+    /// The level of the first `len` letters plus `extra`, if that is a listed word.
+    fn walk_line_plus(&self, walk: &Walk, len: usize, extra: u8) -> Option<i32> {
+        let mut word = [0u8; WALK_MAX + 1];
+        word[..len].copy_from_slice(&walk.letters[..len]);
+        word[len] = extra;
+        let (lo, hi) = walk.steps[len - 1].lines;
+        let lines = self
+            .levels
+            .prefix_range((lo as usize, hi as usize), &word[..=len]);
+        level_of(self.levels.exact_in(lines, &word[..=len])?)
+    }
+
+    /// `level` of the first `len` letters of the walk (1 ≤ len ≤ walk.len()): the same answer,
+    /// read off the steps already walked.
+    pub fn walk_level(&self, walk: &Walk, len: usize) -> Option<i32> {
+        if let Some(level) = self.walk_line(walk, len).and_then(level_of) {
+            return Some(level);
+        }
+        let word = &walk.letters[..len];
+        let mut best: Option<i32> = None;
+        let mut consider = |level: Option<i32>| {
+            if let Some(l) = level {
+                best = Some(best.map_or(l, |b| b.min(l)));
+            }
+        };
+        // Stems of 3+ letters: ths isn't the+s, ehs isn't eh+s.
+        for suffix in ["s", "es", "ed", "d", "ing", "ly", "er", "ers", "est"] {
+            if len > suffix.len() + 2 && word.ends_with(suffix.as_bytes()) {
+                let stem = len - suffix.len();
+                // used → use: a lone d follows a stem that ends in e.
+                if suffix == "d" && word[stem - 1] != b'e' {
+                    continue;
+                }
+                consider(self.walk_line(walk, stem).and_then(level_of));
+                consider(self.walk_line_plus(walk, stem, b'e'));
+                // running → run, stopped → stop
+                if word[stem - 1] == word[stem - 2] {
+                    consider(self.walk_line(walk, stem - 1).and_then(level_of));
+                }
+            }
+        }
+        // stories → story, denied → deny, heavier → heavy
+        for suffix in ["ies", "ied", "ier", "iest", "iers"] {
+            if len > suffix.len() + 1 && word.ends_with(suffix.as_bytes()) {
+                consider(self.walk_line_plus(walk, len - suffix.len(), b'y'));
+            }
+        }
+        best
+    }
+
+    /// `is_known_word` of the first `len` letters.
+    pub fn walk_is_known(&self, walk: &Walk, len: usize) -> bool {
+        self.walk_level(walk, len).is_some_and(|l| l <= KNOWN_LEVEL)
+    }
+
+    /// `is_common_word` of the first `len` letters.
+    pub fn walk_is_common(&self, walk: &Walk, len: usize) -> bool {
+        self.walk_level(walk, len)
+            .is_some_and(|l| l <= COMMON_LEVEL)
+    }
+
+    /// `word_log_probability` of the first `len` letters.
+    pub fn walk_word_log_probability(&self, walk: &Walk, len: usize) -> Option<f64> {
+        let level = self.walk_level(walk, len).filter(|l| *l <= KNOWN_LEVEL)?;
+        Some(Self::price(
+            self.walk_line(walk, len)
+                .and_then(|line| line.split('\t').nth(2)?.parse::<f64>().ok()),
+            level,
+        ))
+    }
+
+    /// `total_log_probability` (closed) or `prefix_log_probability` of the first `len` letters.
+    pub fn walk_letters(&self, walk: &Walk, len: usize, closed: bool) -> f64 {
+        let open = walk.steps[len - 1].open;
+        if !closed {
+            return open;
+        }
+        let letters = &walk.letters[..len];
+        open + trigram_term(letter_code(letters, 2), letter_code(letters, 1), 0)
+    }
+
     /// One model per process, built lazily.
     pub fn shared() -> &'static EnglishModel {
         SHARED.get()
@@ -104,20 +292,14 @@ impl EnglishModel {
     }
 
     fn letters_log_probability(&self, word: &str, closed: bool) -> f64 {
-        let n = SYMBOLS;
-        let term = |a: usize, b: usize, c: usize| {
-            let seen = count((a * n + b) * n + c);
-            let context = count(n * n * n + a * n + b);
-            f64::from(((seen + SMOOTHING) / (context + SMOOTHING * n as f32)).ln())
-        };
         let (mut a, mut b, mut total) = (0usize, 0usize, 0f64);
         for byte in word.bytes().filter(u8::is_ascii_alphabetic) {
             let c = (byte.to_ascii_lowercase() - b'a' + 1) as usize;
-            total += term(a, b, c);
+            total += trigram_term(a, b, c);
             (a, b) = (b, c);
         }
         if closed {
-            total += term(a, b, 0);
+            total += trigram_term(a, b, 0);
         }
         total
     }
@@ -238,10 +420,15 @@ impl EnglishModel {
             .levels
             .get(&token.to_lowercase())
             .and_then(|line| line.split('\t').nth(2)?.parse::<f64>().ok());
-        Some(match listed {
+        Some(Self::price(listed, level))
+    }
+
+    /// A word's log probability from its listed frequency, else from its level.
+    fn price(listed: Option<f64>, level: i32) -> f64 {
+        match listed {
             Some(count) => (count / FREQUENCY_TOTAL).ln(),
             None => -(UNLISTED_LOGP + UNLISTED_LEVEL_STEP * f64::from(level)),
-        })
+        }
     }
 
     /// Everyday English (level ≤ 20): kept English even right after Korean.
@@ -268,6 +455,115 @@ mod empty_data {
             assert!(
                 (total - model.average_log_probability(word) * letters).abs() < 1e-9,
                 "{word}"
+            );
+        }
+    }
+
+    /// The walk answers exactly what the one-shot calls do: levels (also of inflections),
+    /// word probabilities and the letter probabilities, bit for bit.
+    #[test]
+    fn walking_equals_asking_afresh() {
+        let model = EnglishModel::shared();
+        let mut samples: Vec<String> = [
+            "nodejs",
+            "qwertyuiop",
+            "running",
+            "stopped",
+            "stories",
+            "denied",
+            "heavier",
+            "used",
+            "notificationd",
+            "githubs",
+            "kakaotalk",
+            "aaa",
+            "zzzz",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        for line in model.levels.with_prefix("").step_by(41) {
+            let word = line.split('\t').next().unwrap_or("");
+            if !word.bytes().all(|b| b.is_ascii_lowercase()) || word.len() > WALK_MAX - 5 {
+                continue;
+            }
+            samples.push(word.to_string());
+            for suffix in [
+                "s", "es", "ed", "d", "ing", "ly", "er", "ers", "est", "ies", "ied",
+            ] {
+                samples.push(format!("{word}{suffix}"));
+                let cut = &word[..word.len() - 1];
+                samples.push(format!("{cut}{suffix}"));
+                let last = &word[word.len() - 1..];
+                samples.push(format!("{word}{last}{suffix}"));
+            }
+        }
+        assert!(samples.len() > 1000);
+        let mut walk = Walk::default();
+        for word in &samples {
+            // Capitals are walked as the lowercase letters.
+            let typed: String = word
+                .chars()
+                .enumerate()
+                .map(|(i, c)| {
+                    if i % 3 == 0 {
+                        c.to_ascii_uppercase()
+                    } else {
+                        c
+                    }
+                })
+                .collect();
+            walk.clear();
+            model.walk_to(&mut walk, typed.as_bytes());
+            for len in 1..=walk.len() {
+                let part = &typed[..len];
+                assert_eq!(
+                    model.walk_level(&walk, len),
+                    model.level(part),
+                    "{typed} {len}"
+                );
+                assert_eq!(
+                    model.walk_is_known(&walk, len),
+                    model.is_known_word(part),
+                    "{typed} {len}"
+                );
+                assert_eq!(
+                    model.walk_is_common(&walk, len),
+                    model.is_common_word(part),
+                    "{typed} {len}"
+                );
+                assert_eq!(
+                    model
+                        .walk_word_log_probability(&walk, len)
+                        .map(f64::to_bits),
+                    model.word_log_probability(part).map(f64::to_bits),
+                    "{typed} {len}"
+                );
+                for closed in [true, false] {
+                    let fresh = if closed {
+                        model.total_log_probability(part)
+                    } else {
+                        model.prefix_log_probability(part)
+                    };
+                    assert_eq!(
+                        model.walk_letters(&walk, len, closed).to_bits(),
+                        fresh.to_bits(),
+                        "{typed} {len}"
+                    );
+                }
+            }
+        }
+        // Following a changed token keeps what is shared and walks the rest.
+        walk.clear();
+        model.walk_to(&mut walk, b"githubdp");
+        model.walk_to(&mut walk, b"gitlabxyz");
+        let mut fresh = Walk::default();
+        model.walk_to(&mut fresh, b"gitlabxyz");
+        for len in 1..=fresh.len() {
+            assert_eq!(model.walk_level(&walk, len), model.walk_level(&fresh, len));
+            assert_eq!(
+                model.walk_letters(&walk, len, true).to_bits(),
+                model.walk_letters(&fresh, len, true).to_bits()
             );
         }
     }
