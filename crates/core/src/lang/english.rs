@@ -258,6 +258,12 @@ impl EnglishModel {
         best
     }
 
+    /// Whether some listed word starts with the first `len` letters.
+    pub fn walk_is_prefix(&self, walk: &Walk, len: usize) -> bool {
+        let (lo, hi) = walk.steps[len - 1].lines;
+        lo < hi
+    }
+
     /// `is_known_word` of the first `len` letters.
     pub fn walk_is_known(&self, walk: &Walk, len: usize) -> bool {
         self.walk_level(walk, len).is_some_and(|l| l <= KNOWN_LEVEL)

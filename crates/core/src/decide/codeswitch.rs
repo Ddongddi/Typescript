@@ -811,6 +811,7 @@ impl CodeSwitch {
             !context.after_digit
                 && !context.before_digit
                 && (self.is_english_word(keys, head)
+                    || self.typing_english(keys, context, head)
                     || (self.reads_as_korean(keys, context.partial)
                         && !self.starts_with_word(head)))
         };
@@ -1518,6 +1519,12 @@ impl CodeSwitch {
             });
             reads && syllables > 0
         })
+    }
+
+    /// A token still being typed that goes on as a listed English word (commi, interp): no
+    /// Korean is cut out of it.
+    fn typing_english(&self, keys: &str, context: &DecisionContext, head: &Walk) -> bool {
+        context.partial && keys.len() <= EN_MAX && self.english.walk_is_prefix(head, keys.len())
     }
 
     /// `head` is the walk of the token's first `EN_MAX` keys: a longer token is asked afresh.
