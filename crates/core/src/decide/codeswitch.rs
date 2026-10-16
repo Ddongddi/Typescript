@@ -1198,10 +1198,11 @@ impl CodeSwitch {
                 (0, START, 0),
             );
         }
-        for pos in settled.saturating_sub(LOOKBACK).max(1)..n {
+        let first = settled.saturating_sub(LOOKBACK).max(1);
+        for (pos, starting) in edges.iter().enumerate().take(n).skip(first) {
             fresh.clear();
             fresh.extend(
-                (0..edges[pos].len() as u32).filter(|k| edges[pos][*k as usize].end() >= settled),
+                (0..starting.len() as u32).filter(|k| starting[*k as usize].end() >= settled),
             );
             if fresh.is_empty() {
                 continue;
@@ -1211,7 +1212,7 @@ impl CodeSwitch {
                     let Some(score) = table.score(pos, prev.index(), switched) else {
                         continue;
                     };
-                    for edge in fresh.iter().map(|k| &edges[pos][*k as usize]) {
+                    for edge in fresh.iter().map(|k| &starting[*k as usize]) {
                         let Some((cost, changes)) = self.join(prev, edge, n) else {
                             continue;
                         };
