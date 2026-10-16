@@ -106,6 +106,9 @@ pub struct Params {
     pub digit_bonus: f64,
     /// A label at the start (one letter, or 2-4 capitals: n제, A급, QR코드) as a whole.
     pub label_logp: f64,
+    /// An English word likelier than this (log probability) is a function word: no host for a
+    /// case particle.
+    pub function_logp: f64,
     /// A label names the noun that follows: that switch costs this much less.
     pub label_noun: f64,
     /// A noun that a label names and more of the token follows (B급의) costs this much more.
@@ -139,6 +142,7 @@ impl Default for Params {
             lead_ko: -4.0,
             digit_bonus: 6.0,
             label_logp: -10.0,
+            function_logp: -5.0,
             label_noun: 3.5,
             label_mid: 6.0,
             label_oov: 2.0,
@@ -175,6 +179,7 @@ impl Params {
                 "label_logp" => self.label_logp = v,
                 "label_noun" => self.label_noun = v,
                 "label_mid" => self.label_mid = v,
+                "function_logp" => self.function_logp = v,
                 "label_oov" => self.label_oov = v,
                 "cap_penalty" => self.cap_penalty = v,
                 "margin" => self.margin = v,
@@ -1283,9 +1288,11 @@ impl CodeSwitch {
 
     /// Whether a case particle can attach to `edge` (which comes after an edge of class `prev`):
     /// English, a Korean word, a run of syllables, a lone syllable said as a word (좀).
-    fn hosts(edge: &Edge, prev: Class) -> bool {
+    fn hosts(edge: &Edge, prev: Class, function_logp: f64) -> bool {
         match edge.class {
-            Class::EnWord | Class::EnOov | Class::EnLabel | Class::KoWord => true,
+            // The, of, you: words said that often are no noun for a particle to attach to.
+            Class::EnWord => edge.score < function_logp,
+            Class::EnOov | Class::EnLabel | Class::KoWord => true,
             Class::KoOov => edge.said() || matches!(prev, Class::KoOov | Class::EnLabel),
             Class::KoEnding | Class::KoCase => false,
         }
@@ -1349,6 +1356,7 @@ impl CodeSwitch {
         fresh: &mut Vec<u32>,
         (settled, lead_en): (usize, f64),
     ) {
+        let function_logp = self.params.function_logp;
         for edge in &edges[0] {
             // A particle or ending needs a word before it to attach to.
             if edge.end() < settled || matches!(edge.class, Class::KoCase | Class::KoEnding) {
@@ -1358,7 +1366,7 @@ impl CodeSwitch {
                 STRONG
             } else {
                 0
-            } | if Self::hosts(edge, Class::KoOov) {
+            } | if Self::hosts(edge, Class::KoOov, function_logp) {
                 HOST
             } else {
                 0
@@ -1400,7 +1408,11 @@ impl CodeSwitch {
                         let now = (switched & SWITCHED | usize::from(changes))
                             | (switched & STRONG)
                             | if strong { STRONG } else { 0 }
-                            | if Self::hosts(edge, prev) { HOST } else { 0 };
+                            | if Self::hosts(edge, prev, function_logp) {
+                                HOST
+                            } else {
+                                0
+                            };
                         // The first switch, English to Korean: a path that began in English.
                         let began_in_english =
                             changes && switched & SWITCHED == 0 && prev.kind() == Kind::English;
