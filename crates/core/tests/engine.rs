@@ -1,6 +1,8 @@
 //! Port of DecisionEngineTests + MixedWordTests + the learning tests of the Swift suite.
 //! Keys → expected output strings are the original's, unchanged.
 
+mod common;
+
 use std::path::PathBuf;
 
 use typescript_core::EnglishModel;
@@ -413,6 +415,29 @@ fn full_chain_matches_the_parts() {
     );
 }
 
+/// Whole stories typed with no space at all (lab/cases/codeswitch.tsv, tag `story`): the cuts
+/// between the languages come from the scores alone. A few wrong letters in a thousand are fine.
+#[test]
+fn stories_typed_without_a_space_come_out_right() {
+    let engine = make_engine(None, &Languages::legacy(false));
+    let converter = TextConverter::new(engine.as_ref());
+    let cases = include_str!("../../../lab/cases/codeswitch.tsv");
+    let mut stories = 0;
+    for line in cases.lines().filter(|l| l.trim_end().ends_with("\tstory")) {
+        let text = line.trim_end().trim_end_matches("\tstory");
+        let got = converter.convert(&common::keys_of_text(text)).0;
+        let wrong = common::edit_distance(text, &got);
+        let allowed = text.chars().count() / 100;
+        assert!(
+            wrong <= allowed,
+            "{wrong} wrong of {}: {got}",
+            text.chars().count()
+        );
+        stories += 1;
+    }
+    assert!(stories >= 3, "{stories} stories");
+}
+
 /// Consonant-only chat words (ㄹㅇ, ㅇㅈ, ㅈㅅ…) read as Korean; English words made of the same
 /// keys (as, we, tea, set, cat) don't.
 #[test]
@@ -455,6 +480,11 @@ fn after_a_digit_counters_are_korean_and_units_english() {
         ("kgdlek", "kg이다"),
         ("gb", "gb"),
         ("mbdp", "mb에"),
+        // Units whose letters also spell a syllable (cm 츠, gb 휴): still the unit.
+        ("cmsms", "cm는"),
+        ("cmdlek", "cm이다"),
+        ("gbrk", "gb가"),
+        ("cmsmswjdakfWkfqdms", "cm는정말짧은"),
     ] {
         let d = e.decide(keys, &after_digit);
         assert_eq!(d.output, expected, "{keys}: {}", d.explanation);

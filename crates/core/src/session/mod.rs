@@ -123,6 +123,8 @@ pub struct InputSession {
     last_recorded: Option<(String, Language)>,
     /// The word being typed started right after a digit (2024년).
     word_after_digit: bool,
+    /// The key that commits the word is a digit (p95): the word is judged with that known.
+    word_before_digit: bool,
     last_trace: Option<Trace>,
     /// Counts committed words and completes with them; None: no autocomplete.
     history: Option<Arc<History>>,
@@ -175,6 +177,7 @@ impl InputSession {
             },
             last_recorded: None,
             word_after_digit: false,
+            word_before_digit: false,
             last_trace: None,
             history: None,
         }
@@ -477,7 +480,9 @@ impl InputSession {
         } else {
             client.selected_range().location
         };
+        self.word_before_digit = ch.is_ascii_digit();
         let word = self.finish_word();
+        self.word_before_digit = false;
         // Only the word goes in; the app types the space or punctuation itself, as with
         // the system's Korean input.
         client.insert_text(&word.text, None);

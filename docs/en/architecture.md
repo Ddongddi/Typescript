@@ -88,12 +88,12 @@ Whenever a word buffer is evaluated, it traverses a prioritized multi-stage eval
 
 ### Stage 2: English and Korean Typed Together (`SplittingEngine`, `CodeSwitch`)
 - Handles tokens such as `githubdp` → `github` + `에`, `reportwha` → `report` + `좀`, `kakaotalkaptlswj` → `kakaotalk` + `메신저`, `nwp` → `n` + `제`.
-- Every way to cut the token into **alternating** English and Korean stretches is scored on one scale (log probability) and the best cut wins (`decide/codeswitch.rs`). There is no rule per case and no hand-set threshold.
-  - English stretch: letter-trigram probability plus a bonus for listed words. One letter or 2-4 capitals (`n`, `A`, `QR`) count as a label only at the very start.
-  - Korean stretch: the keys must compose to whole syllables (`ㅏ마맷미` is out), scored by syllable probability plus a bonus for a known word or an ending. One syllable that no list and no ending knows, or one squeezed between English stretches, is not taken as Korean.
-  - Each switch costs something, and the token is `Mixed` only when the best mixed cut beats the all-English and all-Korean readings by `margin`; otherwise it goes on to stage 3.
-- The ten weights are fitted, not chosen by hand: `lab --tune` (coordinate descent). See `lab/src/tune.rs`.
-- To stay fast on every keystroke, tokens that are a whole English word or Korean that reads with common syllables are skipped, and word-list answers sit in a small cache (no heap, 8 KB).
+- Every way to read the token as a path of **words** is scored on one scale (log probability) and the best path wins (`decide/codeswitch.rs`, a Viterbi search over a word lattice). There is no rule per case, and a token of any length is searched whole, so a story typed with no space at all is cut the same way as `githubdp`.
+  - Edges: a listed English word (log frequency), an English run that is none (letter trigrams, less a fixed price), a listed Korean word, a particle or ending, a single Korean syllable that is in no word (its probability, or its jamo's for one never seen). A Korean edge has to compose to whole syllables (`ㅏ마맷미` is out). One letter or 2-4 capitals (`n`, `A`, `QR`) are a label only at the very start.
+  - Joins: each switch between English and Korean costs, more when it lands on an edge with no word behind it; a label may only be followed by the noun that ends the token or by a case particle.
+  - The token is `Mixed` when the best path that switches beats the best single-language one by `margin`, and by a larger one when its Korean has no word, case particle, label noun or frequent one-syllable word to stand on (the 맥 of aortosclerosis); otherwise it goes on to stage 3.
+- The weights are fitted, not chosen by hand: `lab --tune` (coordinate descent) and a search over whole sentences. See `lab/src/tune.rs`.
+- To stay fast on every keystroke, tokens that are a whole English word or clean Korean are skipped, and the lattice of the token typed last is kept: a new key only searches the last 48 keys again (about 0.6 ms at 1600 keys; the whole token took 78 ms).
 - `MixedWord` (English stem + particle) remains as the plain shape the learning and the Esc readings use.
 
 ### Stage 3: Statistical Heuristic Engine (`HeuristicEngine`)

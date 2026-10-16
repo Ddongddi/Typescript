@@ -11,7 +11,7 @@ publish = false
 [workspace]
 
 [dependencies]
-typescript-core = { path = "../crates/core", features = ["embedded-en", "embedded-ko"] }
+typescript-core = { path = "../crates/core", features = ["embedded-en", "embedded-ko", "tuning"] }
 
 # Same as the shipped engine (root Cargo.toml), so the timings mean what users get.
 [profile.release]

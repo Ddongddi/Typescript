@@ -11,6 +11,8 @@ repository = "https://github.com/iamallyouneed/Typescript"
 embedded-en = []
 embedded-ko = []
 embedded-ja = []
+# Lets the lab override the code-switch weights from the environment (TS_PARAMS="k=v,...").
+tuning = []
 embedded-packs = ["embedded-en", "embedded-ko", "embedded-ja"]
 
 [dependencies]

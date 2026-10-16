@@ -117,6 +117,9 @@ pub struct DecisionContext {
     /// The token starts right after a digit (2024년, 1.5kg), where a counter or a unit is
     /// the likely word.
     pub after_digit: bool,
+    /// A digit follows the token right away (p95, v0.9.7, k8s): the letters next to it are
+    /// more likely a name than Korean.
+    pub before_digit: bool,
 }
 
 #[derive(Clone, Debug)]

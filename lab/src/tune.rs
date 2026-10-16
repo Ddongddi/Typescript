@@ -345,62 +345,21 @@ fn objective(cs: &CodeSwitch, sets: &[Set]) -> f64 {
 
 type Field = (&'static str, fn(&mut Params) -> &mut f64, &'static [f64]);
 
-const FIELDS: [Field; 11] = [
-    (
-        "lead_ko",
-        |p| &mut p.lead_ko,
-        &[0.0, -2.0, -4.0, -6.0, -8.0],
-    ),
-    (
-        "en_bias",
-        |p| &mut p.en_bias,
-        &[-1.5, -1.0, -0.5, 0.0, 0.5, 1.0],
-    ),
-    (
-        "whole_bonus",
-        |p| &mut p.whole_bonus,
-        &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0],
-    ),
-    (
-        "switch_cost",
-        |p| &mut p.switch_cost,
-        &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0],
-    ),
-    (
-        "dict_bonus",
-        |p| &mut p.dict_bonus,
-        &[0.0, 0.5, 1.0, 1.5, 2.0, 3.0],
-    ),
-    (
-        "ending_bonus",
-        |p| &mut p.ending_bonus,
-        &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0],
-    ),
-    (
-        "label_logp",
-        |p| &mut p.label_logp,
-        &[-2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -10.0],
-    ),
-    (
-        "word_bonus",
-        |p| &mut p.word_bonus,
-        &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0],
-    ),
-    (
-        "cap_penalty",
-        |p| &mut p.cap_penalty,
-        &[0.0, 3.0, 6.0, 10.0],
-    ),
-    (
-        "bare_tail",
-        |p| &mut p.bare_tail,
-        &[0.0, -2.0, -4.0, -6.0, -8.0],
-    ),
-    (
-        "margin",
-        |p| &mut p.margin,
-        &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0],
-    ),
+const FIELDS: [Field; 14] = [
+    ("switch_cost", |p| &mut p.switch_cost, &[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0]),
+    ("en_oov", |p| &mut p.en_oov, &[0.0, 2.0, 3.0, 5.0, 7.0, 9.0, 12.0]),
+    ("ko_oov", |p| &mut p.ko_oov, &[0.0, 1.0, 1.5, 2.5, 3.5, 5.0, 7.0]),
+    ("ending_logp", |p| &mut p.ending_logp, &[-5.0, -4.0, -3.0, -2.5, -2.0, -1.0, 0.0]),
+    ("en_join", |p| &mut p.en_join, &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0]),
+    ("ko_join", |p| &mut p.ko_join, &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0]),
+    ("ko_enter", |p| &mut p.ko_enter, &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0]),
+    ("en_enter", |p| &mut p.en_enter, &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0]),
+    ("lead_ko", |p| &mut p.lead_ko, &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0]),
+    ("label_logp", |p| &mut p.label_logp, &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0]),
+    ("label_noun", |p| &mut p.label_noun, &[0.0, 2.0, 3.0, 4.0, 6.0, 8.0]),
+    ("cap_penalty", |p| &mut p.cap_penalty, &[0.0, 3.0, 6.0, 10.0]),
+    ("margin", |p| &mut p.margin, &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0]),
+    ("weak_margin", |p| &mut p.weak_margin, &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0]),
 ];
 
 fn report(cs: &CodeSwitch, sets: &[Set]) {

@@ -260,6 +260,10 @@ fn korean(data: &Path) -> io::Result<Files> {
             "korean_syllables.txt",
             fs::read(data.join("korean_syllables.txt"))?,
         ),
+        (
+            "korean_syllable_counts.txt",
+            fs::read(data.join("korean_syllable_counts.txt"))?,
+        ),
         ("korean_words_sorted.txt", words_file),
         ("korean_vocab_sorted.txt", vocab_file),
     ])

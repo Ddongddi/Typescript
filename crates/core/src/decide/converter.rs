@@ -24,6 +24,8 @@ struct Token {
     start: usize,
     end: usize,
     after_digit: bool,
+    /// A digit follows right away (p95, v0.9.7).
+    before_digit: bool,
     /// A line break sits between this token and the one before.
     new_line: bool,
 }
@@ -54,6 +56,7 @@ impl<'a> TextConverter<'a> {
                 previous_language: previous,
                 partial: false,
                 after_digit: t.after_digit,
+                before_digit: t.before_digit,
             };
             let decision = self.engine.decide(&text[t.start..t.end], &ctx);
             previous = Some(decision.language.sentence_language());
@@ -98,6 +101,7 @@ impl<'a> TextConverter<'a> {
                 previous_language: Some(wanted),
                 partial: false,
                 after_digit: tokens[i].after_digit,
+                before_digit: tokens[i].before_digit,
             };
             decisions[i] = self
                 .engine
@@ -122,6 +126,7 @@ fn tokens(text: &str) -> Vec<Token> {
                     start,
                     end: i,
                     after_digit,
+                    before_digit: ch.is_ascii_digit(),
                     new_line,
                 });
                 new_line = false;
@@ -137,6 +142,7 @@ fn tokens(text: &str) -> Vec<Token> {
             start,
             end: text.len(),
             after_digit,
+            before_digit: false,
             new_line,
         });
     }

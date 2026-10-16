@@ -36,6 +36,7 @@ impl InputSession {
             previous_language: self.previous_language,
             partial,
             after_digit: self.word_after_digit,
+            before_digit: self.word_before_digit,
         };
         let d = self.engine.decide(&self.word.keys, &ctx);
         let threshold = self.policy.conversion_threshold;

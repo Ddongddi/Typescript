@@ -28,6 +28,71 @@ pub const PENDING_CONSONANT_LOGP: f64 = -3.5;
 pub const CHAT_JAMO_LOGP: f64 = -4.0;
 const CHAT_JAMO: &str = "ㅋㅎㅠㅜㄷㅇㄱㅅㅂㄴ";
 
+/// Sum of the counts in korean_words.txt.
+const WORDS_TOTAL: f64 = 69_953.0;
+/// A vocabulary word of rank r costs RANK_LOGP + RANK_SLOPE·ln r (rank 1 … 48735).
+const RANK_LOGP: f64 = 5.0;
+const RANK_SLOPE: f64 = 0.65;
+
+/// How often each initial consonant, vowel and final consonant occurs in the syllables of real
+/// text: prices a syllable no text has shown (켜) by its parts instead of calling it nonsense.
+struct JamoPrior {
+    initial: [f64; 19],
+    vowel: [f64; 21],
+    last: [f64; 28],
+}
+
+/// Log probability of each syllable seen in korean_syllable_counts.txt (a large sample of text;
+/// the smaller korean_syllables.txt behind `tiers` is what the scores of whole words were fitted to).
+static SYLLABLE_LOGP: PackLazy<HashMap<char, f64>> = PackLazy::new(Language::Korean, || {
+    let counts: Vec<(char, f64)> = pack::text(Language::Korean, "korean_syllable_counts.txt")
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split('\t');
+            let s = fields.next()?.chars().next()?;
+            Some((s, fields.next()?.trim().parse().ok()?))
+        })
+        .collect();
+    let total: f64 = counts.iter().map(|c| c.1).sum();
+    let smoothing = 0.5;
+    counts
+        .into_iter()
+        .map(|(s, n)| (s, ((n + smoothing) / (total + smoothing * 11172.0)).ln()))
+        .collect()
+});
+
+static JAMO_PRIOR: PackLazy<JamoPrior> = PackLazy::new(Language::Korean, || {
+    let mut counts = ([1.0; 19], [1.0; 21], [1.0; 28]);
+    for line in pack::text(Language::Korean, "korean_syllable_counts.txt").lines() {
+        let mut fields = line.split('\t');
+        let (Some(s), Some(n)) = (
+            fields.next().and_then(|f: &str| f.chars().next()),
+            fields.next(),
+        ) else {
+            continue;
+        };
+        let (Some((i, v, f)), Ok(n)) = (parts(s), n.trim().parse::<f64>()) else {
+            continue;
+        };
+        counts.0[i] += n;
+        counts.1[v] += n;
+        counts.2[f] += n;
+    }
+    let log = |counts: &[f64]| {
+        let total: f64 = counts.iter().sum();
+        counts
+            .iter()
+            .map(|c| (c / total).ln())
+            .collect::<Vec<f64>>()
+    };
+    let (i, v, f) = (log(&counts.0), log(&counts.1), log(&counts.2));
+    JamoPrior {
+        initial: i.try_into().unwrap_or([0.0; 19]),
+        vowel: v.try_into().unwrap_or([0.0; 21]),
+        last: f.try_into().unwrap_or([0.0; 28]),
+    }
+});
+
 /// Words seen in Korean sentences (korean_words.txt).
 static WORDS: PackLazy<SortedLines> = PackLazy::new(Language::Korean, || {
     SortedLines::new(pack::text(Language::Korean, "korean_words_sorted.txt"))
@@ -174,6 +239,26 @@ impl KoreanModel {
         WORDS.get().contains(hangul) || VOCABULARY.get().contains(hangul)
     }
 
+    /// Natural-log probability of a word (the composed Hangul): from its count in real text,
+    /// or from its rank in the spoken vocabulary, whichever says it is likelier. None: unknown.
+    pub fn word_log_probability(&self, hangul: &str) -> Option<f64> {
+        let number = |line: &str| line.split('\t').nth(1)?.parse::<f64>().ok();
+        let counted = WORDS
+            .get()
+            .get(hangul)
+            .and_then(number)
+            .map(|count| (count / WORDS_TOTAL).ln());
+        let ranked = VOCABULARY
+            .get()
+            .get(hangul)
+            .and_then(number)
+            .map(|rank| -RANK_LOGP - RANK_SLOPE * rank.ln());
+        match (counted, ranked) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        }
+    }
+
     /// The most commonly said word that continues `prefix` (autocomplete), where the syllable
     /// being typed may still be unfinished (안녀 → 안녕하세요); None under two syllables.
     pub fn complete(&self, prefix: &str) -> Option<String> {
@@ -199,6 +284,19 @@ impl KoreanModel {
         candidates(WORDS.get())
             .max_by_key(|l| column(l))
             .map(|l| word(l).to_string())
+    }
+
+    /// A syllable's log probability among all running Korean (a rare one is rare: 샬), and for
+    /// one no text has shown the product of how common its initial, vowel and final are (a
+    /// syllable made of rare parts is rarer: 럍 against 켜).
+    pub fn plausible_log_probability(&self, syllable: char) -> f64 {
+        match SYLLABLE_LOGP.get().get(&syllable) {
+            Some(logp) => *logp,
+            None => parts(syllable).map_or(UNKNOWN_SYLLABLE_LOGP, |(i, v, f)| {
+                let prior = JAMO_PRIOR.get();
+                prior.initial[i] + prior.vowel[v] + prior.last[f]
+            }),
+        }
     }
 
     pub fn syllable_log_probability(&self, syllable: char) -> f64 {

@@ -31,6 +31,12 @@ pub const COMMON_LEVEL: i32 = 20;
 /// Level given to the extra tech/slang words SCOWL lacks: known, not "common".
 pub const EXTRA_LEVEL: i32 = 35;
 
+/// Sum of the listed frequencies (the third column of english_levels.txt).
+const FREQUENCY_TOTAL: f64 = 674_573_542.0;
+/// A known word with no listed frequency costs this plus a step per level (rarer than most).
+const UNLISTED_LOGP: f64 = 11.0;
+const UNLISTED_LEVEL_STEP: f64 = 0.1;
+
 pub struct EnglishModel {
     levels: SortedLines,
 }
@@ -157,6 +163,10 @@ impl EnglishModel {
         for suffix in ["s", "es", "ed", "d", "ing", "ly", "er", "ers", "est"] {
             if len > suffix.len() + 2 {
                 if let Some(stem) = w.strip_suffix(suffix) {
+                    // used → use: a lone d follows a stem that ends in e (notificationd isn't one).
+                    if suffix == "d" && !stem.ends_with('e') {
+                        continue;
+                    }
                     consider(stem);
                     buf.clear();
                     buf.push_str(stem);
@@ -218,6 +228,20 @@ impl EnglishModel {
     /// A word people use (SCOWL level ≤ 50, or one of the extra words).
     pub fn is_known_word(&self, token: &str) -> bool {
         self.level(token).is_some_and(|l| l <= KNOWN_LEVEL)
+    }
+
+    /// Natural-log probability of a known word among all running English, from its listed
+    /// frequency; a word with none (github, inflections) is priced by its level. None: not a word.
+    pub fn word_log_probability(&self, token: &str) -> Option<f64> {
+        let level = self.level(token).filter(|l| *l <= KNOWN_LEVEL)?;
+        let listed = self
+            .levels
+            .get(&token.to_lowercase())
+            .and_then(|line| line.split('\t').nth(2)?.parse::<f64>().ok());
+        Some(match listed {
+            Some(count) => (count / FREQUENCY_TOTAL).ln(),
+            None => -(UNLISTED_LOGP + UNLISTED_LEVEL_STEP * f64::from(level)),
+        })
     }
 
     /// Everyday English (level ≤ 20): kept English even right after Korean.

@@ -232,6 +232,22 @@ fn sentence_cases() -> Vec<Case> {
     hand.chain(code_switch).collect()
 }
 
+/// Levenshtein distance in characters (two rows).
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut diagonal = row[0];
+        row[0] = i + 1;
+        for (j, cb) in b.iter().enumerate() {
+            let up = row[j + 1];
+            row[j + 1] = (diagonal + usize::from(ca != *cb)).min(up + 1).min(row[j] + 1);
+            diagonal = up;
+        }
+    }
+    row[b.len()]
+}
+
 fn micros(d: Duration) -> f64 {
     d.as_secs_f64() * 1e6
 }
@@ -286,6 +302,50 @@ fn main() {
         tune::run();
         return;
     }
+    // `--trace TEXT [--all] [--before-digit] [--after-digit]`: how the code-switch search
+    // scores TEXT (given as it should come out).
+    if let Some(text) = args.iter().position(|a| a == "--trace").and_then(|i| args.get(i + 1)) {
+        let search = typescript_core::decide::codeswitch::CodeSwitch::new(
+            typescript_core::EnglishModel::shared(),
+            Default::default(),
+        );
+        let context = DecisionContext {
+            after_digit: args.iter().any(|a| a == "--after-digit"),
+            before_digit: args.iter().any(|a| a == "--before-digit"),
+            ..Default::default()
+        };
+        let all = args.iter().any(|a| a == "--all");
+        println!("{}", search.trace(&keys_of_text(text), &context, all));
+        return;
+    }
+    // `--probe FILE`: convert each line (the text as it should come out) and print what came out.
+    if let Some(path) = args.iter().position(|a| a == "--probe").and_then(|i| args.get(i + 1)) {
+        let engine = make_engine(None, &Languages::legacy(false));
+        let converter = TextConverter::new(engine.as_ref());
+        let text = std::fs::read_to_string(path).expect("read probe file");
+        // `--time`: what one more key costs while the token is this long (the live preview).
+        if args.iter().any(|a| a == "--time") {
+            let keys = keys_of_text(text.lines().next().unwrap_or(""));
+            let context = DecisionContext {
+                partial: true,
+                ..Default::default()
+            };
+            for len in [50, 100, 200, 400, 800, 1600] {
+                let Some((end, _)) = keys.char_indices().nth(len) else { break };
+                // The key before, as typed a moment ago; then the timed key.
+                let (before, _) = keys.char_indices().nth(len - 1).unwrap();
+                engine.decide(&keys[..before], &context);
+                let t = Instant::now();
+                engine.decide(&keys[..end], &context);
+                println!("{len:5} keys  {:9.1} µs", micros(t.elapsed()));
+            }
+            return;
+        }
+        for line in text.lines().filter(|l| !l.is_empty()) {
+            println!("{}", converter.convert(&keys_of_text(line)).0);
+        }
+        return;
+    }
     let save = args.iter().any(|a| a == "--save");
     let shown = args
         .iter()
@@ -310,6 +370,7 @@ fn main() {
 
     let words = word_cases();
     let sentences = sentence_cases();
+    let sentence_count = sentences.len();
     let context = |previous, partial| DecisionContext {
         previous_language: previous,
         partial,
@@ -382,6 +443,17 @@ fn main() {
     metrics.insert(
         "acc.ALL".into(),
         100.0 * total_ok as f64 / cases.len() as f64,
+    );
+
+    // Per character: a long story with one wrong letter is 99.9 %, not a miss.
+    let (mut chars, mut edits) = (0usize, 0usize);
+    for (c, g) in cases.iter().zip(&got).skip(cases.len() - sentence_count) {
+        chars += c.expected.chars().count();
+        edits += edit_distance(&c.expected, g);
+    }
+    metrics.insert(
+        "chars.sentences".into(),
+        100.0 * (1.0 - edits as f64 / chars.max(1) as f64),
     );
 
     let baseline = read_baseline();

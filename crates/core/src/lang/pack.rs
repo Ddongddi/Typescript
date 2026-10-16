@@ -297,6 +297,7 @@ fn embedded() -> Registry {
         vec![Language::English],
         vec![
             pack_file!("ko", "korean_syllables.txt"),
+            pack_file!("ko", "korean_syllable_counts.txt"),
             pack_file!("ko", "korean_words_sorted.txt"),
             pack_file!("ko", "korean_vocab_sorted.txt"),
         ],

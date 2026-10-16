@@ -47,14 +47,14 @@
 ## 측정 방법
 
 ```sh
-cargo build --release -p typescript-tip -p typescript-cli -p typescript-config
+cargo build --release -p typescript-tip -p typescript-config   # typescript-cli와 묶지 않는다: 내장 팩이 TIP·config에도 들어간다
 cargo build --release -p typescript-tip --target i686-pc-windows-msvc
 powershell -File scripts/package.ps1          # dist/ 에 릴리즈와 같은 zip
 python lab/fetch_data.py                      # 처음 한 번 (큰 세트용 데이터, git에 안 들어감)
 sh lab/report.sh > section.md                 # 맨 위 한눈에 교체 + 새 버전 절
 ```
 
-- 크기는 릴리즈 워크플로(`release.yml`)와 같은 빌드의 산출물입니다. x64 TIP이 큰 건 같이 빌드한 `typescript-cli`가 영어·한국어 팩을 내장시키기 때문이고(기능 통합), x86 TIP은 팩 없이 따로 빌드됩니다.
+- 크기는 릴리즈 워크플로(`release.yml`)와 같은 빌드의 산출물입니다. 0.8.7까지는 `typescript-cli`와 같이 빌드해서 영어·한국어 팩이 x64 TIP과 `typescript-config`에 내장되었고(기능 통합), 이후로는 CLI를 묶지 않고 패키지에도 넣지 않습니다.
 - 정확도는 `lab/`의 세트입니다. `acc.*`는 단어 단위(직접 고른 목록 포함), `big.*`는 실제 문장·제목에서 만든 큰 세트입니다. `sentence`는 문장 전체가 맞아야 맞고, `token`은 단어 하나씩 셉니다. 자세한 건 `lab/src/main.rs`와 `lab/src/corpus.rs`에 있습니다.
 - 속도는 결정 한 번(`commit`)과 키 입력 한 번(`keystroke`)의 마이크로초이고, 5회 중앙값입니다. 같은 컴퓨터에서도 백그라운드 작업에 따라 10~20% 흔들리므로 릴리즈 사이의 작은 차이는 잡음으로 봅니다.
 - 메모리는 팩을 올린 뒤 힙(`heap.loaded_kb`)과 측정 중 최대 힙(`heap.peak_kb`)입니다.
