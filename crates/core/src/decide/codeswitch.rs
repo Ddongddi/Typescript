@@ -801,8 +801,18 @@ impl CodeSwitch {
                 .count();
             let n = keys.len();
             cache.edges.resize(n, Vec::new());
+            // A new key makes the last one no longer the end of the token, which changes the
+            // edges that were built for the end: English ones (the letters' closing) and a lone
+            // first consonant. A Korean edge is the same either way: keep it.
+            let carry = kept < n;
             for list in &mut cache.edges[kept.saturating_sub(LOOKBACK).min(n)..] {
-                list.retain(|e| e.end() < kept);
+                list.retain(|e| {
+                    e.end() < kept
+                        || (carry
+                            && e.end() == kept
+                            && e.class.kind() == Kind::Korean
+                            && !e.pending)
+                });
             }
             self.korean_edges(keys, context, &mut cache.edges, &mut cache.walks, kept)?;
             self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
@@ -835,8 +845,10 @@ impl CodeSwitch {
                 continue;
             }
             let walk = walks.korean_of(i);
-            let first = (i + 1).max(min_end);
-            walk.sync(&self.korean, &bytes[i..], first - i)?;
+            // Past `min_end` when the edges ending there were kept (see `with_lattice`).
+            let carry = min_end < n;
+            let first = (i + 1).max(min_end + usize::from(carry));
+            walk.sync(&self.korean, &bytes[i..], first - i - usize::from(carry))?;
             for j in first..=n {
                 if walk.keys.len() < j - i {
                     walk.push(&self.korean, bytes[j - 1])?;
@@ -933,6 +945,10 @@ impl CodeSwitch {
         let n = keys.len();
         let p = &self.params;
         for i in min_end.saturating_sub(LOOKBACK)..n {
+            // A start whose longest stretch ended before `min_end` has nothing to add.
+            if i + EN_MAX < min_end.max(i + 1) {
+                continue;
+            }
             let walk = walks.of(i);
             self.english
                 .walk_to(walk, &keys.as_bytes()[i..n.min(i + EN_MAX)]);
