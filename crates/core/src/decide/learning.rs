@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
 use crate::decide::mixed::MixedWord;
+use crate::lang::hangul::HangulComposer;
 use crate::lang::set::Languages;
 use crate::support_dir;
 
@@ -20,17 +21,17 @@ use crate::support_dir;
 /// are the ambiguous ones, they stay word by word.
 const MIN_STEM_KEYS: usize = 3;
 
-/// The learned language of a stem that `keys` continue with a particle or ending. Looks the
-/// prefixes up in the map first (cheap), and only checks the ending of the ones that are there.
-fn learned_stem(learned: &BTreeMap<String, Language>, keys: &str) -> Option<Language> {
+/// The learned language of a stem that `keys` continue with a particle or ending, and where
+/// the ending starts. Looks the prefixes up in the map first (cheap), and only checks the
+/// ending of the ones that are there.
+fn learned_stem(learned: &BTreeMap<String, Language>, keys: &str) -> Option<(Language, usize)> {
     if learned.is_empty() {
         return None;
     }
     keys.char_indices()
         .skip(MIN_STEM_KEYS)
-        .filter_map(|(i, _)| Some((learned.get(&keys[..i])?, &keys[i..])))
-        .find(|(_, tail)| MixedWord::is_ending_keys(tail))
-        .map(|(language, _)| *language)
+        .filter_map(|(i, _)| Some((*learned.get(&keys[..i])?, i)))
+        .find(|(_, cut)| MixedWord::is_ending_keys(&keys[*cut..]))
 }
 
 /// The stem of `keys` when a particle or ending is typed straight after it: fltpssmrk → fltpssm.
@@ -199,26 +200,37 @@ impl DecisionEngine for LearningEngine {
             .get(keys)
             .copied()
             .filter(|l| self.languages.allows(*l));
+        // The stem's language and where its ending starts.
         let stem = || {
-            let language = learned_stem(&self.lock().store.learned, keys)?;
+            let (language, cut) = learned_stem(&self.lock().store.learned, keys)?;
             match language {
                 Language::English if self.languages.allows(Language::Korean) => {
-                    Some(Language::Mixed)
+                    Some((Language::Mixed, Some(cut)))
                 }
                 Language::Korean if self.languages.allows(Language::Korean) => {
-                    Some(Language::Korean)
+                    Some((Language::Korean, None))
                 }
                 _ => None,
             }
         };
-        if let Some((language, why)) = learned
-            .map(|l| (l, "learned"))
-            .or_else(|| stem().map(|l| (l, "learned stem")))
+        if let Some((language, cut, why)) = learned
+            .map(|l| (l, None, "learned"))
+            .or_else(|| stem().map(|(l, cut)| (l, cut, "learned stem")))
         {
+            // An English stem keeps its own cut: the ending is read from where the stem ends.
+            let output = match (language, cut) {
+                (Language::Mixed, Some(cut)) if why == "learned stem" => {
+                    HangulComposer::compose(&keys[cut..]).map_or_else(
+                        || self.base.render(keys, language),
+                        |ending| format!("{}{}", &keys[..cut], ending.text()),
+                    )
+                }
+                _ => self.base.render(keys, language),
+            };
             return Decision {
                 language,
                 confidence: 1.0,
-                output: self.base.render(keys, language),
+                output,
                 explanation: why.to_string(),
                 runner_up: None,
             };

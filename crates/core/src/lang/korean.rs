@@ -158,9 +158,11 @@ impl KoreanModel {
     /// A known word, or a vocabulary word (two syllables or more) with a particle/ending
     /// straight after it (서버를, 월드에서).
     pub fn is_known_word_or_inflected(&self, hangul: &str) -> bool {
-        if self.is_known_word(hangul) {
-            return true;
-        }
+        self.is_known_word(hangul) || self.is_inflected_vocabulary_word(hangul)
+    }
+
+    /// A vocabulary word (two syllables or more) with a particle/ending straight after it.
+    pub fn is_inflected_vocabulary_word(&self, hangul: &str) -> bool {
         hangul.char_indices().skip(2).any(|(cut, _)| {
             let (head, tail) = hangul.split_at(cut);
             is_ending(tail) && self.is_vocabulary_word(head)

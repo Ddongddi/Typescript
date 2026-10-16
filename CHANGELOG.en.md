@@ -10,9 +10,19 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### Added
+- English and Korean typed with no space are split: `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `KakaoTalk메신저`. The English word need not be in the dictionary and the Korean may be one syllable.
 - Words right after a digit are read better: counters such as `2024년`, `3개`, `5분` come out Korean, units such as `1.5kg이다`, `10gb`, `100ms` come out English.
 - A camelCase identifier followed by a particle (`isValid가`, `getUserName을`) is split as English.
 - About 60 developer tool names the dictionary lacked are recognised as English with a particle: `mongodb를`, `kubectl을`, `graphql을`, `timeout이`, `postgres로`, `sql을`. `ssh` is English with Japanese on too.
+
+### Changed
+- `heh`, `meh`, `yeh`, `tsk` are listed as English words. They also read as a letter + `도`/`나`, and with splitting now scored, being in the dictionary is what keeps them English.
+- English + Korean splitting is now **one score** instead of several rules for particular cases. Every possible cut is compared on one scale and the best wins; the weights are fitted to data by `lab --tune`. Developer terms the dictionary lacks followed by a particle (`vite한테`, `rebase한테`) go from 95.95% to 98.03% right, and English words followed by a particle in sentences from 96.76% to 98.27%.
+- The live preview jitters less: `pre야` no longer flashes while you type `predisposable`.
+- Deciding one word is faster (`commit` p99 165 → about 60 µs, keystroke p99 120 → about 90 µs), and the input method uses about 26 KiB less memory.
+
+### Fixed
+- Two very rare English words are read as mixed with Korean: `armscye` becomes `a근쵿`, and `nihongo` becomes `nihon해` without the Japanese pack. Esc turns them back to English, and correcting twice teaches them.
 
 ## [0.8.6] - 2026-10-16
 

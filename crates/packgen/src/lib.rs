@@ -116,6 +116,11 @@ regex oauth jwt csrf xss aws cloudflare gitlab bitbucket jira neovim vscode inte
 monorepo grafana datadog mutex rabbitmq nosql sql ssh ssl vpn gcp sdk cli gui zsh xcode rustup \
 makeup brooklyn shakespeare einstein techno pesto americano cosmo promo garde kanji kana romaji ramen";
 
+/// Interjections people type that no list has and whose keys also read as Hangul after one
+/// letter (heh = h도, tsk = t나). Listed as words so the search leaves them English; not trained
+/// into the letter trigrams, which would shift every English score.
+const INTERJECTIONS: &str = "heh meh yeh tsk";
+
 fn is_ascii_letters(w: &str) -> bool {
     !w.is_empty() && w.chars().all(|c| c.is_ascii_alphabetic())
 }
@@ -147,7 +152,11 @@ fn english(data: &Path) -> io::Result<Files> {
             }
         }
     }
-    for w in &extras {
+    for w in extras
+        .iter()
+        .copied()
+        .chain(INTERJECTIONS.split_whitespace())
+    {
         let w = w.to_lowercase();
         let level = raw.get(&w).copied().unwrap_or(EXTRA_LEVEL).min(EXTRA_LEVEL);
         raw.insert(w, level);

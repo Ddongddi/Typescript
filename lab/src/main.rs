@@ -11,6 +11,7 @@
 
 mod corpus;
 mod scenario;
+mod tune;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::BTreeMap;
@@ -281,6 +282,10 @@ fn read_baseline() -> Option<Baseline> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--tune") {
+        tune::run();
+        return;
+    }
     let save = args.iter().any(|a| a == "--save");
     let shown = args
         .iter()
@@ -316,13 +321,19 @@ fn main() {
         engine.decide(&c.keys, &context(c.previous, false));
     }
     let (mut commit, mut keystroke) = (Vec::new(), Vec::new());
+    let mut slowest: Vec<(Duration, String)> = Vec::new();
+    let track_slowest = args.iter().any(|a| a == "--slow");
     let mut got: Vec<String> = Vec::with_capacity(words.len() + sentences.len());
     for c in &words {
         // Every prefix, as the live preview sees it while typing.
         for (end, _) in c.keys.char_indices().skip(1) {
             let t = Instant::now();
             engine.decide(&c.keys[..end], &context(c.previous, true));
-            keystroke.push(t.elapsed());
+            let spent = t.elapsed();
+            keystroke.push(spent);
+            if track_slowest {
+                slowest.push((spent, c.keys[..end].to_string()));
+            }
         }
         let t = Instant::now();
         let d = engine.decide(&c.keys, &context(c.previous, false));
@@ -331,6 +342,10 @@ fn main() {
     }
     let converter = TextConverter::new(engine.as_ref());
     got.extend(sentences.iter().map(|c| converter.convert(&c.keys).0));
+    slowest.sort_by(|a, b| b.0.cmp(&a.0));
+    for (spent, keys) in slowest.iter().take(25) {
+        println!("slow keystroke {:7.1}µs  {keys}", micros(*spent));
+    }
     latency(&mut metrics, "commit", commit);
     latency(&mut metrics, "keystroke", keystroke);
     metrics.insert("heap.peak_kb".into(), PEAK.load(Relaxed) as f64 / 1024.0);

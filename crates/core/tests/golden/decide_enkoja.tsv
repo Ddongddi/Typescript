@@ -35182,13 +35182,13 @@ argiope	korean	false	english	argiope	0.9986906675443433	japanese	english,korean,
 argiope	korean	true	english	argiope	0.9939593722874874	japanese	english,korean,japanese
 argiope	japanese	false	english	argiope	0.993548227195613	japanese	english,korean,japanese
 argiope	japanese	true	english	argiope	0.9707783528624029	japanese	english,korean,japanese
-armscye	-	false	english	armscye	0.9998251817783179	japanese	english,korean,japanese
+armscye	-	false	mixed	a근쵿	0.98	-	mixed,english,korean,japanese,english,korean,japanese
 armscye	-	true	english	armscye	0.9993079042081925	japanese	english,korean,japanese
-armscye	english	false	english	armscye	0.9999646998845814	japanese	english,korean,japanese
+armscye	english	false	mixed	a근쵿	0.98	-	mixed,english,korean,japanese,english,korean,japanese
 armscye	english	true	english	armscye	0.9998601910440725	japanese	english,korean,japanese
-armscye	korean	false	english	armscye	0.9998251817783179	japanese	english,korean,japanese
+armscye	korean	false	mixed	a근쵿	0.98	-	mixed,english,korean,japanese,english,korean,japanese
 armscye	korean	true	english	armscye	0.9993079042081925	japanese	english,korean,japanese
-armscye	japanese	false	english	armscye	0.9991347176434746	japanese	english,korean,japanese
+armscye	japanese	false	mixed	a근쵿	0.98	-	mixed,english,korean,japanese,english,korean,japanese
 armscye	japanese	true	english	armscye	0.9965813800265086	japanese	english,korean,japanese
 arteriocapillary	-	false	english	arteriocapillary	0.586742994722896	japanese	english,korean,japanese
 arteriocapillary	-	true	english	arteriocapillary	0.586742994722896	japanese	english,korean,japanese

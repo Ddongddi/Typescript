@@ -144,8 +144,8 @@ fn learning_a_word_with_an_ending_teaches_its_stem() {
     let path = temp_lexicon("stem");
     let _ = std::fs::remove_file(&path);
     let learning = LearningEngine::new(Box::new(splitting()), Some(path.clone()));
-    // zorbitctl is no word the lists know: unsplit until taught.
-    assert_ne!(learning.decide("zorbitctldp", &ctx()).output, "zorbitctl에");
+    // zorbitctl is no word the lists know, and the search already cuts a name before a case
+    // particle; the correction is kept as the stem, so every other ending follows it too.
     for _ in 0..2 {
         learning.learn("zorbitctldmf", Language::Mixed, Some(Language::English));
     }

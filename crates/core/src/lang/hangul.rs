@@ -210,79 +210,106 @@ impl HangulComposer {
     }
 
     pub fn compose_jamos(jamos: &[char]) -> Composed {
-        let mut units = Vec::new();
-        let (mut cho, mut jung, mut jong): (Option<char>, Option<char>, Option<char>) =
-            (None, None, None);
-
-        fn flush(
-            units: &mut Vec<Unit>,
-            cho: &mut Option<char>,
-            jung: &mut Option<char>,
-            jong: &mut Option<char>,
-        ) {
-            match (*cho, *jung) {
-                (Some(c), Some(v)) => units.push(Unit::Syllable(syllable(c, v, *jong))),
-                _ => {
-                    if let Some(c) = *cho {
-                        units.push(Unit::Jamo(c));
-                    }
-                    if let Some(v) = *jung {
-                        units.push(Unit::Jamo(v));
-                    }
-                }
-            }
-            *cho = None;
-            *jung = None;
-            *jong = None;
-        }
-
+        let mut state = ComposerState::default();
         for &j in jamos {
-            if is_vowel(j) {
-                if let Some(v) = jung {
-                    if let Some(fin) = jong {
-                        // 받침 moves to the next syllable's initial: 갑+ㅏ → 가바, 값+ㅏ → 갑사
-                        if let Some((stay, mv)) = final_split(fin) {
-                            jong = Some(stay);
-                            flush(&mut units, &mut cho, &mut jung, &mut jong);
-                            cho = Some(mv);
-                        } else {
-                            jong = None;
-                            flush(&mut units, &mut cho, &mut jung, &mut jong);
-                            cho = Some(fin);
-                        }
-                        jung = Some(j);
-                    } else if let Some(c) = vowel_combo(v, j) {
-                        jung = Some(c);
-                    } else {
-                        flush(&mut units, &mut cho, &mut jung, &mut jong);
-                        jung = Some(j);
-                    }
-                } else {
-                    jung = Some(j);
+            state.push(j);
+        }
+        state.finish()
+    }
+}
+
+/// A composition in progress: jamo go in one at a time, so a caller that extends keys one by
+/// one (the code-switch search) can keep the state instead of composing from scratch.
+#[derive(Clone, Debug, Default)]
+pub struct ComposerState {
+    units: Vec<Unit>,
+    cho: Option<char>,
+    jung: Option<char>,
+    jong: Option<char>,
+}
+
+impl ComposerState {
+    /// Closes the syllable being built (or its lone jamo) into `units`.
+    fn flush(&mut self) {
+        match (self.cho, self.jung) {
+            (Some(c), Some(v)) => self.units.push(Unit::Syllable(syllable(c, v, self.jong))),
+            _ => {
+                if let Some(c) = self.cho {
+                    self.units.push(Unit::Jamo(c));
                 }
-            } else if jung.is_none() || cho.is_none() {
-                // Nothing to attach to (or a bare vowel): start a new syllable.
-                if cho.is_some() || jung.is_some() {
-                    flush(&mut units, &mut cho, &mut jung, &mut jong);
+                if let Some(v) = self.jung {
+                    self.units.push(Unit::Jamo(v));
                 }
-                cho = Some(j);
-            } else if let Some(fin) = jong {
-                if let Some(c) = final_combo(fin, j) {
-                    jong = Some(c);
-                } else {
-                    flush(&mut units, &mut cho, &mut jung, &mut jong);
-                    cho = Some(j);
-                }
-            } else if jong_index(j).is_some() {
-                jong = Some(j);
-            } else {
-                // ㄸ ㅃ ㅉ cannot be finals.
-                flush(&mut units, &mut cho, &mut jung, &mut jong);
-                cho = Some(j);
             }
         }
-        flush(&mut units, &mut cho, &mut jung, &mut jong);
-        Composed { units }
+        self.cho = None;
+        self.jung = None;
+        self.jong = None;
+    }
+
+    pub fn push(&mut self, j: char) {
+        if is_vowel(j) {
+            if let Some(v) = self.jung {
+                if let Some(fin) = self.jong {
+                    // 받침 moves to the next syllable's initial: 갑+ㅏ → 가바, 값+ㅏ → 갑사
+                    if let Some((stay, mv)) = final_split(fin) {
+                        self.jong = Some(stay);
+                        self.flush();
+                        self.cho = Some(mv);
+                    } else {
+                        self.jong = None;
+                        self.flush();
+                        self.cho = Some(fin);
+                    }
+                    self.jung = Some(j);
+                } else if let Some(c) = vowel_combo(v, j) {
+                    self.jung = Some(c);
+                } else {
+                    self.flush();
+                    self.jung = Some(j);
+                }
+            } else {
+                self.jung = Some(j);
+            }
+        } else if self.jung.is_none() || self.cho.is_none() {
+            // Nothing to attach to (or a bare vowel): start a new syllable.
+            if self.cho.is_some() || self.jung.is_some() {
+                self.flush();
+            }
+            self.cho = Some(j);
+        } else if let Some(fin) = self.jong {
+            if let Some(c) = final_combo(fin, j) {
+                self.jong = Some(c);
+            } else {
+                self.flush();
+                self.cho = Some(j);
+            }
+        } else if jong_index(j).is_some() {
+            self.jong = Some(j);
+        } else {
+            // ㄸ ㅃ ㅉ cannot be finals.
+            self.flush();
+            self.cho = Some(j);
+        }
+    }
+
+    /// Calls `f` on every unit of the composition so far, the open syllable included, without
+    /// closing it: the same units `finish` would return, with no allocation.
+    pub fn for_each_unit(&self, mut f: impl FnMut(Unit)) {
+        self.units.iter().for_each(|u| f(*u));
+        match (self.cho, self.jung) {
+            (Some(c), Some(v)) => f(Unit::Syllable(syllable(c, v, self.jong))),
+            (cho, jung) => {
+                cho.into_iter().for_each(|c| f(Unit::Jamo(c)));
+                jung.into_iter().for_each(|v| f(Unit::Jamo(v)));
+            }
+        }
+    }
+
+    /// The composition so far, with the open syllable closed.
+    pub fn finish(mut self) -> Composed {
+        self.flush();
+        Composed { units: self.units }
     }
 }
 
@@ -331,6 +358,35 @@ mod tests {
             .unwrap()
             .stray_jamo()
             .is_empty());
+    }
+
+    #[test]
+    fn stepwise_state_matches_one_shot_composition() {
+        for keys in ["dkssudgktpdy", "rkqtdl", "dkE", "hello", "Qkffl", "zzz"] {
+            let mut state = ComposerState::default();
+            for (end, key) in keys.char_indices() {
+                state.push(DubeolsikLayout::jamo(key).unwrap());
+                let prefix = &keys[..end + key.len_utf8()];
+                assert_eq!(
+                    state.clone().finish(),
+                    HangulComposer::compose(prefix).unwrap(),
+                    "{prefix}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn for_each_unit_matches_finish() {
+        for keys in ["dkssudgktpdy", "rkqtdl", "dkE", "hello", "r", "rk", "zzz"] {
+            let mut state = ComposerState::default();
+            for key in keys.chars() {
+                state.push(DubeolsikLayout::jamo(key).unwrap());
+                let mut seen = Vec::new();
+                state.for_each_unit(|u| seen.push(u));
+                assert_eq!(seen, state.clone().finish().units, "{keys} at {key}");
+            }
+        }
     }
 
     #[test]

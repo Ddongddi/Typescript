@@ -86,10 +86,15 @@ Whenever a word buffer is evaluated, it traverses a prioritized multi-stage eval
 ### Stage 1: User Correction Lexicon (`LearningEngine`)
 - Checks `lexicon.json`. If the user has manually corrected this word twice or more, statistical scoring is skipped, and the explicit override is applied immediately.
 
-### Stage 2: Mixed English + Korean Particles (`SplittingEngine`)
-- Handles compound words such as `githubdp` → `github` + `에` or `commitgkf` → `commit` + `할`.
-- Inspects common Korean particle and suffix endings (`dp`, `dml`, `mf`, `dl`, `rk`, etc.).
-- If the stem matches a valid English dictionary entry with high confidence, it classifies the token as `MixedWord` (English stem + Korean 2-set particle).
+### Stage 2: English and Korean Typed Together (`SplittingEngine`, `CodeSwitch`)
+- Handles tokens such as `githubdp` → `github` + `에`, `reportwha` → `report` + `좀`, `kakaotalkaptlswj` → `kakaotalk` + `메신저`, `nwp` → `n` + `제`.
+- Every way to cut the token into **alternating** English and Korean stretches is scored on one scale (log probability) and the best cut wins (`decide/codeswitch.rs`). There is no rule per case and no hand-set threshold.
+  - English stretch: letter-trigram probability plus a bonus for listed words. One letter or 2-4 capitals (`n`, `A`, `QR`) count as a label only at the very start.
+  - Korean stretch: the keys must compose to whole syllables (`ㅏ마맷미` is out), scored by syllable probability plus a bonus for a known word or an ending. One syllable that no list and no ending knows, or one squeezed between English stretches, is not taken as Korean.
+  - Each switch costs something, and the token is `Mixed` only when the best mixed cut beats the all-English and all-Korean readings by `margin`; otherwise it goes on to stage 3.
+- The ten weights are fitted, not chosen by hand: `lab --tune` (coordinate descent). See `lab/src/tune.rs`.
+- To stay fast on every keystroke, tokens that are a whole English word or Korean that reads with common syllables are skipped, and word-list answers sit in a small cache (no heap, 8 KB).
+- `MixedWord` (English stem + particle) remains as the plain shape the learning and the Esc readings use.
 
 ### Stage 3: Statistical Heuristic Engine (`HeuristicEngine`)
 Standard non-mixed tokens are evaluated using statistical language models:

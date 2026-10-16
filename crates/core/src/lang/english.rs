@@ -86,6 +86,36 @@ impl EnglishModel {
         total / (codes.len() - 2) as f64
     }
 
+    /// Total natural-log probability of the letters of `word` (the sum behind
+    /// `average_log_probability`, without its allocations; other characters are skipped).
+    pub fn total_log_probability(&self, word: &str) -> f64 {
+        self.letters_log_probability(word, true)
+    }
+
+    /// The same without the word end: the letters of a word still being typed (edi → editor).
+    pub fn prefix_log_probability(&self, word: &str) -> f64 {
+        self.letters_log_probability(word, false)
+    }
+
+    fn letters_log_probability(&self, word: &str, closed: bool) -> f64 {
+        let n = SYMBOLS;
+        let term = |a: usize, b: usize, c: usize| {
+            let seen = count((a * n + b) * n + c);
+            let context = count(n * n * n + a * n + b);
+            f64::from(((seen + SMOOTHING) / (context + SMOOTHING * n as f32)).ln())
+        };
+        let (mut a, mut b, mut total) = (0usize, 0usize, 0f64);
+        for byte in word.bytes().filter(u8::is_ascii_alphabetic) {
+            let c = (byte.to_ascii_lowercase() - b'a' + 1) as usize;
+            total += term(a, b, c);
+            (a, b) = (b, c);
+        }
+        if closed {
+            total += term(a, b, 0);
+        }
+        total
+    }
+
     fn listed(&self, word: &str) -> Option<i32> {
         self.levels.get(word)?.split('\t').nth(1)?.parse().ok()
     }
@@ -203,6 +233,19 @@ mod empty_data {
     #[test]
     fn out_of_range_trigrams_count_zero() {
         assert_eq!(count(usize::MAX / 8), 0.0);
+    }
+
+    #[test]
+    fn total_matches_the_average() {
+        let model = EnglishModel::shared();
+        for word in ["hello", "kakaotalk", "x", "Slack", "mongodb"] {
+            let letters = word.len() as f64 + 1.0;
+            let total = model.total_log_probability(word);
+            assert!(
+                (total - model.average_log_probability(word) * letters).abs() < 1e-9,
+                "{word}"
+            );
+        }
     }
 
     #[test]

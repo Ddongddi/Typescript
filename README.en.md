@@ -78,7 +78,7 @@ Just type. The dotted underline shows the current guess — the same result Spac
 | ⌃K / F7, ⌃J / F6 | (Japanese) Show the reading as katakana / hiragana; Space swaps, Enter commits |
 | **Han/Eng key** | By default it cycles the word's language. Alt+Han/Eng pauses/resumes Typescript for the current text field. Both are changeable on the dashboard's **Keys** tab |
 
-**Mixed words.** An English stem followed by a Korean particle is split for you: `githubdp` → `github에`.
+**Mixed words.** English and Korean typed with no space are split for you: `githubdp` → `github에`, `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `nwp` → `n제`.
 
 **Learning.** Repeat a correction twice and it sticks. The autocomplete profile only suggests words you typed **2+ times**, so one-off passwords and typos never show up.
 
