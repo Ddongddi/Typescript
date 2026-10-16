@@ -810,13 +810,20 @@ impl CodeSwitch {
                 *slot = Some((edge.score, 0, u8::MAX, 0));
             }
         }
+        // The edges of one start that end at `settled` or later, in order (reused).
+        let mut fresh: Vec<&Edge> = Vec::new();
         for pos in settled.saturating_sub(LOOKBACK).max(1)..n {
+            fresh.clear();
+            fresh.extend(edges[pos].iter().filter(|e| e.end() >= settled));
+            if fresh.is_empty() {
+                continue;
+            }
             for prev in CLASSES {
                 for switched in 0..STATES {
                     let Some((score, _, _, _)) = table[pos][prev.index()][switched] else {
                         continue;
                     };
-                    for edge in edges[pos].iter().filter(|e| e.end() >= settled) {
+                    for edge in fresh.iter().copied() {
                         let Some((cost, changes)) = self.join(prev, edge, n) else {
                             continue;
                         };
