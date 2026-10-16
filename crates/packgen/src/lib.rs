@@ -225,6 +225,25 @@ fn english(data: &Path) -> io::Result<Files> {
     ])
 }
 
+/// The size of `korean_word_filter.bin` (2^19 bits) and the three bits a word sets in it. The
+/// core reads the filter with the same function (`KoreanModel::may_be_word`).
+const WORD_FILTER_BYTES: usize = 1 << 16;
+
+fn word_filter_bits(word: &str) -> [usize; 3] {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in word.bytes() {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+    }
+    hash = (hash ^ hash >> 29).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    hash ^= hash >> 32;
+    let mask = (1 << 19) - 1;
+    [
+        (hash & mask) as usize,
+        (hash >> 19 & mask) as usize,
+        (hash >> 38 & mask) as usize,
+    ]
+}
+
 fn korean(data: &Path) -> io::Result<Files> {
     let read = |name: &str| fs::read_to_string(data.join(name));
     // Korean word lists
@@ -255,6 +274,14 @@ fn korean(data: &Path) -> io::Result<Files> {
     }
     let ranked: String = vocab.iter().map(|(w, r)| format!("{w}\t{r}\n")).collect();
     let vocab_file = ranked.into_bytes();
+    // Which words the two lists hold, as a Bloom filter (no word is missed): the code-switch
+    // search asks about thousands of stretches of keys and almost none is a word.
+    let mut filter = vec![0u8; WORD_FILTER_BYTES];
+    for word in words.keys().chain(vocab.keys()) {
+        for bit in word_filter_bits(word) {
+            filter[bit >> 3] |= 1 << (bit & 7);
+        }
+    }
     Ok(vec![
         (
             "korean_syllables.txt",
@@ -264,6 +291,7 @@ fn korean(data: &Path) -> io::Result<Files> {
             "korean_syllable_counts.txt",
             fs::read(data.join("korean_syllable_counts.txt"))?,
         ),
+        ("korean_word_filter.bin", filter),
         ("korean_words_sorted.txt", words_file),
         ("korean_vocab_sorted.txt", vocab_file),
     ])

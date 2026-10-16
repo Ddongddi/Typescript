@@ -17,7 +17,7 @@ use std::cell::RefCell;
 use crate::decide::engine::{Decision, DecisionContext, Language};
 use crate::lang::english::{EnglishModel, Walk, COMMON_LEVEL};
 use crate::lang::hangul::{is_consonant, ComposerState, DubeolsikLayout, HangulComposer, Unit};
-use crate::lang::korean::{KoreanModel, WordLines, PENDING_CONSONANT_LOGP, UNKNOWN_SYLLABLE_LOGP};
+use crate::lang::korean::{KoreanModel, PENDING_CONSONANT_LOGP, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::particles::{is_ending, is_single_letter_particle};
 
 const MIN_KEYS: usize = 2;
@@ -452,9 +452,6 @@ struct KoWalk {
     sum_oov: f64,
     sum_word: String,
     sum_stray: bool,
-    /// The words that start like the first `closed` syllables of `word`.
-    closed: usize,
-    lines: WordLines,
 }
 
 /// A stretch judged: no longer one can be Korean, it can't be, or it is.
@@ -485,8 +482,6 @@ impl KoWalk {
             sum_oov: 0.0,
             sum_word: String::new(),
             sum_stray: false,
-            closed: 0,
-            lines: KoreanModel::word_lines(),
         }
     }
 
@@ -502,8 +497,6 @@ impl KoWalk {
         self.sum_oov = 0.0;
         self.sum_word.clear();
         self.sum_stray = false;
-        self.closed = 0;
-        self.lines = KoreanModel::word_lines();
     }
 
     /// Judges the stretch of the keys pushed. `at_end`: the last key of the token, which may
@@ -616,20 +609,6 @@ impl KoWalk {
             self.push(korean, keys[self.keys.len()])?;
         }
         Some(())
-    }
-
-    /// The word lists narrowed to the words that start like the closed syllables of `word`.
-    fn narrow_lines(&mut self, korean: &KoreanModel) {
-        let closed = self.state.closed_len();
-        while self.closed < closed {
-            self.closed += 1;
-            let end = self
-                .word
-                .char_indices()
-                .nth(self.closed)
-                .map_or(self.word.len(), |(at, _)| at);
-            self.lines = korean.narrow(self.lines, &self.word[..end]);
-        }
     }
 }
 
@@ -1204,7 +1183,6 @@ impl CodeSwitch {
                 if syllables == 0 {
                     continue;
                 }
-                walk.narrow_lines(&self.korean);
                 let word = walk.word.as_str();
                 let ending_like = is_ending(word);
                 let standing = if syllables == 1 {
@@ -1235,7 +1213,7 @@ impl CodeSwitch {
                 if syllables == 1 {
                     let lead = if i == 0 { p.lead_ko } else { 0.0 };
                     push(Class::KoOov, oov - p.ko_oov + lead);
-                } else if let Some(logp) = self.korean.word_log_probability_in(walk.lines, word) {
+                } else if let Some(logp) = self.korean.word_log_probability_filtered(word) {
                     push(Class::KoWord, logp);
                 }
             }

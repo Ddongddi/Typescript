@@ -139,6 +139,28 @@ pub enum Source {
     Max,
 }
 
+/// The pack's Bloom filter of the words (`korean_word_filter.bin`, 2^19 bits) and the three bits
+/// of a word in it. packgen makes the filter with the same function (`word_filter_bits`).
+static WORD_FILTER: PackLazy<&'static [u8]> = PackLazy::new(Language::Korean, || {
+    pack::bytes(Language::Korean, "korean_word_filter.bin")
+});
+const WORD_FILTER_BYTES: usize = 1 << 16;
+
+fn word_filter_bits(word: &str) -> [usize; 3] {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in word.bytes() {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+    }
+    hash = (hash ^ hash >> 29).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    hash ^= hash >> 32;
+    let mask = (1 << 19) - 1;
+    [
+        (hash & mask) as usize,
+        (hash >> 19 & mask) as usize,
+        (hash >> 38 & mask) as usize,
+    ]
+}
+
 /// Slots of the cache of the first syllables of words (a power of two).
 const FIRST_SLOTS: usize = 128;
 
@@ -344,6 +366,29 @@ impl KoreanModel {
         }
     }
 
+    /// Whether `hangul` may be a word of either list (the Bloom filter of the pack: a word is
+    /// never refused, a stretch that is none is almost always). Without the filter: always.
+    pub fn may_be_word(&self, hangul: &str) -> bool {
+        let filter = *WORD_FILTER.get();
+        if filter.len() != WORD_FILTER_BYTES {
+            return true;
+        }
+        word_filter_bits(hangul)
+            .iter()
+            .all(|bit| filter[bit >> 3] >> (bit & 7) & 1 == 1)
+    }
+
+    /// `word_log_probability` for a word of two syllables or more, asked of the lists only when
+    /// the filter lets it through (and then only among the words of its first syllable).
+    pub fn word_log_probability_filtered(&self, hangul: &str) -> Option<f64> {
+        if !self.may_be_word(hangul) {
+            return None;
+        }
+        let first = hangul.chars().next()?;
+        let lines = self.narrow(Self::word_lines(), first.encode_utf8(&mut [0; 4]));
+        self.word_log_probability_in(lines, hangul)
+    }
+
     /// `word_log_probability` searching only `within`, lines that start like `hangul` (the
     /// word's first syllables, `narrow`ed): a walk over the syllables of a word asks for each
     /// longer word without searching the whole lists.
@@ -465,6 +510,24 @@ impl KoreanModel {
 
 #[cfg(test)]
 mod tests {
+    /// The pack's filter lets through every word of both lists (it may let others through),
+    /// and few of the stretches that are no word.
+    #[test]
+    fn the_word_filter_misses_no_word_and_few_others() {
+        let model = KoreanModel::default();
+        for list in [WORDS.get(), VOCABULARY.get()] {
+            let mut count = 0;
+            for line in list.with_prefix("") {
+                let word = line.split('\t').next().unwrap_or("");
+                assert!(model.may_be_word(word), "{word}");
+                count += 1;
+            }
+            assert!(count > 1000);
+        }
+        let others = ["가나다라", "힣힣힣", "뷁뷁뷁", "쀍쀍", "꿿꿿꿿꿿"];
+        assert!(others.iter().filter(|w| model.may_be_word(w)).count() <= 1);
+    }
+
     use super::*;
 
     #[test]
