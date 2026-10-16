@@ -613,8 +613,10 @@ const SYLLABLES: usize = 11172;
 const SYLLABLE_WORDS: usize = SYLLABLES.div_ceil(64);
 
 thread_local! {
-    /// The composer `reads_as_korean` keeps its allocation in.
-    static COMPOSER: RefCell<ComposerState> = RefCell::new(ComposerState::default());
+    /// The keys `reads_as_korean` composed last and their composition: the next key of the
+    /// same token goes on from it.
+    static COMPOSER: RefCell<(Vec<u8>, ComposerState)> =
+        RefCell::new((Vec::new(), ComposerState::default()));
     /// Per syllable, in three parts: whether it was looked up, whether it is in a word list,
     /// whether it is a word said often.
     static STANDING: RefCell<[u64; 3 * SYLLABLE_WORDS]> =
@@ -1433,14 +1435,21 @@ impl CodeSwitch {
         {
             return false;
         }
-        COMPOSER.with(|state| {
-            let mut state = state.borrow_mut();
-            state.clear();
-            for key in keys.chars() {
-                let Some(jamo) = DubeolsikLayout::jamo(key) else {
+        COMPOSER.with(|composer| {
+            let (done, state) = &mut *composer.borrow_mut();
+            // Typing adds a key to the token asked about last: go on from there.
+            if !keys.as_bytes().starts_with(done) {
+                done.clear();
+                state.clear();
+            }
+            for &key in &keys.as_bytes()[done.len()..] {
+                let Some(jamo) = DubeolsikLayout::jamo(key as char) else {
+                    done.clear();
+                    state.clear();
                     return false;
                 };
                 state.push(jamo);
+                done.push(key);
             }
             let (mut syllables, mut reads, mut tail) = (0usize, true, false);
             state.for_each_unit(|unit| {
