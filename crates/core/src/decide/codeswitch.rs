@@ -237,12 +237,91 @@ impl Edge {
     }
 }
 
-/// Best path into a position: (score, where from, its class, whether it had switched).
-type Cell = Option<(f64, u32, u8, u8)>;
-/// Per position, per class of the last edge, per state of the path: bit 0 is whether it has
-/// switched language, bit 1 whether a Korean word, case particle or label noun is on it.
-type Table = Vec<[[Cell; STATES]; 7]>;
+/// States of a path: bit 0 is whether it has switched language, bit 1 whether a Korean word,
+/// case particle or label noun is on it.
 const STATES: usize = 4;
+/// The cells of a position: one per class of the last edge and state of the path.
+const CELLS: usize = 7 * STATES;
+const NO_SCORE: f64 = f64::NEG_INFINITY;
+/// The class of the cell a path starts from.
+const START: usize = 7;
+/// Where the best path into a cell came from: how many keys back (6 bits), the class (3 bits,
+/// `START` when the path starts there) and the state (2 bits) of the cell it came from. 0: no
+/// path.
+type Back = u16;
+
+/// The best path into every position. What the next search needs (scores) is kept for the last
+/// positions only; where each path came from is kept for all, to read the path back.
+struct Table {
+    back: Vec<[Back; CELLS]>,
+    /// Scores of the positions from `base` on.
+    scores: Vec<[f64; CELLS]>,
+    base: usize,
+}
+
+fn cell(class: usize, state: usize) -> usize {
+    class * STATES + state
+}
+
+impl Table {
+    fn new() -> Self {
+        Self {
+            back: Vec::new(),
+            scores: Vec::new(),
+            base: 0,
+        }
+    }
+
+    /// Keeps the first `len` positions.
+    fn truncate(&mut self, len: usize) {
+        self.back.truncate(len);
+        self.scores.truncate(len.saturating_sub(self.base));
+    }
+
+    fn resize(&mut self, len: usize) {
+        self.back.resize(len, [0; CELLS]);
+        self.scores.resize(len - self.base, [NO_SCORE; CELLS]);
+    }
+
+    /// Forgets the scores before `floor`.
+    fn trim(&mut self, floor: usize) {
+        self.scores.drain(..floor - self.base);
+        self.base = floor;
+    }
+
+    fn score(&self, pos: usize, class: usize, state: usize) -> Option<f64> {
+        let score = self.scores[pos - self.base][cell(class, state)];
+        (score > NO_SCORE).then_some(score)
+    }
+
+    /// Records the path into a cell when it beats the one there: `total` its score, coming
+    /// from the cell `(position, class, state)`.
+    fn offer(
+        &mut self,
+        pos: usize,
+        (class, state): (usize, usize),
+        total: f64,
+        (from, prev_class, prev_state): (usize, usize, usize),
+    ) {
+        let at = cell(class, state);
+        let slot = &mut self.scores[pos - self.base][at];
+        if total > *slot {
+            debug_assert!(pos - from < 64, "an edge is at most LOOKBACK keys");
+            *slot = total;
+            self.back[pos][at] =
+                (pos - from) as Back | (prev_class as Back) << 6 | (prev_state as Back) << 9;
+        }
+    }
+
+    /// Where the path into a cell came from: (position, class, state).
+    fn from(&self, pos: usize, class: usize, state: usize) -> Option<(usize, usize, usize)> {
+        let back = self.back[pos][cell(class, state)];
+        (back != 0).then(|| {
+            let back = usize::from(back);
+            (pos - (back & 63), back >> 6 & 7, back >> 9 & 3)
+        })
+    }
+}
 
 /// The lattice of the token searched last, to extend by the next key.
 struct Cache {
@@ -252,6 +331,9 @@ struct Cache {
     edges: Vec<Vec<Edge>>,
     table: Table,
     walks: Walks,
+    /// What ends before this has been dropped (edges, scores): a search can only go on from
+    /// a token that shares more than `LOOKBACK` keys with it past this.
+    floor: usize,
 }
 
 /// The English word list and letter model walked along the letters from each start key: the
@@ -455,8 +537,6 @@ impl Walks {
     }
 }
 
-const EMPTY_ROW: [[Cell; STATES]; 7] = [[None; STATES]; 7];
-
 /// Hangul syllables, and the 64-bit words that hold a bit for each.
 const SYLLABLES: usize = 11172;
 const SYLLABLE_WORDS: usize = SYLLABLES.div_ceil(64);
@@ -633,7 +713,7 @@ impl CodeSwitch {
                         && !self.starts_with_word(head)))
         };
         let weak_margin = self.params.weak_margin;
-        self.with_lattice(keys, context, skip, |_, table| {
+        self.with_lattice(keys, context, skip, true, |_, table| {
             Self::read_path(keys, table, weak_margin)
         })?
     }
@@ -646,7 +726,7 @@ impl CodeSwitch {
             .iter()
             .flat_map(|c| [1, 3].map(|state| (c.index(), state)))
             .filter_map(|(class, state)| {
-                let score = table[n][class][state]?.0;
+                let score = table.score(n, class, state)?;
                 let weak = if state == 1 { weak_margin } else { 0.0 };
                 Some((score - weak, score, class, state))
             })
@@ -654,21 +734,15 @@ impl CodeSwitch {
         let pure = CLASSES
             .iter()
             .filter(|c| **c != Class::EnLabel)
-            .flat_map(|c| [0, 2].map(|state| table[n][c.index()][state]))
+            .flat_map(|c| [0, 2].map(|state| table.score(n, c.index(), state)))
             .flatten()
-            .map(|cell| cell.0)
             .max_by(f64::total_cmp);
         let gap = pure.map_or(f64::INFINITY, |p| mixed.0 - p);
 
         let mut pieces: Vec<Piece> = Vec::new();
         let (mut pos, mut class, mut switched) = (n, mixed.2, mixed.3);
         while pos > 0 {
-            let (_, from, prev_class, prev_switched) = table[pos][class][switched]?;
-            let (from, prev_class, prev_switched) = (
-                from as usize,
-                usize::from(prev_class),
-                usize::from(prev_switched),
-            );
+            let (from, prev_class, prev_switched) = table.from(pos, class, switched)?;
             let stretch = &keys[from..pos];
             let kind = CLASSES[class].kind();
             let text = match kind {
@@ -704,6 +778,7 @@ impl CodeSwitch {
             keys,
             context,
             |_| false,
+            false,
             |edges, table| Self::trace_of(keys, edges, table, all),
         )
         .unwrap_or_else(|| "no edges".into())
@@ -731,7 +806,7 @@ impl CodeSwitch {
         for (label, state) in kinds {
             let best = CLASSES
                 .iter()
-                .filter_map(|c| table[n][c.index()][state].map(|cell| (cell.0, c.index())))
+                .filter_map(|c| table.score(n, c.index(), state).map(|s| (s, c.index())))
                 .max_by(|a, b| a.0.total_cmp(&b.0));
             let Some((total, mut class)) = best else {
                 let _ = writeln!(out, "{label}: none");
@@ -741,10 +816,9 @@ impl CodeSwitch {
             let (mut pos, mut state) = (n, state);
             let mut path = Vec::new();
             while pos > 0 {
-                let Some((_, from, prev_class, prev_state)) = table[pos][class][state] else {
+                let Some((from, prev_class, prev_state)) = table.from(pos, class, state) else {
                     break;
                 };
-                let from = from as usize;
                 let score = edges[from]
                     .iter()
                     .find(|e| e.end() == pos && e.class == CLASSES[class])
@@ -754,7 +828,7 @@ impl CodeSwitch {
                     &keys[from..pos],
                     CLASSES[class]
                 ));
-                (pos, class, state) = (from, usize::from(prev_class), usize::from(prev_state));
+                (pos, class, state) = (from, prev_class, prev_state);
             }
             path.reverse();
             let _ = writeln!(out, "   {}", path.join(" "));
@@ -771,6 +845,7 @@ impl CodeSwitch {
         keys: &str,
         context: &DecisionContext,
         skip: impl FnOnce(&Walk) -> bool,
+        trim: bool,
         f: impl FnOnce(&[Vec<Edge>], &Table) -> R,
     ) -> Option<R> {
         LAST.with(|last| {
@@ -782,8 +857,9 @@ impl CodeSwitch {
                     after_digit: context.after_digit,
                     keys: String::new(),
                     edges: Vec::new(),
-                    table: Vec::new(),
+                    table: Table::new(),
                     walks: Walks::new(),
+                    floor: 0,
                 },
             };
             let head = &keys.as_bytes()[..keys.len().min(EN_MAX)];
@@ -793,12 +869,19 @@ impl CodeSwitch {
                 return None;
             }
             // Everything that ends before the shared start of the two tokens is as it was.
-            let kept = cache
+            let mut kept = cache
                 .keys
                 .bytes()
                 .zip(keys.bytes())
                 .take_while(|(a, b)| a == b)
                 .count();
+            // Too little of what was dropped is left to go on from: search the token afresh.
+            if cache.floor > 0 && kept < cache.floor + LOOKBACK {
+                kept = 0;
+                cache.edges.clear();
+                cache.table = Table::new();
+                cache.floor = 0;
+            }
             let n = keys.len();
             cache.edges.resize(n, Vec::new());
             // A new key makes the last one no longer the end of the token, which changes the
@@ -817,11 +900,21 @@ impl CodeSwitch {
             self.korean_edges(keys, context, &mut cache.edges, &mut cache.walks, kept)?;
             self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
             cache.table.truncate(kept);
-            cache.table.resize(n + 1, EMPTY_ROW);
+            cache.table.resize(n + 1);
             self.search(n, &cache.edges, &mut cache.table, kept);
             cache.keys.clear();
             cache.keys.push_str(keys);
             let out = f(&cache.edges, &cache.table);
+            // The search only looks back `LOOKBACK` keys: keep twice that and drop the rest,
+            // each time a `LOOKBACK` more has gone by.
+            if trim && n >= cache.floor + 3 * LOOKBACK {
+                let floor = n - 2 * LOOKBACK;
+                for list in &mut cache.edges[cache.floor..floor] {
+                    *list = Vec::new();
+                }
+                cache.table.trim(floor);
+                cache.floor = floor;
+            }
             *slot = Some(cache);
             Some(out)
         })
@@ -1047,10 +1140,12 @@ impl CodeSwitch {
                 continue;
             }
             let state = usize::from(edge.class == Class::KoWord) << 1;
-            let slot = &mut table[edge.end()][edge.class.index()][state];
-            if slot.is_none_or(|old| edge.score > old.0) {
-                *slot = Some((edge.score, 0, u8::MAX, 0));
-            }
+            table.offer(
+                edge.end(),
+                (edge.class.index(), state),
+                edge.score,
+                (0, START, 0),
+            );
         }
         // The edges of one start that end at `settled` or later, in order (reused).
         let mut fresh: Vec<&Edge> = Vec::new();
@@ -1062,7 +1157,7 @@ impl CodeSwitch {
             }
             for prev in CLASSES {
                 for switched in 0..STATES {
-                    let Some((score, _, _, _)) = table[pos][prev.index()][switched] else {
+                    let Some(score) = table.score(pos, prev.index(), switched) else {
                         continue;
                     };
                     for edge in fresh.iter().copied() {
@@ -1076,10 +1171,12 @@ impl CodeSwitch {
                             | (switched & 2)
                             | usize::from(strong) << 1;
                         let total = score + edge.score - cost;
-                        let slot = &mut table[edge.end()][edge.class.index()][now];
-                        if slot.is_none_or(|old| total > old.0) {
-                            *slot = Some((total, pos as u32, prev.index() as u8, switched as u8));
-                        }
+                        table.offer(
+                            edge.end(),
+                            (edge.class.index(), now),
+                            total,
+                            (pos, prev.index(), switched),
+                        );
                     }
                 }
             }
