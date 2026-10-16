@@ -3,6 +3,8 @@
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
+use crate::lang::fnv::FnvBuild;
+
 /// Particles and endings that commonly attach directly to a (loan)word.
 const ENDING_LIST: &str = "에 에서 에게 에는 에서는 에도 에서도 의 을 를 은 는 이 가 도 로 으로 와 과 랑 이랑 하고 한테 까지 부터 만 보다 \
 처럼 이나 나 이야 야 이에요 예요 이다 입니다 인데 이라 이라고 라고 으로는 로는 으로도 로도 이고 이지 이랑은 \
@@ -16,9 +18,9 @@ const ENDING_LIST: &str = "에 에서 에게 에는 에서는 에도 에서도 �
 const SINGLE_LETTER_PARTICLES: &str = "에 에서 에게 에는 에서는 에도 의 을 를 은 는 이 가 도 로 으로 와 과 랑 이랑 하고 한테 까지 부터 만 보다 \
 처럼 이나 나 이라 이라고 라고 이랑은 으로는 로는 같은 같이";
 
-static ENDINGS: LazyLock<HashSet<&'static str>> =
+static ENDINGS: LazyLock<HashSet<&'static str, FnvBuild>> =
     LazyLock::new(|| ENDING_LIST.split_whitespace().collect());
-static SINGLE_LETTER: LazyLock<HashSet<&'static str>> =
+static SINGLE_LETTER: LazyLock<HashSet<&'static str, FnvBuild>> =
     LazyLock::new(|| SINGLE_LETTER_PARTICLES.split_whitespace().collect());
 
 pub fn is_ending(s: &str) -> bool {

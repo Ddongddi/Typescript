@@ -462,6 +462,8 @@ const SYLLABLES: usize = 11172;
 const SYLLABLE_WORDS: usize = SYLLABLES.div_ceil(64);
 
 thread_local! {
+    /// The composer `reads_as_korean` keeps its allocation in.
+    static COMPOSER: RefCell<ComposerState> = RefCell::new(ComposerState::default());
     /// Per syllable whether it was looked up (the first half), then whether it is a frequent
     /// word (the second).
     static FREQUENT: RefCell<[u64; 2 * SYLLABLE_WORDS]> =
@@ -1085,25 +1087,31 @@ impl CodeSwitch {
         {
             return false;
         }
-        let Some(composed) = HangulComposer::compose(keys) else {
-            return false;
-        };
-        let last = composed.units.len().saturating_sub(1);
-        let mut syllables = 0usize;
-        for (index, unit) in composed.units.iter().enumerate() {
-            match unit {
-                Unit::Syllable(s) => {
-                    if self.korean.syllable_log_probability(*s) <= UNKNOWN_SYLLABLE_LOGP {
-                        return false;
-                    }
-                    syllables += 1;
-                }
-                // The next syllable's first consonant, while the token is still being typed.
-                Unit::Jamo(j) if partial && index == last && is_consonant(*j) => {}
-                Unit::Jamo(_) => return false,
+        COMPOSER.with(|state| {
+            let mut state = state.borrow_mut();
+            state.clear();
+            for key in keys.chars() {
+                let Some(jamo) = DubeolsikLayout::jamo(key) else {
+                    return false;
+                };
+                state.push(jamo);
             }
-        }
-        syllables > 0
+            let (mut syllables, mut reads, mut tail) = (0usize, true, false);
+            state.for_each_unit(|unit| {
+                // Nothing may follow the next syllable's first consonant.
+                reads &= !tail;
+                match unit {
+                    Unit::Syllable(s) => {
+                        reads &= self.korean.syllable_log_probability(s) > UNKNOWN_SYLLABLE_LOGP;
+                        syllables += 1;
+                    }
+                    // The next syllable's first consonant, while the token is still being typed.
+                    Unit::Jamo(j) if partial && is_consonant(j) => tail = true,
+                    Unit::Jamo(_) => reads = false,
+                }
+            });
+            reads && syllables > 0
+        })
     }
 
     /// `head` is the walk of the token's first `EN_MAX` keys: a longer token is asked afresh.

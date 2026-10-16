@@ -3,6 +3,7 @@
 mod combo;
 mod en;
 pub mod english;
+pub(crate) mod fnv;
 pub mod hangul;
 mod ja;
 pub mod japanese;

@@ -2,14 +2,19 @@
 //! accidental Hangul English produces on a 2-set layout (e.g. "the" → "솓").
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::decide::engine::Language;
+use crate::lang::fnv::FnvBuild;
 use crate::lang::hangul::{is_consonant, Composed, HangulComposer, Unit};
 use crate::lang::pack::{self, PackLazy};
 use crate::lang::particles::is_ending;
 use crate::lang::sorted::SortedLines;
 use crate::lang::syllables::{TIER1, TIER2, TIER3};
+
+/// A probability per syllable (looked up for every syllable of every stretch).
+type SyllableMap = HashMap<char, f64, FnvBuild>;
 
 pub const TIER1_LOGP: f64 = -5.0;
 pub const TIER2_LOGP: f64 = -6.5;
@@ -44,7 +49,7 @@ struct JamoPrior {
 
 /// Log probability of each syllable seen in korean_syllable_counts.txt (a large sample of text;
 /// the smaller korean_syllables.txt behind `tiers` is what the scores of whole words were fitted to).
-static SYLLABLE_LOGP: PackLazy<HashMap<char, f64>> = PackLazy::new(Language::Korean, || {
+static SYLLABLE_LOGP: PackLazy<SyllableMap> = PackLazy::new(Language::Korean, || {
     let counts: Vec<(char, f64)> = pack::text(Language::Korean, "korean_syllable_counts.txt")
         .lines()
         .filter_map(|line| {
@@ -111,8 +116,16 @@ pub enum Source {
     Max,
 }
 
+/// Slots of the cache of the first syllables of words (a power of two).
+const FIRST_SLOTS: usize = 128;
+
+thread_local! {
+    static FIRST: RefCell<[Option<(char, WordLines)>; FIRST_SLOTS]> =
+        const { RefCell::new([None; FIRST_SLOTS]) };
+}
+
 /// A range of lines in each word list (byte offsets): the words that start like some prefix.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct WordLines {
     words: (usize, usize),
     vocabulary: (usize, usize),
@@ -125,10 +138,10 @@ pub struct KoreanScore {
 }
 
 pub struct KoreanModel {
-    tiers: Cow<'static, HashMap<char, f64>>,
+    tiers: Cow<'static, SyllableMap>,
 }
 
-static SHARED_MAX: PackLazy<HashMap<char, f64>> =
+static SHARED_MAX: PackLazy<SyllableMap> =
     PackLazy::new(Language::Korean, || KoreanModel::build(Source::Max));
 
 /// The initial consonants in syllable order, as the lone jamo a half-typed syllable shows.
@@ -187,8 +200,8 @@ impl KoreanModel {
         Self { tiers }
     }
 
-    fn build(source: Source) -> HashMap<char, f64> {
-        let mut map: HashMap<char, f64> = HashMap::new();
+    fn build(source: Source) -> SyllableMap {
+        let mut map = SyllableMap::default();
         if source != Source::Corpus {
             // later (more frequent) tiers overwrite earlier ones
             for (syllables, logp) in [
@@ -274,8 +287,32 @@ impl KoreanModel {
         }
     }
 
-    /// The lines of `within` that start with `prefix`.
+    /// The lines of `within` that start with `prefix`. The words that start with one syllable
+    /// are asked for again and again (every longer word starts with one), so the most recent
+    /// of them are remembered.
     pub fn narrow(&self, within: WordLines, prefix: &str) -> WordLines {
+        let first = prefix
+            .chars()
+            .next()
+            .filter(|c| prefix.len() == c.len_utf8() && parts(*c).is_some());
+        let Some(syllable) = first.filter(|_| within == Self::word_lines()) else {
+            return self.narrow_afresh(within, prefix);
+        };
+        let slot = (syllable as usize).wrapping_mul(2_654_435_761) >> 7 & (FIRST_SLOTS - 1);
+        FIRST.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            match cache[slot] {
+                Some((cached, lines)) if cached == syllable => lines,
+                _ => {
+                    let lines = self.narrow_afresh(within, prefix);
+                    cache[slot] = Some((syllable, lines));
+                    lines
+                }
+            }
+        })
+    }
+
+    fn narrow_afresh(&self, within: WordLines, prefix: &str) -> WordLines {
         WordLines {
             words: WORDS.get().prefix_range(within.words, prefix.as_bytes()),
             vocabulary: VOCABULARY
