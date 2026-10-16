@@ -341,6 +341,30 @@ fn main() {
         println!("cold {keys}: {:.1} µs", micros(spent) / 20000.0);
         return;
     }
+    // `--event WORD TAIL`: what the key after an English word costs when it turns the token into
+    // something to search (github + d): the search of another token is what the cache holds, and
+    // the word's own walk is warm, as it is while typing.
+    if let Some(i) = args.iter().position(|a| a == "--event") {
+        let (word, tail) = (&args[i + 1], &args[i + 2]);
+        let engine = make_engine(None, &Languages::legacy(false));
+        let context = DecisionContext {
+            partial: true,
+            ..Default::default()
+        };
+        let (other, whole) = ("zmfltmxldksdlqsle", format!("{word}{tail}"));
+        let mut spent = Duration::ZERO;
+        for round in 0..22000 {
+            engine.decide(other, &context);
+            engine.decide(word, &context);
+            let t = Instant::now();
+            engine.decide(&whole, &context);
+            if round >= 2000 {
+                spent += t.elapsed();
+            }
+        }
+        println!("event {word}+{tail}: {:.1} µs", micros(spent) / 20000.0);
+        return;
+    }
     // `--probe FILE`: convert each line (the text as it should come out) and print what came out.
     if let Some(path) = args.iter().position(|a| a == "--probe").and_then(|i| args.get(i + 1)) {
         let engine = make_engine(None, &Languages::legacy(false));
