@@ -111,6 +111,8 @@ pub struct Params {
     pub function_logp: f64,
     /// A label names the noun that follows: that switch costs this much less.
     pub label_noun: f64,
+    /// A one-letter English word (a, I) between Korean syllables costs this much more.
+    pub lone_bridge: f64,
     /// A noun that a label names and more of the token follows (B급의) costs this much more.
     pub label_mid: f64,
     /// So does a noun that is one syllable and no word of its own (the 규 of brb).
@@ -145,6 +147,7 @@ impl Default for Params {
             function_logp: -5.0,
             label_noun: 3.5,
             label_mid: 6.0,
+            lone_bridge: 6.0,
             label_oov: 2.0,
             cap_penalty: 10.0,
             margin: 0.0,
@@ -179,6 +182,7 @@ impl Params {
                 "label_logp" => self.label_logp = v,
                 "label_noun" => self.label_noun = v,
                 "label_mid" => self.label_mid = v,
+                "lone_bridge" => self.lone_bridge = v,
                 "function_logp" => self.function_logp = v,
                 "label_oov" => self.label_oov = v,
                 "cap_penalty" => self.cap_penalty = v,
@@ -1304,9 +1308,11 @@ impl CodeSwitch {
         let p = &self.params;
         // A word of one letter (a, I) sits next to English, not between Korean syllables: the
         // m of 비엠 is no "a".
-        if edge.class == Class::EnWord && len == 1 && prev.kind() == Kind::Korean {
-            return None;
-        }
+        let bridge = if edge.class == Class::EnWord && len == 1 && prev.kind() == Kind::Korean {
+            p.lone_bridge
+        } else {
+            0.0
+        };
         if edge.class == Class::EnLabel || (edge.pending && prev.kind() != Kind::Korean) {
             return None;
         }
@@ -1334,7 +1340,7 @@ impl CodeSwitch {
                 Class::EnOov => p.en_enter,
                 _ => 0.0,
             };
-            return Some((p.switch_cost + enter, true));
+            return Some((p.switch_cost + enter + bridge, true));
         }
         let cost = match (prev, edge.class) {
             // Each syllable of such a run already paid `ko_oov`.
