@@ -240,15 +240,19 @@ impl Edge {
 }
 
 /// States of a path: bit 0 is whether it has switched language, bit 1 whether a Korean word,
-/// case particle or label noun is on it.
-const STATES: usize = 4;
+/// case particle or label noun is on it, bit 2 whether its last edge can host a case particle
+/// (English, a Korean word, a syllable run: not a lone syllable that is no word).
+const STATES: usize = 8;
+const SWITCHED: usize = 1;
+const STRONG: usize = 2;
+const HOST: usize = 4;
 /// The cells of a position: one per class of the last edge and state of the path.
 const CELLS: usize = 7 * STATES;
 const NO_SCORE: f64 = f64::NEG_INFINITY;
 /// The class of the cell a path starts from.
 const START: usize = 7;
 /// Where the best path into a cell came from: how many keys back (6 bits), the class (3 bits,
-/// `START` when the path starts there) and the state (2 bits) of the cell it came from. 0: no
+/// `START` when the path starts there) and the state (3 bits) of the cell it came from. 0: no
 /// path.
 type Back = u16;
 
@@ -320,7 +324,7 @@ impl Table {
         let back = self.back[pos][cell(class, state)];
         (back != 0).then(|| {
             let back = usize::from(back);
-            (pos - (back & 63), back >> 6 & 7, back >> 9 & 3)
+            (pos - (back & 63), back >> 6 & 7, back >> 9 & 7)
         })
     }
 }
@@ -750,18 +754,24 @@ impl CodeSwitch {
         // (score less the weak margin, score, class, state) of the best path that switches.
         let mixed = CLASSES
             .iter()
-            .flat_map(|c| [1, 3].map(|state| (c.index(), state)))
+            .flat_map(|c| (0..STATES).map(|state| (c.index(), state)))
+            .filter(|(_, state)| state & SWITCHED != 0)
             .filter_map(|(class, state)| {
                 let score = table.score(n, class, state)?;
-                let weak = if state == 1 { weak_margin } else { 0.0 };
+                let weak = if state & STRONG == 0 {
+                    weak_margin
+                } else {
+                    0.0
+                };
                 Some((score - weak, score, class, state))
             })
             .max_by(|a, b| a.0.total_cmp(&b.0))?;
         let pure = CLASSES
             .iter()
             .filter(|c| **c != Class::EnLabel)
-            .flat_map(|c| [0, 2].map(|state| table.score(n, c.index(), state)))
-            .flatten()
+            .flat_map(|c| (0..STATES).map(|state| (c.index(), state)))
+            .filter(|(_, state)| state & SWITCHED == 0)
+            .filter_map(|(class, state)| table.score(n, class, state))
             .max_by(f64::total_cmp);
         let gap = pure.map_or(f64::INFINITY, |p| mixed.0 - p);
         if gap < min_gap {
@@ -832,12 +842,16 @@ impl CodeSwitch {
             }
         }
         let kinds = [("mixed ", 1), ("mixed+", 3), ("pure  ", 0), ("pure+ ", 2)];
-        for (label, state) in kinds {
+        for (label, bits) in kinds {
             let best = CLASSES
                 .iter()
-                .filter_map(|c| table.score(n, c.index(), state).map(|s| (s, c.index())))
+                .flat_map(|c| (0..STATES).map(|state| (c.index(), state)))
+                .filter(|(_, state)| state & (SWITCHED | STRONG) == bits)
+                .filter_map(|(class, state)| {
+                    table.score(n, class, state).map(|s| (s, class, state))
+                })
                 .max_by(|a, b| a.0.total_cmp(&b.0));
-            let Some((total, mut class)) = best else {
+            let Some((total, mut class, state)) = best else {
                 let _ = writeln!(out, "{label}: none");
                 continue;
             };
@@ -1140,6 +1154,16 @@ impl CodeSwitch {
         self.english.walk_word_log_probability(walk, len)
     }
 
+    /// Whether a case particle can attach to `edge` (which comes after an edge of class `prev`):
+    /// English, a Korean word, a run of syllables, a lone syllable said as a word (좀).
+    fn hosts(edge: &Edge, prev: Class) -> bool {
+        match edge.class {
+            Class::EnWord | Class::EnOov | Class::EnLabel | Class::KoWord => true,
+            Class::KoOov => edge.known || prev == Class::KoOov,
+            Class::KoEnding | Class::KoCase => false,
+        }
+    }
+
     /// The cost of the step from an edge of class `prev` to `edge`, and whether it changes the
     /// language. None: the two can't be side by side.
     fn join(&self, prev: Class, edge: &Edge, len: usize, n: usize) -> Option<(f64, bool)> {
@@ -1195,7 +1219,15 @@ impl CodeSwitch {
             if edge.end() < settled || matches!(edge.class, Class::KoCase | Class::KoEnding) {
                 continue;
             }
-            let state = usize::from(edge.class == Class::KoWord) << 1;
+            let state = if edge.class == Class::KoWord {
+                STRONG
+            } else {
+                0
+            } | if Self::hosts(edge, Class::KoOov) {
+                HOST
+            } else {
+                0
+            };
             table.offer(
                 edge.end(),
                 (edge.class.index(), state),
@@ -1222,12 +1254,16 @@ impl CodeSwitch {
                         else {
                             continue;
                         };
-                        let strong = matches!(edge.class, Class::KoWord | Class::KoCase)
-                            || edge.known
-                            || prev == Class::EnLabel;
-                        let now = (switched & 1 | usize::from(changes))
-                            | (switched & 2)
-                            | usize::from(strong) << 1;
+                        // A case particle shows Korean only when it has a word to attach to.
+                        let strong = match edge.class {
+                            Class::KoWord => true,
+                            Class::KoCase => switched & HOST != 0 || prev == Class::EnLabel,
+                            _ => edge.known || prev == Class::EnLabel,
+                        };
+                        let now = (switched & SWITCHED | usize::from(changes))
+                            | (switched & STRONG)
+                            | if strong { STRONG } else { 0 }
+                            | if Self::hosts(edge, prev) { HOST } else { 0 };
                         let total = score + edge.score - cost;
                         table.offer(
                             edge.end(),
