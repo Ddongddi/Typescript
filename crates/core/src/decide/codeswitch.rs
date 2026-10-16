@@ -1142,8 +1142,13 @@ impl CodeSwitch {
 
     /// The cost of the step from an edge of class `prev` to `edge`, and whether it changes the
     /// language. None: the two can't be side by side.
-    fn join(&self, prev: Class, edge: &Edge, n: usize) -> Option<(f64, bool)> {
+    fn join(&self, prev: Class, edge: &Edge, len: usize, n: usize) -> Option<(f64, bool)> {
         let p = &self.params;
+        // A word of one letter (a, I) sits next to English, not between Korean syllables: the
+        // m of 비엠 is no "a".
+        if edge.class == Class::EnWord && len == 1 && prev.kind() == Kind::Korean {
+            return None;
+        }
         if edge.class == Class::EnLabel || (edge.pending && prev.kind() != Kind::Korean) {
             return None;
         }
@@ -1213,7 +1218,8 @@ impl CodeSwitch {
                         continue;
                     };
                     for edge in fresh.iter().map(|k| &starting[*k as usize]) {
-                        let Some((cost, changes)) = self.join(prev, edge, n) else {
+                        let Some((cost, changes)) = self.join(prev, edge, edge.end() - pos, n)
+                        else {
                             continue;
                         };
                         let strong = matches!(edge.class, Class::KoWord | Class::KoCase)
