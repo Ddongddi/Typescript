@@ -44,10 +44,17 @@ pub struct EnglishModel {
     /// (26 + 26²), found the first time they are asked: the first steps of a walk would
     /// otherwise search the whole list. 0: not yet; else the end of the range + 1 over its start.
     starts: Vec<AtomicU64>,
+    /// The same for three and four letters, as many as fit: a direct-mapped cache of
+    /// (letters, first line, end) packed in 20 + 22 + 22 bits (so only for a list under 4 MB).
+    deep: Vec<AtomicU64>,
 }
 
 /// Slots of `EnglishModel::starts`.
 const START_SLOTS: usize = 26 + 26 * 26;
+/// Slots of `EnglishModel::deep` (a power of two).
+const DEEP_SLOTS: usize = 1024;
+/// Offsets in the word list that `deep` can hold.
+const DEEP_LIMIT: usize = 1 << 22;
 
 static SHARED: PackLazy<EnglishModel> = PackLazy::new(Language::English, || {
     EnglishModel::new(SortedLines::new(pack::text(
@@ -151,6 +158,7 @@ impl EnglishModel {
         Self {
             levels,
             starts: (0..START_SLOTS).map(|_| AtomicU64::new(0)).collect(),
+            deep: (0..DEEP_SLOTS).map(|_| AtomicU64::new(0)).collect(),
         }
     }
 
@@ -161,6 +169,7 @@ impl EnglishModel {
         let slot = match letters.len() {
             1 => code(0),
             2 => 26 + code(0) * 26 + code(1),
+            3 | 4 if within.1 < DEEP_LIMIT => return self.deep_lines_of(letters, within),
             _ => return self.levels.prefix_range(within, letters),
         };
         let cell = &self.starts[slot];
@@ -170,6 +179,21 @@ impl EnglishModel {
         }
         let (lo, hi) = self.levels.prefix_range(within, letters);
         cell.store((hi as u64 + 1) << 32 | lo as u64, Relaxed);
+        (lo, hi)
+    }
+
+    fn deep_lines_of(&self, letters: &[u8], within: (usize, usize)) -> (usize, usize) {
+        let key = letters
+            .iter()
+            .fold(0u64, |key, b| key << 5 | u64::from(b - b'a' + 1));
+        let cell = &self.deep[(key.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 54) as usize];
+        let packed = cell.load(Relaxed);
+        if packed >> 44 == key {
+            let mask = (1 << 22) - 1;
+            return ((packed >> 22 & mask) as usize, (packed & mask) as usize);
+        }
+        let (lo, hi) = self.levels.prefix_range(within, letters);
+        cell.store(key << 44 | (lo as u64) << 22 | hi as u64, Relaxed);
         (lo, hi)
     }
 
