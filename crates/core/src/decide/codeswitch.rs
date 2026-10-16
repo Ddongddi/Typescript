@@ -333,6 +333,8 @@ struct Cache {
     edges: Vec<Vec<Edge>>,
     table: Table,
     walks: Walks,
+    /// The edges of one start that the search goes over (reused).
+    fresh: Vec<u32>,
     /// What ends before this has been dropped (edges, scores): a search can only go on from
     /// a token that shares more than `LOOKBACK` keys with it past this.
     floor: usize,
@@ -362,6 +364,11 @@ struct KoWalk {
     over: bool,
     /// Capitals that no shifted jamo explains.
     capitals: usize,
+    /// What judging the stretch of that many keys said: (keys, dead after it, stopped). The next
+    /// key pushed needs it, and it is the same however the stretch was judged (as the end of
+    /// the token or not: only whether a lone first consonant is fine differs, which leaves
+    /// both flags as they are).
+    judged: Option<(usize, bool, bool)>,
     /// The composed Hangul of the last stretch judged.
     word: String,
     /// The words that start like the first `closed` syllables of `word`.
@@ -390,6 +397,7 @@ impl KoWalk {
             dead: false,
             over: false,
             capitals: 0,
+            judged: None,
             word: String::new(),
             closed: 0,
             lines: KoreanModel::word_lines(),
@@ -402,6 +410,7 @@ impl KoWalk {
         self.dead = false;
         self.over = false;
         self.capitals = 0;
+        self.judged = None;
         self.closed = 0;
         self.lines = KoreanModel::word_lines();
     }
@@ -455,9 +464,15 @@ impl KoWalk {
     fn push(&mut self, korean: &KoreanModel, key: u8) -> Option<()> {
         let jamo = DubeolsikLayout::jamo(key as char)?;
         if !self.keys.is_empty() {
-            let (verdict, dead) = self.judge(korean, false, false);
+            let (dead, stop) = match self.judged.take() {
+                Some((len, dead, stop)) if len == self.keys.len() => (dead, stop),
+                _ => {
+                    let (verdict, dead) = self.judge(korean, false, false);
+                    (dead, matches!(verdict, Verdict::Stop))
+                }
+            };
             self.dead = dead;
-            self.over |= matches!(verdict, Verdict::Stop);
+            self.over |= stop;
         }
         self.state.push(jamo);
         self.keys.push(key);
@@ -643,8 +658,7 @@ impl CodeSwitch {
 
     /// The best path with both languages when it beats the single-language readings by `margin`.
     pub fn split(&self, keys: &str, context: &DecisionContext) -> Option<Split> {
-        self.analyze(keys, context)
-            .filter(|s| s.gap >= self.params.margin)
+        self.analyze_from(keys, context, self.params.margin)
     }
 
     /// The best path with both languages and how far ahead of the single-language readings it
@@ -653,8 +667,13 @@ impl CodeSwitch {
     /// A hyphen is no Korean key: Wi-Fieh is cut as WiFieh and the hyphens go back into the
     /// English stretches. One that would fall inside a Korean stretch rules the cut out.
     pub fn analyze(&self, keys: &str, context: &DecisionContext) -> Option<Split> {
+        self.analyze_from(keys, context, f64::NEG_INFINITY)
+    }
+
+    /// `analyze` when the path is ahead by `min_gap` or more (the path is only read back then).
+    fn analyze_from(&self, keys: &str, context: &DecisionContext, min_gap: f64) -> Option<Split> {
         if !keys.contains('-') {
-            return self.analyze_letters(keys, context);
+            return self.analyze_letters(keys, context, min_gap);
         }
         let parts: Vec<&str> = keys.split('-').collect();
         if parts
@@ -664,7 +683,7 @@ impl CodeSwitch {
             return None;
         }
         let letters: String = parts.concat();
-        let mut split = self.analyze_letters(&letters, context)?;
+        let mut split = self.analyze_letters(&letters, context, min_gap)?;
         // Where each hyphen sat, counted in letters.
         let cuts: Vec<usize> = parts
             .iter()
@@ -699,7 +718,12 @@ impl CodeSwitch {
         Some(split)
     }
 
-    fn analyze_letters(&self, keys: &str, context: &DecisionContext) -> Option<Split> {
+    fn analyze_letters(
+        &self,
+        keys: &str,
+        context: &DecisionContext,
+        min_gap: f64,
+    ) -> Option<Split> {
         let n = keys.len();
         if !(MIN_KEYS..=MAX_KEYS).contains(&n) || !keys.bytes().all(|b| b.is_ascii_alphabetic()) {
             return None;
@@ -716,12 +740,12 @@ impl CodeSwitch {
         };
         let weak_margin = self.params.weak_margin;
         self.with_lattice(keys, context, skip, true, |_, table| {
-            Self::read_path(keys, table, weak_margin)
+            Self::read_path(keys, table, weak_margin, min_gap)
         })?
     }
 
     /// The best path into the end of `keys`, read back from the table.
-    fn read_path(keys: &str, table: &Table, weak_margin: f64) -> Option<Split> {
+    fn read_path(keys: &str, table: &Table, weak_margin: f64, min_gap: f64) -> Option<Split> {
         let n = keys.len();
         // (score less the weak margin, score, class, state) of the best path that switches.
         let mixed = CLASSES
@@ -740,6 +764,9 @@ impl CodeSwitch {
             .flatten()
             .max_by(f64::total_cmp);
         let gap = pure.map_or(f64::INFINITY, |p| mixed.0 - p);
+        if gap < min_gap {
+            return None;
+        }
 
         let mut pieces: Vec<Piece> = Vec::new();
         let (mut pos, mut class, mut switched) = (n, mixed.2, mixed.3);
@@ -861,6 +888,7 @@ impl CodeSwitch {
                     edges: Vec::new(),
                     table: Table::new(),
                     walks: Walks::new(),
+                    fresh: Vec::new(),
                     floor: 0,
                 },
             };
@@ -919,7 +947,7 @@ impl CodeSwitch {
         self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
         cache.table.truncate(kept);
         cache.table.resize(n + 1);
-        self.search(n, &cache.edges, &mut cache.table, kept);
+        self.search(n, &cache.edges, &mut cache.table, &mut cache.fresh, kept);
         cache.keys.clear();
         cache.keys.push_str(keys);
         // The search only looks back `LOOKBACK` keys: keep twice that and drop the rest,
@@ -961,7 +989,8 @@ impl CodeSwitch {
                 if walk.keys.len() < j - i {
                     walk.push(&self.korean, bytes[j - 1])?;
                 }
-                let (verdict, _) = walk.judge(&self.korean, j == n, context.partial);
+                let (verdict, dead) = walk.judge(&self.korean, j == n, context.partial);
+                walk.judged = Some((walk.keys.len(), dead, matches!(verdict, Verdict::Stop)));
                 let (syllables, pending, oov) = match verdict {
                     Verdict::Stop => break,
                     Verdict::Skip => continue,
@@ -1148,7 +1177,14 @@ impl CodeSwitch {
     /// The best path into every position, per class of its last edge and whether it has switched.
     /// Positions before `settled` are already in `table`: only the paths that end at `settled`
     /// or later are searched again.
-    fn search(&self, n: usize, edges: &[Vec<Edge>], table: &mut Table, settled: usize) {
+    fn search(
+        &self,
+        n: usize,
+        edges: &[Vec<Edge>],
+        table: &mut Table,
+        fresh: &mut Vec<u32>,
+        settled: usize,
+    ) {
         for edge in &edges[0] {
             // A particle or ending needs a word before it to attach to.
             if edge.end() < settled || matches!(edge.class, Class::KoCase | Class::KoEnding) {
@@ -1162,11 +1198,11 @@ impl CodeSwitch {
                 (0, START, 0),
             );
         }
-        // The edges of one start that end at `settled` or later, in order (reused).
-        let mut fresh: Vec<&Edge> = Vec::new();
         for pos in settled.saturating_sub(LOOKBACK).max(1)..n {
             fresh.clear();
-            fresh.extend(edges[pos].iter().filter(|e| e.end() >= settled));
+            fresh.extend(
+                (0..edges[pos].len() as u32).filter(|k| edges[pos][*k as usize].end() >= settled),
+            );
             if fresh.is_empty() {
                 continue;
             }
@@ -1175,7 +1211,7 @@ impl CodeSwitch {
                     let Some(score) = table.score(pos, prev.index(), switched) else {
                         continue;
                     };
-                    for edge in fresh.iter().copied() {
+                    for edge in fresh.iter().map(|k| &edges[pos][*k as usize]) {
                         let Some((cost, changes)) = self.join(prev, edge, n) else {
                             continue;
                         };

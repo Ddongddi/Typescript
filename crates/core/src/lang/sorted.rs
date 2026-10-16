@@ -65,7 +65,25 @@ impl SortedLines {
         if let Some(last) = after.last_mut() {
             *last += 1;
         }
-        (lo, self.lower_bound_in(lo, within.1, after))
+        // The lines that start with `prefix` follow `lo`, and there are usually few: gallop on
+        // to where they end instead of searching all the rest.
+        let bytes = self.text.as_bytes();
+        let (mut good, mut end, mut step) = (lo, within.1, 64usize);
+        while good + step < end {
+            let probe = good + step;
+            let start = bytes[good..probe]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(good, |p| good + p + 1);
+            let (line, next) = self.line_at(start);
+            if first_field(line).as_bytes().starts_with(prefix) {
+                good = next;
+                step *= 2;
+            } else {
+                end = start;
+            }
+        }
+        (lo, self.lower_bound_in(good, end, after))
     }
 
     /// The line in `within` (a range of lines) whose first field is `key`.
