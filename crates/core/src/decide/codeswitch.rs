@@ -292,6 +292,8 @@ struct Table {
     back: Vec<[Back; CELLS]>,
     /// Scores of the positions from `base` on.
     scores: Vec<[f64; CELLS]>,
+    /// Which cells of those positions have a path (bit `cell`): few do.
+    used: Vec<u64>,
     base: usize,
 }
 
@@ -304,6 +306,7 @@ impl Table {
         Self {
             back: Vec::new(),
             scores: Vec::new(),
+            used: Vec::new(),
             base: 0,
         }
     }
@@ -312,17 +315,29 @@ impl Table {
     fn truncate(&mut self, len: usize) {
         self.back.truncate(len);
         self.scores.truncate(len.saturating_sub(self.base));
+        self.used.truncate(len.saturating_sub(self.base));
     }
 
     fn resize(&mut self, len: usize) {
         self.back.resize(len, [0; CELLS]);
         self.scores.resize(len - self.base, [NO_SCORE; CELLS]);
+        self.used.resize(len - self.base, 0);
     }
 
     /// Forgets the scores before `floor`.
     fn trim(&mut self, floor: usize) {
         self.scores.drain(..floor - self.base);
+        self.used.drain(..floor - self.base);
         self.base = floor;
+    }
+
+    /// The cells of a position that have a path, one bit each.
+    fn used(&self, pos: usize) -> u64 {
+        self.used[pos - self.base]
+    }
+
+    fn score_of(&self, pos: usize, at: usize) -> f64 {
+        self.scores[pos - self.base][at]
     }
 
     fn score(&self, pos: usize, class: usize, state: usize) -> Option<f64> {
@@ -344,6 +359,7 @@ impl Table {
         if total > *slot {
             debug_assert!(pos - from < 64, "an edge is at most LOOKBACK keys");
             *slot = total;
+            self.used[pos - self.base] |= 1 << at;
             self.back[pos][at] =
                 (pos - from) as Back | (prev_class as Back) << 6 | (prev_state as Back) << 9;
         }
@@ -1357,11 +1373,13 @@ impl CodeSwitch {
             if fresh.is_empty() {
                 continue;
             }
-            for prev in CLASSES {
-                for switched in 0..STATES {
-                    let Some(score) = table.score(pos, prev.index(), switched) else {
-                        continue;
-                    };
+            let mut used = table.used(pos);
+            while used != 0 {
+                let at = used.trailing_zeros() as usize;
+                used &= used - 1;
+                let (prev, switched) = (CLASSES[at / STATES], at % STATES);
+                {
+                    let score = table.score_of(pos, at);
                     for edge in fresh.iter().map(|k| &starting[*k as usize]) {
                         let Some((cost, changes)) = self.join(prev, edge, edge.end() - pos, n)
                         else {
