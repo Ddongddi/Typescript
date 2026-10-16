@@ -9,6 +9,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-16
+
 ### 추가
 - 일본어를 한자로 바꾸는 중에 **후보 목록 창**이 뜹니다: 선택한 줄이 강조되고, 1–9는 현재 페이지의 줄을 고릅니다. 후보가 9개를 넘으면 `1/2`처럼 페이지가 나뉘고, 목록이 화면 아래로 넘치면 단어 위로 뒤집혀 뜹니다.
 - 후보 목록이 떠 있는 동안 스페이스·방향키·숫자가 목록을 조작합니다: 전에는 이 키들이 앱으로 새어 나가 스페이스나 숫자가 그대로 입력되고 확인이 안 됐습니다.
@@ -295,7 +297,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...HEAD
+[0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5

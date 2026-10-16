@@ -9,6 +9,8 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-16
+
 ### Added
 - Converting Japanese to kanji now shows a **candidate list window**: the selected line is highlighted, 1–9 pick from the current page, lists past nine candidates page as `1/2`, and the list flips above the word when it would run off the bottom of the screen.
 - While the candidate list is open, Space, the arrow keys and the digits act on it: before, those keys leaked to the app and typed a space or a digit instead of moving through or confirming.
@@ -295,7 +297,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...HEAD
+[0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
