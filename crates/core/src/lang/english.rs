@@ -223,6 +223,14 @@ impl EnglishModel {
     /// `level` of the first `len` letters of the walk (1 ≤ len ≤ walk.len()): the same answer,
     /// read off the steps already walked.
     pub fn walk_level(&self, walk: &Walk, len: usize) -> Option<i32> {
+        // A form of a listed word has its stem (at most 4 letters shorter, +e or +y) in the
+        // list: when no word starts with the first `len - 4` letters, none of it can be.
+        if len > 4 {
+            let (lo, hi) = walk.steps[len - 5].lines;
+            if lo == hi {
+                return None;
+            }
+        }
         if let Some(level) = self.walk_line(walk, len).and_then(level_of) {
             return Some(level);
         }
