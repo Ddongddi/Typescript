@@ -345,7 +345,7 @@ fn objective(cs: &CodeSwitch, sets: &[Set]) -> f64 {
 
 type Field = (&'static str, fn(&mut Params) -> &mut f64, &'static [f64]);
 
-const FIELDS: [Field; 16] = [
+const FIELDS: [Field; 17] = [
     ("switch_cost", |p| &mut p.switch_cost, &[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0]),
     ("en_oov", |p| &mut p.en_oov, &[0.0, 2.0, 3.0, 5.0, 7.0, 9.0, 12.0]),
     ("ko_oov", |p| &mut p.ko_oov, &[0.0, 1.0, 1.5, 2.5, 3.5, 5.0, 7.0]),
@@ -358,6 +358,7 @@ const FIELDS: [Field; 16] = [
     ("label_logp", |p| &mut p.label_logp, &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0]),
     ("label_noun", |p| &mut p.label_noun, &[0.0, 2.0, 3.0, 4.0, 6.0, 8.0]),
     ("label_mid", |p| &mut p.label_mid, &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0]),
+    ("label_oov", |p| &mut p.label_oov, &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0]),
     ("cap_penalty", |p| &mut p.cap_penalty, &[0.0, 3.0, 6.0, 10.0]),
     ("margin", |p| &mut p.margin, &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0]),
     ("weak_margin", |p| &mut p.weak_margin, &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0]),

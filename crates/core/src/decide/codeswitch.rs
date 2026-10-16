@@ -108,6 +108,8 @@ pub struct Params {
     pub label_noun: f64,
     /// A noun that a label names and more of the token follows (B급의) costs this much more.
     pub label_mid: f64,
+    /// So does a noun that is one syllable and no word of its own (the 규 of brb).
+    pub label_oov: f64,
     /// Per capital in a Korean edge that no shifted jamo explains (the S of Slack).
     pub cap_penalty: f64,
     /// How far the best mixed path has to beat the best single-language one.
@@ -137,6 +139,7 @@ impl Default for Params {
             label_logp: -10.0,
             label_noun: 3.5,
             label_mid: 6.0,
+            label_oov: 2.0,
             cap_penalty: 10.0,
             margin: 0.0,
             lead_en: 5.0,
@@ -170,6 +173,7 @@ impl Params {
                 "label_logp" => self.label_logp = v,
                 "label_noun" => self.label_noun = v,
                 "label_mid" => self.label_mid = v,
+                "label_oov" => self.label_oov = v,
                 "cap_penalty" => self.cap_penalty = v,
                 "margin" => self.margin = v,
                 "weak_margin" => self.weak_margin = v,
@@ -228,11 +232,27 @@ struct Edge {
     pending: bool,
     /// One syllable that is also a particle or ending (야, 해): no noun for a label.
     ending_like: bool,
-    /// One syllable that is a word of its own, said often (좀, 해): evidence of Korean.
-    known: bool,
+    /// What a one-syllable edge is as a word of its own (좀, 해 are said often: evidence of Korean).
+    standing: Standing,
+}
+
+/// How much a lone Korean syllable (or a verb form) is a word.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Standing {
+    /// In no word list.
+    Stray,
+    /// In a word list (팀, 방), but not said often.
+    Listed,
+    /// Said often (좀, 해), or an ending of two syllables or more (해서).
+    Said,
 }
 
 impl Edge {
+    /// A word of its own, said often.
+    fn said(&self) -> bool {
+        self.standing == Standing::Said
+    }
+
     fn end(&self) -> usize {
         self.to as usize
     }
@@ -244,7 +264,7 @@ impl Edge {
             score,
             pending: false,
             ending_like: false,
-            known: false,
+            standing: Standing::Stray,
         }
     }
 }
@@ -577,10 +597,10 @@ const SYLLABLE_WORDS: usize = SYLLABLES.div_ceil(64);
 thread_local! {
     /// The composer `reads_as_korean` keeps its allocation in.
     static COMPOSER: RefCell<ComposerState> = RefCell::new(ComposerState::default());
-    /// Per syllable whether it was looked up (the first half), then whether it is a frequent
-    /// word (the second).
-    static FREQUENT: RefCell<[u64; 2 * SYLLABLE_WORDS]> =
-        const { RefCell::new([0; 2 * SYLLABLE_WORDS]) };
+    /// Per syllable, in three parts: whether it was looked up, whether it is in a word list,
+    /// whether it is a word said often.
+    static STANDING: RefCell<[u64; 3 * SYLLABLE_WORDS]> =
+        const { RefCell::new([0; 3 * SYLLABLE_WORDS]) };
     static LAST: RefCell<Option<Cache>> = const { RefCell::new(None) };
 }
 
@@ -1091,13 +1111,20 @@ impl CodeSwitch {
                 walk.narrow_lines(&self.korean);
                 let word = walk.word.as_str();
                 let ending_like = is_ending(word);
-                // A lone syllable that is a word of its own, said often (좀, 해).
-                let frequent = syllables == 1 && self.is_frequent_syllable(word);
+                let standing = if syllables == 1 {
+                    self.lone_standing(word)
+                } else {
+                    Standing::Stray
+                };
                 let mut push = |class, score: f64| {
                     edges[i].push(Edge {
                         ending_like: ending_like && class == Class::KoOov,
                         // An ending of two syllables or more (해서, 했어) is a verb form, not a stray.
-                        known: frequent || (class == Class::KoEnding && syllables >= 2),
+                        standing: if class == Class::KoEnding && syllables >= 2 {
+                            Standing::Said
+                        } else {
+                            standing
+                        },
                         ..Edge::new(j, class, score - caps)
                     });
                 };
@@ -1122,26 +1149,35 @@ impl CodeSwitch {
 
     /// Whether a lone syllable is a Korean word said often (`LONE_KNOWN_LOGP`); a few hundred
     /// syllables come up again and again, so each is looked up once.
-    fn is_frequent_syllable(&self, word: &str) -> bool {
+    fn lone_standing(&self, word: &str) -> Standing {
         let Some(slot) = word
             .chars()
             .next()
             .and_then(|c| (c as usize).checked_sub('가' as usize))
             .filter(|slot| *slot < SYLLABLES)
         else {
-            return false;
+            return Standing::Stray;
         };
-        FREQUENT.with(|cache| {
+        STANDING.with(|cache| {
             let mut cache = cache.borrow_mut();
             let (word_at, bit) = (slot / 64, 1u64 << (slot % 64));
             if cache[word_at] & bit == 0 {
                 cache[word_at] |= bit;
                 let logp = self.korean.word_log_probability(word);
-                if logp.is_some_and(|logp| logp > LONE_KNOWN_LOGP) {
+                if logp.is_some() {
                     cache[SYLLABLE_WORDS + word_at] |= bit;
                 }
+                if logp.is_some_and(|logp| logp > LONE_KNOWN_LOGP) {
+                    cache[2 * SYLLABLE_WORDS + word_at] |= bit;
+                }
             }
-            cache[SYLLABLE_WORDS + word_at] & bit != 0
+            if cache[2 * SYLLABLE_WORDS + word_at] & bit != 0 {
+                Standing::Said
+            } else if cache[SYLLABLE_WORDS + word_at] & bit != 0 {
+                Standing::Listed
+            } else {
+                Standing::Stray
+            }
         })
     }
 
@@ -1228,7 +1264,7 @@ impl CodeSwitch {
     fn hosts(edge: &Edge, prev: Class) -> bool {
         match edge.class {
             Class::EnWord | Class::EnOov | Class::EnLabel | Class::KoWord => true,
-            Class::KoOov => edge.known || matches!(prev, Class::KoOov | Class::EnLabel),
+            Class::KoOov => edge.said() || matches!(prev, Class::KoOov | Class::EnLabel),
             Class::KoEnding | Class::KoCase => false,
         }
     }
@@ -1252,7 +1288,13 @@ impl CodeSwitch {
                 Class::KoWord | Class::KoOov if !edge.ending_like => {
                     // One that more of the token follows has to be worth it.
                     let more = if edge.end() == n { 0.0 } else { p.label_mid };
-                    Some((p.switch_cost - p.label_noun + more, true))
+                    // A syllable that is no word at all is a thin noun (the 규 of brb).
+                    let thin = if edge.class == Class::KoOov && edge.standing == Standing::Stray {
+                        p.label_oov
+                    } else {
+                        0.0
+                    };
+                    Some((p.switch_cost - p.label_noun + more + thin, true))
                 }
                 _ => None,
             };
@@ -1329,7 +1371,7 @@ impl CodeSwitch {
                         let strong = match edge.class {
                             Class::KoWord => true,
                             Class::KoCase => switched & HOST != 0 || prev == Class::EnLabel,
-                            _ => edge.known || prev == Class::EnLabel,
+                            _ => edge.said() || prev == Class::EnLabel,
                         };
                         let now = (switched & SWITCHED | usize::from(changes))
                             | (switched & STRONG)
