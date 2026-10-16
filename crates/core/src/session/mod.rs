@@ -240,6 +240,11 @@ impl InputSession {
     pub fn is_composing(&self) -> bool {
         !self.word.is_empty()
     }
+    /// A Japanese conversion (the candidate list) is open: Space, the arrows and the
+    /// digits act on it, not on the app.
+    pub fn is_converting(&self) -> bool {
+        self.ja.conversion.is_some()
+    }
     /// A just-committed word can still be flipped with Esc.
     pub fn has_flip_window(&self) -> bool {
         self.last_commit.is_some()

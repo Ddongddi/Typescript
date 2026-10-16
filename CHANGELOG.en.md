@@ -11,6 +11,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 - Converting Japanese to kanji now shows a **candidate list window**: the selected line is highlighted, 1–9 pick from the current page, lists past nine candidates page as `1/2`, and the list flips above the word when it would run off the bottom of the screen.
+- While the candidate list is open, Space, the arrow keys and the digits act on it: before, those keys leaked to the app and typed a space or a digit instead of moving through or confirming.
 
 ## [0.8.7] - 2026-10-16
 

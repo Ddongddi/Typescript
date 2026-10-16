@@ -259,6 +259,7 @@ impl Inner {
         let Some(key) = key_for(vk) else { return false };
         matches!(key, Key::Letter(_))
             || session.is_composing()
+            || session.is_converting()
             || session.has_flip_window()
             || session.claims_key(key)
     }
