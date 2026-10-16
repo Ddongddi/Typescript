@@ -68,6 +68,12 @@ impl SortedLines {
         (lo, self.lower_bound_in(lo, within.1, after))
     }
 
+    /// The line in `within` (a range of lines) whose first field is `key`.
+    pub fn get_in(&self, within: (usize, usize), key: &[u8]) -> Option<&'static str> {
+        let lo = self.lower_bound_in(within.0, within.1, key);
+        self.exact_in((lo, within.1), key)
+    }
+
     /// The first line of `lines` when its first field is `key`.
     pub fn exact_in(&self, lines: (usize, usize), key: &[u8]) -> Option<&'static str> {
         if lines.0 >= lines.1 {

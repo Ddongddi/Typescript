@@ -293,6 +293,20 @@ impl ComposerState {
         }
     }
 
+    /// Starts over, keeping the allocation.
+    pub fn clear(&mut self) {
+        self.units.clear();
+        self.cho = None;
+        self.jung = None;
+        self.jong = None;
+    }
+
+    /// How many units are closed: the syllable being built is not among them, and what is
+    /// closed never changes as more jamo come in.
+    pub fn closed_len(&self) -> usize {
+        self.units.len()
+    }
+
     /// Calls `f` on every unit of the composition so far, the open syllable included, without
     /// closing it: the same units `finish` would return, with no allocation.
     pub fn for_each_unit(&self, mut f: impl FnMut(Unit)) {

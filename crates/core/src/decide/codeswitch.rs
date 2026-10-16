@@ -17,7 +17,7 @@ use std::cell::RefCell;
 use crate::decide::engine::{Decision, DecisionContext, Language};
 use crate::lang::english::{EnglishModel, Walk};
 use crate::lang::hangul::{is_consonant, ComposerState, DubeolsikLayout, HangulComposer, Unit};
-use crate::lang::korean::{KoreanModel, PENDING_CONSONANT_LOGP, UNKNOWN_SYLLABLE_LOGP};
+use crate::lang::korean::{KoreanModel, WordLines, PENDING_CONSONANT_LOGP, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::particles::{is_ending, is_single_letter_particle};
 
 const MIN_KEYS: usize = 2;
@@ -260,14 +260,182 @@ struct Cache {
 struct Walks {
     head: Walk,
     ring: Vec<(usize, Walk)>,
+    /// What the keys from each of the last `LOOKBACK` start keys compose to, by start.
+    korean: Vec<KoWalk>,
+}
+
+/// The Hangul that the keys from one start key compose to, kept between keystrokes: a new key
+/// is pushed into the composition and judged, where composing the stretch again would start
+/// from its first key.
+struct KoWalk {
+    start: usize,
+    /// The keys pushed so far.
+    keys: Vec<u8>,
+    state: ComposerState,
+    /// Whether a stray jamo sat before a later unit in a stretch up to the key before the
+    /// last (no longer stretch can be Korean), and whether the stretches stopped there.
+    dead: bool,
+    over: bool,
+    /// Capitals that no shifted jamo explains.
+    capitals: usize,
+    /// The composed Hangul of the last stretch judged.
+    word: String,
+    /// The words that start like the first `closed` syllables of `word`.
+    closed: usize,
+    lines: WordLines,
+}
+
+/// A stretch judged: no longer one can be Korean, it can't be, or it is.
+enum Verdict {
+    Stop,
+    Skip,
+    Fit {
+        syllables: usize,
+        pending: bool,
+        /// Sum of the probabilities of its syllables.
+        oov: f64,
+    },
+}
+
+impl KoWalk {
+    fn new() -> Self {
+        Self {
+            start: 0,
+            keys: Vec::new(),
+            state: ComposerState::default(),
+            dead: false,
+            over: false,
+            capitals: 0,
+            word: String::new(),
+            closed: 0,
+            lines: KoreanModel::word_lines(),
+        }
+    }
+
+    fn clear(&mut self) {
+        self.keys.clear();
+        self.state.clear();
+        self.dead = false;
+        self.over = false;
+        self.capitals = 0;
+        self.closed = 0;
+        self.lines = KoreanModel::word_lines();
+    }
+
+    /// Judges the stretch of the keys pushed. `at_end`: the last key of the token, which may
+    /// leave the next syllable's first consonant alone while it is still typed. Also says
+    /// whether the walk is dead after it.
+    fn judge(&mut self, korean: &KoreanModel, at_end: bool, partial: bool) -> (Verdict, bool) {
+        if self.over {
+            return (Verdict::Stop, self.dead);
+        }
+        let (mut dead, mut syllables) = (self.dead, 0usize);
+        let (mut feasible, mut pending, mut oov) = (true, false, 0.0);
+        let word = &mut self.word;
+        word.clear();
+        self.state.for_each_unit(|unit| {
+            // A stray before a later unit stays a stray however long the stretch gets.
+            dead |= !feasible;
+            // Only the last unit may be the next syllable's first consonant.
+            feasible &= !pending;
+            match unit {
+                Unit::Syllable(s) => {
+                    oov += korean.plausible_log_probability(s);
+                    syllables += 1;
+                    word.push(s);
+                }
+                Unit::Jamo(jamo) if partial && at_end && is_consonant(jamo) => pending = true,
+                Unit::Jamo(_) => feasible = false,
+            }
+        });
+        let verdict = if !feasible {
+            if dead {
+                Verdict::Stop
+            } else {
+                Verdict::Skip
+            }
+        } else if syllables > KO_MAX_SYLLABLES {
+            Verdict::Stop
+        } else {
+            Verdict::Fit {
+                syllables,
+                pending,
+                oov,
+            }
+        };
+        (verdict, dead)
+    }
+
+    /// Pushes the next key. The stretch up to the key before is judged now that it is no
+    /// longer the last (that is when a stray before a later unit shows).
+    fn push(&mut self, korean: &KoreanModel, key: u8) -> Option<()> {
+        let jamo = DubeolsikLayout::jamo(key as char)?;
+        if !self.keys.is_empty() {
+            let (verdict, dead) = self.judge(korean, false, false);
+            self.dead = dead;
+            self.over |= matches!(verdict, Verdict::Stop);
+        }
+        self.state.push(jamo);
+        self.keys.push(key);
+        let c = key as char;
+        self.capitals += usize::from(c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c));
+        Some(())
+    }
+
+    /// Brings the walk to exactly `len` keys of `keys` (from the start key on), keeping what
+    /// is already walked when it is the same keys.
+    fn sync(&mut self, korean: &KoreanModel, keys: &[u8], len: usize) -> Option<()> {
+        let same = self
+            .keys
+            .iter()
+            .zip(keys)
+            .take_while(|(a, b)| a == b)
+            .count();
+        if same < self.keys.len() || self.keys.len() > len {
+            self.clear();
+        }
+        while self.keys.len() < len && !self.over {
+            self.push(korean, keys[self.keys.len()])?;
+        }
+        Some(())
+    }
+
+    /// The word lists narrowed to the words that start like the closed syllables of `word`.
+    fn narrow_lines(&mut self, korean: &KoreanModel) {
+        let closed = self.state.closed_len();
+        while self.closed < closed {
+            self.closed += 1;
+            let end = self
+                .word
+                .char_indices()
+                .nth(self.closed)
+                .map_or(self.word.len(), |(at, _)| at);
+            self.lines = korean.narrow(self.lines, &self.word[..end]);
+        }
+    }
 }
 
 impl Walks {
     fn new() -> Self {
         Self {
             head: Walk::default(),
-            ring: (0..EN_MAX).map(|_| (0, Walk::default())).collect(),
+            ring: Vec::new(),
+            korean: Vec::new(),
         }
+    }
+
+    /// The walk of the Hangul from start key `i`.
+    fn korean_of(&mut self, i: usize) -> &mut KoWalk {
+        let slot = i % LOOKBACK;
+        if self.korean.len() <= slot {
+            self.korean.resize_with(slot + 1, KoWalk::new);
+        }
+        let slot = &mut self.korean[slot];
+        if slot.start != i {
+            slot.clear();
+            slot.start = i;
+        }
+        slot
     }
 
     /// The walk of the stretches that start at key `i` (empty if it was another start's).
@@ -275,7 +443,11 @@ impl Walks {
         if i == 0 {
             return &mut self.head;
         }
-        let slot = &mut self.ring[i % EN_MAX];
+        let slot = i % EN_MAX;
+        if self.ring.len() <= slot {
+            self.ring.resize_with(slot + 1, || (0, Walk::default()));
+        }
+        let slot = &mut self.ring[slot];
         if slot.0 != i {
             *slot = (i, Walk::default());
         }
@@ -285,7 +457,15 @@ impl Walks {
 
 const EMPTY_ROW: [[Cell; STATES]; 7] = [[None; STATES]; 7];
 
+/// Hangul syllables, and the 64-bit words that hold a bit for each.
+const SYLLABLES: usize = 11172;
+const SYLLABLE_WORDS: usize = SYLLABLES.div_ceil(64);
+
 thread_local! {
+    /// Per syllable whether it was looked up (the first half), then whether it is a frequent
+    /// word (the second).
+    static FREQUENT: RefCell<[u64; 2 * SYLLABLE_WORDS]> =
+        const { RefCell::new([0; 2 * SYLLABLE_WORDS]) };
     static LAST: RefCell<Option<Cache>> = const { RefCell::new(None) };
 }
 
@@ -622,7 +802,7 @@ impl CodeSwitch {
             for list in &mut cache.edges[kept.saturating_sub(LOOKBACK).min(n)..] {
                 list.retain(|e| e.end() < kept);
             }
-            self.korean_edges(keys, context, &mut cache.edges, kept)?;
+            self.korean_edges(keys, context, &mut cache.edges, &mut cache.walks, kept)?;
             self.english_edges(keys, context, &mut cache.edges, &mut cache.walks, kept);
             cache.table.truncate(kept);
             cache.table.resize(n + 1, EMPTY_ROW);
@@ -641,73 +821,35 @@ impl CodeSwitch {
         keys: &str,
         context: &DecisionContext,
         edges: &mut [Vec<Edge>],
+        walks: &mut Walks,
         min_end: usize,
     ) -> Option<()> {
         let bytes = keys.as_bytes();
         let n = bytes.len();
         let p = &self.params;
-        let mut word = String::new();
         for i in min_end.saturating_sub(LOOKBACK)..n {
             // A syllable starts on a consonant key; a stretch led by a vowel is all strays.
             if !DubeolsikLayout::starts_syllable(bytes[i] as char) {
                 continue;
             }
-            let mut state = ComposerState::default();
-            let mut dead = false;
-            for j in i + 1..=n {
-                state.push(DubeolsikLayout::jamo(bytes[j - 1] as char)?);
-                let (mut syllables, mut feasible, mut pending) = (0usize, true, false);
-                let mut oov = 0.0;
-                word.clear();
-                state.for_each_unit(|unit| {
-                    // A stray before a later unit stays a stray however long the stretch gets.
-                    dead |= !feasible;
-                    // Only the last unit may be the next syllable's first consonant.
-                    feasible &= !pending;
-                    match unit {
-                        Unit::Syllable(s) => {
-                            oov += self.korean.plausible_log_probability(s);
-                            syllables += 1;
-                            word.push(s);
-                        }
-                        Unit::Jamo(jamo) if context.partial && j == n && is_consonant(jamo) => {
-                            pending = true;
-                        }
-                        Unit::Jamo(_) => feasible = false,
-                    }
-                });
-                if !feasible {
-                    if dead {
-                        break;
-                    }
-                    continue;
+            let walk = walks.korean_of(i);
+            let first = (i + 1).max(min_end);
+            walk.sync(&self.korean, &bytes[i..], first - i)?;
+            for j in first..=n {
+                if walk.keys.len() < j - i {
+                    walk.push(&self.korean, bytes[j - 1])?;
                 }
-                if syllables > KO_MAX_SYLLABLES {
-                    break;
-                }
-                if j < min_end {
-                    continue;
-                }
-                let capitals = keys[i..j]
-                    .chars()
-                    .filter(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(*c))
-                    .count();
-                let caps = p.cap_penalty * capitals as f64;
-                let ending_like = is_ending(&word);
-                // A lone syllable that is a word of its own, said often (좀, 해).
-                let frequent = syllables == 1
-                    && self
-                        .korean
-                        .word_log_probability(&word)
-                        .is_some_and(|logp| logp > LONE_KNOWN_LOGP);
-                let mut push = |class, score: f64| {
-                    edges[i].push(Edge {
-                        ending_like: ending_like && class == Class::KoOov,
-                        // An ending of two syllables or more (해서, 했어) is a verb form, not a stray.
-                        known: frequent || (class == Class::KoEnding && syllables >= 2),
-                        ..Edge::new(j, class, score - caps)
-                    });
+                let (verdict, _) = walk.judge(&self.korean, j == n, context.partial);
+                let (syllables, pending, oov) = match verdict {
+                    Verdict::Stop => break,
+                    Verdict::Skip => continue,
+                    Verdict::Fit {
+                        syllables,
+                        pending,
+                        oov,
+                    } => (syllables, pending, oov),
                 };
+                let caps = p.cap_penalty * walk.capitals as f64;
                 if pending {
                     // The next syllable's first consonant, alone, while the token is still typed.
                     if syllables == 0 {
@@ -721,23 +863,61 @@ impl CodeSwitch {
                 if syllables == 0 {
                     continue;
                 }
-                if context.after_digit && i == 0 && is_counter_word(&word) {
+                walk.narrow_lines(&self.korean);
+                let word = walk.word.as_str();
+                let ending_like = is_ending(word);
+                // A lone syllable that is a word of its own, said often (좀, 해).
+                let frequent = syllables == 1 && self.is_frequent_syllable(word);
+                let mut push = |class, score: f64| {
+                    edges[i].push(Edge {
+                        ending_like: ending_like && class == Class::KoOov,
+                        // An ending of two syllables or more (해서, 했어) is a verb form, not a stray.
+                        known: frequent || (class == Class::KoEnding && syllables >= 2),
+                        ..Edge::new(j, class, score - caps)
+                    });
+                };
+                if context.after_digit && i == 0 && is_counter_word(word) {
                     push(Class::KoWord, p.digit_bonus);
                 }
-                if is_single_letter_particle(&word) {
+                if is_single_letter_particle(word) {
                     push(Class::KoCase, p.ending_logp);
-                } else if is_ending(&word) {
+                } else if ending_like {
                     push(Class::KoEnding, p.ending_logp);
                 }
                 if syllables == 1 {
                     let lead = if i == 0 { p.lead_ko } else { 0.0 };
                     push(Class::KoOov, oov - p.ko_oov + lead);
-                } else if let Some(logp) = self.korean.word_log_probability(&word) {
+                } else if let Some(logp) = self.korean.word_log_probability_in(walk.lines, word) {
                     push(Class::KoWord, logp);
                 }
             }
         }
         Some(())
+    }
+
+    /// Whether a lone syllable is a Korean word said often (`LONE_KNOWN_LOGP`); a few hundred
+    /// syllables come up again and again, so each is looked up once.
+    fn is_frequent_syllable(&self, word: &str) -> bool {
+        let Some(slot) = word
+            .chars()
+            .next()
+            .and_then(|c| (c as usize).checked_sub('가' as usize))
+            .filter(|slot| *slot < SYLLABLES)
+        else {
+            return false;
+        };
+        FREQUENT.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            let (word_at, bit) = (slot / 64, 1u64 << (slot % 64));
+            if cache[word_at] & bit == 0 {
+                cache[word_at] |= bit;
+                let logp = self.korean.word_log_probability(word);
+                if logp.is_some_and(|logp| logp > LONE_KNOWN_LOGP) {
+                    cache[SYLLABLE_WORDS + word_at] |= bit;
+                }
+            }
+            cache[SYLLABLE_WORDS + word_at] & bit != 0
+        })
     }
 
     fn english_edges(

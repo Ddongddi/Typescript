@@ -111,6 +111,13 @@ pub enum Source {
     Max,
 }
 
+/// A range of lines in each word list (byte offsets): the words that start like some prefix.
+#[derive(Clone, Copy)]
+pub struct WordLines {
+    words: (usize, usize),
+    vocabulary: (usize, usize),
+}
+
 pub struct KoreanScore {
     /// Average log-probability per keystroke.
     pub average_log_probability: f64,
@@ -251,6 +258,45 @@ impl KoreanModel {
         let ranked = VOCABULARY
             .get()
             .get(hangul)
+            .and_then(number)
+            .map(|rank| -RANK_LOGP - RANK_SLOPE * rank.ln());
+        match (counted, ranked) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        }
+    }
+
+    /// The lines of both word lists (counted words, vocabulary), to narrow by a word's syllables.
+    pub fn word_lines() -> WordLines {
+        WordLines {
+            words: WORDS.get().span(),
+            vocabulary: VOCABULARY.get().span(),
+        }
+    }
+
+    /// The lines of `within` that start with `prefix`.
+    pub fn narrow(&self, within: WordLines, prefix: &str) -> WordLines {
+        WordLines {
+            words: WORDS.get().prefix_range(within.words, prefix.as_bytes()),
+            vocabulary: VOCABULARY
+                .get()
+                .prefix_range(within.vocabulary, prefix.as_bytes()),
+        }
+    }
+
+    /// `word_log_probability` searching only `within`, lines that start like `hangul` (the
+    /// word's first syllables, `narrow`ed): a walk over the syllables of a word asks for each
+    /// longer word without searching the whole lists.
+    pub fn word_log_probability_in(&self, within: WordLines, hangul: &str) -> Option<f64> {
+        let number = |line: &str| line.split('\t').nth(1)?.parse::<f64>().ok();
+        let counted = WORDS
+            .get()
+            .get_in(within.words, hangul.as_bytes())
+            .and_then(number)
+            .map(|count| (count / WORDS_TOTAL).ln());
+        let ranked = VOCABULARY
+            .get()
+            .get_in(within.vocabulary, hangul.as_bytes())
             .and_then(number)
             .map(|rank| -RANK_LOGP - RANK_SLOPE * rank.ln());
         match (counted, ranked) {
