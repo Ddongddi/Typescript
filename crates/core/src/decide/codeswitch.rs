@@ -241,8 +241,9 @@ struct Edge {
     score: f64,
     /// A lone consonant: the next syllable's first key, while the token is still typed.
     pending: bool,
-    /// One syllable that is also a particle or ending (야, 해): no noun for a label.
-    ending_like: bool,
+    /// A Korean syllable that is also a particle or ending (야, 해): no noun for a label. An
+    /// English run: its letters were scored for the end of the token (not yet closed).
+    aux: bool,
     /// What a one-syllable edge is as a word of its own (좀, 해 are said often: evidence of Korean).
     standing: Standing,
 }
@@ -259,6 +260,16 @@ enum Standing {
 }
 
 impl Edge {
+    /// A Korean syllable that is also a particle or ending.
+    fn ending_like(&self) -> bool {
+        self.aux && self.class == Class::KoOov
+    }
+
+    /// An English run whose letters are scored without the word end.
+    fn open(&self) -> bool {
+        self.aux && self.class == Class::EnOov
+    }
+
     /// A word of its own, said often.
     fn said(&self) -> bool {
         self.standing == Standing::Said
@@ -274,7 +285,7 @@ impl Edge {
             class,
             score,
             pending: false,
-            ending_like: false,
+            aux: false,
             standing: Standing::Stray,
         }
     }
@@ -1055,10 +1066,18 @@ impl CodeSwitch {
         // edges that were built for the end: English ones (the letters' closing) and a lone
         // first consonant. A Korean edge is the same either way: keep it.
         let carry = kept < n;
+        // An English edge is the same too, bar the closing of its letters (made good in
+        // `english_edges`), unless a digit follows or comes before.
+        let carry_en = carry && !context.before_digit && !context.after_digit;
         for list in &mut cache.edges[kept.saturating_sub(LOOKBACK).min(n)..] {
             list.retain(|e| {
                 e.end() < kept
-                    || (carry && e.end() == kept && e.class.kind() == Kind::Korean && !e.pending)
+                    || (e.end() == kept
+                        && if e.class.kind() == Kind::Korean {
+                            carry && !e.pending
+                        } else {
+                            carry_en
+                        })
             });
         }
         self.korean_edges(keys, context, &mut cache.edges, &mut cache.walks, kept)?;
@@ -1149,7 +1168,7 @@ impl CodeSwitch {
                 };
                 let mut push = |class, score: f64| {
                     edges[i].push(Edge {
-                        ending_like: ending_like && class == Class::KoOov,
+                        aux: ending_like && class == Class::KoOov,
                         // An ending of two syllables or more (해서, 했어) is a verb form, not a stray.
                         standing: if class == Class::KoEnding && syllables >= 2 {
                             Standing::Said
@@ -1230,7 +1249,18 @@ impl CodeSwitch {
             let walk = walks.of(i);
             self.english
                 .walk_to(walk, &keys.as_bytes()[i..n.min(i + EN_MAX)]);
-            for j in (i + 1).max(min_end)..=n.min(i + EN_MAX) {
+            // The edges kept at `min_end` were built for the end of the token: close their letters.
+            let carried = min_end < n && !context.before_digit && !context.after_digit;
+            if carried {
+                for edge in edges[i]
+                    .iter_mut()
+                    .filter(|e| e.end() == min_end && e.open())
+                {
+                    edge.score = self.english.walk_letters(walk, min_end - i, true) - p.en_oov;
+                    edge.aux = false;
+                }
+            }
+            for j in (i + 1).max(min_end + usize::from(carried))..=n.min(i + EN_MAX) {
                 let seg = &keys[i..j];
                 let len = j - i;
                 if i == 0 && is_label(seg) {
@@ -1267,7 +1297,10 @@ impl CodeSwitch {
                 edges[i].push(if unit {
                     Edge::new(j, Class::EnWord, letters + bonus)
                 } else {
-                    Edge::new(j, Class::EnOov, letters - p.en_oov + bonus)
+                    Edge {
+                        aux: !closed,
+                        ..Edge::new(j, Class::EnOov, letters - p.en_oov + bonus)
+                    }
                 });
             }
         }
@@ -1320,7 +1353,7 @@ impl CodeSwitch {
         if prev == Class::EnLabel {
             return match edge.class {
                 Class::KoCase => Some((p.switch_cost, true)),
-                Class::KoWord | Class::KoOov if !edge.ending_like => {
+                Class::KoWord | Class::KoOov if !edge.ending_like() => {
                     // One that more of the token follows has to be worth it.
                     let more = if edge.end() == n { 0.0 } else { p.label_mid };
                     // A syllable that is no word at all is a thin noun (the 규 of brb).
