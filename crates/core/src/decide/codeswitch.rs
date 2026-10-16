@@ -56,7 +56,7 @@ const UNITS: [&str; 20] = [
 const MIN_KEYS: usize = 2;
 /// Shorter English words lead a Korean-reading token by chance (gus in gusrl).
 const LEAD_WORD_KEYS: usize = 4;
-const MAX_KEYS: usize = 32;
+const MAX_KEYS: usize = 96;
 /// How sure a Mixed answer is, until the score gap sets it.
 const CONFIDENCE: f64 = 0.98;
 
@@ -688,6 +688,20 @@ mod tests {
         ] {
             assert_eq!(split(keys).as_deref(), Some(text), "{keys}");
         }
+    }
+
+    /// A whole sentence typed with no space is one long token: it splits like a short one.
+    #[test]
+    fn splits_a_long_unspaced_sentence() {
+        let keys = "dkssudgktpdygithubdptjcommitgktpdy";
+        assert_eq!(
+            split(keys).as_deref(),
+            Some("안녕하세요github에서commit하세요")
+        );
+        let long = keys.repeat(2);
+        assert!(long.len() > 64 && split(&long).is_some(), "{long}");
+        // Past the cap the search is skipped, not slow.
+        assert_eq!(split(&keys.repeat(4)), None);
     }
 
     /// A hyphen is no Korean key, so it can only sit inside an English stretch.
