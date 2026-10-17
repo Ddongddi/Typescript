@@ -9,6 +9,11 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Changed
+
+- The welcome guide's Esc screen no longer depends on the engine getting a word wrong. If `깨짐` (`Rowla`) comes out right, Esc shows the other reading and one more press brings it back; if it stayed English, Esc fixes it as before. The three rounds are now one.
+- The welcome guide's language screen no longer has a "skip the tutorial" button: pick a language and press Start to go on.
+
 ## [0.9.0] - 2026-10-17
 
 ### Changed

@@ -333,8 +333,8 @@ function shortcutScreen() {
 const hasPack = (state) =>
   state.order.some((id) => (state.languages.find((l) => l.id === id) || {}).installed);
 
-// The list of languages (English and Korean ticked), then [시작] and [튜토리얼 건너뛰기]. Both
-// install what is ticked; the second goes to the settings instead of the practice.
+// The list of languages (English and Korean ticked), then [시작], which installs what is ticked
+// and goes on to the practice. No way past it without a language, so no skip button here.
 async function chooseLanguages() {
   const state = appState || (await loadState().catch(() => null));
   if (!state) return; // the error screen is up already
@@ -348,9 +348,8 @@ async function chooseLanguages() {
   const picked = new Set(langs.map((l) => l.id).filter((id) => DEFAULT_ON.includes(id)));
   const hint = h("p", { class: "hint", role: "status" });
   const start = h("button", { type: "button", class: "btn primary wide" }, "시작");
-  const skip = h("button", { type: "button", class: "btn quiet" }, "튜토리얼 건너뛰기");
   const sync = () => {
-    start.disabled = skip.disabled = !picked.size;
+    start.disabled = !picked.size;
   };
   const rows = langs.map((l, i) => {
     const box = h("input", { type: "checkbox", checked: picked.has(l.id) });
@@ -372,22 +371,20 @@ async function chooseLanguages() {
       ),
     );
   });
-  const go = (after) => () =>
+  start.addEventListener("click", () =>
     install(
       LIST_ORDER.filter((id) => picked.has(id)),
       langs,
-      [start, skip],
+      [start],
       hint,
-      after,
-    );
-  start.addEventListener("click", go(steps));
-  skip.addEventListener("click", go(leave));
+      steps,
+    ),
+  );
   show(
     "Typescript",
     h("p", { class: "caption" }, "쓸 언어를 고르세요"),
     h("ul", { class: "langs" }, ...rows),
     start,
-    skip,
     hint,
   );
   sync();
@@ -523,92 +520,72 @@ function typingScreen(spec, next) {
   input.focus();
 }
 
-// The word the program gets wrong on purpose: 깨짐 typed on English keys is "Rowla", which it
-// reads as English. Esc then turns it into the Korean (checked against the real engine).
+// The word to press Esc on: 깨짐 typed on English keys is "Rowla". The engine may read it as
+// English or as the Korean, and that changes as it improves, so the screen works either way:
+// Esc turns what is shown into the other reading, and a second one brings it back.
 const ESC_WORD = { text: "깨짐", keys: "Rowla" };
-// Three rounds. The program learns a word the second time it is corrected the same way (the
-// correction counts once the word is confirmed), so: Esc, once more, and then the last round,
-// where the word should come out right by itself.
-const ESC_ROUNDS = [
-  () => [hl(ESC_WORD.text), " 을 쳐 보세요"],
-  () => "한 번만 더 해 주시겠어요?",
-  () => "마지막으로 한 번만 더요",
-];
-const ESC_TAUGHT = "이렇게 2번 고치신 단어는 기억해 드립니다";
+const ESC_TAUGHT = "Esc로 2번 고치신 단어는 기억해 드립니다";
 const TAUGHT_PAUSE = 2800; // ms the sentence above stays: it is the point of the screen
 
-// Each round is a new input box: a new text context, so the word before it (already Korean)
-// cannot make the next one come out Korean on its own, which would look like learning.
 function escScreen(next) {
-  const last = ESC_ROUNDS.length - 1;
-  const run = (round) => {
-    const hint = h("p", { class: "hint", role: "status" });
-    const input = h("input", {
-      type: "text",
-      class: "practice",
-      placeholder: ESC_WORD.keys,
-      "aria-label": ESC_WORD.keys,
-      autocomplete: "off",
-      autocapitalize: "off",
-      spellcheck: "false",
-    });
-    let phase = "type"; // type -> esc (it stayed English) -> confirm (Esc made it Korean)
-    let composing = false,
-      finished = false;
-    const roundDone = () => {
-      finished = true;
-      if (round === last) {
-        pass(input, next);
-        return;
-      } // got there with Esc: nothing to claim
-      replay(input, "done");
-      setTimeout(() => run(round + 1), 500);
-    };
-    const check = () => {
-      if (finished) return;
-      const value = input.value;
-      if (phase === "type") {
-        if (value === ESC_WORD.text) {
-          // It came out right without Esc: in the last round that is the learning; earlier it
-          // means the program knew the word already.
-          finished = true;
-          pass(
-            input,
-            next,
-            round === last ? ESC_TAUGHT : "이미 기억하고 있는 단어예요",
-            TAUGHT_PAUSE,
-          );
-        } else if (value === ESC_WORD.keys) {
-          // the program kept it as English
-          phase = "esc";
-          retitle([hl("Esc"), "를 눌러 보세요"]);
-          hint.textContent = round === 0 ? "판별에 실패한 글씨는 Esc로 바꿀 수 있어요" : "";
-          replay(hint, "slide");
-        }
-      } else if (phase === "esc") {
-        if (value === ESC_WORD.text) {
-          phase = "confirm";
-          hint.textContent = "Space를 눌러 확정하세요";
-          replay(hint, "slide");
-        }
-      } else if (!composing && value.trim() === ESC_WORD.text) {
-        // confirm: committed
-        roundDone();
-      }
-    };
-    input.addEventListener("compositionstart", () => {
-      composing = true;
-    });
-    input.addEventListener("compositionend", () => {
-      composing = false;
-      check();
-    });
-    input.addEventListener("input", check);
-    input.addEventListener("keyup", () => setTimeout(check, 50)); // Esc may change it without an input event
-    show(ESC_ROUNDS[round](), input, hint);
-    input.focus();
+  const hint = h("p", { class: "hint", role: "status" });
+  const input = h("input", {
+    type: "text",
+    class: "practice",
+    placeholder: ESC_WORD.keys,
+    "aria-label": ESC_WORD.keys,
+    autocomplete: "off",
+    autocapitalize: "off",
+    spellcheck: "false",
+  });
+  const say = (text) => {
+    hint.textContent = text;
+    replay(hint, "slide");
   };
-  run(0);
+  // type -> esc (it shows as typed and Esc has to change it) or toggle (it came out right:
+  // Esc shows the other reading, which sends it to esc to be brought back) -> confirm (Space)
+  let phase = "type";
+  let composing = false,
+    finished = false;
+  const check = () => {
+    if (finished) return;
+    const value = input.value;
+    if (phase === "type") {
+      if (value !== ESC_WORD.keys && value !== ESC_WORD.text) return;
+      const wrong = value === ESC_WORD.keys; // the program kept it as English
+      phase = wrong ? "esc" : "toggle";
+      retitle([hl("Esc"), "를 눌러 보세요"]);
+      say(
+        wrong
+          ? "판별에 실패한 글씨는 Esc로 바꿀 수 있어요"
+          : "맞게 나와도 Esc는 다른 읽기로 바꿔 줘요",
+      );
+    } else if (phase === "toggle") {
+      if (value !== ESC_WORD.text && value !== "") {
+        phase = "esc";
+        say("한 번 더 누르면 돌아와요");
+      }
+    } else if (phase === "esc") {
+      if (value === ESC_WORD.text) {
+        phase = "confirm";
+        say("Space를 눌러 확정하세요");
+      }
+    } else if (!composing && value.trim() === ESC_WORD.text) {
+      finished = true;
+      pass(input, next, ESC_TAUGHT, TAUGHT_PAUSE);
+    }
+  };
+  input.addEventListener("compositionstart", () => {
+    composing = true;
+  });
+  input.addEventListener("compositionend", () => {
+    composing = false;
+    check();
+  });
+  input.addEventListener("input", check);
+  input.addEventListener("keyup", () => setTimeout(check, 50)); // Esc may change it without an input event
+  show([hl(ESC_WORD.text), " 을 쳐 보세요"], input, hint);
+  input.focus();
 }
 
 function finish() {
