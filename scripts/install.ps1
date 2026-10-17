@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Installs (or removes) Typescript: the x64 and x86 text service and the CLI.
+  Installs (or removes) Typescript: the x64 and x86 text service and the settings tool.
 
   One line, from anywhere (downloads the latest GitHub release, checks its SHA-256):
     irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
@@ -171,7 +171,7 @@ try {
             Write-Warning "Installing from a local folder ($Source): these files are not checked against a GitHub release. Development use only."
             New-Item $dest -ItemType Directory -Force | Out-Null
             Unregister-Existing
-            foreach ($name in 'typescript_tip.dll', 'typescript_tip_x86.dll', 'typescript.exe', 'typescript-config.exe') {
+            foreach ($name in 'typescript_tip.dll', 'typescript_tip_x86.dll', 'typescript-config.exe') {
                 Move-Aside (Join-Path $dest $name)
                 Copy-Item (Join-Path $Source $name) (Join-Path $dest $name) -Force
             }
@@ -253,7 +253,8 @@ function New-SourceStage {
     $repo = Split-Path -Parent $PSScriptRoot
     Push-Location $repo
     try {
-        & cargo build --release -p typescript-tip -p typescript-cli -p typescript-config
+        # Not together with typescript-cli: its embedded packs would end up in these two (+2.5 MB each).
+        & cargo build --release -p typescript-tip -p typescript-config
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
         & cargo build --release -p typescript-tip --target i686-pc-windows-msvc
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
@@ -266,7 +267,6 @@ function New-SourceStage {
     $stage = New-TempDirectory
     Copy-Item (Join-Path $repo 'target\release\typescript_tip.dll') $stage
     Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\typescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
-    Copy-Item (Join-Path $repo 'target\release\typescript.exe') $stage
     Copy-Item (Join-Path $repo 'target\release\typescript-config.exe') $stage
     Copy-Item (Join-Path $repo 'target\packs') (Join-Path $stage 'packs') -Recurse
     Copy-Item (Join-Path $repo 'assets\typescript.ico') $stage

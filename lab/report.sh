@@ -2,7 +2,7 @@
 # Prints report sections for docs/report/performance.md: a "## 한눈에: prev → cur"
 # comparison with level bars, then the "## cur" detail section. Paste both at the
 # top of performance.md, replacing the previous 한눈에 block:
-#   cargo build --release -p typescript-tip -p typescript-cli -p typescript-config
+#   cargo build --release -p typescript-tip -p typescript-config
 #   cargo build --release -p typescript-tip --target i686-pc-windows-msvc
 #   powershell -File scripts/package.ps1
 #   sh lab/report.sh > section.md
@@ -268,7 +268,7 @@ metric() {
     awk '{ v[NR] = $1 } END { printf "%s", v[int((NR + 1) / 2)] }'
 }
 
-SIZE_FILES="target/release/typescript_tip.dll target/i686-pc-windows-msvc/release/typescript_tip.dll target/release/typescript.exe target/release/typescript-config.exe dist/typescript-windows.zip dist/typescript-pack-en-$version.zip dist/typescript-pack-ko-$version.zip dist/typescript-pack-ja-$version.zip"
+SIZE_FILES="target/release/typescript_tip.dll target/i686-pc-windows-msvc/release/typescript_tip.dll target/release/typescript-config.exe dist/typescript-windows.zip dist/typescript-pack-en-$version.zip dist/typescript-pack-ko-$version.zip dist/typescript-pack-ja-$version.zip"
 
 {
 echo "## $version"

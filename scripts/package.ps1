@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Packs the release builds into dist\ (run after the release builds, see .github\workflows\release.yml):
-    typescript-windows.zip         the text service, typescript.exe, typescript-config.exe
+    typescript-windows.zip         the text service, typescript-config.exe
     <zip>.sha256                   checked by the one-line installer and by typescript-config update
     install.ps1                    the one-line installer itself (released next to the zip)
     typescript-pack-<id>-<version>.zip, packs.json
@@ -24,7 +24,6 @@ New-Item $stage -ItemType Directory | Out-Null
 $files = @(
     @('target\release\typescript_tip.dll', 'typescript_tip.dll'),
     @('target\i686-pc-windows-msvc\release\typescript_tip.dll', 'typescript_tip_x86.dll'),
-    @('target\release\typescript.exe', 'typescript.exe'),
     @('target\release\typescript-config.exe', 'typescript-config.exe'),
     @('assets\typescript.ico', 'typescript.ico'),
     @('LICENSE', 'LICENSE'),

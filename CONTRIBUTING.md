@@ -37,7 +37,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 | 시스템 | 빌드 |
 | --- | --- |
-| Windows | `cargo build --release -p typescript-tip -p typescript-cli -p typescript-config` (x86은 `rustup target add i686-pc-windows-msvc`), 설치는 `.\scripts\install.ps1` (관리자 권한 한 번) |
+| Windows | `cargo build --release -p typescript-tip -p typescript-config` (`typescript-cli`는 개발용이라 같이 빌드하지 않습니다: 내장 팩이 다른 바이너리에도 들어가 커집니다) (x86은 `rustup target add i686-pc-windows-msvc`), 설치는 `.\scripts\install.ps1` (관리자 권한 한 번) |
 | Android | `.\platforms\android\build.ps1` (Android SDK·NDK, JDK 17, `cargo install cargo-ndk`) |
 | macOS | `sh platforms/macos/build.sh` (Xcode 명령줄 도구, `rustup target add aarch64-apple-darwin x86_64-apple-darwin`) |
 | Linux | `sudo apt install libibus-1.0-dev pkg-config` 후 `cargo build --release -p typescript-ffi && make -C platforms/linux` |
@@ -136,7 +136,7 @@ On Linux and macOS leave out the Windows-only text service: `--workspace --exclu
 
 | System | Build |
 | --- | --- |
-| Windows | `cargo build --release -p typescript-tip -p typescript-cli -p typescript-config` (for x86: `rustup target add i686-pc-windows-msvc`); install with `.\scripts\install.ps1` (one administrator prompt) |
+| Windows | `cargo build --release -p typescript-tip -p typescript-config` (not with `typescript-cli`, a development tool: its embedded packs would end up in the other binaries too) (for x86: `rustup target add i686-pc-windows-msvc`); install with `.\scripts\install.ps1` (one administrator prompt) |
 | Android | `.\platforms\android\build.ps1` (Android SDK and NDK, JDK 17, `cargo install cargo-ndk`) |
 | macOS | `sh platforms/macos/build.sh` (Xcode command line tools, `rustup target add aarch64-apple-darwin x86_64-apple-darwin`) |
 | Linux | `sudo apt install libibus-1.0-dev pkg-config`, then `cargo build --release -p typescript-ffi && make -C platforms/linux` |
