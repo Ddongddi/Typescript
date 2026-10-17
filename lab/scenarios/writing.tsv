@@ -55,3 +55,30 @@ The results are shown in Table 1	english
 오늘날 소프트웨어는 우리 생활 곳곳에 스며들어 있으며 그 중요성은 앞으로 더욱 커질 것이다	long
 인공지능 기술이 발전함에 따라 일자리의 형태가 바뀌고 있으며 이에 대한 사회적 논의가 필요하다	long
 이 글에서는 입력기의 동작 원리와 영어 한글 자동 전환의 정확도를 높이는 방법을 설명한다	long
+위 건에 대해 승인 부탁드립니다	formal
+별도 의견 없으시면 원안대로 진행하겠습니다	formal
+금일 오후 2시에 회의실로 모여주세요	formal
+보안 점검 결과는 다음 주에 공유됩니다	formal
+Fw: 견적서 전달드립니다	email
+CC에 팀장님을 추가했습니다	email
+연차를 내고 싶은데 가능할까요	email
+점심 식사 맛있게 하세요	email
+이 방법은 BERT 이후 모델에도 적용된다	academic
+학습률은 3e-4로 두었다	academic
+베이스라인 대비 F1이 2.3%p 올랐다	academic
+통제 집단을 따로 두었다	academic
+참고문헌은 APA 양식을 따른다	academic
+시속 100km로 달렸다	numbers
+10GB 메모리가 필요하다	numbers
+3.5인치 디스켓이다	numbers
+오전 9시 30분에 출발했다	numbers
+그는 no라고 답했다	quote
+이 버튼을 "Submit"이라고 읽는다	quote
+논문 제목은 attention is all you need이다	quote
+어릴 적 꿈은 아직도 나를 붙잡고 있다	essay
+비가 그치면 하늘이 맑아질 것이다	essay
+여행은 낯선 나를 만나게 한다	essay
+The meeting has been rescheduled	english
+All changes were deployed successfully	english
+모델이 잘못 예측한 경우를 분석하면 입력기의 약점이 드러나는데 이를 고치면 전체 정확도가 올라간다	long
+짧은 채팅과 달리 긴 글에서는 문맥이 이어지므로 앞 문장의 언어가 다음 문장의 판정에 영향을 준다	long

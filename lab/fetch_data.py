@@ -8,7 +8,8 @@ Sources (fetched from their own sites, not redistributed by this repo; check eac
   Tatoeba         https://tatoeba.org                           CC BY 2.0 FR, ko + en sentences
   kowiki titles   https://dumps.wikimedia.org/kowiki            CC BY-SA, noun-like words
 
-Output (one item per line): ko_sentences.txt, en_sentences.txt, ko_titles.txt
+Output (one item per line): ko_sentences.txt, en_sentences.txt, ko_titles.txt,
+  ko_phrases.txt (multi-word kowiki titles), ko_long.txt (40+ char Korean sentences)
 """
 
 import bz2
@@ -64,11 +65,32 @@ def tatoeba(lang: str) -> list[str]:
     return [clean(r.split("\t")[2]) for r in rows if r.count("\t") >= 2]
 
 
+_TITLES_CACHE: list[str] | None = None
+
+
+def titles_raw() -> list[str]:
+    global _TITLES_CACHE
+    if _TITLES_CACHE is None:
+        url = "https://dumps.wikimedia.org/kowiki/latest/kowiki-latest-all-titles-in-ns0.gz"
+        rows = gzip.decompress(get(url)).decode("utf-8").splitlines()
+        _TITLES_CACHE = [r.replace("_", " ") for r in rows]
+    return _TITLES_CACHE
+
+
 def titles() -> list[str]:
-    url = "https://dumps.wikimedia.org/kowiki/latest/kowiki-latest-all-titles-in-ns0.gz"
-    rows = gzip.decompress(get(url)).decode("utf-8").splitlines()
-    words = {r.replace("_", " ") for r in rows}
+    words = set(titles_raw())
     return sorted(w for w in words if HANGUL.match(w) and " " not in w and 2 <= len(w) <= 6)
+
+
+def phrases() -> list[str]:
+    out = set()
+    for w in titles_raw():
+        if len(w) > 30 or not HANGUL.match(w):
+            continue
+        parts = w.split(" ")
+        if 2 <= len(parts) <= 4 and all(1 <= len(p) <= 8 for p in parts):
+            out.add(w)
+    return sorted(out)
 
 
 def write(name: str, items: list[str], limit: int) -> None:
@@ -83,9 +105,11 @@ def main() -> None:
     DATA.mkdir(exist_ok=True)
     ko = [s for s in nsmc() + chatbot() + tatoeba("kor") if ko_ok(s)]
     en = [s for s in tatoeba("eng") if 8 <= len(s) <= 70 and EN_SENTENCE.match(s)]
-    write("ko_sentences.txt", ko, 60000)
-    write("en_sentences.txt", en, 30000)
-    write("ko_titles.txt", titles(), 60000)
+    write("ko_sentences.txt", ko, 100000)
+    write("en_sentences.txt", en, 100000)
+    write("ko_titles.txt", titles(), 100000)
+    write("ko_phrases.txt", phrases(), 30000)
+    write("ko_long.txt", [s for s in ko if len(s) >= 40], 10000)
 
 
 if __name__ == "__main__":

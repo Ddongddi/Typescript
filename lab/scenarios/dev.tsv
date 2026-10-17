@@ -66,3 +66,35 @@ deploy 하다가 롤백했어	error
 hotfix 브랜치 따서 작업할게	issue
 회귀 테스트 추가했어	issue
 스택 트레이스 공유해줘	issue
+git log --oneline	terminal
+git diff HEAD~1	terminal
+git stash pop	terminal
+docker logs -f app	terminal
+kubectl describe pod api	terminal
+ps aux | grep node	terminal
+tail -f /var/log/app.log	terminal
+chmod +x run.sh	terminal
+이 변수는 const로 바꾸자	review
+early return으로 바꿔줘	review
+이 API는 idempotent해야 해	review
+N+1 쿼리가 나고 있어	review
+fix: 크래시 수정	commit
+feat: 소셜 로그인 추가	commit
+BREAKING: API 응답 변경	commit
+fetchUser가 null을 반환해	identifier
+onClick 핸들러를 달았어	identifier
+userId가 비어 있어	identifier
+.env 파일을 열어봐	identifier
+copilot이 추천해줬어	tool
+cursor에서 디버깅했어	tool
+kafka에 쌓여 있어	tool
+ollama로 돌려봤어	tool
+bun으로 바꿨어	tool
+helm 차트가 깨졌어	tool
+Out of memory가 나	error
+NullPointerException 떴어	error
+port already in use 에러야	error
+디스크가 가득 찼어	error
+릴리즈 브랜치 잘라줘	issue
+재현 스텝 정리해둘게	issue
+canary 배포부터 하자	issue

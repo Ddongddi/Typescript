@@ -1,16 +1,18 @@
-#metric	acc.ALL	99.818
+#metric	acc.ALL	99.813
 #metric	acc.cs.chat	100.000
 #metric	acc.cs.conj	100.000
 #metric	acc.cs.hada	100.000
 #metric	acc.cs.loan	100.000
-#metric	acc.cs.mix	85.714
+#metric	acc.cs.mix	100.000
+#metric	acc.cs.nospace	100.000
+#metric	acc.cs.nospace-keep	100.000
 #metric	acc.cs.number	100.000
 #metric	acc.cs.particle	100.000
 #metric	acc.cs.plain	100.000
 #metric	acc.cs.token	95.455
-#metric	acc.en.freq/after-en	99.800
-#metric	acc.en.freq/after-ko	99.450
-#metric	acc.en.freq/none	99.600
+#metric	acc.en.freq/after-en	99.700
+#metric	acc.en.freq/after-ko	99.400
+#metric	acc.en.freq/none	99.500
 #metric	acc.hand.abbrev	20.000
 #metric	acc.hand.chat	100.000
 #metric	acc.hand.letter-noun	95.455
@@ -19,38 +21,38 @@
 #metric	acc.ko.vocab/after-en	100.000
 #metric	acc.ko.vocab/after-ko	100.000
 #metric	acc.ko.vocab/none	100.000
-#metric	acc.ko.words/after-en	99.950
-#metric	acc.ko.words/after-ko	99.950
-#metric	acc.ko.words/none	99.950
+#metric	acc.ko.words/after-en	100.000
+#metric	acc.ko.words/after-ko	100.000
+#metric	acc.ko.words/none	100.000
 #metric	acc.sentences	100.000
-#metric	big.cs.bare.sentence	95.886
-#metric	big.cs.bare.token	99.397
-#metric	big.cs.number.sentence	97.183
-#metric	big.cs.number.token	99.591
-#metric	big.cs.particle.sentence	96.763
-#metric	big.cs.particle.token	99.524
-#metric	big.cs_heldout.particle.sentence	95.954
-#metric	big.cs_heldout.particle.token	99.393
+#metric	big.cs.bare.sentence	96.800
+#metric	big.cs.bare.token	99.524
+#metric	big.cs.number.sentence	97.770
+#metric	big.cs.number.token	99.689
+#metric	big.cs.particle.sentence	98.266
+#metric	big.cs.particle.token	99.754
+#metric	big.cs_heldout.particle.sentence	98.035
+#metric	big.cs_heldout.particle.token	99.705
 #metric	big.en.sent.sentence	99.967
 #metric	big.en.sent.token	99.995
-#metric	big.ko.sent.sentence	97.233
-#metric	big.ko.sent.token	99.477
+#metric	big.ko.sent.sentence	97.967
+#metric	big.ko.sent.token	99.621
 #metric	big.ko.title.after-en	98.533
 #metric	big.ko.title.after-ko	99.967
 #metric	big.ko.title.none	99.867
 #metric	big.learn.other_forms_after	100.000
-#metric	big.learn.other_forms_before	100.000
-#metric	commit.avg_us	44.205
-#metric	commit.p50_us	38.800
-#metric	commit.p95_us	104.400
-#metric	commit.p99_us	164.900
-#metric	heap.loaded_kb	66.701
-#metric	heap.peak_kb	7995.826
-#metric	keystroke.avg_us	26.152
-#metric	keystroke.p50_us	16.000
-#metric	keystroke.p95_us	73.200
-#metric	keystroke.p99_us	120.300
-#metric	load.ms	3.653
+#metric	big.learn.other_forms_before	99.107
+#metric	commit.avg_us	13.542
+#metric	commit.p50_us	11.000
+#metric	commit.p95_us	28.700
+#metric	commit.p99_us	54.400
+#metric	heap.loaded_kb	35.629
+#metric	heap.peak_kb	7970.123
+#metric	keystroke.avg_us	13.010
+#metric	keystroke.p50_us	10.300
+#metric	keystroke.p95_us	30.200
+#metric	keystroke.p99_us	70.800
+#metric	load.ms	2.445
 #metric	sc.ALL.sentence	98.378
 #metric	sc.ALL.token	99.572
 #metric	sc.chat.brand	100.000
@@ -63,7 +65,7 @@
 #metric	sc.chat.sentence	96.875
 #metric	sc.chat.slang	81.818
 #metric	sc.chat.token	98.947
-#metric	sc.chat.us_per_char	3.369
+#metric	sc.chat.us_per_char	3.702
 #metric	sc.dev.chain.token	99.528
 #metric	sc.dev.commit	100.000
 #metric	sc.dev.error	100.000
@@ -74,7 +76,7 @@
 #metric	sc.dev.terminal	94.118
 #metric	sc.dev.token	99.541
 #metric	sc.dev.tool	100.000
-#metric	sc.dev.us_per_char	3.290
+#metric	sc.dev.us_per_char	3.093
 #metric	sc.writing.academic	100.000
 #metric	sc.writing.chain.token	100.000
 #metric	sc.writing.email	100.000
@@ -86,32 +88,34 @@
 #metric	sc.writing.quote	100.000
 #metric	sc.writing.sentence	100.000
 #metric	sc.writing.token	100.000
-#metric	sc.writing.us_per_char	3.922
-ko.words/none	rodtlsdl	-	갱신이	rod신이
-ko.words/after-ko	rodtlsdl	korean	갱신이	rod신이
-ko.words/after-en	rodtlsdl	english	갱신이	rod신이
+#metric	sc.writing.us_per_char	2.940
 en.freq/none	tha	-	tha	솜
+en.freq/none	fatso	-	fatso	fat내
 en.freq/none	zhao	-	zhao	코매
 en.freq/none	sdh	-	sdh	s오
 en.freq/none	woah	-	woah	재모
 en.freq/none	dmv	-	dmv	읖
+en.freq/none	chandi	-	chandi	chan야
 en.freq/none	bb	-	bb	ㅠㅠ
 en.freq/none	vu	-	vu	펴
 en.freq/none	shep	-	shep	노데
 en.freq/after-ko	tha	korean	tha	솜
+en.freq/after-ko	fatso	korean	fatso	fat내
 en.freq/after-ko	zhao	korean	zhao	코매
 en.freq/after-ko	sdh	korean	sdh	s오
 en.freq/after-ko	woah	korean	woah	재모
 en.freq/after-ko	fleur	korean	fleur	리뎍
 en.freq/after-ko	dmv	korean	dmv	읖
 en.freq/after-ko	coz	korean	coz	챜
-en.freq/after-ko	chandi	korean	chandi	초무야
+en.freq/after-ko	chandi	korean	chandi	chan야
 en.freq/after-ko	bb	korean	bb	ㅠㅠ
 en.freq/after-ko	vu	korean	vu	펴
 en.freq/after-ko	shep	korean	shep	노데
+en.freq/after-en	fatso	english	fatso	fat내
 en.freq/after-en	zhao	english	zhao	코매
 en.freq/after-en	sdh	english	sdh	s오
 en.freq/after-en	dmv	english	dmv	읖
+en.freq/after-en	chandi	english	chandi	chan야
 en.freq/after-en	bb	english	bb	ㅠㅠ
 hand.letter-noun	Agud	korean	A형	Agud
 hand.abbrev	dr	korean	dr	ㅇㄱ
@@ -119,4 +123,3 @@ hand.abbrev	ft	korean	ft	ㄹㅅ
 hand.abbrev	tc	korean	tc	ㅅㅊ
 hand.abbrev	ftl	korean	ftl	f시
 cs.token	rm -rf whtlago	-	rm -rf 조심해	그 -ㄱㄹ 조심해
-cs.mix	zhemreview gownj	-	코드review 해줘	zhemreview 해줘
