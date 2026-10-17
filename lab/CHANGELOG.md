@@ -6,6 +6,16 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.1.1]
+
+### Added
+
+- `preview.flicker.en.freq/*`: the share of common English words whose preview turns Korean on
+  some key (from the second on) before the word is done.
+- `preview.mismatch.*`: the share of words whose preview on the last key is not what Space then
+  commits.
+- `ko.lone/*`: the one-syllable Korean words of the list (해, 내, 새 ...), in the three contexts.
+
 ## [0.1.0]
 
 First numbered version.

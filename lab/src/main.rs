@@ -137,6 +137,18 @@ fn korean_list(text: &str) -> Vec<&str> {
     )
 }
 
+fn lone_korean(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter_map(|l| l.split_once('\t'))
+        .filter(|(w, n)| {
+            w.chars().count() == 1
+                && w.chars().all(|c| ('가'..='힣').contains(&c))
+                && n.trim().parse::<u32>().is_ok_and(|n| n >= 2)
+        })
+        .map(|(w, _)| w)
+        .collect()
+}
+
 fn english_list() -> Vec<&'static str> {
     spread(
         ENGLISH_FREQ
@@ -189,6 +201,18 @@ fn word_cases() -> Vec<Case> {
                     expected: word.to_string(),
                 });
             }
+        }
+    }
+    // One-syllable words (해, 내, 새 …) as the list has them from written text (said twice or
+    // more, so a word added later from another source is not its own test).
+    for (previous, label) in contexts {
+        for word in lone_korean(KOREAN_WORDS) {
+            cases.push(Case {
+                bucket: format!("ko.lone/{label}"),
+                keys: keys_of(word),
+                previous,
+                expected: word.to_string(),
+            });
         }
     }
     for f in data_lines(WORDS) {
@@ -500,13 +524,20 @@ fn main() {
     let mut slowest: Vec<(Duration, String)> = Vec::new();
     let track_slowest = args.iter().any(|a| a == "--slow");
     let mut by_len: std::collections::BTreeMap<usize, Vec<Duration>> = Default::default();
+    // English words whose preview turns Korean on some key before the word is done.
+    let mut flicker: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    // Words whose preview on the last key is not what Space then commits.
+    let mut mismatch: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
     let mut got: Vec<String> = Vec::with_capacity(words.len() + sentences.len());
     for c in &words {
         // Every prefix, as the live preview sees it while typing.
+        let mut flipped = false;
         for (end, _) in c.keys.char_indices().skip(1) {
             let t = Instant::now();
-            engine.decide(&c.keys[..end], &context(c.previous, true));
+            let preview = engine.decide(&c.keys[..end], &context(c.previous, true));
             let spent = t.elapsed();
+            // The first key is a jamo by design (ㅈ for w); from the second on, Korean is a flip.
+            flipped |= end >= 2 && preview.language == Language::Korean;
             keystroke.push(spent);
             by_len.entry(end).or_default().push(spent);
             if track_slowest {
@@ -516,7 +547,30 @@ fn main() {
         let t = Instant::now();
         let d = engine.decide(&c.keys, &context(c.previous, false));
         commit.push(t.elapsed());
+        if c.bucket.starts_with("en.") || c.bucket.starts_with("ko.") {
+            let last = engine.decide(&c.keys, &context(c.previous, true));
+            let tally = mismatch.entry(&c.bucket).or_default();
+            tally.0 += usize::from(last.output != d.output);
+            tally.1 += 1;
+        }
+        if c.bucket.starts_with("en.") && c.expected == c.keys {
+            let tally = flicker.entry(&c.bucket).or_default();
+            tally.0 += usize::from(flipped);
+            tally.1 += 1;
+        }
         got.push(d.output);
+    }
+    for (bucket, (differ, n)) in &mismatch {
+        metrics.insert(
+            format!("preview.mismatch.{bucket}"),
+            100.0 * *differ as f64 / *n as f64,
+        );
+    }
+    for (bucket, (flipped, n)) in &flicker {
+        metrics.insert(
+            format!("preview.flicker.{bucket}"),
+            100.0 * *flipped as f64 / *n as f64,
+        );
     }
     let converter = TextConverter::new(engine.as_ref());
     got.extend(sentences.iter().map(|c| converter.convert(&c.keys).0));
