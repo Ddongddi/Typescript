@@ -65,6 +65,28 @@ def l_rate(m):
     return sum(c * log(max(x, T) / T) for x, T, c in terms(m).values())
 
 
+def area_of(k):
+    """지표가 속한 영역: acc, speed, size, mem."""
+    if k.startswith(('keystroke.', 'commit.')):
+        return 'speed'
+    if k.startswith('size.'):
+        return 'size'
+    if k.startswith(('heap.', 'load.')):
+        return 'mem'
+    return 'acc'
+
+
+def areas(m):
+    """영역별 점수 (정확도, 용량, 속도, 메모리). 영역 안 L환율을 영역 계수 합으로 나눈 평균 로그비 r로 10000 x exp(-r).
+    총점의 L환율은 계수를 곱한 이 네 값의 합이라 영역이 하나라도 목표에 닿으면(r = 0) 그 영역은 10000점입니다."""
+    num, den = {}, {}
+    for k, (x, T, c) in terms(m).items():
+        g = area_of(k)
+        num[g] = num.get(g, 0) + c * log(max(x, T) / T)
+        den[g] = den.get(g, 0) + c
+    return {g: SCALE * exp(-num[g] / den[g]) for g in num}
+
+
 def l_budget(m):
     s = 0
     for k, B in BUDGET.items():
