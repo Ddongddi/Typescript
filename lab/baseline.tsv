@@ -1,6 +1,8 @@
-#metric	acc.ALL	99.813
+#lab	0.1.0
+#metric	acc.ALL	99.792
 #metric	acc.cs.chat	100.000
 #metric	acc.cs.conj	100.000
+#metric	acc.cs.extreme	0.000
 #metric	acc.cs.hada	100.000
 #metric	acc.cs.loan	100.000
 #metric	acc.cs.mix	100.000
@@ -9,15 +11,19 @@
 #metric	acc.cs.number	100.000
 #metric	acc.cs.particle	100.000
 #metric	acc.cs.plain	100.000
-#metric	acc.cs.token	95.455
-#metric	acc.en.freq/after-en	99.700
+#metric	acc.cs.run	100.000
+#metric	acc.cs.slang	100.000
+#metric	acc.cs.story	75.000
+#metric	acc.cs.token	96.552
+#metric	acc.cs.unit	100.000
+#metric	acc.en.freq/after-en	99.750
 #metric	acc.en.freq/after-ko	99.400
-#metric	acc.en.freq/none	99.500
-#metric	acc.hand.abbrev	20.000
+#metric	acc.en.freq/none	99.550
+#metric	acc.hand.abbrev	50.000
 #metric	acc.hand.chat	100.000
-#metric	acc.hand.letter-noun	95.455
+#metric	acc.hand.letter-noun	100.000
 #metric	acc.hand.letter-particle	100.000
-#metric	acc.hand.mixed	100.000
+#metric	acc.hand.mixed	80.000
 #metric	acc.ko.vocab/after-en	100.000
 #metric	acc.ko.vocab/after-ko	100.000
 #metric	acc.ko.vocab/none	100.000
@@ -25,60 +31,81 @@
 #metric	acc.ko.words/after-ko	100.000
 #metric	acc.ko.words/none	100.000
 #metric	acc.sentences	100.000
-#metric	big.cs.bare.sentence	96.800
-#metric	big.cs.bare.token	99.524
-#metric	big.cs.number.sentence	97.770
-#metric	big.cs.number.token	99.689
-#metric	big.cs.particle.sentence	98.266
-#metric	big.cs.particle.token	99.754
-#metric	big.cs_heldout.particle.sentence	98.035
-#metric	big.cs_heldout.particle.token	99.705
+#metric	big.cs.bare.sentence	97.180
+#metric	big.cs.bare.token	99.586
+#metric	big.cs.number.sentence	99.170
+#metric	big.cs.number.token	99.882
+#metric	big.cs.particle.sentence	98.596
+#metric	big.cs.particle.token	99.783
+#metric	big.cs_heldout.particle.sentence	98.480
+#metric	big.cs_heldout.particle.token	99.766
+#metric	big.cs_short.bare.sentence	65.972
+#metric	big.cs_short.bare.token	95.131
 #metric	big.en.sent.sentence	99.967
 #metric	big.en.sent.token	99.995
-#metric	big.ko.sent.sentence	97.967
-#metric	big.ko.sent.token	99.621
-#metric	big.ko.title.after-en	98.533
-#metric	big.ko.title.after-ko	99.967
+#metric	big.ko.comment.sentence	97.872
+#metric	big.ko.comment.token	99.629
+#metric	big.ko.long.sentence	97.800
+#metric	big.ko.long.token	99.776
+#metric	big.ko.phrase.sentence	98.900
+#metric	big.ko.phrase.token	99.520
+#metric	big.ko.sent.sentence	98.833
+#metric	big.ko.sent.token	99.778
+#metric	big.ko.title.after-en	98.033
+#metric	big.ko.title.after-ko	100.000
 #metric	big.ko.title.none	99.867
 #metric	big.learn.other_forms_after	100.000
-#metric	big.learn.other_forms_before	99.107
-#metric	commit.avg_us	13.542
-#metric	commit.p50_us	11.000
-#metric	commit.p95_us	28.700
-#metric	commit.p99_us	54.400
-#metric	heap.loaded_kb	35.629
-#metric	heap.peak_kb	7970.123
-#metric	keystroke.avg_us	13.010
-#metric	keystroke.p50_us	10.300
-#metric	keystroke.p95_us	30.200
-#metric	keystroke.p99_us	70.800
-#metric	load.ms	2.445
-#metric	sc.ALL.sentence	98.378
-#metric	sc.ALL.token	99.572
+#metric	big.learn.other_forms_before	100.000
+#metric	big.transfer.jamo.broken	0.000
+#metric	big.transfer.jamo.fixed	100.000
+#metric	big.transfer.jamo.misses	5.000
+#metric	big.transfer.jamo.net	2.000
+#metric	big.transfer.particle.broken	0.000
+#metric	big.transfer.particle.fixed	0.000
+#metric	big.transfer.particle.misses	7.000
+#metric	big.transfer.particle.net	0.000
+#metric	big.transfer.title_after_en.broken	0.021
+#metric	big.transfer.title_after_en.fixed	44.828
+#metric	big.transfer.title_after_en.misses	59.000
+#metric	big.transfer.title_after_en.net	12.000
+#metric	chars.sentences	99.815
+#metric	commit.avg_us	5.708
+#metric	commit.p50_us	5.100
+#metric	commit.p95_us	8.800
+#metric	commit.p99_us	17.300
+#metric	heap.loaded_kb	52.234
+#metric	heap.peak_kb	11569.925
+#metric	keystroke.avg_us	5.194
+#metric	keystroke.p50_us	4.300
+#metric	keystroke.p95_us	9.900
+#metric	keystroke.p99_us	23.300
+#metric	load.ms	1.825
+#metric	sc.ALL.sentence	98.120
+#metric	sc.ALL.token	99.498
 #metric	sc.chat.brand	100.000
 #metric	sc.chat.casual	100.000
-#metric	sc.chat.chain.token	99.474
+#metric	sc.chat.chain.token	99.167
 #metric	sc.chat.english	100.000
-#metric	sc.chat.loan	100.000
+#metric	sc.chat.loan	92.308
 #metric	sc.chat.number	100.000
 #metric	sc.chat.punct	100.000
-#metric	sc.chat.sentence	96.875
-#metric	sc.chat.slang	81.818
-#metric	sc.chat.token	98.947
-#metric	sc.chat.us_per_char	3.702
-#metric	sc.dev.chain.token	99.528
+#metric	sc.chat.sentence	96.512
+#metric	sc.chat.slang	88.235
+#metric	sc.chat.token	98.776
+#metric	sc.chat.us_per_char	1.321
+#metric	sc.dev.chain.token	99.683
 #metric	sc.dev.commit	100.000
 #metric	sc.dev.error	100.000
 #metric	sc.dev.identifier	100.000
 #metric	sc.dev.issue	100.000
 #metric	sc.dev.review	100.000
-#metric	sc.dev.sentence	98.485
-#metric	sc.dev.terminal	94.118
-#metric	sc.dev.token	99.541
+#metric	sc.dev.sentence	98.980
+#metric	sc.dev.terminal	96.000
+#metric	sc.dev.token	99.688
 #metric	sc.dev.tool	100.000
-#metric	sc.dev.us_per_char	3.093
-#metric	sc.writing.academic	100.000
-#metric	sc.writing.chain.token	100.000
+#metric	sc.dev.us_per_char	1.545
+#metric	sc.writing.academic	92.857
+#metric	sc.writing.chain.token	99.752
 #metric	sc.writing.email	100.000
 #metric	sc.writing.english	100.000
 #metric	sc.writing.essay	100.000
@@ -86,40 +113,44 @@
 #metric	sc.writing.long	100.000
 #metric	sc.writing.numbers	100.000
 #metric	sc.writing.quote	100.000
-#metric	sc.writing.sentence	100.000
-#metric	sc.writing.token	100.000
-#metric	sc.writing.us_per_char	2.940
+#metric	sc.writing.sentence	98.780
+#metric	sc.writing.token	99.768
+#metric	sc.writing.us_per_char	1.159
 en.freq/none	tha	-	tha	솜
-en.freq/none	fatso	-	fatso	fat내
 en.freq/none	zhao	-	zhao	코매
 en.freq/none	sdh	-	sdh	s오
 en.freq/none	woah	-	woah	재모
 en.freq/none	dmv	-	dmv	읖
-en.freq/none	chandi	-	chandi	chan야
 en.freq/none	bb	-	bb	ㅠㅠ
 en.freq/none	vu	-	vu	펴
+en.freq/none	baht	-	baht	b못
 en.freq/none	shep	-	shep	노데
 en.freq/after-ko	tha	korean	tha	솜
-en.freq/after-ko	fatso	korean	fatso	fat내
 en.freq/after-ko	zhao	korean	zhao	코매
 en.freq/after-ko	sdh	korean	sdh	s오
 en.freq/after-ko	woah	korean	woah	재모
 en.freq/after-ko	fleur	korean	fleur	리뎍
 en.freq/after-ko	dmv	korean	dmv	읖
 en.freq/after-ko	coz	korean	coz	챜
-en.freq/after-ko	chandi	korean	chandi	chan야
+en.freq/after-ko	chandi	korean	chandi	초무야
 en.freq/after-ko	bb	korean	bb	ㅠㅠ
 en.freq/after-ko	vu	korean	vu	펴
+en.freq/after-ko	baht	korean	baht	b못
 en.freq/after-ko	shep	korean	shep	노데
-en.freq/after-en	fatso	english	fatso	fat내
 en.freq/after-en	zhao	english	zhao	코매
 en.freq/after-en	sdh	english	sdh	s오
 en.freq/after-en	dmv	english	dmv	읖
-en.freq/after-en	chandi	english	chandi	chan야
 en.freq/after-en	bb	english	bb	ㅠㅠ
-hand.letter-noun	Agud	korean	A형	Agud
+en.freq/after-en	baht	english	baht	b못
 hand.abbrev	dr	korean	dr	ㅇㄱ
 hand.abbrev	ft	korean	ft	ㄹㅅ
 hand.abbrev	tc	korean	tc	ㅅㅊ
 hand.abbrev	ftl	korean	ftl	f시
+hand.mixed	k8sdp	-	k8s에	k8sdp
+hand.mixed	e2edptj	-	e2e에서	e2edptj
+hand.mixed	i18ndms	-	i18n은	i18ndms
+hand.abbrev	cr	korean	cr	ㅊㄱ
+hand.abbrev	sr	korean	sr	ㄴㄱ
 cs.token	rm -rf whtlago	-	rm -rf 조심해	그 -ㄱㄹ 조심해
+cs.story	dhsmfdmsdhodlfjgrpeverythingdlRhdlsmswlahfmrpTsmsepdlfekswhatevergkwkrhtodrkrgoTekrkakrtkdgkfuslRkwhatiffksmstodrkrqnxjemfdjtjrufrnrdkanrjtehahtgkrhdlTdmadlrpwlsWkanswpdlsrpanjsrkfmftlwkrgkrlwjsdpsmssupereasygoqhdlsmsepakrtkdtlwkrgkausunexpectededgecaserkrPthrskdhktjcjdmadmlassumptionqnxjektlrjawmdgodigkseksmsrjdlaxmrgldlfjstlrdmfhgksrmfrhkenglishrkqnxdjdlTsmsanswkddptjsmsdjelRkwlrkgkskdmltokendlrhdjelqnxjrkanotherlanguagedlswlvkseksgksmsrjtwkcprkambiguousgkftnqkRdpdjqtsmseprmfjgekrhanwhrjscharacterlevelfhWhroqjflaussemanticmeaningdldhkswjsglRowuqjflrhqkseofhdictionarybasedapproachakstkdydgkaustlswhdjskpropernounrkxdmsunseenvocabularyfmfwpeofhcjflgkwlahtgkseksmstradeoffrkdlTdmadPfmfemfdjgithubdptjpullrequestfmfdhffuTsmsepreviewerrkdlqnqnsdmsactuallynotquitecorrectgkekrhcommentfmfekfdkTdmfEonotquiterkgkskdmlphrasedlswldkslausnotrhkquitefmfqufehfhqnsflgodigksmswltlawldjrmtkdldpgksrnrdjwhtkskdjalrkemfdjdhausdjEjgrpgkfrjtdlswlRkwlrhfugodigkarmfjslRkdlrjsekstnsglduddjdlswlgksrnrdjdlswlfmfclassifygksmsanswprkdkslfksequencewjscpfmfqhaustjrkrrnrksdmllanguageidentitydhkmorphologicalboundaryfmfehdtldpcnfhsgodigksmsanswpdprkRkdnarmsepanswpsmstkfkadlqhrldpehwkdustmfjdnsanswkdrhkahepfdltnlqrpvksqufgkftndlTsmsanswkddmswjsguekfmftndlTeksmswjadlasksmsqnsaudgldlfjgrpTmausmeaningdlxhdgksekrhtodrkrgoTsmsepahepfdlqwkddptjsmstrainingdistributiondptjrjdmlqhwlahtgkspatterndlftnehdlTrhqkseofhtkfkadmsdltkdgkekrhsmRlsmsanswkdehstatisticalfrequencyrkshvdmausahepfdmsconfidentgkrpwkfahtehlsrufwjddmfsoflftndlTdmarmfotjaccuracygkskaksqhrhdlahepfdlwkfgksekahtgksekrhruffhssoflsmsrjsfundamentallymisleadinggkftndlTrhprecisionrecallboundaryf1rmflrhxmrwjdpatternquferrorrateRkwlgkaRpghkrdlsgodigkarkfudduddjeksdjenldpgksrnrdjwhtkrkqnxsmsruddndpsmsgithubdpcursorfhqnxjnotionRkwlopenairkaksemstooldmfTjqhkTsmsepfksmsanswkddmfdjEjgrpqnswjfgksmswlqhkdigkrhqkseofhgksrnrdjdjrksrhkduddjeksdjrkqnxsmsruddndpsmsajrqkdcontentfmfwatchgkekrkrkqwkrlqorhvkwutjdeliveryfmfordergoTsmsepfksmstlrdmldlqfurehvlfdygkadurldpduddjdirdjdhktntwkdhkrlghRkwltjRdlausejqhrwkqgowlav0.9.7dptjapifmf3xQkfmrpaksemfdjTekrhgoTsmseptlfwpfhsmsp95latencyrk120msdptj180msfhsmfdjskTeksmsreportrkdlTdmausdlrjfgksrmfwhtkdhkgkaRpcjflgksmsrhkwjddptjtntwkdhkqjwjsanswkdufdmfqufehdmltokendmfhqhwhsgodigksmswlEhgksanswprkehlarmflrhdontknowskidontthinksocjfjaapostropherktodfirehlsvygusdmsduddjfhdlstlrgodigkwlaksdontfmfrmeofhgksrnrdjansaordpqnxduTmsmsruddndpsmsekstnsgkssubstringmatchingdldhglfufalsepositivefmfdbqkfgkftndlTdmatlawldjreadfksmseksdjsmsansaordpEkfkqkfdmadlekffkwlrhliveehfkdlqmdlswlflqmdlswldpEkfkdmlalrkekffkwlsmsepdlfjshomographanswpsmsdjsdjvksqufrhkqkfdmacnfhsdmfqnsflgkwldksgdmausvudrkrufrhkfmfgotjrgkrldjfudnjwlftndlTdmarmfjslRkxptmxmtptdmfaksemfEosmsrmsidrandomgkrpeksdjfmftjRsmsrjtaksdmfhsmsqnwhrgkrhrkrrkrdmlboundarycasefmfxhdwpgkaustjehtlfwptkdydwkrkdlqfurgkfqjqgksdistributiondmfdbwlgodigkagkwlakssjandlsdnlwjrdlsanswkdaksaksemfausbenchmarkoverfittingdlqkftodgkftndlTdmamfhdlfqkscoxldroqkfwkeoghkvosejadyddjrktktmxkdlfdmlqksqhrrnwjfrmflrhrhdbaudtkrkaksgdmsanswkdRkwlekdidgkrpvhgkagodigkaanffhsrktktmxkdlfdmfwogusgksekrhgotjwjwkrrnjsdldlTsmstlfwprktkfmfaneksdmfheofidtnwlqgkfvlfdysmsdjqtrhwlrwjqtodtjdgksanswkddmfhehcndqnsglchallenginggksvoxjsdmfrntjdgkftndlTdmarufrnrsorkdnjsgksmsrjsrmsidgksrnrdjfkdduddjrktjRdudlTeksmstktlfdmfdkfdkakwglsmsahepfdldkslfktlfwpdlqfurehwnddpEmldjTmrldjqtdldldjwlsmsanswkdufdmfqkedkTdmfEoehdjsdjwjsghkswlwjarhkwhtkrudrPrmflrhrhdbaudtkdhkduddjvygusdmfchleogkswjdghkrgkrpqhrdnjsgksmsrobustgksinputmethodfmfaksemsmsrjtdlarmfjsepdlwjdehRkwldyrngkausekstnsgkstrigrammodelaksdmfhsmsgeneralizationdpgksrPrkdlTdmftndlTrhcontextwindowfmfghkrwkdgkrjskcharacterlevelneuralmodeldmfcnrkgkrjskdkdPlightweighttransformerfmfdistillationgotjtkdydgksmsqkdqjqRkwlrjaxhgodigkftndlTdmaekaksahepfzmrlrkzjwlsekrhqksemtltlfwptypingexperiencerkwhgdkwlsmsrjtdmsdkslamfhlatencymemoryfootprintcoldstartrmflrhincrementaldecodingqldydRkwlehdtldpcmrwjdgodigkaxmrgldlqfurrlsmstkdydwkrkrmfwkfmfgkskclfEoakekrufrhkfmfrodtlsgodigkamfhbatchinferencefmfwjswpfhtjfrPehlsdlfqkswjrdlslanguageprocessingpipelinedmfrmeofhrkwudhaustlftlrksghksruddptjtjdsmddlrmqrurglskQkwlfrksmd	-	오늘은왜이렇게everything이꼬이는지모르겠는데일단whatever하자고생각했다가막상하려니까whatif라는생각부터들어서결국아무것도못하고있음이게진짜문제인게뭔가를시작하기전에는supereasy해보이는데막상시작하면unexpectededgecase가계속나와서처음의assumption부터다시검증해야한다는거임특히이런식으로한글과english가붙어있는문장에서는어디까지가하나의token이고어디부터가anotherlanguage인지판단하는것자체가ambiguous할수밖에없는데그렇다고무조건characterlevel로쪼개버리면semanticmeaning이완전히깨져버리고반대로dictionarybasedapproach만사용하면신조어나propernoun같은unseenvocabulary를제대로처리하지못한다는tradeoff가있음예를들어github에서pullrequest를올렸는데reviewer가이부분은actuallynotquitecorrect하다고comment를달았을때notquite가하나의phrase인지아니면not과quite를별도로분리해야하는지심지어그사이에한국어조사나어미가들어오면어떻게할것인지까지고려해야함그러니까이건단순히영어인지한국어인지를classify하는문제가아니라sequence전체를보면서각구간의languageidentity와morphologicalboundary를동시에추론해야하는문제에가까움근데문제는사람이보기에도자연스러운문장과모델이쉽게판별할수있는문장은전혀다를수있다는점임나는분명히이렇게쓰면meaning이통한다고생각했는데모델입장에서는trainingdistribution에서거의보지못한pattern일수도있고반대로사람은이상하다고느끼는문장도statisticalfrequency가높으면모델은confident하게잘못된결정을내릴수있음그래서accuracy하나만보고이모델이잘한다못한다고결론내리는건fundamentallymisleading할수있고precisionrecallboundaryf1그리고특정pattern별errorrate까지함께확인해야함가령영어단어뒤에한국어조사가붙는경우에는github에cursor로부터notion까지openai가만든tool을써봤는데라는문장을어떻게분절하는지봐야하고반대로한국어어간과영어단어가붙는경우에는먹방content를watch하다가갑자기배고파져서delivery를order했는데라는식의입력도필요함여기에영어약어와숫자와기호까지섞이면더복잡해짐v0.9.7에서api를3x빠르게만들었다고했는데실제로는p95latency가120ms에서180ms로늘어났다는report가있으면이걸한글조사와함께처리하는과정에서숫자와버전문자열을별도의token으로보존해야하는지또한문제가됨그리고dontknow나idontthinkso처럼apostrophe가생략된표현은영어로인식해야하지만dont를그대로한국어문맥에붙여쓰는경우에는단순한substringmatching이오히려falsepositive를유발할수있음심지어read라는단어는문맥에따라발음이달라지고live도라이브인지리브인지에따라의미가달라지는데이런homograph문제는언어판별과발음추론을분리하지않으면평가결과를해석하기어려워질수있음그러니까테스트셋을만들때는그냥random하게단어를섞는것만으로는부족하고각각의boundarycase를통제하면서도실제사용자가입력할법한distribution을유지해야함하지만너무인위적인문장만만들면benchmarkoverfitting이발생할수있으므로일반채팅개발자대화팬덤용어가사스타일의반복구절그리고고유명사가많은문장까지다양하게포함해야함물론가사스타일을재현한다고해서저작권이있는실제가사를무단으로대량수집할필요는없고직접생성한문장으로도충분히challenging한패턴을구성할수있음결국내가원하는건그냥한국어랑영어가섞여있다는사실을알아맞히는모델이아니라실제입력도중에띄어쓰기없이이어지는문자열을받았을때도언어전환지점과조사경계그리고고유명사와영어표현을최대한정확하게복원하는robust한inputmethod를만드는것임그런데이정도까지요구하면단순한trigrammodel만으로는generalization에한계가있을수있고contextwindow를확장하거나characterlevelneuralmodel을추가하거나아예lightweighttransformer를distillation해서사용하는방법까지검토해야할수있음다만모델크기가커진다고반드시실제typingexperience가좋아지는것은아니므로latencymemoryfootprintcoldstart그리고incrementaldecoding비용까지동시에측정해야함특히입력기는사용자가글자를하나칠때마다결과를갱신해야하므로batchinference를전제로설계된일반적인languageprocessingpipeline을그대로가져오면실시간환경에서성능이급격히나빠질가능	오늘은왜이렇게everything이꼬이는지모르겠는데일단whatever하자고생각했다가막상하려니까whatif라는생각부터들어서결국아무것도못하고있음이게진짜문제인게뭔가를시작하기전에는supereasy해보이는데막상시작하면unexpectededgecase가계속나와서처음의assumption부터다시검증해야한다는거임특히이런식으로한글과english가붙어있는문장에서는어디까지가하나의token이고어디부터가anotherlanguage인지판단하는것자체가ambiguous할수밖에없는데그렇다고무조건characterlevel로쪼개버리면semanticmeaning이완전히깨져버리고반대로dictionarybasedapproach만사용하면신조어나propernoun같은unseenvocabulary를제대로처리하지못한다는tradeoff가있음예를들어github에서pullrequest를올렸는데reviewer가이부분은actuallynotquitecorrect하다고comment를달았을때notquite가하나의phrase인지아니면not과quite를별도로분리해야하는지심지어그사이에한국어조사나어미가들어오면어떻게할것인지까지고려해야함그러니까이건단순히영어인지한국어인지를classify하는문제가아니라sequence전체를보면서각구간의languageidentity와morphologicalboundary를동시에추론해야하는문제에가까움근데문제는사람이보기에도자연스러운문장과모델이쉽게판별할수있는문장은전혀다를수있다는점임나는분명히이렇게쓰면meaning이통한다고생각했는데모델입장에서는trainingdistribution에서거의보지못한pattern일수도있고반대로사람은이상하다고느끼는문장도statisticalfrequency가높으면모델은confident하게잘못된결정을내릴수있음그래서accuracy하나만보고이모델이잘한다못한다고결론내리는건fundamentallymisleading할수있고precisionrecallboundaryf1그리고특정pattern별errorrate까지함께확인해야함가령영어단어뒤에한국어조사가붙는경우에는github에cursor로부터notion까지openai가만든tool을써봤는데라는문장을어떻게분절하는지봐야하고반대로한국어어간과영어단어가붙는경우에는먹방content를watch하다가갑자기배고파져서delivery를order했는데라는식의입력도필요함여기에영어약어와숫자와기호까지섞이면더복잡해지av0.9.7에서api를3x빠르게만들었다고했는데실제로는p95latency가120ms에서180ms로늘어났다는report가있으면이걸한글조사와함께처리하는과정에서숫자와버전문자열을별도의token으로보존해야하는지또한문제가됨그리고dontknowskidontthinkso처럼apostrophe가생략된표현은영어로인식해야하지만dont를그대로한국어문맥에붙여쓰는경우에는단순한substringmatching이오히려falsepositive를유발할수있음심지어read라는단어는문맥에따라발음이달라지고live도라이브인지리브인지에따라의미가달라지는데이런homograph문제는언어판별과발음추론을분리하지않으면평가결과를해석하기어려워질수있음그러니까테스트셋을만들때는그냥random하게단어를섞는것만으로는부족하고각각의boundarycase를통제하면서도실제사용자가입력할법한distribution을유지해야함하지만너무인위적인문장만만들면benchmarkoverfitting이발생할수있으므로일반채팅개발자대화팬덤용어가사스타일의반복구절그리고고유명사가많은문장까지다양하게포함해야함물론가사스타일을재현한다고해서저작권이있는실제가사를무단으로대량수집할필요는없고직접생성한문장으로도충분히challenging한패턴을구성할수있음결국내가원하는건그냥한국어랑영어가섞여있다는사실을알아맞히는모델이아니라실제입력도중에띄어쓰기없이이어지는문자열을받았을때도언어전환지점과조사경계그리고고유명사와영어표현을최대한정확하게복원하는robust한inputmethod를만드는것임그런데이정도까지요구하면단순한trigrammodel만으로는generalization에한계가있을수있고contextwindow를확장하거나characterlevelneuralmodel을추가하거나아예lightweighttransformer를distillation해서사용하는방법까지검토해야할수있음다만모델크기가커진다고반드시실제typingexperience가좋아지는것은아니므로latencymemoryfootprintcoldstart그리고incrementaldecoding비용까지동시에측정해야함특히입력기는사용자가글자를하나칠때마다결과를갱신해야하므로batchinference를전제로설계된일반적인languageprocessingpipeline을그대로가져오면실시간환경에서성능이급격히나빠질가능
+cs.extreme	IsmsamsjandsmsthemyofzhinemthefmfworlddnlgobuildaksemfarhnewdlTdjsystemdmsthataoqjscangksrmfswitchrhkduddjbetweenfmfgksrnrdjwithoutwkehdspacedmfhoranswkdqnghfmfdetectgksmsepdliswjdakfarmrgksstressxptmxmcasefktjwesmsneedtoejdnrmixqhrwkqgkstokenrhkwhtkanddjalfmfsjgdjdigobecausedlfjsdlqfurdmsrealtlfwptkdydwkrktypinggkfEoehqkftodgkftndlTrhtheahepfdmseachrkrsegmentdmllanguagefmfwjdghkrglidentifygodigksek.	-	I는am너and는themyof코in드the를world위해build만들a고new있어system은that매번can한글switch과영어between를한국어without자동space으로or문장부호를detect하는데이is정말a극한stress테스트case라서we는needto더욱mix복잡한token과조사and어미를넣어야해because이런입력은real실제사용자가typing할때도발생할수있고the모델은each각segment의language를정확히identify해야한다.	I는므너and는themyofzhinemthe를world위해build만듦고new있어system은that매번can한글switch과영어between를한국어without자동space으로or문장부호를detect하는데이is정말a극한stress테스트case라서we는needto더욱mix복잡한token과조사and어미를넣어야해because이런입력은real실제사용자가typing할때도발생할수있고the모델은each각segment의language를정확히identify해야한다.

@@ -14,6 +14,7 @@ use typescript_core::{
 use crate::{keys_of, keys_of_text};
 
 const TERMS: &str = include_str!("../cases/terms.txt");
+const SHORT_TERMS: &str = include_str!("../cases/short_terms.txt");
 /// The pack generator's source: its extra-word list says which terms were tuned for.
 const PACKGEN: &str = include_str!("../../crates/packgen/src/lib.rs");
 
@@ -322,7 +323,18 @@ fn transfer(
 }
 
 /// All big sets. None when lab/data is missing.
-pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<Report> {
+/// The lines of fold `k` of `n` (every n-th, from k): the folds of one list share nothing.
+fn part(items: Vec<String>, fold: Option<(usize, usize)>) -> Vec<String> {
+    let Some((k, n)) = fold else { return items };
+    items.into_iter().skip(k).step_by(n).collect()
+}
+
+pub fn run(
+    engine: &dyn DecisionEngine,
+    sample: usize,
+    shown: usize,
+    fold: Option<(usize, usize)>,
+) -> Option<Report> {
     let (Some(ko), Some(en), Some(titles)) = (
         read_lines("ko_sentences.txt"),
         read_lines("en_sentences.txt"),
@@ -331,6 +343,10 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
         println!("(no lab/data: run `python lab/fetch_data.py` for the big sets)\n");
         return None;
     };
+    if let Some((k, n)) = fold {
+        println!("fold {k}/{n}: the big sets hold every {n}th line from {k}; baseline diffs are not like for like\n");
+    }
+    let (ko, en, titles) = (part(ko, fold), part(en, fold), part(titles, fold));
     let terms: Vec<&str> = TERMS
         .lines()
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
@@ -347,7 +363,7 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
             .collect()
     };
     sentences(engine, "ko.sent", &pairs(&ko), shown, &mut report);
-    if let Some(phrases) = read_lines("ko_phrases.txt") {
+    if let Some(phrases) = read_lines("ko_phrases.txt").map(|l| part(l, fold)) {
         sentences(
             engine,
             "ko.phrase",
@@ -356,7 +372,17 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
             &mut report,
         );
     }
-    if let Some(long) = read_lines("ko_long.txt") {
+    if let Some(comments) = read_lines("ko_comments.txt").map(|l| part(l, fold)) {
+        // News comments: informal text from another place than the sentences above.
+        sentences(
+            engine,
+            "ko.comment",
+            &pairs(&spread(&comments, sample)),
+            shown,
+            &mut report,
+        );
+    }
+    if let Some(long) = read_lines("ko_long.txt").map(|l| part(l, fold)) {
         sentences(
             engine,
             "ko.long",
@@ -381,6 +407,18 @@ pub fn run(engine: &dyn DecisionEngine, sample: usize, shown: usize) -> Option<R
     for (kind, items) in &by_kind {
         sentences(engine, &format!("cs.{kind}"), items, shown, &mut report);
     }
+    // Short English words that are also whole Korean syllables, put into the same sentences:
+    // they have to stay English.
+    let short: Vec<&str> = SHORT_TERMS
+        .lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+    let bare: Vec<(String, String)> = code_switch(&ko, &short, &mut Rng(11))
+        .into_iter()
+        .filter(|(kind, _)| *kind == "bare")
+        .map(|(_, text)| (keys_of_text(&text), text))
+        .collect();
+    sentences(engine, "cs_short.bare", &bare, shown, &mut report);
     // Terms the pack's extra-word list does not name: what the engine does on names nobody
     // listed (the honest number once a word list was tuned on terms.txt).
     let listed: std::collections::HashSet<&str> = PACKGEN.split_whitespace().collect();

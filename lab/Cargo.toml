@@ -1,9 +1,9 @@
-# Measurement lab: not a member of the root workspace, never built by CI, release or the
+# Measurement lab, versioned on its own (CHANGELOG.md here): not a member of the root workspace, never built by CI, release or the
 # packaging scripts, so nothing here reaches an installer. Own lockfile and target dir.
 #   cargo run --release --manifest-path lab/Cargo.toml
 [package]
 name = "typescript-lab"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0-only"
 publish = false

@@ -4,6 +4,8 @@
 //!   cargo run --release --manifest-path lab/Cargo.toml                  report + diff
 //!   cargo run --release --manifest-path lab/Cargo.toml -- --save        also record as baseline
 //!   cargo run --release --manifest-path lab/Cargo.toml -- --misses 20   misses per bucket (5)
+//!   cargo run --release --manifest-path lab/Cargo.toml -- --fold 1/3    only every 3rd sentence of
+//!                                                                       the big sets (fold 1 of 3)
 //!
 //! Embedded packs only and no learning file, so a run means the same on every machine.
 //! Cases: generated from crates/core/data (sampled across each whole list, not just the top),
@@ -38,6 +40,8 @@ const ENGLISH_DEPTH: usize = 20_000;
 const DEFAULT_MISSES: usize = 5;
 /// Items per big set (`--corpus N`); the sets in lab/data hold tens of thousands.
 const DEFAULT_CORPUS: usize = 3000;
+/// The lab's own version (lab/CHANGELOG.md): a baseline from another one may measure other sets.
+const LAB_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Counts live heap bytes, so "lighter" is a number.
 struct Counting;
@@ -265,6 +269,8 @@ fn latency(metrics: &mut BTreeMap<String, f64>, name: &str, mut times: Vec<Durat
 
 /// Metrics plus the cases that failed (only those are stored; a case not listed passed).
 struct Baseline {
+    /// The lab version that recorded it (none: before the lab had versions).
+    lab: Option<String>,
     metrics: BTreeMap<String, f64>,
     failed: std::collections::BTreeSet<String>,
 }
@@ -276,12 +282,14 @@ fn baseline_path() -> PathBuf {
 fn read_baseline() -> Option<Baseline> {
     let text = std::fs::read_to_string(baseline_path()).ok()?;
     let mut baseline = Baseline {
+        lab: None,
         metrics: BTreeMap::new(),
         failed: Default::default(),
     };
     for line in text.lines() {
         let f: Vec<&str> = line.split('\t').collect();
         match f.as_slice() {
+            ["#lab", version] => baseline.lab = Some(version.to_string()),
             ["#metric", name, value] => {
                 if let Ok(v) = value.parse() {
                     baseline.metrics.insert(name.to_string(), v);
@@ -437,6 +445,14 @@ fn main() {
         return;
     }
     let save = args.iter().any(|a| a == "--save");
+    // `--fold K/N`: the big sets keep only the lines whose number is K modulo N, so what a choice
+    // is made on (one fold) and what it is checked on (another) share no sentence.
+    let fold: Option<(usize, usize)> = args
+        .iter()
+        .position(|a| a == "--fold")
+        .and_then(|i| args.get(i + 1)?.split_once('/'))
+        .and_then(|(k, n)| Some((k.parse().ok()?, n.parse().ok()?)))
+        .filter(|(k, n)| k < n);
     let shown = args
         .iter()
         .position(|a| a == "--misses")
@@ -529,7 +545,7 @@ fn main() {
     let big = if args.iter().any(|a| a == "--no-corpus") {
         None
     } else {
-        corpus::run(engine.as_ref(), sample, shown)
+        corpus::run(engine.as_ref(), sample, shown, fold)
     };
     let scenarios = scenario::run(engine.as_ref(), shown);
     for report in big.iter().chain([&scenarios]) {
@@ -577,7 +593,7 @@ fn main() {
     }
 
     if save {
-        let mut out = String::new();
+        let mut out = format!("#lab\t{LAB_VERSION}\n");
         for (name, value) in &metrics {
             writeln!(out, "#metric\t{name}\t{value:.3}").unwrap();
         }
@@ -594,8 +610,13 @@ fn print_report(
     buckets: &BTreeMap<&str, (usize, usize)>,
     baseline: Option<&Baseline>,
 ) {
-    if baseline.is_none() {
-        println!("(no baseline.tsv yet: run with --save to record one)\n");
+    match baseline.map(|b| b.lab.as_deref()) {
+        None => println!("lab {LAB_VERSION}\n(no baseline.tsv yet: run with --save to record one)\n"),
+        Some(Some(v)) if v == LAB_VERSION => println!("lab {LAB_VERSION}\n"),
+        Some(v) => println!(
+            "lab {LAB_VERSION} (the baseline is from lab {}: its sets may differ)\n",
+            v.unwrap_or("before versions")
+        ),
     }
     println!(
         "{:<34} {:>10} {:>10} {:>9}",
