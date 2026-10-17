@@ -149,6 +149,50 @@ fn partial_preview_does_not_punish_pending_consonant() {
     assert_eq!(d.language, Language::Korean, "{}", d.explanation);
 }
 
+fn typed(keys: &str, previous: Option<Language>, partial: bool) -> typescript_core::Decision {
+    heuristic().decide(
+        keys,
+        &DecisionContext {
+            previous_language: previous,
+            partial,
+            ..Default::default()
+        },
+    )
+}
+
+#[test]
+fn informal_one_syllable_words_win_over_an_english_word_with_the_same_keys() {
+    // 걍 and 캬 are said in every other movie review and in no Tatoeba sentence; rid is English too.
+    for (keys, word) in [("rid", "걍"), ("zi", "캬")] {
+        let d = typed(keys, Some(Language::Korean), false);
+        assert_eq!(d.output, word, "{keys}: {}", d.explanation);
+    }
+}
+
+#[test]
+fn a_common_english_word_is_not_given_up_for_a_rare_korean_one() {
+    // 애 is said a few times in a review set; do is the English word everyone types.
+    let d = typed("do", None, false);
+    assert_eq!(d.language, Language::English, "{}", d.explanation);
+}
+
+#[test]
+fn the_start_of_an_english_word_after_english_is_no_korean_word_while_it_is_typed() {
+    // wo is 재 and wor is 잭, both words: the preview must not flash them in "hello world".
+    for keys in ["wo", "wor"] {
+        let d = typed(keys, Some(Language::English), true);
+        assert_eq!(d.language, Language::English, "{keys}: {}", d.explanation);
+    }
+}
+
+#[test]
+fn a_one_syllable_word_typed_after_korean_shows_as_korean_at_once() {
+    for (keys, word) in [("go", "해"), ("so", "내"), ("to", "새")] {
+        let d = typed(keys, Some(Language::Korean), true);
+        assert_eq!(d.output, word, "{keys}: {}", d.explanation);
+    }
+}
+
 #[test]
 fn learning_overrides_base() {
     let path = temp_lexicon("learn");

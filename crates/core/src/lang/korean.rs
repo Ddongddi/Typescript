@@ -34,7 +34,7 @@ pub const CHAT_JAMO_LOGP: f64 = -4.0;
 const CHAT_JAMO: &str = "ㅋㅎㅠㅜㄷㅇㄱㅅㅂㄴ";
 
 /// Sum of the counts in korean_words.txt.
-const WORDS_TOTAL: f64 = 69_953.0;
+const WORDS_TOTAL: f64 = 70_095.0;
 /// A vocabulary word of rank r costs RANK_LOGP + RANK_SLOPE·ln r (rank 1 … 48735).
 const RANK_LOGP: f64 = 5.0;
 const RANK_SLOPE: f64 = 0.65;

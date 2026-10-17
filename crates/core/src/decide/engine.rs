@@ -287,8 +287,13 @@ impl HeuristicEngine {
     }
 
     /// The Korean reading of `keys` with its score, and whether it is a word seen in real
-    /// text (which lifts the score to a floor).
-    fn korean_score(&self, keys: &str, partial: bool) -> (Option<KoreanScore>, bool) {
+    /// text (which lifts the score to a floor). `after_korean`: the word before was Korean.
+    fn korean_score(
+        &self,
+        keys: &str,
+        partial: bool,
+        after_korean: bool,
+    ) -> (Option<KoreanScore>, bool) {
         let mut k = self.korean.score(keys, partial);
         let known = k.as_ref().is_some_and(|s| {
             s.composition.stray_jamo().is_empty()
@@ -301,6 +306,14 @@ impl HeuristicEngine {
                         && self.english.level(keys).is_none_or(|l| l > EXTRA_LEVEL)
                         && self.korean.is_vocabulary_word(&s.composition.text())))
         });
+        // While it is still being typed, one syllable out of English or nowhere is the start of
+        // anything (wo of world, as 재 and 잭 are words): it is no word yet, and lifts neither
+        // its score nor the Korean side of the context. After Korean it is a word more often
+        // than not (해, 내, 새), so it keeps both.
+        let lone = k
+            .as_ref()
+            .is_some_and(|s| s.composition.syllables().len() < 2);
+        let known = known && !(partial && lone && !after_korean);
         if let (Some(score), true) = (k.as_mut(), known) {
             let floor = if score.composition.syllables().len() >= 2 {
                 self.korean_known_floor_long
@@ -359,7 +372,12 @@ impl DecisionEngine for HeuristicEngine {
 
         // Without Korean its tables are never touched (its pack may not be installed).
         let (k, known_korean) = if self.korean_on {
-            self.korean_score(keys, context.partial)
+            self.korean_score(
+                keys,
+                context.partial,
+                context.previous_language.map(Language::sentence_language)
+                    == Some(Language::Korean),
+            )
         } else {
             (None, false)
         };

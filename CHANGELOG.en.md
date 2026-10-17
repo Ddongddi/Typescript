@@ -12,6 +12,8 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 ### Changed
 
 - The welcome guide's Esc screen no longer depends on the engine getting a word wrong. If `깨짐` (`Rowla`) comes out right, Esc shows the other reading and one more press brings it back; if it stayed English, Esc fixes it as before. The three rounds are now one.
+- 142 one-syllable words that informal Korean says (`걍`, `캬`, `잭` ...) are known words now. `korean_words.txt` comes from translated sentences and had no spoken Korean, so `rid` stayed English instead of becoming `걍`. They come from the test half of NSMC (CC0), `tools/colloquial_words.py` makes them again, and a word is left out when an English word on the same keys is much more common (`do` does not become `애`). About 130-180 points on the movie-review sets.
+- The preview flashes Korean less while an English word is typed. After a word that is not Korean, one syllable is not a word yet (the `wo` of `world` turning into `재`): 12.7% → 5.4% of English words flicker after English, 24.7% → 20.1% with no text before. In return, with no Korean before it, the preview of a one-syllable Korean word can show English until the word is committed.
 - The welcome guide's language screen no longer has a "skip the tutorial" button: pick a language and press Start to go on.
 
 ## [0.9.0] - 2026-10-17

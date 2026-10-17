@@ -18,6 +18,8 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
 3. Korean sentence-derived syllable and word frequencies (korean_syllables.txt, korean_words.txt)
    Derived from Tatoeba sentences, CC BY 2.0 FR. https://tatoeba.org
    License: https://creativecommons.org/licenses/by/2.0/fr/
+   korean_words.txt also holds one-syllable words that informal Korean says (tools/colloquial_words.py),
+   found in the test half of the Naver sentiment movie corpus (NSMC), CC0. https://github.com/e9t/nsmc
 
 4. English words and how common they are (english_words.txt)
    SCOWL (Spell Checker Oriented Word Lists), http://wordlist.aspell.net
