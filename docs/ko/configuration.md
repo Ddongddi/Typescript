@@ -65,6 +65,12 @@ typescript-config update
 
 # 비대화형 초기 셋업 (배포 자동화용)
 typescript-config setup --languages ko,en
+
+# 시작 안내 페이지: 언어 고르기 + 짧은 연습
+typescript-config welcome
+
+# 이미 켜 둔 언어를 다시 설치 (업데이트용, 처음 설치면 실패)
+typescript-config setup --if-configured
 ```
 
 ---
@@ -142,6 +148,7 @@ typescript-config setup --languages ko,en
 | `escapeToApp` | `bool` | `true`로 설정하면 단일 `Esc` 키를 Typescript가 가로채지 않고 앱(Vim, VSCode 등)으로 직접 전달합니다. 언어 순환은 `Shift + Esc`로 수행하게 됩니다. |
 | `useSystemIme` | `bool` | 해당 앱에 포커스가 갈 때 자동으로 Microsoft 기본 한국어 IME로 전환합니다. 포커스를 벗어나면 Typescript로 복귀합니다. |
 | `fullWidth` | `bool` | `false`로 두면 전역 일본어 전각 설정이 켜져 있더라도 이 앱(터미널 등)에서는 반각 숫자/공백을 유지합니다. |
+| `returnConfirmsOnly` | `bool` | 그 앱에서만 Enter 동작을 정합니다. `false`면 Enter 한 번에 확정과 전송이 같이 됩니다 (메신저). 슬랙·디스코드·카카오톡 등은 기본으로 `false`가 들어 있습니다. |
 
 ---
 

@@ -27,7 +27,7 @@ PowerShell을 열고 다음 명령어를 실행합니다 (설치 시 관리자 �
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-- 실행 시 **대화형 TUI 창**이 열려 사용할 언어(영어, 한국어, 일본어) 및 Esc 순환 순서를 키보드로 간편하게 지정할 수 있습니다.
+- 설치가 끝나면(첫 설치) **시작 안내 페이지**가 브라우저에 열려 사용할 언어(영어, 한국어, 일본어)를 고르고 켤 수 있고, 짧은 연습까지 안내합니다. 업데이트 설치에서는 열리지 않습니다.
 - 다운로드된 zip 파일은 공식 릴리스의 SHA-256 체크섬을 검증한 후 안전하게 설치됩니다.
 
 #### 옵션을 지정하여 설치
@@ -43,7 +43,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese
 
 # 특정 버전 설치
-& $i -Version v0.5.0
+& $i -Version v0.9.0
 
 # 삭제/제거 (설정 및 언어 팩은 보존)
 & $i -Uninstall
@@ -151,6 +151,9 @@ ibus restart
 ```powershell
 # arm64 + x86_64 통합 빌드
 .\platforms\android\build.ps1
+
+# 폰용만 (arm64)
+.\platforms\android\build.ps1 -Abi arm64-v8a
 
 # 기기에 즉시 설치 (ADB 연결 상태)
 adb install -r platforms\android\build\typescript.apk

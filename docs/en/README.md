@@ -51,7 +51,7 @@ Run the following command in PowerShell with administrator privileges to downloa
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-During installation, an interactive terminal selector allows you to choose your active languages (English, Korean, Japanese) and their cycling order. After installation, press **Win + Space** and select **Typescript** or **Typescript (Autocomplete)**.
+When a first install finishes, a **welcome page** opens in your browser to pick your languages (English, Korean, Japanese; the list order is the cycling order). After installation, press **Win + Space** and select **Typescript** or **Typescript (Autocomplete)**.
 
 To open the graphical settings dashboard, click **Typescript Settings** from the Start Menu or run:
 

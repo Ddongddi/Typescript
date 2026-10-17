@@ -41,7 +41,7 @@ Windows will automatically switch to the Microsoft Korean IME whenever that wind
 In shell environments, brief commands such as `ls`, `cd`, `dir`, `git`, or `cat` can occasionally be misclassified as Korean.
 
 #### Solution:
-Raise the classification threshold (`conversionThreshold`) in `apps.json` from the default `0.5` to `0.97`:
+Terminals such as Windows Terminal, cmd, PowerShell, WezTerm and Alacritty already ship with this rule built in, so you don't need to write anything. The snippet below is for a terminal that isn't on that list — raise the classification threshold (`conversionThreshold`) in `apps.json` from the default `0.5` to `0.97`:
 
 ```json
 {
@@ -131,4 +131,4 @@ cargo run -p typescript-tip --example richedit_lab -- --ms
 **A:** Post-commit undo/flip requires that the host application permits the input method to inspect preceding text. Terminals or sandboxed input boxes that deny caret-reading permissions pass `Esc` straight to the app.
 
 ### Q: The Hangul key (language switch) or Alt+Hangul (pause) doesn't respond.
-**A:** On certain laptop keyboards, the Hangul key sends Right Alt (`VK_RMENU`). On the dashboard's "키" (Keys) tab, set `"hangulKey"` in `settings.json` to the key you actually use (for example `"RAlt"`). On macOS, use **Option + Space**. On Linux, use the **Hangul** or **Pause** key.
+**A:** On certain laptop keyboards, the Hangul key sends Right Alt (`VK_RMENU`). To fix it, open the dashboard's **Keys** (키) tab, press **Set Han/Eng key**, and hit the key you actually use — or set `"hangulKey"` in `settings.json` directly (for example `"RAlt"`). On macOS, use **Option + Space**. On Linux, use the **Hangul** or **Pause** key.

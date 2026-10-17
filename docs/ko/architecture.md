@@ -20,15 +20,15 @@ flowchart TD
     subgraph Core [crates/core (OS 독립적 Rust 코어)]
         subgraph SessionLayer [세션 계층: session/]
             SESSION[InputSession 상태 머신]
-            WORD[단어 조합 버퍼 WordBuffer]
-            FLIP[확정 직후 Esc 변환 FlipBuffer]
-            JP_SESSION[일본어 변환 세션 JapaneseSession]
+            WORD[단어 조합 버퍼 WordState]
+            FLIP[확정 직후 Esc 되돌리기<br/>session/flip.rs]
+            JP_SESSION[일본어 변환<br/>session/japanese.rs]
         end
 
         subgraph DecideLayer [판별 계층: decide/]
             LEARN[사용자 교정 사전<br/>LearningEngine]
             MIXED[영문+조사 분리<br/>SplittingEngine]
-            ENGINE[점수 기반 판별 엔진<br/>DecisionEngine]
+            ENGINE[점수 기반 판별 엔진<br/>HeuristicEngine]
             KANJI[한자 사전 엔진<br/>KanjiDictionary / IPADIC]
         end
 
@@ -65,11 +65,11 @@ flowchart TD
 
 ### 상태 전이 흐름
 1. **입력 중 (Composing)**:
-   - 영문자 키(`a-z`, `A-Z`)가 입력되면 현재 단어 버퍼(`WordBuffer`)에 누적됩니다.
+   - 영문자 키(`a-z`, `A-Z`)가 입력되면 현재 단어 버퍼(`WordState`)에 누적됩니다.
    - 단어가 갱신될 때마다 `decide` 엔진이 현재까지의 입력을 평가하여 점선 밑줄(미리보기, Preview)로 표시할 후보 텍스트를 생성합니다.
 2. **단어 경계 및 확정 (Commit)**:
    - `Space`, 줄바꿈(`Enter`), 구두점(`.`, `,`, `?`, `!` 등)을 누르면 현재 단어가 최종 결정된 언어로 확정(Commit)됩니다.
-   - 확정된 단어는 `FlipBuffer`에 저장되어 바로 뒤에 이어지는 `Esc` 키로 취소/재변환할 수 있습니다.
+   - 확정된 단어는 확정 상태(`session/flip.rs`)에 저장되어 바로 뒤에 이어지는 `Esc` 키로 취소/재변환할 수 있습니다.
 3. **Esc 순환 (Cycling)**:
    - 입력 도중 `Esc`를 누르면 현재 단어의 가능한 후보 읽기가 순환합니다:
      $$\text{영어} \longrightarrow \text{영어 + 조사} \longrightarrow \text{한국어} \longrightarrow \text{일본어(활성화 시)}$$

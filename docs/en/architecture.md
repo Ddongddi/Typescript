@@ -20,15 +20,15 @@ flowchart TD
     subgraph Core [crates/core (OS-Agnostic Rust Core)]
         subgraph SessionLayer [Session Layer: session/]
             SESSION[InputSession State Machine]
-            WORD[Word Composition Buffer]
-            FLIP[Post-Commit FlipBuffer]
-            JP_SESSION[JapaneseSession State]
+            WORD[Word Composition Buffer<br/>WordState]
+            FLIP[Post-Commit Flip<br/>session/flip.rs]
+            JP_SESSION[Japanese Conversion<br/>session/japanese.rs]
         end
 
         subgraph DecideLayer [Decide Layer: decide/]
             LEARN[User Correction Memory<br/>LearningEngine]
             MIXED[English+Particle Splitter<br/>SplittingEngine]
-            ENGINE[Bayesian Decision Engine<br/>DecisionEngine]
+            ENGINE[Score-based Decision Engine<br/>HeuristicEngine]
             KANJI[Kanji Dictionary Engine<br/>KanjiDictionary / IPADIC]
         end
 
@@ -65,11 +65,11 @@ When a user begins typing, the platform adapter maps native OS keystrokes to abs
 
 ### State Lifecycle
 1. **Composing (In-Progress Typing)**:
-   - Alphanumeric keystrokes accumulate in `WordBuffer`.
+   - Alphanumeric keystrokes accumulate in `WordState`.
    - On each keypress, the `decide` engine evaluates the token and generates a dotted underline (preview string) indicating the currently predicted language.
 2. **Commit (Word Boundaries)**:
    - Delimiters such as `Space`, newline (`Enter`), or punctuation marks (`.`, `,`, `?`, `!`) trigger commitment.
-   - The decided text is committed to the application, and the committed token is recorded into `FlipBuffer`.
+   - The decided text is committed to the application, and the committed token is kept in the post-commit flip state (`session/flip.rs`) so a following `Esc` can undo or re-convert it.
 3. **Esc Cycling**:
    - Pressing `Esc` during composition cycles through candidate readings:
      $$\text{English} \longrightarrow \text{English + Particle} \longrightarrow \text{Korean} \longrightarrow \text{Japanese (if enabled)}$$

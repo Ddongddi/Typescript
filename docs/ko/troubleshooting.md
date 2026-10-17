@@ -41,7 +41,7 @@ Typescript 사용 중 발생할 수 있는 키 충돌, 애플리케이션 호환
 터미널 환경에서 `ls`, `cd`, `dir`, `git`, `cat` 등의 짧은 알파벳 명령어가 의도치 않게 한글 자모로 판별될 수 있습니다.
 
 #### 해결 방법:
-`apps.json`에서 터미널 프로세스의 판별 임계값(`conversionThreshold`)을 상향 조정합니다 (기본값 `0.5` → `0.97`):
+Windows Terminal, cmd, PowerShell, WezTerm, Alacritty 같은 터미널은 이 규칙이 **기본으로 들어 있어** 따로 쓰지 않아도 0.97이 적용됩니다. 아래는 목록에 없는 터미널 프로그램을 직접 걸 때 쓰는 방법입니다 — `apps.json`에서 판별 임계값(`conversionThreshold`)을 상향 조정합니다 (기본값 `0.5` → `0.97`):
 
 ```json
 {

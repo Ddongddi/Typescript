@@ -1,5 +1,6 @@
 target/
 *.stackdump
+__pycache__/
 dist/
 platforms/android/build/
 target-*/

@@ -1,6 +1,6 @@
 # Typescript 언어 팩 시스템 & 새 언어 추가 가이드
 
-Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속도를 극대화하기 위해, 언어별 데이터(트라이그램 확률표, 단어 사전, 한자 변환 테이블 등)를 별도의 **언어 팩(Language Pack)** 파일(`.pack`)로 분리하여 관리합니다.
+Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속도를 극대화하기 위해, 언어별 데이터(트라이그램 확률표, 단어 사전, 한자 변환 테이블 등)를 별도의 **언어 팩(Language Pack)** 으로 분리하여 관리합니다. 각 팩은 `manifest.json`과 표 파일들로 이뤄진 하나의 **폴더**이고, 릴리스에는 언어별 zip 하나로 배포됩니다.
 
 [English](../en/language-packs.md) · [한국어 문서 홈](README.md)
 
@@ -12,14 +12,26 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en.pack          (~0.5 MB) - 영어 트라이그램 및 빈도 어휘 사전
-├── ko.pack          (~0.4 MB) - 한국어 음절 트라이그램 및 단어 목록
-└── ja.pack          (~5.0 MB) - 로마자 규칙 + 가나 트라이그램 + IPADIC 사전
+├── en-0.9.0\              (~0.45 MB zip) - 영어 트라이그램과 사전
+│   ├── manifest.json      (id · 버전 · core 호환 범위 · 표 파일 해시)
+│   ├── english_levels.txt
+│   └── trigrams.bin
+├── ko-0.9.0\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
+│   ├── manifest.json
+│   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
+│   ├── korean_syllables.txt · korean_syllable_counts.txt
+│   └── korean_word_filter.bin
+└── ja-0.9.0\              (~4.7 MB zip, 풀면 약 9.5 MB) - 가나 트라이그램 + IPADIC 사전
+    ├── manifest.json
+    ├── kana_trigrams.bin
+    └── ipadic_compact.bin
 ```
+
+설치 프로그램은 릴리스의 `typescript-pack-<id>-<version>.zip`을 받아 풀고, 그 표 파일 각각이 `packs.json`(SHA-256·크기)과 manifest의 해시에 맞을 때만 팩 폴더로 등록합니다.
 
 ### 왜 언어 팩 구조인가?
 1. **초경량 메모리 발자국**: 각 앱 프로세스에 로드되는 DLL 파일 크기를 4MB 안쪽으로 유지합니다.
-2. **선택적 다운로드**: 일본어처럼 용량이 큰 사전(약 10MB)은 일본어 사용을 원하는 유저만 내려받아 사용합니다.
+2. **선택적 다운로드**: 일본어처럼 용량이 큰 사전(압축 해제 시 약 9.5MB)은 일본어 사용을 원하는 유저만 내려받아 사용합니다.
 3. **메모리 매핑(`mmap`)**: 모든 프로세스가 단일 물리 메모리 페이지만 공유하므로 시스템 리소스 낭비가 없습니다.
 4. **쉬운 확장성**: 새로운 언어를 추가할 때 코어 로직의 변경을 최소화하고 팩 단위로 배포할 수 있습니다.
 
@@ -27,7 +39,7 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 
 ## 2. 언어 팩 포맷 사양
 
-각 `.pack` 파일은 내부적으로 검증된 메타데이터와 바이너리 테이블 데이터로 구성됩니다.
+각 팩 폴더는 검증된 메타데이터(`manifest.json`)와 바이너리 테이블 파일들로 구성됩니다. 릴리스 배포 zip은 폴더의 파일들을 고정된 타임스탬프로 평평하게 묶은 것(manifest.json이 맨 앞)이라, 같은 입력에서 같은 바이트가 나옵니다.
 
 ### 2.1 `manifest.json`
 언어 팩의 식별자, 버전, 테이블 파일 목록 및 SHA-256 해시를 정의합니다:
@@ -49,12 +61,13 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 ### 2.2 바이너리 테이블 규격
 - **리틀 엔디언(Little-Endian)** 정렬.
 - 고정 크기 헤더와 인덱스 테이블: 포인터 역참조 없이 바이너리 오프셋 연산만으로 $O(1)$ 또는 이진 탐색 $O(\log N)$ 조회 가능.
+- 텍스트 표(정렬된 단어 목록 등)도 스트림으로 읽으므로 표 전체를 메모리에 풀지 않습니다.
 
 ---
 
 ## 3. 언어 팩 빌드 도구 (`typescript-packgen`)
 
-원시 텍스트 데이터셋(단어 목록, n-gram 카운트 등)을 정규화된 팩 바이너리로 변환하는 전용 도구입니다.
+원시 텍스트 데이터셋(단어 목록, n-gram 카운트 등)을 정규화된 언어 팩(바이너리 표 파일들과 manifest.json)으로 변환하는 전용 도구입니다.
 
 ### 3.1 팩 빌드 명령어
 ```powershell
@@ -62,7 +75,7 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-출력 디렉토리(`target/packs/`)에는 각 언어별 `.pack` 압축 파일과 전체 팩의 무결성 목록인 `packs.json`이 생성됩니다.
+기본 출력은 `target/packs/en-0.9.0/`처럼 한 언어 버전마다 하나의 폴더입니다 (체크아웃에서 바로 설치할 때 씁니다). `--release`를 주면 릴리스 배포용 `typescript-pack-<id>-<version>.zip`과, 이들의 크기와 SHA-256을 나열한 `packs.json`이 생깁니다 (`typescript-config`가 이 목록을 읽습니다).
 
 ---
 
@@ -73,7 +86,7 @@ cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/pac
 ### 1단계: 원시 말뭉치 데이터 준비
 1. 대규모 텍스트 코퍼스에서 정규화된 문자 트라이그램 빈도표(`trigrams.txt`)를 추출합니다.
 2. 빈도 기준 상위 50,000개 어휘 목록(`vocabulary.txt`)을 준비합니다.
-3. 데이터는 `crates/core/data/<lang>/` 폴더에 배치합니다.
+3. 데이터는 언어 접두어를 붙인 별도 파일로 `crates/core/data`에 평평하게(하위 폴더 없이) 둡니다. 예: `english_words.txt`, `korean_vocabulary.txt`.
 4. **주의:** [라이선스 준수](#5-데이터-라이선스-요건)를 반드시 확인해야 합니다.
 
 ### 2단계: 언어 모듈 구현 (`crates/core/src/lang/<id>/`)

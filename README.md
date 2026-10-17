@@ -76,7 +76,7 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 | Shift+Esc | 어느 앱에서나 읽기를 순환 |
 | 확정 직후 Esc | 방금 확정한 단어를 다음 읽기로 바꾼다. 같은 교정을 두 번 하면 학습한다 |
 | Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위, 일본어는 가나 한 글자 |
-| Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성한다. 완성할 단어는 단어 아래 작은 알약 창에 `안녕하세요  Tab` 으로 미리 보인다. 완성할 게 없으면 Tab은 앱으로 간다 |
+| Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성하고, 기록에 없으면 내장 사전에서 완성한다. 완성할 단어는 단어 아래 작은 알약 창에 `안녕하세요  Tab` 으로 미리 보인다. 완성할 게 없으면 Tab은 앱으로 간다 |
 | ⌃K / F7, ⌃J / F6 | (일본어) 읽기를 가타카나 / 히라가나로 보여 준다. Space로 둘을 뒤집고 Enter로 확정한다 |
 | **한/영 키** | 기본은 단어의 언어를 돌려 바꿉니다. Alt+한/영 은 이 입력칸에서 Typescript를 끄고 켭니다 (다른 칸으로 가면 다시 켜진다). 둘 다 [키 탭](#대시보드-설정-페이지)에서 바꿉니다 |
 
@@ -109,7 +109,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
-받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다. 언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어 0.5MB, 한국어 0.4MB, 일본어 5MB).
+받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다. 언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어·한국어 약 0.45MB, 일본어 약 4.7MB).
 
 설치 후 **Win+Space** 로 입력기를 고릅니다. 언어 목록에서는 **영어(미국)** 아래에 있습니다 (없으면 설치가 영어(미국)을 추가합니다. 이유는 [앱 호환](#앱-호환)). 입력기는 둘입니다.
 
@@ -343,7 +343,7 @@ flowchart LR
 ```powershell
 cargo test                                   # core 단위/통합 테스트
 cargo run -p typescript-cli -- -v "dkssud hello"
-echo "dkssud\tenglish" | cargo run -p typescript-cli -- --decide
+echo "dkssud`tenglish" | cargo run -p typescript-cli -- --decide
 cargo clippy --all-targets -- -D warnings
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs   # 릴리스 팩 (en, ko, ja)
 ```

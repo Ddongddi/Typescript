@@ -1,6 +1,6 @@
 # Typescript Language Pack System & Developer Guide
 
-To keep the core engine lightweight and ensure instantaneous application startup, Typescript separates language-specific datasets (trigram frequency tables, vocabulary dictionaries, and Kanji conversion indices) into standalone **Language Pack** files (`.pack`).
+To keep the core engine lightweight and ensure instantaneous application startup, Typescript separates language-specific datasets (trigram frequency tables, vocabulary dictionaries, and Kanji conversion indices) into standalone **Language Packs**. Each pack is a single **folder** (`manifest.json` plus its table files); releases ship one zip per language.
 
 [한국어](../ko/language-packs.md) · [English Docs Index](README.md)
 
@@ -12,22 +12,34 @@ To keep the core engine lightweight and ensure instantaneous application startup
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en.pack          (~0.5 MB) - English trigrams and frequency vocabulary
-├── ko.pack          (~0.4 MB) - Korean syllable trigrams and dictionary
-└── ja.pack          (~5.0 MB) - Romaji rules + Kana trigrams + IPADIC dictionary
+├── en-0.9.0\              (~0.45 MB zip) - English trigrams and vocabulary
+│   ├── manifest.json      (id · version · core range · table file hashes)
+│   ├── english_levels.txt
+│   └── trigrams.bin
+├── ko-0.9.0\              (~0.45 MB zip) - Korean word/syllable tables and word filter
+│   ├── manifest.json
+│   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
+│   ├── korean_syllables.txt · korean_syllable_counts.txt
+│   └── korean_word_filter.bin
+└── ja-0.9.0\              (~4.7 MB zip, ~9.5 MB unpacked) - Kana trigrams + IPADIC dictionary
+    ├── manifest.json
+    ├── kana_trigrams.bin
+    └── ipadic_compact.bin
 ```
+
+The installer downloads a release's `typescript-pack-<id>-<version>.zip`, unpacks it, and only registers it as a pack folder when every table file matches `packs.json` (SHA-256 and size) and the manifest hashes.
 
 ### Architectural Benefits
 1. **Minimal Memory Footprint**: The DLL loaded into each client process stays under 4MB.
-2. **Selective Downloads**: Users only download packs for the languages they actually use (e.g., the ~10MB Japanese IPADIC dictionary is optional).
-3. **Memory Mapping (`mmap`)**: All running processes share the exact same physical memory pages mapped from the `.pack` files, eliminating system RAM bloat.
+2. **Selective Downloads**: Users only download packs for the languages they actually use (the Japanese dictionary is about 9.5 MB unpacked).
+3. **Memory Mapping (`mmap`)**: All running processes share the exact same physical memory pages mapped from the table files, eliminating system RAM bloat.
 4. **Decoupled Extensibility**: Adding new language support requires minimal modifications to the core engine.
 
 ---
 
 ## 2. Pack Format Specification
 
-Each `.pack` archive contains validated metadata and optimized binary tables.
+Each pack folder contains validated metadata (`manifest.json`) and binary table files. The release zip flattens a pack folder's files (manifest.json first) with fixed timestamps, so the same input always zips to the same bytes.
 
 ### 2.1 `manifest.json`
 Specifies language identity, version, table definitions, and SHA-256 integrity hashes:
@@ -54,7 +66,7 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 
 ## 3. Pack Generator Tooling (`typescript-packgen`)
 
-The `typescript-packgen` crate converts raw text datasets (corpus frequencies, word lists) into finalized binary pack files.
+The `typescript-packgen` crate converts raw text datasets (corpus frequencies, word lists) into finalized language packs (binary table files plus a manifest).
 
 ### 3.1 Building Packs
 ```powershell
@@ -62,7 +74,7 @@ The `typescript-packgen` crate converts raw text datasets (corpus frequencies, w
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-The output directory (`target/packs/`) contains the compiled `.pack` archives and the root index `packs.json` with computed checksums.
+The default output is one folder per language version, like `target/packs/en-0.9.0/` (what a checkout installs directly). With `--release` it writes the release zips `typescript-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `typescript-config` reads).
 
 ---
 
@@ -73,7 +85,7 @@ To introduce a new language module (e.g., French `fr` or German `de`):
 ### Step 1: Prepare Raw Corpora
 1. Extract a normalized character trigram frequency distribution (`trigrams.txt`).
 2. Compile a frequency-sorted list of top 50,000 words (`vocabulary.txt`).
-3. Place raw files under `crates/core/data/<lang>/`.
+3. Place raw files flat under `crates/core/data` as separate, language-prefixed files (see `english_words.txt`, `korean_vocabulary.txt`); no subfolders.
 4. **Important**: Verify [data licensing requirements](#5-dataset-licensing-compliance).
 
 ### Step 2: Implement the Language Module (`crates/core/src/lang/<id>/`)

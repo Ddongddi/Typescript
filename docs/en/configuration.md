@@ -65,6 +65,12 @@ typescript-config update
 
 # Non-interactive automated initial setup
 typescript-config setup --languages ko,en
+
+# The first-run page: choose languages, short practice
+typescript-config welcome
+
+# Reinstall the already-enabled languages (for updates; fails on a first install)
+typescript-config setup --if-configured
 ```
 
 ---
@@ -142,6 +148,7 @@ Define custom behavior keyed by the application's executable filename (lowercase
 | `escapeToApp` | `bool` | Passes standard `Esc` keystrokes directly to the application (e.g., Vim Normal Mode). Language rotation can still be triggered via `Shift + Esc`. |
 | `useSystemIme` | `bool` | Automatically falls back to the native Microsoft Korean IME when this window gains focus, returning to Typescript when focus leaves. |
 | `fullWidth` | `bool` | Set to `false` to enforce half-width digits/spaces in specific apps (such as terminals), overriding global settings. |
+| `returnConfirmsOnly` | `bool` | Per-app Enter behavior. `false`: one Enter both commits and sends (chat apps). Slack, Discord, KakaoTalk and friends are already covered by this built-in default. |
 
 ---
 

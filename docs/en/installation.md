@@ -27,8 +27,8 @@ Open PowerShell and run the following command (requires a single UAC administrat
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-- An interactive terminal selector prompts you to pick active languages (English, Korean, Japanese) and determine their `Esc` cycling order.
-- The script verifies the SHA-256 checksum against the official GitHub Release prior to registering the DLL.
+- On a first install, a **welcome page** opens in your browser to pick the active languages (English, Korean, Japanese; the list order is the `Esc` cycling order) and walk through a short practice. Update installs don't show it.
+- The downloaded zip is verified against the official GitHub Release's SHA-256 checksum before anything is registered.
 
 #### Script Arguments & Headless Configuration
 You can automate or customize the installation without the interactive menu:
@@ -43,7 +43,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese
 
 # Install a specific version
-& $i -Version v0.5.0
+& $i -Version v0.9.0
 
 # Uninstall (retains user settings and packs)
 & $i -Uninstall
@@ -150,6 +150,9 @@ ibus restart
 ```powershell
 # Build combined arm64 + x86_64 APK
 .\platforms\android\build.ps1
+
+# Phone architecture only (arm64)
+.\platforms\android\build.ps1 -Abi arm64-v8a
 
 # Install directly to a connected device via ADB
 adb install -r platforms\android\build\typescript.apk

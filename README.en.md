@@ -107,7 +107,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 
-The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English 0.5 MB, Korean 0.4 MB, Japanese 5 MB).
+The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English and Korean about 0.45 MB, Japanese about 4.7 MB).
 
 After installing, press **Win+Space** and choose the input method. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
 
@@ -311,13 +311,21 @@ flowchart LR
     SESSION -->|edit commands| PLATFORM
 ```
 
-- `crates/core` — the engine (`lang/`, `decide/`, `session/`, `store/`). `crates/config` — the dashboard (`typescript-config`; its web page lives in `src/web/`). `crates/packgen` — builds language packs. `platforms/` — Windows TSF DLL, Android, macOS, Linux adapters.
+| Module | What it holds |
+| --- | --- |
+| `lang/` | Hangul composition (`hangul`), English/Korean models, particle & ending lists (`particles`), romaji→kana (`romaji`), the kana trigram model (`japanese`); language modules (`module`, `registry`, `en/` `ko/` `ja/`), the enabled language set (`set`), the pack loader (`pack`) |
+| `decide/` | The decision chain: learned corrections (`learning`) → English+particle split (`mixed`) → scoring (`engine`); English inside a Japanese phrase (`segmenter`), kanji conversion (`convert`, `kanji`) |
+| `session/` | The input state machine: `word`, `preview` (the underline), `flip` (Esc right after a commit), `japanese`, `client`/`key` (the boundary with the app) |
+| `store/` | What persists: per-app policy & settings (`policy`), word history (`history`) |
+
+- `crates/core` — the engine. `crates/config` — the dashboard (`typescript-config`; its web page lives in `src/web/`). `crates/packgen` — builds language packs. `platforms/` — Windows TSF DLL, Android, macOS, Linux adapters.
 - A new language needs a `lang/<id>/` module, a `registry.rs` entry, engine scoring, and a pack (checklist: [docs/en/language-packs.md](docs/en/language-packs.md)).
 - Deeper docs: [docs/](docs/README.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```powershell
 cargo test
 cargo run -p typescript-cli -- -v "dkssud hello"
+echo "dkssud`tenglish" | cargo run -p typescript-cli -- --decide
 cargo clippy --all-targets -- -D warnings
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```

@@ -51,7 +51,7 @@ Typescript는 한/영 키를 누를 필요 없이, 영문 쿼티(QWERTY) 키보�
 irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
 ```
 
-설치 도중 사용할 언어(영어, 한국어, 일본어)를 선택하는 창이 나타나며, 설치 후 **Win + Space**를 눌러 **Typescript** 또는 **Typescript (자동완성)**을 선택하면 즉시 사용할 수 있습니다.
+설치가 끝나면 브라우저에 **시작 안내 페이지**가 열려 사용할 언어(영어, 한국어, 일본어)를 고르고 켤 수 있습니다. 설치 후 **Win + Space**를 눌러 **Typescript** 또는 **Typescript (자동완성)**을 선택하면 즉시 사용할 수 있습니다.
 
 설정 창을 열려면 시작 메뉴에서 **Typescript 설정**을 클릭하거나, 터미널에서 다음 명령을 실행합니다:
 
