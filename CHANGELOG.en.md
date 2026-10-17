@@ -9,6 +9,26 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-17
+
+### Changed
+- **The pack–program compatibility range moves to 0.9.** The Korean pack gains two files (`korean_syllable_counts.txt`, `korean_word_filter.bin`). This program rejects 0.8 packs and 0.8 programs reject 0.9 packs. Update the packs together in the settings tool.
+- English and Korean typed with no space are split **over the whole word lattice at once**. Instead of comparing every possible cut with one score, a Viterbi search carries the best path forward at each letter position. Long sentences with English and Korean run together split correctly. The sentence test (`chars.sentences`) went from 39.21% to 99.82%, everyday sentences `acc.ALL` from 99.68% to 99.79%, sentences with particles from 97.31% to 98.60%, number sentences from 98.81% to 99.17%, long Korean sentences from 97.00% to 97.80%. No metric dropped.
+- A keystroke is faster: the average is about 0.89× the previous release and the slowest 1% (p99) about 0.84× (relative values, measured against the previous version interleaved on the same computer). A stretch of letters that is no word is ruled out by a Bloom filter of the words carried in the pack and never searched.
+- Korean syllable frequencies come from a large corpus, and a syllable not in the dictionary shares only the mass of the syllables seen once.
+
+### Added
+- The endings `므로` and `으므로` are recognised.
+
+### Fixed
+- `B급의` and `3D방식` (a label such as one letter or digits+letters, followed by a noun and a particle) split correctly.
+- A word that is in no dictionary is no longer read as the noun of a label (`brb` → `b규`).
+- A one-letter English word (`a`) is less often a bridge between Korean syllables (`만들a고`).
+- A function word (`The`) is no host for a case particle: `The는` no longer turns into `쏟는`.
+
+### Packaging
+- The release package no longer holds `typescript.exe` (the development CLI). Built together with the CLI, the packs it embeds ended up in the other binaries too, 2.5 MB each.
+
 ## [0.8.8] - 2026-10-16
 
 ### Added
@@ -297,7 +317,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
