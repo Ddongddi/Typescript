@@ -194,6 +194,31 @@ fn a_one_syllable_word_typed_after_korean_shows_as_korean_at_once() {
 }
 
 #[test]
+fn a_long_unlisted_korean_name_after_english_is_korean() {
+    // The context lifts a word by the same amount in total, long or short: 나카바루초 and 호즈미촌
+    // are no word of any list, and the English before them does not make them English.
+    for (keys, word) in [("skzkqkfnch", "나카바루초"), ("ghwmalchs", "호즈미촌")] {
+        let d = typed(keys, Some(Language::English), false);
+        assert_eq!(d.output, word, "{keys}: {}", d.explanation);
+    }
+}
+
+#[test]
+fn a_short_english_token_after_english_stays_english() {
+    // chmod +x run.sh: sh is 노 on a Korean layout.
+    let d = typed("sh", Some(Language::English), false);
+    assert_eq!(d.language, Language::English, "{}", d.explanation);
+}
+
+#[test]
+fn a_long_english_word_after_korean_stays_english() {
+    for word in ["aortosclerosis", "fleur", "rossi"] {
+        let d = typed(word, Some(Language::Korean), false);
+        assert_eq!(d.language, Language::English, "{word}: {}", d.explanation);
+    }
+}
+
+#[test]
 fn learning_overrides_base() {
     let path = temp_lexicon("learn");
     let _ = std::fs::remove_file(&path);

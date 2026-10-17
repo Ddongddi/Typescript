@@ -1,5 +1,5 @@
 #lab	0.1.1
-#metric	acc.ALL	99.683
+#metric	acc.ALL	99.688
 #metric	acc.cs.chat	100.000
 #metric	acc.cs.conj	100.000
 #metric	acc.cs.extreme	0.000
@@ -16,8 +16,8 @@
 #metric	acc.cs.story	75.000
 #metric	acc.cs.token	96.552
 #metric	acc.cs.unit	100.000
-#metric	acc.en.freq/after-en	99.700
-#metric	acc.en.freq/after-ko	99.350
+#metric	acc.en.freq/after-en	99.650
+#metric	acc.en.freq/after-ko	99.450
 #metric	acc.en.freq/none	99.500
 #metric	acc.hand.abbrev	50.000
 #metric	acc.hand.chat	100.000
@@ -42,20 +42,20 @@
 #metric	big.cs.particle.token	99.850
 #metric	big.cs_heldout.particle.sentence	98.947
 #metric	big.cs_heldout.particle.token	99.833
-#metric	big.cs_short.bare.sentence	64.468
-#metric	big.cs_short.bare.token	94.967
-#metric	big.en.sent.sentence	99.967
-#metric	big.en.sent.token	99.995
+#metric	big.cs_short.bare.sentence	64.699
+#metric	big.cs_short.bare.token	95.000
+#metric	big.en.sent.sentence	99.933
+#metric	big.en.sent.token	99.990
 #metric	big.ko.comment.sentence	98.383
 #metric	big.ko.comment.token	99.717
-#metric	big.ko.long.sentence	98.500
-#metric	big.ko.long.token	99.850
-#metric	big.ko.phrase.sentence	99.300
-#metric	big.ko.phrase.token	99.695
-#metric	big.ko.sent.sentence	99.167
-#metric	big.ko.sent.token	99.840
-#metric	big.ko.title.after-en	98.033
-#metric	big.ko.title.after-ko	100.000
+#metric	big.ko.long.sentence	98.400
+#metric	big.ko.long.token	99.841
+#metric	big.ko.phrase.sentence	99.367
+#metric	big.ko.phrase.token	99.724
+#metric	big.ko.sent.sentence	99.133
+#metric	big.ko.sent.token	99.833
+#metric	big.ko.title.after-en	99.367
+#metric	big.ko.title.after-ko	99.933
 #metric	big.ko.title.none	99.867
 #metric	big.learn.other_forms_after	100.000
 #metric	big.learn.other_forms_before	100.000
@@ -67,29 +67,29 @@
 #metric	big.transfer.particle.fixed	0.000
 #metric	big.transfer.particle.misses	7.000
 #metric	big.transfer.particle.net	0.000
-#metric	big.transfer.title_after_en.broken	0.021
-#metric	big.transfer.title_after_en.fixed	44.828
-#metric	big.transfer.title_after_en.misses	59.000
-#metric	big.transfer.title_after_en.net	12.000
+#metric	big.transfer.title_after_en.broken	0.000
+#metric	big.transfer.title_after_en.fixed	33.333
+#metric	big.transfer.title_after_en.misses	19.000
+#metric	big.transfer.title_after_en.net	3.000
 #metric	chars.sentences	99.815
-#metric	commit.avg_us	5.940
-#metric	commit.p50_us	5.300
-#metric	commit.p95_us	9.300
-#metric	commit.p99_us	17.600
-#metric	heap.loaded_kb	52.234
-#metric	heap.peak_kb	11628.277
-#metric	keystroke.avg_us	5.398
-#metric	keystroke.p50_us	4.400
-#metric	keystroke.p95_us	10.300
-#metric	keystroke.p99_us	24.800
-#metric	load.ms	1.798
-#metric	preview.flicker.en.freq/after-en	5.400
-#metric	preview.flicker.en.freq/after-ko	35.200
+#metric	commit.avg_us	12.338
+#metric	commit.p50_us	10.800
+#metric	commit.p95_us	23.800
+#metric	commit.p99_us	46.200
+#metric	heap.loaded_kb	52.242
+#metric	heap.peak_kb	11628.276
+#metric	keystroke.avg_us	11.464
+#metric	keystroke.p50_us	8.900
+#metric	keystroke.p95_us	26.600
+#metric	keystroke.p99_us	59.800
+#metric	load.ms	2.039
+#metric	preview.flicker.en.freq/after-en	3.900
+#metric	preview.flicker.en.freq/after-ko	36.600
 #metric	preview.flicker.en.freq/none	20.100
 #metric	preview.mismatch.en.freq/after-en	0.100
 #metric	preview.mismatch.en.freq/after-ko	0.100
 #metric	preview.mismatch.en.freq/none	0.100
-#metric	preview.mismatch.ko.lone/after-en	9.259
+#metric	preview.mismatch.ko.lone/after-en	10.648
 #metric	preview.mismatch.ko.lone/after-ko	0.000
 #metric	preview.mismatch.ko.lone/none	3.704
 #metric	preview.mismatch.ko.vocab/after-en	0.000
@@ -110,7 +110,7 @@
 #metric	sc.chat.sentence	96.512
 #metric	sc.chat.slang	88.235
 #metric	sc.chat.token	98.776
-#metric	sc.chat.us_per_char	1.237
+#metric	sc.chat.us_per_char	2.324
 #metric	sc.dev.chain.token	99.365
 #metric	sc.dev.commit	100.000
 #metric	sc.dev.error	100.000
@@ -121,7 +121,7 @@
 #metric	sc.dev.terminal	96.000
 #metric	sc.dev.token	99.688
 #metric	sc.dev.tool	100.000
-#metric	sc.dev.us_per_char	1.545
+#metric	sc.dev.us_per_char	2.701
 #metric	sc.writing.academic	92.857
 #metric	sc.writing.chain.token	99.752
 #metric	sc.writing.email	100.000
@@ -133,7 +133,7 @@
 #metric	sc.writing.quote	100.000
 #metric	sc.writing.sentence	98.780
 #metric	sc.writing.token	99.768
-#metric	sc.writing.us_per_char	1.132
+#metric	sc.writing.us_per_char	1.853
 en.freq/none	tha	-	tha	솜
 en.freq/none	zhao	-	zhao	코매
 en.freq/none	sdh	-	sdh	s오
@@ -149,16 +149,15 @@ en.freq/after-ko	zhao	korean	zhao	코매
 en.freq/after-ko	sdh	korean	sdh	s오
 en.freq/after-ko	woah	korean	woah	재모
 en.freq/after-ko	ch	korean	ch	초
-en.freq/after-ko	fleur	korean	fleur	리뎍
 en.freq/after-ko	dmv	korean	dmv	읖
 en.freq/after-ko	coz	korean	coz	챜
-en.freq/after-ko	chandi	korean	chandi	초무야
 en.freq/after-ko	bb	korean	bb	ㅠㅠ
 en.freq/after-ko	vu	korean	vu	펴
 en.freq/after-ko	baht	korean	baht	b못
 en.freq/after-ko	shep	korean	shep	노데
 en.freq/after-en	zhao	english	zhao	코매
 en.freq/after-en	sdh	english	sdh	s오
+en.freq/after-en	woah	english	woah	재모
 en.freq/after-en	ch	english	ch	초
 en.freq/after-en	dmv	english	dmv	읖
 en.freq/after-en	bb	english	bb	ㅠㅠ

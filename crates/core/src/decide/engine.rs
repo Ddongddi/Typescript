@@ -178,6 +178,11 @@ pub struct HeuristicEngine {
     pub japanese: Option<&'static JapaneseModel>,
     /// Added to the previous word's language score: people mostly stay in one language.
     pub context_bias: f64,
+    /// The length in keys at which `context_bias` is the average added per key. The score is an
+    /// average per key, so a bias of that size adds more in total to a long word than to a
+    /// short one; with this set, the total is the same for every length (a long word that no
+    /// list knows is lifted less, a short one more). 0: per key, whatever the length.
+    pub context_bias_keys: f64,
     /// Bias after Japanese text. Raising it to 1.2 recovered 1 of 2,590 held-out phrases
     /// but tripled common English words turning into kana right after Japanese (0.5% → 1.6%).
     pub japanese_context_bias: f64,
@@ -219,6 +224,7 @@ impl HeuristicEngine {
             korean,
             japanese: None,
             context_bias: 0.8,
+            context_bias_keys: 3.0,
             japanese_context_bias: 0.8,
             japanese_offset: 0.5,
             korean_offset: 0.0,
@@ -425,7 +431,13 @@ impl DecisionEngine for HeuristicEngine {
                 let mut bias = if previous == Language::Japanese {
                     self.japanese_context_bias
                 } else {
-                    self.context_bias
+                    // At least two keys, so that the first key of a word is not lifted wildly.
+                    let share = if self.context_bias_keys > 0.0 {
+                        self.context_bias_keys / count.max(2.0)
+                    } else {
+                        1.0
+                    };
+                    self.context_bias * share
                 };
                 let known_in = |l: Language| match l {
                     Language::English => known,
