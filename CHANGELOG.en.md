@@ -9,6 +9,8 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-18
+
 ### Changed
 
 - The welcome guide's Esc screen no longer depends on the engine getting a word wrong. If `깨짐` (`Rowla`) comes out right, Esc shows the other reading and one more press brings it back; if it stayed English, Esc fixes it as before. The three rounds are now one.
@@ -325,7 +327,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7

@@ -9,6 +9,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-18
+
 ### 변경
 
 - 시작 안내의 Esc 화면이 엔진의 실수에 기대지 않습니다. `깨짐`(`Rowla`)이 맞게 나와도 Esc로 다른 읽기로 바꿨다가 한 번 더 눌러 돌아오게 하고, 영어로 남았다면 전처럼 Esc로 고칩니다. 세 번 반복하던 것은 한 번으로 줄었습니다.
@@ -325,7 +327,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7

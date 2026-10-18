@@ -12,16 +12,16 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en-0.9.0\              (~0.45 MB zip) - 영어 트라이그램과 사전
+├── en-0.9.1\              (~0.45 MB zip) - 영어 트라이그램과 사전
 │   ├── manifest.json      (id · 버전 · core 호환 범위 · 표 파일 해시)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.9.0\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
+├── ko-0.9.1\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.9.0\              (~4.7 MB zip, 풀면 약 9.5 MB) - 가나 트라이그램 + IPADIC 사전
+└── ja-0.9.1\              (~4.7 MB zip, 풀면 약 9.5 MB) - 가나 트라이그램 + IPADIC 사전
     ├── manifest.json
     ├── kana_trigrams.bin
     └── ipadic_compact.bin
@@ -48,7 +48,7 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "core": ">=0.9.0, <0.10.0",
   "requires": ["en"],
   "files": {
@@ -75,7 +75,7 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-기본 출력은 `target/packs/en-0.9.0/`처럼 한 언어 버전마다 하나의 폴더입니다 (체크아웃에서 바로 설치할 때 씁니다). `--release`를 주면 릴리스 배포용 `typescript-pack-<id>-<version>.zip`과, 이들의 크기와 SHA-256을 나열한 `packs.json`이 생깁니다 (`typescript-config`가 이 목록을 읽습니다).
+기본 출력은 `target/packs/en-0.9.1/`처럼 한 언어 버전마다 하나의 폴더입니다 (체크아웃에서 바로 설치할 때 씁니다). `--release`를 주면 릴리스 배포용 `typescript-pack-<id>-<version>.zip`과, 이들의 크기와 SHA-256을 나열한 `packs.json`이 생깁니다 (`typescript-config`가 이 목록을 읽습니다).
 
 ---
 

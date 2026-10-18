@@ -43,7 +43,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 & $i -Japanese
 
 # Install a specific version
-& $i -Version v0.9.0
+& $i -Version v0.9.1
 
 # Uninstall (retains user settings and packs)
 & $i -Uninstall

@@ -12,16 +12,16 @@ To keep the core engine lightweight and ensure instantaneous application startup
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en-0.9.0\              (~0.45 MB zip) - English trigrams and vocabulary
+├── en-0.9.1\              (~0.45 MB zip) - English trigrams and vocabulary
 │   ├── manifest.json      (id · version · core range · table file hashes)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.9.0\              (~0.45 MB zip) - Korean word/syllable tables and word filter
+├── ko-0.9.1\              (~0.45 MB zip) - Korean word/syllable tables and word filter
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.9.0\              (~4.7 MB zip, ~9.5 MB unpacked) - Kana trigrams + IPADIC dictionary
+└── ja-0.9.1\              (~4.7 MB zip, ~9.5 MB unpacked) - Kana trigrams + IPADIC dictionary
     ├── manifest.json
     ├── kana_trigrams.bin
     └── ipadic_compact.bin
@@ -48,7 +48,7 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "core": ">=0.9.0, <0.10.0",
   "requires": ["en"],
   "files": {
@@ -74,7 +74,7 @@ The `typescript-packgen` crate converts raw text datasets (corpus frequencies, w
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-The default output is one folder per language version, like `target/packs/en-0.9.0/` (what a checkout installs directly). With `--release` it writes the release zips `typescript-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `typescript-config` reads).
+The default output is one folder per language version, like `target/packs/en-0.9.1/` (what a checkout installs directly). With `--release` it writes the release zips `typescript-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `typescript-config` reads).
 
 ---
 
