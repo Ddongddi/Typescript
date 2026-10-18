@@ -11,7 +11,6 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::{LazyLock, Mutex};
 
 use crate::decide::convert::{ConversionCandidate, JapaneseConverter};
@@ -386,6 +385,26 @@ impl KanjiDictionary {
         None
     }
 
+    /// The part of `range` (readings sharing their first `at` characters) whose character `at`
+    /// is `code`. A reading ending at `at` sorts before every longer one, so it ranks below
+    /// any code.
+    fn narrow(&self, range: (usize, usize), at: usize, code: u8) -> (usize, usize) {
+        let rank = |i: usize| self.reading(i).get(at).map_or(-1, |&b| b as i32);
+        let split = |below: &dyn Fn(i32) -> bool| {
+            let (mut lo, mut hi) = range;
+            while lo < hi {
+                let mid = (lo + hi) / 2;
+                if below(rank(mid)) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid;
+                }
+            }
+            lo
+        };
+        (split(&|r| r < code as i32), split(&|r| r <= code as i32))
+    }
+
     /// MeCab's transition cost: matrix[left.rcAttr + lsize * right.lcAttr].
     fn conn(&self, left_rc: u16, right_lc: u16) -> i32 {
         let at = (left_rc as usize + self.lsize * right_lc as usize) * 2;
@@ -399,6 +418,15 @@ impl KanjiDictionary {
     pub fn entry_count(&self) -> usize {
         self.n_entries
     }
+}
+
+const FNV_START: u64 = 0xcbf2_9ce4_8422_2325;
+
+fn fnv_extend(mut hash: u64, text: &str) -> u64 {
+    for &b in text.as_bytes() {
+        hash = (hash ^ b as u64).wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 /// A word placed in the lattice: one dictionary entry, or one unknown character.
@@ -439,13 +467,22 @@ impl KanjiDictionary {
         let mut ends: Vec<Vec<usize>> = vec![Vec::new(); n + 1];
         for i in 0..n {
             let max_len = (n - i).min(self.max_reading_chars);
+            // The readings starting with codes[i..i + len], narrowed one character at a time;
+            // an empty range means no longer span can match either.
+            let mut range = (0, self.n_readings);
             for len in 1..=max_len {
-                if codes[i + len - 1] == 255 {
+                let code = codes[i + len - 1];
+                if code == 255 {
                     break;
                 }
-                let Some(reading) = self.find_encoded(&codes[i..i + len]) else {
+                range = self.narrow(range, len - 1, code);
+                if range.0 == range.1 {
+                    break;
+                }
+                let reading = range.0;
+                if self.reading(reading).len() != len {
                     continue;
-                };
+                }
                 for (lc, rc, wcost, surface) in self.entries(reading) {
                     nodes.push(Node {
                         start: i,
@@ -529,17 +566,18 @@ impl KanjiDictionary {
             parent: Option<usize>,
             node: Option<usize>,
             g: i32,
-            text: Rc<str>,
+            /// FNV-1a over the output so far; hashing a concatenation continues the hash.
+            hash: u64,
         }
         let mut arena: Vec<Path> = Vec::new();
         let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = BinaryHeap::new();
         let mut seq = 0usize;
         // Equal output prefixes with the same right context have identical continuations.
-        let mut states: HashMap<(usize, u16, Rc<str>), i32> = HashMap::new();
+        let mut states: HashMap<(usize, u16, u64), i32> = HashMap::new();
         for &v in &starts[0] {
             let g = self.conn(0, nodes[v].lc) + nodes[v].wcost;
-            let text: Rc<str> = nodes[v].text.as_str().into();
-            let key = (nodes[v].end, nodes[v].rc, text.clone());
+            let hash = fnv_extend(FNV_START, &nodes[v].text);
+            let key = (nodes[v].end, nodes[v].rc, hash);
             if states.get(&key).is_some_and(|&cost| cost <= g) {
                 continue;
             }
@@ -548,7 +586,7 @@ impl KanjiDictionary {
                 parent: None,
                 node: Some(v),
                 g,
-                text,
+                hash,
             });
             heap.push(Reverse((g + h[v], seq, arena.len() - 1)));
             seq += 1;
@@ -568,7 +606,8 @@ impl KanjiDictionary {
                         at = arena[q].parent;
                     }
                     ids.reverse();
-                    if !full_texts.insert(arena[pid].text.clone()) {
+                    let text: String = ids.iter().map(|&v| nodes[v].text.as_str()).collect();
+                    if !full_texts.insert(text) {
                         continue;
                     }
                     full.push((g, ids));
@@ -578,7 +617,7 @@ impl KanjiDictionary {
                 }
                 Some(v) => {
                     let (end, rc) = (nodes[v].end, nodes[v].rc);
-                    if states.get(&(end, rc, arena[pid].text.clone())) != Some(&g) {
+                    if states.get(&(end, rc, arena[pid].hash)) != Some(&g) {
                         continue;
                     }
                     if end == n {
@@ -587,7 +626,7 @@ impl KanjiDictionary {
                             parent: Some(pid),
                             node: None,
                             g: total,
-                            text: arena[pid].text.clone(),
+                            hash: arena[pid].hash,
                         });
                         heap.push(Reverse((total, seq, arena.len() - 1)));
                         seq += 1;
@@ -597,9 +636,8 @@ impl KanjiDictionary {
                                 break 'search;
                             }
                             let ng = g + self.conn(rc, nodes[w].lc) + nodes[w].wcost;
-                            let text: Rc<str> =
-                                format!("{}{}", arena[pid].text, nodes[w].text).into();
-                            let key = (nodes[w].end, nodes[w].rc, text.clone());
+                            let hash = fnv_extend(arena[pid].hash, &nodes[w].text);
+                            let key = (nodes[w].end, nodes[w].rc, hash);
                             if states.get(&key).is_some_and(|&cost| cost <= ng) {
                                 continue;
                             }
@@ -608,7 +646,7 @@ impl KanjiDictionary {
                                 parent: Some(pid),
                                 node: Some(w),
                                 g: ng,
-                                text,
+                                hash,
                             });
                             heap.push(Reverse((ng + h[w], seq, arena.len() - 1)));
                             seq += 1;
