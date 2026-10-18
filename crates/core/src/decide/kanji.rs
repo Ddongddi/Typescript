@@ -47,7 +47,9 @@ pub struct KanjiDictionary {
     max_reading_chars: usize,
     lsize: usize,
     reading_offsets: Vec<u32>,
-    entry_byte_offsets: Vec<u32>,
+    /// Where every `ENTRY_SAMPLE`-th reading's entries start; the rest add up the lengths.
+    entry_samples: Vec<u32>,
+    entry_byte_lens: &'static [u8],
     readings: &'static [u8],
     entries: &'static [u8],
     top_chars: &'static [u8],
@@ -55,8 +57,16 @@ pub struct KanjiDictionary {
     matrix: &'static [u8],
 }
 
-static SHARED: LazyLock<KanjiDictionary> =
-    LazyLock::new(|| KanjiDictionary::new(pack::bytes(Language::Japanese, "ipadic_compact.bin")));
+/// Entry offsets are kept for one reading in this many: the lookups are rare next to the
+/// reading searches, and a full table was 3 MB of heap.
+const ENTRY_SAMPLE: usize = 32;
+
+static SHARED: LazyLock<KanjiDictionary> = LazyLock::new(|| {
+    // The registry only holds a dictionary that passed `valid` (installed packs once per
+    // file, see `checked_once`; embedded ones are built from the shipped file), so the
+    // full walk is not repeated on every start.
+    KanjiDictionary::from_valid(pack::bytes(Language::Japanese, "ipadic_compact.bin"))
+});
 
 fn u16_at(bytes: &[u8], at: usize) -> u16 {
     u16::from_le_bytes([bytes[at], bytes[at + 1]])
@@ -247,11 +257,17 @@ impl KanjiDictionary {
         true
     }
 
+    #[cfg(test)]
     fn new(data: &'static [u8]) -> Self {
         assert!(
             Self::valid(data),
             "ipadic_compact.bin: invalid dictionary (rebuild with tools/build_mozc.py)"
         );
+        Self::from_valid(data)
+    }
+
+    /// `data` has passed `valid`.
+    fn from_valid(data: &'static [u8]) -> Self {
         let u32_at = |at: usize| {
             u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
         };
@@ -275,15 +291,17 @@ impl KanjiDictionary {
         );
         // The prefix sums the reader jumps by, widened from the stored lengths once.
         let mut reading_offsets = Vec::with_capacity(n_readings + 1);
-        let mut entry_byte_offsets = Vec::with_capacity(n_readings + 1);
+        let entry_byte_lens =
+            &data[tables + (1 + count_width) * n_readings..tables + (3 + count_width) * n_readings];
+        let mut entry_samples = Vec::with_capacity(n_readings / ENTRY_SAMPLE + 1);
         reading_offsets.push(0);
-        entry_byte_offsets.push(0);
+        let mut entry_at = 0u32;
         for i in 0..n_readings {
             reading_offsets.push(reading_offsets[i] + data[tables + i] as u32);
-            entry_byte_offsets.push(
-                entry_byte_offsets[i]
-                    + u16_at(data, tables + (1 + count_width) * n_readings + 2 * i) as u32,
-            );
+            if i % ENTRY_SAMPLE == 0 {
+                entry_samples.push(entry_at);
+            }
+            entry_at += u16_at(entry_byte_lens, 2 * i) as u32;
         }
         Self {
             wide,
@@ -292,7 +310,8 @@ impl KanjiDictionary {
             max_reading_chars,
             lsize,
             reading_offsets,
-            entry_byte_offsets,
+            entry_samples,
+            entry_byte_lens,
             readings: &data[at_readings..at_readings + readings_len],
             entries: &data[at_entries..at_entries + entries_len],
             top_chars: &data[at_charset..at_charset + char_width * n_top],
@@ -337,8 +356,12 @@ impl KanjiDictionary {
 
     /// Where each of a reading's entries starts in the entry blob.
     fn entry_positions(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
-        let mut at = self.entry_byte_offsets[i] as usize;
-        let end = self.entry_byte_offsets[i + 1] as usize;
+        let first = i - i % ENTRY_SAMPLE;
+        let mut at = self.entry_samples[i / ENTRY_SAMPLE] as usize;
+        for j in first..i {
+            at += u16_at(self.entry_byte_lens, 2 * j) as usize;
+        }
+        let end = at + u16_at(self.entry_byte_lens, 2 * i) as usize;
         std::iter::from_fn(move || {
             if at >= end {
                 return None;
