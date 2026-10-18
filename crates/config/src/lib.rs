@@ -13,6 +13,7 @@ pub mod ime;
 pub mod install;
 pub mod languages;
 pub mod learning;
+mod settings;
 pub mod setup;
 pub mod source;
 pub mod uninstall;

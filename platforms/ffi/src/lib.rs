@@ -1,5 +1,5 @@
 //! C interface of the input method, for the macOS and Linux text services. Same contract as the
-//! Android bridge (`tacit_android::ime`): a key and the text before the caret go in, a
+//! core bridge (`tacit_core::session::bridge`): a key and the text before the caret go in, a
 //! string comes out — `1` if the key was consumed (else `0`), then each command preceded by
 //! `\u{1}`: `M<text>` set the composing text, `I<text>` commit it (replacing the composing
 //! text), `B<n>` delete n UTF-16 units before the caret. Free a returned string with
@@ -10,14 +10,40 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use tacit_android::ime::Ime;
+use tacit_core::session::bridge::Ime;
 use tacit_core::store::policy::Override;
 use tacit_core::{
     make_engine, AppPolicies, DictionaryConverter, InputSession, Language, LearningEngine, Settings,
 };
 
 /// The instance behind a handle from `ts_new`.
-pub struct Handle(Mutex<Ime>);
+pub struct Handle(Mutex<State>);
+
+struct State {
+    ime: Ime,
+    dir: PathBuf,
+    stamps: [Option<std::time::SystemTime>; 3],
+}
+
+fn stamps(dir: &std::path::Path) -> [Option<std::time::SystemTime>; 3] {
+    ["settings.json", "apps.json", "lexicon.json"].map(|name| {
+        std::fs::metadata(dir.join(name))
+            .and_then(|m| m.modified())
+            .ok()
+    })
+}
+
+impl State {
+    fn activate(&mut self, app: &str) {
+        let fresh = stamps(&self.dir);
+        if fresh != self.stamps {
+            self.ime.reset();
+            self.ime = Ime::with_session(session_in(&self.dir));
+            self.stamps = fresh;
+        }
+        self.ime.activate(app);
+    }
+}
 
 fn text(s: *const c_char) -> String {
     if s.is_null() {
@@ -27,7 +53,7 @@ fn text(s: *const c_char) -> String {
     unsafe { CStr::from_ptr(s) }.to_string_lossy().into_owned()
 }
 
-fn with<R>(h: *mut Handle, fallback: R, f: impl FnOnce(&mut Ime) -> R) -> R {
+fn with<R>(h: *mut Handle, fallback: R, f: impl FnOnce(&mut State) -> R) -> R {
     if h.is_null() {
         return fallback;
     }
@@ -96,7 +122,12 @@ pub extern "C" fn ts_new(dir: *const c_char) -> *mut Handle {
     };
     catch_unwind(|| {
         let ime = Ime::with_session(session_in(&dir));
-        Box::into_raw(Box::new(Handle(Mutex::new(ime))))
+        let state = State {
+            ime,
+            stamps: stamps(&dir),
+            dir,
+        };
+        Box::into_raw(Box::new(Handle(Mutex::new(state))))
     })
     .unwrap_or(std::ptr::null_mut())
 }
@@ -125,7 +156,7 @@ pub unsafe extern "C" fn ts_string_free(s: *mut c_char) {
 #[no_mangle]
 pub extern "C" fn ts_activate(h: *mut Handle, app: *const c_char) {
     let app = text(app);
-    with(h, (), |ime| ime.activate(&app));
+    with(h, (), |state| state.activate(&app));
 }
 
 /// `kind`: 0 letter, 1 printable, 2 delete, 3 escape, 4 cycle, 5 enter, 6 tab, else other.
@@ -137,23 +168,27 @@ pub extern "C" fn ts_key(
     before: *const c_char,
 ) -> *mut c_char {
     let (ch, before) = (char::from_u32(ch).unwrap_or('\0'), text(before));
-    reply(with(h, "0".to_string(), |ime| ime.key(kind, ch, &before)))
+    reply(with(h, "0".to_string(), |state| {
+        state.ime.key(kind, ch, &before)
+    }))
 }
 
 #[no_mangle]
 pub extern "C" fn ts_reset(h: *mut Handle) {
-    with(h, (), |ime| ime.reset());
+    with(h, (), |state| state.ime.reset());
 }
 
 #[no_mangle]
 pub extern "C" fn ts_toggle_pause(h: *mut Handle, before: *const c_char) -> *mut c_char {
     let before = text(before);
-    reply(with(h, "0".to_string(), |ime| ime.toggle_pause(&before)))
+    reply(with(h, "0".to_string(), |state| {
+        state.ime.toggle_pause(&before)
+    }))
 }
 
 #[no_mangle]
 pub extern "C" fn ts_paused(h: *mut Handle) -> c_int {
-    with(h, false, |ime| ime.paused()) as c_int
+    with(h, false, |state| state.ime.paused()) as c_int
 }
 
 #[cfg(test)]
@@ -216,5 +251,32 @@ mod tests {
         assert_eq!(unsafe { CStr::from_ptr(p) }.to_str().unwrap(), "0");
         unsafe { ts_string_free(p) };
         unsafe { ts_free(std::ptr::null_mut()) };
+    }
+
+    #[test]
+    fn activating_picks_up_changed_settings() {
+        let dir = std::env::temp_dir().join(format!("tacit-ffi-reload-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let settings = dir.join("settings.json");
+        std::fs::write(&settings, br#"{"returnConfirmsOnly":true}"#).unwrap();
+        let dir_c = CString::new(dir.to_string_lossy().as_bytes()).unwrap();
+        let h = ts_new(dir_c.as_ptr());
+        assert!(!h.is_null());
+        let confirms = || {
+            ts_activate(h, c"notes".as_ptr());
+            let (mut field, mut composing) = (String::new(), String::new());
+            for ch in "hello".chars() {
+                let reply = call(h, 0, ch, &field);
+                apply(&mut field, &mut composing, &reply);
+            }
+            call(h, 5, '\0', &field).starts_with('1')
+        };
+        assert!(confirms());
+        std::fs::write(&settings, br#"{"returnConfirmsOnly":false}"#).unwrap();
+        assert!(!confirms());
+        unsafe { ts_free(h) };
+        let _ = std::fs::remove_file(settings);
+        let _ = std::fs::remove_file(dir.join("lexicon.json"));
+        let _ = std::fs::remove_dir(dir);
     }
 }

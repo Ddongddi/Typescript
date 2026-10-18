@@ -53,6 +53,8 @@ pub trait JapaneseConverter: Send + Sync {
     }
     /// The user committed `candidate`: remember it so it ranks higher next time.
     fn learn(&self, candidate: &ConversionCandidate, kana: &str);
+    /// Pick up choices committed by another process when a text field becomes active.
+    fn reload(&self) {}
     /// Persist anything learned (called on deactivation).
     fn save(&self);
 }

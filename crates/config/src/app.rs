@@ -5,10 +5,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use tacit_core::session::testing::FakeTextField;
 use tacit_core::session::{Range, TextClient, NOT_FOUND};
-use tacit_core::store::keys::{self, Chord, HangulAction};
 use tacit_core::store::policy::Override;
 use tacit_core::{
     make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine,
@@ -27,16 +26,6 @@ pub const MAX_BODY: usize = 256 * 1024;
 const MAX_TRY_CHARS: usize = 2000;
 /// So is the chat box of the settings tab: keys of one draft message.
 const MAX_PLAY_KEYS: usize = 400;
-/// The settings the page may change, and how each is checked.
-const BOOL_SETTINGS: [&str; 6] = [
-    "returnConfirmsOnly",
-    "autocomplete",
-    "liveConversion",
-    "fullWidthDigits",
-    "fullWidthSpace",
-    "checkUpdates",
-];
-
 pub struct Request {
     pub method: String,
     /// The path and query as sent.
@@ -52,10 +41,6 @@ pub struct Response {
     pub status: u16,
     pub content_type: &'static str,
     pub body: Vec<u8>,
-}
-
-fn key_names(list: &[Chord]) -> Vec<String> {
-    list.iter().map(ToString::to_string).collect()
 }
 
 /// The change log of this build, shown on the update tab.
@@ -326,7 +311,9 @@ impl App {
                 }),
             ),
             ("GET", "/api/processes") => json_response(200, &json!({ "apps": running_apps() })),
-            ("GET", "/api/apps") => json_response(200, &self.read_object(&self.env.apps)),
+            ("GET", "/api/apps") => {
+                json_response(200, &tacit_core::store::read_object(&self.env.apps))
+            }
             ("POST", "/api/heartbeat") => json_response(200, &crate::ime::status()),
             ("POST", "/api/quit") => {
                 self.quit.store(true, Ordering::SeqCst);
@@ -420,7 +407,7 @@ impl App {
                 let _write = crate::languages::SETTINGS_WRITE
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
-                self.change_settings(&body)
+                crate::settings::change(&self.env, &body)
             }
             _ => {
                 let _write = crate::languages::SETTINGS_WRITE
@@ -667,77 +654,6 @@ impl App {
         }
     }
 
-    fn change_settings(&self, body: &Value) -> Result<(), String> {
-        let Some(changes) = body.as_object() else {
-            return Err("settings have to be an object".into());
-        };
-        for (key, value) in changes {
-            let ok = match key.as_str() {
-                "hangulKey" | "hangulAction" => value.is_string(),
-                "flipKeys" | "pauseKeys" => value
-                    .as_array()
-                    .is_some_and(|list| list.iter().all(Value::is_string)),
-                k if BOOL_SETTINGS.contains(&k) => value.is_boolean(),
-                _ => return Err(format!("'{key}' is not a setting you can change here")),
-            };
-            if !ok {
-                return Err(format!("'{key}' has a value this setting does not take"));
-            }
-        }
-        let mut changes = changes.clone();
-        if let Some(text) = changes.get("hangulAction").and_then(Value::as_str) {
-            let action: HangulAction = text.parse()?;
-            changes.insert("hangulAction".into(), json!(action.to_string()));
-        }
-        if ["hangulKey", "flipKeys", "pauseKeys"]
-            .iter()
-            .any(|name| changes.contains_key(*name))
-        {
-            let current = Settings::load(Some(&self.env.settings));
-            let hangul = changes
-                .get("hangulKey")
-                .and_then(Value::as_str)
-                .map_or_else(|| current.hangul_key.to_string(), str::to_string);
-            let new_hangul = keys::parse_hangul(&hangul)?;
-            // A list not given keeps its keys, minus those the new Han/Eng key can't take
-            // (Alt+HangulKey once the Han/Eng key is RAlt).
-            let list = |name: &str, now: &[Chord]| -> Vec<String> {
-                match changes.get(name).and_then(Value::as_array) {
-                    Some(given) => given
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect(),
-                    None => {
-                        let kept: Vec<Chord> = now
-                            .iter()
-                            .copied()
-                            .filter(|c| c.resolve(&new_hangul).is_ok())
-                            .collect();
-                        key_names(&kept)
-                    }
-                }
-            };
-            let saved = keys::validate(
-                &hangul,
-                &list("flipKeys", &current.flip_keys),
-                &list("pauseKeys", &current.pause_keys),
-            )?;
-            changes.insert("hangulKey".into(), json!(saved.hangul.to_string()));
-            changes.insert("flipKeys".into(), json!(key_names(&saved.flip)));
-            changes.insert("pauseKeys".into(), json!(key_names(&saved.pause)));
-        }
-        let mut file = self.read_object(&self.env.settings);
-        let object = file
-            .as_object_mut()
-            .ok_or("settings.json is not an object")?;
-        object.remove("pauseKey");
-        for (key, value) in &changes {
-            object.insert(key.clone(), value.clone());
-        }
-        self.write_json(&self.env.settings, &file)
-    }
-
     fn change_apps(&self, body: &Value) -> Result<(), String> {
         if !body.is_object() {
             return Err("the app rules have to be an object".into());
@@ -748,18 +664,6 @@ impl App {
         // What is saved is what was understood: unknown fields do not get in.
         let clean = serde_json::to_value(&rules).map_err(|e| e.to_string())?;
         self.write_json(&self.env.apps, &clean)
-    }
-
-    /// The file as a JSON object (BOM or not); empty when missing or broken.
-    fn read_object(&self, path: &std::path::Path) -> Value {
-        let bytes = std::fs::read(path).unwrap_or_default();
-        let bytes = bytes
-            .strip_prefix(&[0xEF, 0xBB, 0xBF][..])
-            .unwrap_or(&bytes);
-        match serde_json::from_slice::<Value>(bytes) {
-            Ok(v) if v.is_object() => v,
-            _ => Value::Object(Map::new()),
-        }
     }
 
     fn write_json(&self, path: &std::path::Path, value: &Value) -> Result<(), String> {
@@ -801,41 +705,20 @@ impl App {
                 "requiredBy": crate::install::required_by(&self.env, &id),
             }));
         }
-        let defaults = Settings::default();
+        let defaults = crate::settings::view(&Settings::default(), true);
         let loaded = Settings::load(Some(&self.env.settings));
-        let raw = self.read_object(&self.env.settings);
+        let raw = tacit_core::store::read_object(&self.env.settings);
+        let loaded = crate::settings::view(&loaded, raw["checkUpdates"].as_bool().unwrap_or(true));
         json!({
             "languages": rows,
             "order": on.ids(),
             "problems": installed.problems.iter()
                 .map(|(dir, why)| format!("{}: {why}", dir.display())).collect::<Vec<_>>(),
             "catalogError": catalog.as_ref().err().map(|e| e.to_string()),
-            "settings": {
-                "returnConfirmsOnly": loaded.return_confirms_only,
-                "hangulKey": loaded.hangul_key.to_string(),
-                "hangulAction": loaded.hangul_action.to_string(),
-                "flipKeys": key_names(&loaded.flip_keys),
-                "pauseKeys": key_names(&loaded.pause_keys),
-                "autocomplete": loaded.autocomplete,
-                "liveConversion": loaded.live_conversion,
-                "fullWidthDigits": loaded.full_width_digits,
-                "fullWidthSpace": loaded.full_width_space,
-                "checkUpdates": raw["checkUpdates"].as_bool().unwrap_or(true),
-            },
+            "settings": loaded,
             "os": std::env::consts::OS,
-            "defaults": {
-                "returnConfirmsOnly": defaults.return_confirms_only,
-                "hangulKey": defaults.hangul_key.to_string(),
-                "hangulAction": defaults.hangul_action.to_string(),
-                "flipKeys": key_names(&defaults.flip_keys),
-                "pauseKeys": key_names(&defaults.pause_keys),
-                "autocomplete": defaults.autocomplete,
-                "liveConversion": defaults.live_conversion,
-                "fullWidthDigits": defaults.full_width_digits,
-                "fullWidthSpace": defaults.full_width_space,
-                "checkUpdates": true,
-            },
-            "apps": self.read_object(&self.env.apps),
+            "defaults": defaults,
+            "apps": tacit_core::store::read_object(&self.env.apps),
             "uninstall": self.uninstall_summary(),
             "version": crate::catalog::CORE_VERSION,
         })

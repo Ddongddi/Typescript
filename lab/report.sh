@@ -45,6 +45,14 @@ if [ "$PROFILE" = enkoja ]; then
 fi
 SC_TYPES="chat dev writing"
 
+median() {
+  sort -n | awk '{ v[NR] = $1 } END {
+    if (!NR) exit 1
+    if (NR % 2) print v[(NR + 1) / 2]
+    else print (v[NR / 2] + v[NR / 2 + 1]) / 2
+  }'
+}
+
 rep() {
   _rep_ch=$1; _rep_n=$2; _rep_out=
   while [ "$_rep_n" -gt 0 ]; do _rep_out="$_rep_out$_rep_ch"; _rep_n=$((_rep_n - 1)); done
@@ -207,6 +215,8 @@ print_compare() {
 }
 
 if [ "$SELFTEST" = true ]; then
+  [ "$(printf '10\n20\n' | median)" = 15 ] || { echo 'selftest: even median'; exit 1; }
+  [ "$(printf '30\n10\n20\n' | median)" = 20 ] || { echo 'selftest: odd median'; exit 1; }
   [ -f "$REPORT" ] || { echo "selftest: no $REPORT"; exit 1; }
   grep -F -q "프로필: \`$PROFILE\`" "$REPORT" || { echo "selftest: wrong profile in $REPORT"; exit 1; }
   _fail=0
@@ -312,8 +322,7 @@ done
 
 # Median over the runs of one metric row.
 metric() {
-  for f in "$tmp"/*.txt; do awk -v m="$1" '$1 == m { print $2 }' "$f"; done | sort -n |
-    awk '{ v[NR] = $1 } END { printf "%s", v[int((NR + 1) / 2)] }'
+  for f in "$tmp"/*.txt; do awk -v m="$1" '$1 == m { print $2 }' "$f"; done | median
 }
 
 SIZE_FILES="target/release/tacit_tip.dll target/i686-pc-windows-msvc/release/tacit_tip.dll target/release/tacit-config.exe dist/tacit-windows.zip dist/tacit-pack-en-$version.zip dist/tacit-pack-ko-$version.zip"

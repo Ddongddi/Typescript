@@ -15,6 +15,12 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 - Japanese search reuses equivalent part-of-speech connection calculations. Whole-reading candidates and their order remain identical on 506 external readings; seven interleaved runs on the same PC reduce mean latency by about 5% and p95 by about 12%.
 - Performance reports and lab baselines are separate for English/Korean (`enko`) and English/Korean/Japanese (`enkoja`). Common, scenario and learning evaluations use the selected languages; Japanese metrics are not averaged into English/Korean accuracy. `lab/README.md` documents commands and measurement scope.
 
+### Fixed
+
+- Japanese learning merges the latest saved choices before each commit and reloads on focus, preserving sequential choices from different apps.
+- macOS/Linux input sessions reload changed settings, app rules and learned word files on activation.
+- Performance reports calculate the median correctly for an even number of runs, with both report profiles and all lab tests checked in CI.
+
 ## [0.10.2] - 2026-10-18
 
 ### Changed

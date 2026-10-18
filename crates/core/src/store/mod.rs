@@ -4,6 +4,16 @@ pub mod history;
 pub mod keys;
 pub mod policy;
 
+/// A user JSON object, accepting the UTF-8 BOM written by Windows editors.
+pub fn read_object(path: &std::path::Path) -> serde_json::Value {
+    let bytes = std::fs::read(path).unwrap_or_default();
+    let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&bytes);
+    match serde_json::from_slice::<serde_json::Value>(bytes) {
+        Ok(value) if value.is_object() => value,
+        _ => serde_json::json!({}),
+    }
+}
+
 /// Writes `bytes` to `path` all at once: into a temporary file next to it, then renamed over it.
 /// A reader (the text service, in every app) sees the old file or the new one, never half of
 /// one, and a crash in the middle leaves the old file.
@@ -53,7 +63,21 @@ pub fn persist<T: serde::Serialize>(path: &std::path::Path, value: &T) -> std::i
 
 #[cfg(test)]
 mod tests {
-    use super::{load_or_quarantine, persist, write_atomic};
+    use super::{load_or_quarantine, persist, read_object, write_atomic};
+
+    #[test]
+    fn user_objects_accept_bom_and_default_on_missing_broken_or_non_objects() {
+        let path = std::env::temp_dir().join(format!("tacit-object-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(read_object(&path), serde_json::json!({}));
+        std::fs::write(&path, b"\xEF\xBB\xBF{\"future\":42}").unwrap();
+        assert_eq!(read_object(&path)["future"], 42);
+        for bytes in [b"[1]".as_slice(), b"null", b"{broken"] {
+            std::fs::write(&path, bytes).unwrap();
+            assert_eq!(read_object(&path), serde_json::json!({}));
+        }
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn a_file_that_cannot_be_read_is_kept_aside_not_overwritten() {

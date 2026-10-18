@@ -1,7 +1,7 @@
 //! JNI surface of the Android input method: a handful of functions, no logic. The Java side
 //! (`Native.java`) passes keys and the text before the caret, and applies the commands returned.
 
-pub mod ime;
+pub use tacit_core::session::bridge as ime;
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -12,6 +12,21 @@ use jni::sys::{jboolean, jint, jlong, jstring};
 use jni::JNIEnv;
 
 use ime::Ime;
+
+/// Android keeps its own suggestions and uses the English/Korean keyboard.
+pub fn new_ime(dir: &std::path::Path) -> Ime {
+    let engine = tacit_core::make_engine(
+        Some(dir.join("lexicon.json")),
+        &tacit_core::Languages::legacy(false),
+    );
+    let settings = tacit_core::Settings::load(Some(&dir.join("settings.json")));
+    let policies = tacit_core::AppPolicies::load(Some(&dir.join("apps.json")));
+    Ime::with_session(tacit_core::InputSession::new(
+        engine,
+        policies,
+        settings.return_confirms_only,
+    ))
+}
 
 fn text(env: &mut JNIEnv, s: &JString) -> String {
     env.get_string(s).map(String::from).unwrap_or_default()
@@ -40,7 +55,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeCreate(
     dir: JString,
 ) -> jlong {
     let dir = PathBuf::from(text(&mut env, &dir));
-    let ime = catch_unwind(|| Ime::new(&dir));
+    let ime = catch_unwind(|| new_ime(&dir));
     ime.map_or(0, |ime| Box::into_raw(Box::new(Mutex::new(ime))) as jlong)
 }
 

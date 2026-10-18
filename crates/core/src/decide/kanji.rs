@@ -80,6 +80,69 @@ fn u24_at(bytes: &[u8], at: usize) -> usize {
     bytes[at] as usize | ((bytes[at + 1] as usize) << 8) | ((bytes[at + 2] as usize) << 16)
 }
 
+/// Checked region boundaries shared by pack validation and the zero-copy loader.
+struct Layout {
+    wide: bool,
+    n_readings: usize,
+    n_entries: usize,
+    max_reading_chars: usize,
+    lsize: usize,
+    rsize: usize,
+    n_top: usize,
+    n_rest: usize,
+    at_charset: usize,
+    at_readings: usize,
+    at_entries: usize,
+    at_matrix: usize,
+    end: usize,
+}
+
+impl Layout {
+    fn parse(data: &[u8]) -> Option<Self> {
+        if data.len() <= 36 || (&data[..8] != MAGIC && &data[..8] != WIDE_MAGIC) {
+            return None;
+        }
+        let wide = &data[..8] == WIDE_MAGIC;
+        let u32_at = |at| u32::from_le_bytes(data[at..at + 4].try_into().unwrap()) as usize;
+        let n_readings = u32_at(8);
+        let lsize = u16_at(data, 20) as usize;
+        let rsize = u16_at(data, 22) as usize;
+        let n_top = u16_at(data, 32) as usize;
+        let n_rest = u16_at(data, 34) as usize;
+        if lsize == 0 || rsize == 0 || n_top > 128 || n_rest > 0x8000 {
+            return None;
+        }
+        let at_charset = n_readings
+            .checked_mul(if wide { 5 } else { 4 })?
+            .checked_add(36)?;
+        let at_readings = n_top
+            .checked_add(n_rest)?
+            .checked_mul(if wide { 4 } else { 2 })?
+            .checked_add(at_charset)?;
+        let at_entries = at_readings.checked_add(u32_at(24))?;
+        let at_matrix = at_entries.checked_add(u32_at(28))?;
+        let end = lsize
+            .checked_mul(rsize)?
+            .checked_mul(2)?
+            .checked_add(at_matrix)?;
+        (end <= data.len()).then_some(Self {
+            wide,
+            n_readings,
+            n_entries: u32_at(12),
+            max_reading_chars: data[16] as usize,
+            lsize,
+            rsize,
+            n_top,
+            n_rest,
+            at_charset,
+            at_readings,
+            at_entries,
+            at_matrix,
+            end,
+        })
+    }
+}
+
 /// A reading as the file stores it: one byte per character, in an order the byte compare keeps
 /// (ぁ..ゖ -> 0..85, ー -> 86). `None` when a character cannot appear in a reading: no entry can
 /// match, so the search can answer without comparing.
@@ -114,65 +177,33 @@ impl KanjiDictionary {
     /// The arithmetic runs on file-supplied numbers: all of it checked, so a crafted header
     /// cannot wrap (the shipped 32-bit service is where that would bite).
     pub fn valid(data: &[u8]) -> bool {
-        if data.len() <= 36 || (&data[..8] != MAGIC && &data[..8] != WIDE_MAGIC) {
+        let Some(layout) = Layout::parse(data) else {
             return false;
-        }
-        let wide = &data[..8] == WIDE_MAGIC;
+        };
+        let Layout {
+            wide,
+            n_readings,
+            lsize,
+            rsize,
+            n_top,
+            n_rest,
+            at_charset,
+            at_readings,
+            at_entries,
+            at_matrix,
+            ..
+        } = layout;
         let count_width = if wide { 2 } else { 1 };
-        let char_width = if wide { 4 } else { 2 };
         let bits = if wide { 12 } else { 11 };
-        let u32_at = |at: usize| {
-            u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
-        };
-        let (lsize, rsize) = (u16_at(data, 20) as usize, u16_at(data, 22) as usize);
-        // Every node has one connection to the matrix, even a file with no entries: the two
-        // sizes have to hold.
-        if lsize == 0 || rsize == 0 {
-            return false;
-        }
-        let n_readings = u32_at(8);
-        let (readings_len, entries_len) = (u32_at(24), u32_at(28));
-        let (n_top, n_rest) = (u16_at(data, 32) as usize, u16_at(data, 34) as usize);
-        // One-byte surface codes index the top table, two-byte codes the rest; the reader
-        // takes both as sizes, so they have to hold.
-        if n_top > 128 || n_rest > 0x8000 {
-            return false;
-        }
-        let Some(at_charset) = n_readings
-            .checked_mul(3 + count_width)
-            .and_then(|n| n.checked_add(36))
-        else {
-            return false;
-        };
-        let Some(at_readings) = n_top
-            .checked_add(n_rest)
-            .and_then(|n| n.checked_mul(char_width))
-            .and_then(|n| n.checked_add(at_charset))
-        else {
-            return false;
-        };
-        let Some(regions_end) = at_readings
-            .checked_add(readings_len)
-            .and_then(|n| n.checked_add(entries_len))
-        else {
-            return false;
-        };
-        let Some(matrix_bytes) = lsize.checked_mul(rsize).and_then(|n| n.checked_mul(2)) else {
-            return false;
-        };
-        if regions_end
-            .checked_add(matrix_bytes)
-            .is_none_or(|end| end > data.len())
-        {
-            return false;
-        }
+        let readings_len = at_entries - at_readings;
+        let entries_len = at_matrix - at_entries;
         let tables = 36;
         let reading_lens = &data[tables..tables + n_readings];
         let entry_counts = &data[tables + n_readings..tables + (1 + count_width) * n_readings];
         let entry_byte_lens = &data[tables + (1 + count_width) * n_readings..at_charset];
         let charset = &data[at_charset..at_readings];
         let readings = &data[at_readings..at_readings + readings_len];
-        let entries = &data[at_readings + readings_len..regions_end];
+        let entries = &data[at_entries..at_matrix];
         // Every code point has to be a character; the reader takes them as such.
         for i in 0..(n_top + n_rest) {
             let code = if wide {
@@ -268,27 +299,23 @@ impl KanjiDictionary {
 
     /// `data` has passed `valid`.
     fn from_valid(data: &'static [u8]) -> Self {
-        let u32_at = |at: usize| {
-            u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
-        };
-        let n_readings = u32_at(8);
-        let wide = &data[..8] == WIDE_MAGIC;
+        let Layout {
+            wide,
+            n_readings,
+            n_entries,
+            max_reading_chars,
+            lsize,
+            n_top,
+            at_charset,
+            at_readings,
+            at_entries,
+            at_matrix,
+            end,
+            ..
+        } = Layout::parse(data).expect("ipadic_compact.bin: invalid layout");
         let count_width = if wide { 2 } else { 1 };
         let char_width = if wide { 4 } else { 2 };
-        let n_entries = u32_at(12);
-        let max_reading_chars = data[16] as usize;
-        let (lsize, rsize) = (u16_at(data, 20) as usize, u16_at(data, 22) as usize);
-        let (readings_len, entries_len) = (u32_at(24), u32_at(28));
-        let (n_top, n_rest) = (u16_at(data, 32) as usize, u16_at(data, 34) as usize);
         let tables = 36;
-        let at_charset = tables + (3 + count_width) * n_readings;
-        let at_readings = at_charset + char_width * (n_top + n_rest);
-        let at_entries = at_readings + readings_len;
-        let at_matrix = at_entries + entries_len;
-        assert!(
-            at_matrix + lsize * rsize * 2 <= data.len(),
-            "data/ipadic_compact.bin: truncated"
-        );
         // The prefix sums the reader jumps by, widened from the stored lengths once.
         let mut reading_offsets = Vec::with_capacity(n_readings + 1);
         let entry_byte_lens =
@@ -312,12 +339,11 @@ impl KanjiDictionary {
             reading_offsets,
             entry_samples,
             entry_byte_lens,
-            readings: &data[at_readings..at_readings + readings_len],
-            entries: &data[at_entries..at_entries + entries_len],
+            readings: &data[at_readings..at_entries],
+            entries: &data[at_entries..at_matrix],
             top_chars: &data[at_charset..at_charset + char_width * n_top],
-            rest_chars: &data
-                [at_charset + char_width * n_top..at_charset + char_width * (n_top + n_rest)],
-            matrix: &data[at_matrix..at_matrix + lsize * rsize * 2],
+            rest_chars: &data[at_charset + char_width * n_top..at_readings],
+            matrix: &data[at_matrix..end],
         }
     }
 
@@ -893,6 +919,10 @@ impl JapaneseConverter for DictionaryConverter {
             return;
         }
         let mut learned = self.lock();
+        // shortcut: merge sequential writers; simultaneous processes still need a file lock.
+        if let Some(path) = &self.learning_path {
+            *learned = crate::store::load_or_quarantine(Some(path));
+        }
         let texts = learned.entry(covered).or_default();
         if texts.first() == Some(&candidate.text) {
             return;
@@ -909,6 +939,12 @@ impl JapaneseConverter for DictionaryConverter {
 
     fn save(&self) {
         // Every choice is written on `learn`; nothing to flush.
+    }
+
+    fn reload(&self) {
+        if let Some(path) = &self.learning_path {
+            *self.lock() = crate::store::load_or_quarantine(Some(path));
+        }
     }
 }
 

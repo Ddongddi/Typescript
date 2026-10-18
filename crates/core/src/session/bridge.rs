@@ -1,22 +1,15 @@
-//! The input method without Android: keys and the text before the caret in, edit commands out.
+//! Platform-neutral input bridge: keys and text before the caret in, edit commands out.
 //!
 //! The commands are one string: `1` if the key was consumed (else `0`), then each command
 //! preceded by `\u{1}`: `M<text>` set the composing text, `I<text>` commit it (replacing the
 //! composing text), `B<n>` delete n UTF-16 units before the caret.
 
-use std::path::Path;
-use std::sync::Arc;
-
-use tacit_core::session::testing::FakeTextField;
-use tacit_core::session::NoopClient;
-use tacit_core::{
-    make_engine, AppPolicies, InputSession, Key, Languages, LearningEngine, Range, Settings,
-    TextClient,
-};
+use super::testing::FakeTextField;
+use super::{InputSession, Key, NoopClient, Range, TextClient};
 
 const SEP: char = '\u{1}';
 
-/// Key kinds the Java side sends.
+/// Key kinds shared by JNI and the C interface.
 pub const LETTER: i32 = 0;
 pub const PRINTABLE: i32 = 1;
 pub const DELETE: i32 = 2;
@@ -116,17 +109,6 @@ pub struct Ime {
 }
 
 impl Ime {
-    /// `dir`: where the app keeps settings.json, apps.json, lexicon.json.
-    pub fn new(dir: &Path) -> Self {
-        let engine: Arc<LearningEngine> =
-            make_engine(Some(dir.join("lexicon.json")), &Languages::legacy(false));
-        let settings = Settings::load(Some(&dir.join("settings.json")));
-        let policies = AppPolicies::load(Some(&dir.join("apps.json")));
-        // No word history and no Tab completion: the phone's keyboards have their own suggestions.
-        let session = InputSession::new(engine, policies, settings.return_confirms_only);
-        Self::with_session(session)
-    }
-
     /// An input method over a session the caller built (the desktop text services).
     pub fn with_session(session: InputSession) -> Self {
         Self {
@@ -137,8 +119,8 @@ impl Ime {
 
     /// A new text field: `package` picks the app's policy.
     pub fn activate(&mut self, package: &str) {
+        self.reset();
         self.session.activate(Some(package));
-        self.composing.clear();
     }
 
     fn run(

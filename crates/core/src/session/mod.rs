@@ -31,6 +31,7 @@
 //! Right after a word was committed with space/punctuation, Esc / Shift+Esc cycle that
 //! committed word the same way. The same correction made twice is learned for good.
 
+pub mod bridge;
 mod candidates;
 mod client;
 mod flip;
@@ -259,6 +260,10 @@ impl InputSession {
 
     /// A new text field became active: pick its app's policy and forget the sentence context.
     pub fn activate(&mut self, exe: Option<&str>) {
+        if let Some(converter) = &self.ja.converter {
+            converter.reload();
+        }
+        self.ja.live_cache = None;
         self.close_flip_window();
         self.app = exe.map(str::to_lowercase);
         self.policy = self.policies.policy(exe);

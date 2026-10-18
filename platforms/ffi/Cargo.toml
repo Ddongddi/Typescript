@@ -11,5 +11,4 @@ name = "tacit_ffi"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
-tacit-android = { path = "../android/native" }
 tacit-core = { path = "../../crates/core", features = ["embedded-en", "embedded-ko"] }

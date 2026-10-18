@@ -569,7 +569,6 @@ dependencies = [
 name = "tacit-ffi"
 version = "0.10.2"
 dependencies = [
- "tacit-android",
  "tacit-core",
 ]
 

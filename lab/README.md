@@ -73,7 +73,9 @@ sh lab/report.sh --profile enko --selftest
 sh lab/report.sh --profile enkoja --selftest
 ```
 
-`--selftest`는 lab을 재실행하지 않고 문서의 지표·비교 표를 확인합니다.
+`--selftest`는 lab을 재실행하지 않고 중앙값 계산과 문서의 지표·비교 표를 확인합니다.
+짝수 횟수로 측정하면 가운데 두 값의 평균을 사용합니다. CI에서도 두 프로필의
+자체 검사와 lab 전체 테스트를 실행합니다.
 보고서의 프로그램·설치 zip은 공통이며, 팩 크기 목록만 프로필별로 다릅니다.
 
 ## 지표의 범위

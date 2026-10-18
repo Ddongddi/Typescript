@@ -6,6 +6,14 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.2.1]
+
+### Fixed
+
+- `report.sh` averages the middle two values for an even number of runs.
+  Both profile self-checks cover odd and even medians and now run in CI,
+  alongside every lab test (including profile validation).
+
 ## [0.2.0]
 
 ### Changed

@@ -1,9 +1,9 @@
-# Measurement lab, versioned on its own (CHANGELOG.md here): not a member of the root workspace, never built by CI, release or the
+# Measurement lab, versioned on its own (CHANGELOG.md here): not a member of the root workspace or the release build or
 # packaging scripts, so nothing here reaches an installer. Own lockfile and target dir.
 #   cargo run --release --manifest-path lab/Cargo.toml
 [package]
 name = "tacit-lab"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "AGPL-3.0-only"
 publish = false

@@ -110,3 +110,20 @@ fn a_reading_remembers_its_five_latest_picks_newest_first_and_saves_them() {
     assert_eq!(saved["いち"], ["六", "五", "四", "三", "二"]); // 一 was pushed out
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn separate_converters_keep_each_others_learned_choices() {
+    use tacit_core::ConversionCandidate;
+    let path = std::env::temp_dir().join(format!("tacit-kanji-shared-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let first = DictionaryConverter::new(Some(path.clone()));
+    let second = DictionaryConverter::new(Some(path.clone()));
+    first.learn(&ConversionCandidate::new("返還", 4), "へんかん");
+    second.learn(&ConversionCandidate::new("二本", 3), "にほん");
+    first.reload();
+    assert_eq!(first.candidates("にほん")[0].text, "二本");
+    let reloaded = DictionaryConverter::new(Some(path.clone()));
+    assert_eq!(reloaded.candidates("へんかん")[0].text, "返還");
+    assert_eq!(reloaded.candidates("にほん")[0].text, "二本");
+    let _ = std::fs::remove_file(path);
+}

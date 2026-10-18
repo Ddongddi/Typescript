@@ -3,7 +3,6 @@
 //! own install script (install.ps1 asks for administrator rights; install.sh installs for the
 //! current user).
 
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
@@ -14,7 +13,7 @@ use crate::error::{err, Error, Result};
 use crate::fetch::Fetch;
 use crate::install::{install_pack, unpack};
 use crate::source::Source;
-use tacit_core::pack;
+use tacit_core::{pack, store::read_object};
 
 pub const LATEST_API: &str = "https://api.github.com/repos/iamallyouneed/tacit/releases/latest";
 const DAY: u64 = 24 * 60 * 60;
@@ -86,14 +85,6 @@ fn parse(v: &str) -> Option<(u32, u32, u32)> {
 /// `a` is a version after `b` (anything that is not a version is never newer).
 pub fn is_newer(a: &str, b: &str) -> bool {
     matches!((parse(a), parse(b)), (Some(a), Some(b)) if a > b)
-}
-
-fn read_object(path: &Path) -> Value {
-    let bytes = std::fs::read(path).unwrap_or_default();
-    let bytes = bytes
-        .strip_prefix(&[0xEF, 0xBB, 0xBF][..])
-        .unwrap_or(&bytes);
-    serde_json::from_slice(bytes).unwrap_or_else(|_| json!({}))
 }
 
 /// `checkUpdates` in settings.json (on unless it says false).

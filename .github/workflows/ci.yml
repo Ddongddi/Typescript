@@ -70,6 +70,8 @@ jobs:
           python-version: "3.x"
       - run: python tools/build_mozc.py --selftest
       - run: python lab/evaluate_japanese.py --selftest
-      - run: cargo test --manifest-path lab/Cargo.toml japanese
+      - run: cargo test --manifest-path lab/Cargo.toml
+      - run: sh lab/report.sh --profile enko --selftest
+      - run: sh lab/report.sh --profile enkoja --selftest
       - run: cargo build --release --manifest-path lab/Cargo.toml
       - run: python lab/evaluate_japanese.py --binary lab/target/release/tacit-lab --check

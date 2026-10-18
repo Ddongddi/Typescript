@@ -14,7 +14,7 @@ impl Editor {
     fn new(tag: &str) -> Self {
         let dir = std::env::temp_dir().join(format!("ts-android-{tag}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let mut ime = Ime::new(&dir);
+        let mut ime = tacit_android::new_ime(&dir);
         ime.activate("com.example.notes");
         Self {
             ime,

@@ -393,45 +393,33 @@ impl Settings {
         }
     }
 
+    /// The canonical input settings, including the legacy Japanese switch.
+    pub fn to_value(&self) -> serde_json::Value {
+        let names = |keys: &[Chord]| keys.iter().map(ToString::to_string).collect::<Vec<_>>();
+        serde_json::json!({
+            "returnConfirmsOnly": self.return_confirms_only,
+            "hangulKey": self.hangul_key.to_string(),
+            "hangulAction": self.hangul_action.to_string(),
+            "flipKeys": names(&self.flip_keys),
+            "pauseKeys": names(&self.pause_keys),
+            "autocomplete": self.autocomplete,
+            "languages": self.languages.ids(),
+            "japanese": self.languages.contains(Language::Japanese),
+            "liveConversion": self.live_conversion,
+            "fullWidthDigits": self.full_width_digits,
+            "fullWidthSpace": self.full_width_space,
+        })
+    }
+
     /// Writes these values over the file's, keeping any keys this version doesn't know.
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
-        let mut object = read_json_file(path)
-            .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok())
-            .and_then(|v| {
-                if let serde_json::Value::Object(m) = v {
-                    Some(m)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_default();
-        object.insert(
-            "returnConfirmsOnly".into(),
-            self.return_confirms_only.into(),
-        );
-        let names =
-            |list: &[Chord]| -> Vec<String> { list.iter().map(|c| c.to_string()).collect() };
+        let mut value = super::read_object(path);
+        let object = value
+            .as_object_mut()
+            .expect("read_object returns an object");
         object.remove("pauseKey");
-        object.insert("hangulKey".into(), self.hangul_key.to_string().into());
-        object.insert("hangulAction".into(), self.hangul_action.to_string().into());
-        object.insert("flipKeys".into(), names(&self.flip_keys).into());
-        object.insert("pauseKeys".into(), names(&self.pause_keys).into());
-        object.insert("autocomplete".into(), self.autocomplete.into());
-        object.insert("languages".into(), self.languages.ids().into());
-        // Read by the versions before language packs.
-        object.insert(
-            "japanese".into(),
-            self.languages.contains(Language::Japanese).into(),
-        );
-        object.insert("liveConversion".into(), self.live_conversion.into());
-        object.insert("fullWidthDigits".into(), self.full_width_digits.into());
-        object.insert("fullWidthSpace".into(), self.full_width_space.into());
-        if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)?;
-        }
-        let json = serde_json::to_vec_pretty(&serde_json::Value::Object(object))
-            .map_err(std::io::Error::other)?;
-        super::write_atomic(path, &json)
+        object.extend(self.to_value().as_object().unwrap().clone());
+        super::persist(path, &value)
     }
 }
 
