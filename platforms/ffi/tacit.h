@@ -1,6 +1,6 @@
-/* C interface of the Typescript input method (libtypescript_ffi). See src/lib.rs. */
-#ifndef TYPESCRIPT_H
-#define TYPESCRIPT_H
+/* C interface of the tacit input method (libtacit_ffi). See src/lib.rs. */
+#ifndef TACIT_H
+#define TACIT_H
 #include <stdint.h>
 
 typedef struct Handle Handle;

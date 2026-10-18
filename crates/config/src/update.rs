@@ -14,21 +14,20 @@ use crate::error::{err, Error, Result};
 use crate::fetch::Fetch;
 use crate::install::{install_pack, unpack};
 use crate::source::Source;
-use typescript_core::pack;
+use tacit_core::pack;
 
-pub const LATEST_API: &str =
-    "https://api.github.com/repos/iamallyouneed/Typescript/releases/latest";
+pub const LATEST_API: &str = "https://api.github.com/repos/iamallyouneed/tacit/releases/latest";
 const DAY: u64 = 24 * 60 * 60;
 const API_MAX: usize = 2 * 1024 * 1024;
 /// The program package of this system's release and the script in it that installs it.
 #[cfg(windows)]
-pub const INSTALLER_ZIP: &str = "typescript-windows.zip";
+pub const INSTALLER_ZIP: &str = "tacit-windows.zip";
 #[cfg(windows)]
 pub const INSTALLER_SCRIPT: &str = "install.ps1";
 #[cfg(target_os = "macos")]
-pub const INSTALLER_ZIP: &str = "typescript-macos.zip";
+pub const INSTALLER_ZIP: &str = "tacit-macos.zip";
 #[cfg(all(not(windows), not(target_os = "macos")))]
-pub const INSTALLER_ZIP: &str = "typescript-linux.zip";
+pub const INSTALLER_ZIP: &str = "tacit-linux.zip";
 #[cfg(not(windows))]
 pub const INSTALLER_SCRIPT: &str = "install.sh";
 const INSTALLER_MAX: usize = 200 * 1024 * 1024;
@@ -54,7 +53,7 @@ pub fn now() -> u64 {
         .map_or(0, |d| d.as_secs())
 }
 
-/// The release lookup: GitHub, unless `TYPESCRIPT_RELEASE_API` names a URL or a folder holding
+/// The release lookup: GitHub, unless `TACIT_RELEASE_API` names a URL or a folder holding
 /// a `latest` file (testing an update by hand).
 pub fn api_from_env(quick: bool) -> (Box<dyn Fetch>, String) {
     let http = || -> Box<dyn Fetch> {
@@ -64,7 +63,7 @@ pub fn api_from_env(quick: bool) -> (Box<dyn Fetch>, String) {
             crate::fetch::Http::default()
         })
     };
-    match std::env::var("TYPESCRIPT_RELEASE_API") {
+    match std::env::var("TACIT_RELEASE_API") {
         Ok(spec) if spec.contains("://") => (http(), spec),
         Ok(spec) if !spec.is_empty() => (
             Box::new(crate::fetch::Dir(spec.into())),
@@ -205,8 +204,7 @@ pub fn check(env: &Env, fetch: &dyn Fetch, url: &str, now: u64, force: bool) -> 
     }
     let release = fetch_release(fetch, url)?;
     let remembered = json!({ "checkedAt": now, "latest": release.tag, "notes": release.notes });
-    let _ =
-        typescript_core::store::write_atomic(&cache_path(env), remembered.to_string().as_bytes());
+    let _ = tacit_core::store::write_atomic(&cache_path(env), remembered.to_string().as_bytes());
     Ok(info(&release.tag, &release.notes))
 }
 
@@ -285,7 +283,7 @@ fn asset<'a>(release: &'a Release, name: &str) -> Result<&'a str> {
 }
 
 /// Where the official release pages live (the Windows installer fetches from here itself).
-const RELEASES: &str = "https://github.com/iamallyouneed/Typescript/releases/download/";
+const RELEASES: &str = "https://github.com/iamallyouneed/tacit/releases/download/";
 
 /// What a program update hands to `launch`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -456,7 +454,7 @@ pub fn apply(
     if program_is_newer {
         run_installer(env, api, &release, launch)?;
         said.push(format!(
-            "started the installer for {}{}; when it is done, close this and run typescript-config again (an open settings page is still the old version)",
+            "started the installer for {}{}; when it is done, close this and run tacit-config again (an open settings page is still the old version)",
             release.tag,
             if cfg!(windows) {
                 " (confirm the administrator prompt)"
@@ -728,14 +726,12 @@ mod tests {
     #[test]
     fn only_github_hosts_may_serve_the_program() {
         assert!(trusted_download(
-            "https://github.com/o/r/releases/download/v1/typescript-windows.zip"
+            "https://github.com/o/r/releases/download/v1/tacit-windows.zip"
         ));
         assert!(trusted_download(
             "https://objects.githubusercontent.com/x/y"
         ));
-        assert!(!trusted_download(
-            "https://evil.test/typescript-windows.zip"
-        ));
+        assert!(!trusted_download("https://evil.test/tacit-windows.zip"));
         assert!(!trusted_download("https://github.com.evil.test/x"));
         assert!(!trusted_download("http://github.com/x"));
     }
@@ -745,7 +741,7 @@ mod tests {
         let url = format!("{RELEASES}v9.0.0/{INSTALLER_ZIP}");
         assert_eq!(official_tag(&url, "v9.0.0"), Some("v9.0.0"));
         assert_eq!(
-            official_tag("https://x.test/typescript-windows.zip", "v9.0.0"),
+            official_tag("https://x.test/tacit-windows.zip", "v9.0.0"),
             None
         );
         assert_eq!(

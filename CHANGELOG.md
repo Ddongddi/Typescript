@@ -55,7 +55,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 - 기능어(`The`)가 격조사의 앞말이 되어 `The는`이 `쏟는`으로 바뀌던 것을 고쳤습니다.
 
 ### 패키지
-- 릴리스 패키지에서 `typescript.exe`(개발용 CLI)를 뺐습니다. CLI와 같이 빌드하면 내장 팩이 다른 바이너리에도 들어가 2.5MB씩 커졌습니다.
+- 릴리스 패키지에서 `tacit.exe`(개발용 CLI)를 뺐습니다. CLI와 같이 빌드하면 내장 팩이 다른 바이너리에도 들어가 2.5MB씩 커졌습니다.
 
 ## [0.8.8] - 2026-10-16
 
@@ -121,7 +121,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 ## [0.8.2] - 2026-10-15
 
 ### 변경
-- 시작 안내(튜토리얼): 첫 두 화면을 하나로 합쳤습니다. "안녕하세요" 밑에 회색 작은 글씨로 `안녕 typescript`를 입력해 보라고 하고, 다 치면 같은 화면에서 "한/영키가 꼭 필요한 키일까요?"로 넘어갑니다.
+- 시작 안내(튜토리얼): 첫 두 화면을 하나로 합쳤습니다. "안녕하세요" 밑에 회색 작은 글씨로 `안녕 tacit`를 입력해 보라고 하고, 다 치면 같은 화면에서 "한/영키가 꼭 필요한 키일까요?"로 넘어갑니다.
 - 시작 안내의 Esc 화면이 세 번으로 늘었습니다. `깨짐`(영문 자판 `Rowla`)을 치고 Esc로 고치고, "한 번만 더 해 주시겠어요?", "마지막으로 한 번만 더요" 순서입니다. 같은 교정을 두 번 하면 그 단어를 기억하므로 마지막에는 Esc 없이 바로 `깨짐`이 나오고, 그때 "이렇게 2번 고치신 단어는 기억해 드립니다"라고 알려 줍니다. 기억이 아직 안 된 경우에는 그렇게 말하지 않고 그냥 넘어갑니다. 교정은 단어를 확정(Space)해야 기록되므로 각 번마다 Space까지 안내합니다.
 - 시작 안내의 마지막 화면 문구를 다듬었고, 진행 바는 칸이 중간만 차지 않고 켜지거나 꺼지기만 합니다.
 
@@ -141,30 +141,30 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [0.8.0] - 2026-10-15
 
-이번 버전은 팩 파일 형식이 바뀌어서 0.7.1이 아니라 **0.8.0**으로 올립니다. 팩과 프로그램은 같은 마이너 버전끼리만 호환되도록 되어 있는데(0.7.x 팩은 0.7.x 프로그램용), 새 일본어 팩은 옛 프로그램(0.7.x)이 읽을 수 없는 형식이라 호환 범위를 나누려는 것입니다. 0.7.x에서는 이 릴리스의 팩 목록이 호환되지 않는다고 보고 받지 않으며 "Typescript를 먼저 업데이트하세요"라고 안내합니다. 업데이트하면 프로그램과 일본어 팩이 함께 새로 설치됩니다.
+이번 버전은 팩 파일 형식이 바뀌어서 0.7.1이 아니라 **0.8.0**으로 올립니다. 팩과 프로그램은 같은 마이너 버전끼리만 호환되도록 되어 있는데(0.7.x 팩은 0.7.x 프로그램용), 새 일본어 팩은 옛 프로그램(0.7.x)이 읽을 수 없는 형식이라 호환 범위를 나누려는 것입니다. 0.7.x에서는 이 릴리스의 팩 목록이 호환되지 않는다고 보고 받지 않으며 "tacit를 먼저 업데이트하세요"라고 안내합니다. 업데이트하면 프로그램과 일본어 팩이 함께 새로 설치됩니다.
 
 ### 변경
 - 일본어 팩이 작아졌습니다: 설치 용량 17.2 MB → 10.1 MB, 내려받는 압축 파일도 약 5.9 MB → 4.9 MB가 됩니다. 표를 다시 담아 크기를 줄인 것이라 판별·변환 결과는 이전과 같습니다. (이 변경이 팩 형식을 바꿉니다: `kana_trigrams.txt`는 `kana_trigrams.bin`으로, 사전은 `TSIPDIC2`에서 `TSIPDIC3`으로.) 기여해 주신 Ddongddi 님께 감사드립니다.
-- 릴리스 바이너리가 작아졌습니다. `typescript-config`는 약 7%(6.6 → 6.1 MB), `typescript`는 약 2% 줄었고, 입력기 DLL은 그대로입니다.
+- 릴리스 바이너리가 작아졌습니다. `tacit-config`는 약 7%(6.6 → 6.1 MB), `tacit`는 약 2% 줄었고, 입력기 DLL은 그대로입니다.
 
 ### 추가
 - 영문 변경 기록([CHANGELOG.en.md](CHANGELOG.en.md))이 생겼습니다.
 
 ### 수정
-- 제거하거나 다시 설치할 때 실행 중인 앱이 잡고 있어 지울 수 없던 파일(`C:\Program Files\Typescript`의 DLL)을 다음 재시작 때 지우도록 예약합니다. 이전에는 제거 뒤에도 폴더가 남았고 안내 문구만 있었습니다.
+- 제거하거나 다시 설치할 때 실행 중인 앱이 잡고 있어 지울 수 없던 파일(`C:\Program Files\tacit`의 DLL)을 다음 재시작 때 지우도록 예약합니다. 이전에는 제거 뒤에도 폴더가 남았고 안내 문구만 있었습니다.
 
 ## [0.7.0] - 2026-10-14
 
 ### 추가
-- 첫 설치 튜토리얼(시작 안내 페이지, `typescript-config welcome`): "안녕하세요"로 시작해 한/영 키를 누르며 치는 불편함을 보여 주고, 한/영 키 없이 `dkssud typescript`를 쳐 보게 한 다음, 언어를 고르면 받아서 켜고(언어별로 받는 중·완료가 보입니다) 입력기 전환·한글·Esc를 한 화면에 하나씩 연습시킵니다. Esc 화면은 일부러 틀리는 예(`깨짐`을 영문 자판으로 치면 `Rowla`로 남음)를 보여 주고, 판별에 실패한 글씨는 Esc로 바꿀 수 있다고 알려 줍니다. 맨 위에 구간 진행 바가 있고, 연습 칸은 자유롭게 치게 두고 결과만 확인합니다. 새로 설치할 때만 열리며(업데이트에서는 열리지 않음) 대시보드 위쪽의 "튜토리얼" 링크로 다시 볼 수 있습니다.
-- `typescript-config setup --if-configured`: 이미 켜 둔 언어를 다시 설치합니다(업데이트용). 처음 설치면 실패해서 설치 스크립트가 구분하는 데 씁니다.
+- 첫 설치 튜토리얼(시작 안내 페이지, `tacit-config welcome`): "안녕하세요"로 시작해 한/영 키를 누르며 치는 불편함을 보여 주고, 한/영 키 없이 `dkssud tacit`를 쳐 보게 한 다음, 언어를 고르면 받아서 켜고(언어별로 받는 중·완료가 보입니다) 입력기 전환·한글·Esc를 한 화면에 하나씩 연습시킵니다. Esc 화면은 일부러 틀리는 예(`깨짐`을 영문 자판으로 치면 `Rowla`로 남음)를 보여 주고, 판별에 실패한 글씨는 Esc로 바꿀 수 있다고 알려 줍니다. 맨 위에 구간 진행 바가 있고, 연습 칸은 자유롭게 치게 두고 결과만 확인합니다. 새로 설치할 때만 열리며(업데이트에서는 열리지 않음) 대시보드 위쪽의 "튜토리얼" 링크로 다시 볼 수 있습니다.
+- `tacit-config setup --if-configured`: 이미 켜 둔 언어를 다시 설치합니다(업데이트용). 처음 설치면 실패해서 설치 스크립트가 구분하는 데 씁니다.
 - 대시보드 업데이트 탭: 모든 버전의 변경 기록을 한 곳에서 봅니다(0.1.0부터). 모두 펼치기·접기가 있고, 지금 버전보다 새 버전이 있으면 그 기록도 GitHub에서 불러와 맨 위에 보여 줍니다.
 - 대시보드: 언어 탭에 "가르친 단어"(개별 삭제, 모두 지우기), 입력 설정 탭에 "단어 기록"(기억하는 단어 수, 지우기)이 생겼습니다. 두 번 눌러야 지워집니다.
 - 대시보드: macOS·Linux에서도 지금 선택된 입력기를 알아내 안내하고, 설치 후 한 번 할 일을 체크리스트로 보여 줍니다. 전환 키 안내도 시스템에 맞춥니다.
 - 대시보드: 오래된 주소(토큰 만료)로 열면 "다시 열어 주세요" 안내가 뜹니다. `GET /api/health`(버전, 가동 시간, 작업 중 여부)를 추가했습니다.
 
 ### 변경
-- 설치 중 터미널에서 언어를 묻던 화면(체크리스트와 순서 정렬)이 시작 안내 페이지의 첫 화면으로 옮겨 갔습니다. `-Languages`를 주거나 이미 설정된 언어가 있으면(업데이트) 예전처럼 조용히 설치합니다. 터미널 선택을 위한 `dialoguer` 의존성이 빠졌고, 인자 없는 `typescript-config setup`은 터미널 질문 대신 시작 안내 페이지를 엽니다.
+- 설치 중 터미널에서 언어를 묻던 화면(체크리스트와 순서 정렬)이 시작 안내 페이지의 첫 화면으로 옮겨 갔습니다. `-Languages`를 주거나 이미 설정된 언어가 있으면(업데이트) 예전처럼 조용히 설치합니다. 터미널 선택을 위한 `dialoguer` 의존성이 빠졌고, 인자 없는 `tacit-config setup`은 터미널 질문 대신 시작 안내 페이지를 엽니다.
 - 대시보드: 서버 오류 응답에 `code`(invalid, upstream, busy …)가 붙습니다. 창이 가려지면 연결 확인을 30초 간격으로 줄이고, 끊기면 점점 늘립니다.
 
 ### 수정
@@ -175,8 +175,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ### 변경
 - 보안: 비밀번호 칸에서는 어떤 글자도 읽거나 세거나 배우지 않고 그대로 앱에 넘깁니다. Windows는 입력 범위(비밀번호), macOS는 보안 입력 모드, Linux(IBus)는 입력 목적(비밀번호·PIN)으로 알아냅니다. (예전에는 Android만 해당됐습니다.)
-- 보안: 언어 팩과 업데이트는 https로만 받습니다. `TYPESCRIPT_RELEASE`에 `http://` 주소를 줘도 이 컴퓨터(localhost)가 아니면 거절합니다. 폴더는 그대로 쓸 수 있습니다.
-- 보안: `typescript-config`를 터미널에서 열 때 세션 토큰이 든 주소를 늘 출력하지 않고, 브라우저를 열지 못했을 때만 보여 줍니다.
+- 보안: 언어 팩과 업데이트는 https로만 받습니다. `TACIT_RELEASE`에 `http://` 주소를 줘도 이 컴퓨터(localhost)가 아니면 거절합니다. 폴더는 그대로 쓸 수 있습니다.
+- 보안: `tacit-config`를 터미널에서 열 때 세션 토큰이 든 주소를 늘 출력하지 않고, 브라우저를 열지 못했을 때만 보여 줍니다.
 - 터미널·에디터·메신저의 규칙을 기본으로 내장했습니다. 터미널(Windows Terminal, cmd, PowerShell 등)은 변환 기준을 엄격하게, 에디터(VS Code, Cursor, JetBrains 등)는 Esc를 앱에 넘기고, 메신저(Slack, Discord, Teams, Telegram, LINE, 카카오톡)는 Enter 한 번에 전송됩니다. `apps.json`에 그 앱을 적으면 그쪽이 우선합니다. 앱 규칙에 `returnConfirmsOnly`(앱별 Enter 동작)가 추가됐습니다.
 - 보안: `install.sh`가 압축 안에 바깥 경로(`../`, 절대 경로)가 있으면 설치하지 않습니다.
 - 단어 기록·한자 학습 파일이 손상되면 조용히 덮어쓰지 않고 `.unreadable`로 옮겨 둡니다(교정 학습 파일과 같은 방식). 저장은 모두 원자적으로 하며, 업데이트 확인 캐시도 포함합니다.
@@ -203,7 +203,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 ## [0.6.3] - 2026-10-14
 
 ### 추가
-- 대시보드: 지금 선택된 입력기가 Typescript가 아니면 상단에 알려 주고, 어떤 입력기인지와 Win+Space로 바꾸라는 안내를 보여 줍니다. (Windows)
+- 대시보드: 지금 선택된 입력기가 tacit가 아니면 상단에 알려 주고, 어떤 입력기인지와 Win+Space로 바꾸라는 안내를 보여 줍니다. (Windows)
 
 ### 변경
 - 대시보드 상단의 "연결됨" 표시를 작은 점과 글자만 남기고 다듬었습니다.
@@ -230,7 +230,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ### 수정
 - 대시보드: 입력 설정 탭의 채팅 입력에서 숫자를 치면 탭이 바뀌던 문제.
-- Windows: 한/영 키에 지정한 단축키(`Win+D` 등)가 텍스트 입력창에서만 되던 문제. 이제 바탕화면·작업표시줄·이미 켜 둔 앱을 포함해 어디서든 동작합니다. 한/영 키가 오른쪽 Alt로 들어오는 노트북도 같습니다. 설치하면 로그인할 때 키 감시(`rundll32 typescript_tip.dll,KeyHook`)가 함께 시작됩니다. 관리자 권한으로 실행한 창이 앞에 있을 때는 동작하지 않습니다.
+- Windows: 한/영 키에 지정한 단축키(`Win+D` 등)가 텍스트 입력창에서만 되던 문제. 이제 바탕화면·작업표시줄·이미 켜 둔 앱을 포함해 어디서든 동작합니다. 한/영 키가 오른쪽 Alt로 들어오는 노트북도 같습니다. 설치하면 로그인할 때 키 감시(`rundll32 tacit_tip.dll,KeyHook`)가 함께 시작됩니다. 관리자 권한으로 실행한 창이 앞에 있을 때는 동작하지 않습니다.
 
 ## [0.6.0] - 2026-10-14
 
@@ -258,7 +258,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 - 대시보드의 입력 설정에 **채팅으로 체험**: 영문 자판으로 직접 쳐서 실제 입력기와 같은 방식으로 확인합니다.
   "Enter는 확정만"이 켜져 있으면 전송에 Enter 두 번, 꺼져 있으면 한 번이 걸리는 것을 말풍선의 `Enter ×N`으로
   보여 주고, 두 동작을 버튼으로 바꿔 가며 비교할 수 있습니다. Tab 자동완성과 Backspace도 됩니다.
-- 업데이트로 프로그램이 바뀌면 설정 화면을 닫고 `typescript-config`를 다시 열라고 안내합니다.
+- 업데이트로 프로그램이 바뀌면 설정 화면을 닫고 `tacit-config`를 다시 열라고 안내합니다.
 
 ### 수정
 - 프로그램을 업데이트한 뒤 대시보드에 "쓸 수 없는 팩: …needs core …"가 남던 문제. 같은 팩의 새 버전이 이미 동작하면 옛 버전 폴더는 문제로 보지 않고, 팩을 설치할 때 그 팩의 옛 버전 폴더를 정리합니다.
@@ -268,10 +268,10 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 ## [0.5.0] - 2026-10-14
 
 ### 추가
-- **macOS**: InputMethodKit 입력기(`Typescript.app`, Apple silicon + Intel).
-- **Linux**: IBus 엔진(`ibus-engine-typescript`).
+- **macOS**: InputMethodKit 입력기(`tacit.app`, Apple silicon + Intel).
+- **Linux**: IBus 엔진(`ibus-engine-tacit`).
 - `install.sh`: macOS·Linux 한 줄 설치/제거(현재 사용자에게만, 관리자 권한 불필요, SHA-256 확인).
-- `platforms/ffi`: 입력기를 C 함수로 감싼 인터페이스(`typescript.h`). macOS·Linux 입력기가 공유합니다.
+- `platforms/ffi`: 입력기를 C 함수로 감싼 인터페이스(`tacit.h`). macOS·Linux 입력기가 공유합니다.
 - 대시보드: 체험 탭에서 단어를 누르면 다른 언어로 읽었을 때의 결과를 보고 바꿔 볼 수 있습니다.
 - 대시보드: 앱 규칙의 변환 기준이 슬라이더가 되었고, 움직이는 동안 샘플 문장이 어떻게 읽히는지 미리 봅니다.
 - 대시보드: Esc 순서 칩을 끌어서 바꾸고, Esc를 눌러 순환하는 모습을 확인합니다.
@@ -281,8 +281,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 - `LICENSE`를 AGPL-3.0으로 바꾸고 `NOTICE`, `CONTRIBUTING.md`, 이 변경 기록을 추가.
 
 ### 변경
-- 설정과 언어 팩 폴더가 시스템별로 나뉩니다. Windows는 그대로이고, macOS는 `~/Library/Application Support/Typescript`,
-  Linux는 `~/.config/Typescript`(팩은 `~/.local/share/Typescript/packs`)입니다.
+- 설정과 언어 팩 폴더가 시스템별로 나뉩니다. Windows는 그대로이고, macOS는 `~/Library/Application Support/tacit`,
+  Linux는 `~/.config/tacit`(팩은 `~/.local/share/tacit/packs`)입니다.
 - 라이선스: MIT → AGPL-3.0-only (v0.4.1까지의 릴리스는 MIT로 남습니다).
 - 대시보드 소스를 `crates/config/src/web/`의 마크업·스타일·스크립트 파일로 나눴습니다.
 - CI와 릴리스가 Windows, Android에 더해 Linux, macOS에서도 빌드·테스트·패키징합니다.
@@ -305,7 +305,7 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ### 추가
 - **언어 팩**: 언어 데이터를 팩으로 나눠 필요한 것만 받습니다. 언어를 모듈로 추가할 수 있는 구조.
-- `typescript-config`: 터미널 설정 화면, 명령줄, 웹 대시보드.
+- `tacit-config`: 터미널 설정 화면, 명령줄, 웹 대시보드.
 - 릴리스에서 새 버전과 언어 팩을 확인하고 갱신하는 업데이트.
 - 설치 때 언어를 고르고 팩을 받습니다.
 
@@ -345,33 +345,33 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.1...HEAD
-[0.10.1]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...v0.10.1
-[0.10.0]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...v0.10.0
-[0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
-[0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
-[0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
-[0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7
-[0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
-[0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
-[0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
-[0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
-[0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
-[0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
-[0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
-[0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...v0.6.4
-[0.6.3]: https://github.com/iamallyouneed/Typescript/compare/v0.6.2...v0.6.3
-[0.6.2]: https://github.com/iamallyouneed/Typescript/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/iamallyouneed/Typescript/compare/v0.5.2...v0.6.0
-[0.5.2]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...v0.5.2
-[0.5.1]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/iamallyouneed/Typescript/compare/v0.4.1...v0.5.0
-[0.4.1]: https://github.com/iamallyouneed/Typescript/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/iamallyouneed/Typescript/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/iamallyouneed/Typescript/compare/v0.2.1...v0.3.0
-[0.2.1]: https://github.com/iamallyouneed/Typescript/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/iamallyouneed/Typescript/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/iamallyouneed/Typescript/releases/tag/v0.1.1
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/iamallyouneed/tacit/compare/v0.9.1...v0.10.0
+[0.9.1]: https://github.com/iamallyouneed/tacit/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/iamallyouneed/tacit/compare/v0.8.8...v0.9.0
+[0.8.8]: https://github.com/iamallyouneed/tacit/compare/v0.8.7...v0.8.8
+[0.8.7]: https://github.com/iamallyouneed/tacit/compare/v0.8.6...v0.8.7
+[0.8.6]: https://github.com/iamallyouneed/tacit/compare/v0.8.5...v0.8.6
+[0.8.5]: https://github.com/iamallyouneed/tacit/compare/v0.8.4...v0.8.5
+[0.8.4]: https://github.com/iamallyouneed/tacit/compare/v0.8.3...v0.8.4
+[0.8.3]: https://github.com/iamallyouneed/tacit/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/iamallyouneed/tacit/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/iamallyouneed/tacit/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/iamallyouneed/tacit/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/iamallyouneed/tacit/compare/v0.6.5...v0.7.0
+[0.6.5]: https://github.com/iamallyouneed/tacit/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/iamallyouneed/tacit/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/iamallyouneed/tacit/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/iamallyouneed/tacit/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/iamallyouneed/tacit/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/iamallyouneed/tacit/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/iamallyouneed/tacit/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/iamallyouneed/tacit/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/iamallyouneed/tacit/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/iamallyouneed/tacit/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/iamallyouneed/tacit/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/iamallyouneed/tacit/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/iamallyouneed/tacit/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/iamallyouneed/tacit/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/iamallyouneed/tacit/releases/tag/v0.1.1

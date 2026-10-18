@@ -2,8 +2,8 @@
 //! puts the same control in a window, switches this process to a text service, types a word with
 //! real key events and prints what the control ended up with.
 //!
-//!   cargo run -p typescript-tip --example richedit_lab -- --ms      Microsoft's Korean IME (works in KakaoTalk)
-//!   cargo run -p typescript-tip --example richedit_lab -- --ts      Typescript (the installed one)
+//!   cargo run -p tacit-tip --example richedit_lab -- --ms      Microsoft's Korean IME (works in KakaoTalk)
+//!   cargo run -p tacit-tip --example richedit_lab -- --ts      tacit (the installed one)
 //!
 //! Keys go out with SendInput, so the window must be in front; the lab refuses to type
 //! otherwise. Needs the text service to be installed (scripts\install.ps1).
@@ -29,7 +29,7 @@ const MS_IME: (GUID, GUID) = (
     GUID::from_u128(0xA028AE76_01B1_46C2_99C4_ACD9858AE02F),
     GUID::from_u128(0xB5FE1F02_D5F2_4445_9C03_C568F23C99A1),
 );
-const TYPESCRIPT: (GUID, GUID) = (
+const TACIT: (GUID, GUID) = (
     GUID::from_u128(0xE231DAD4_326F_436F_B74C_D08F1D66D822),
     GUID::from_u128(0xD7B9871C_E74A_4B4F_9791_CBD1E9E074FE),
 );
@@ -116,7 +116,7 @@ fn main() {
     let which = std::env::args().nth(1).unwrap_or_default();
     let (clsid, profile) = match which.as_str() {
         "--ms" => MS_IME,
-        "--ts" => TYPESCRIPT,
+        "--ts" => TACIT,
         _ => {
             eprintln!("usage: richedit_lab --ms | --ts");
             std::process::exit(2);
@@ -178,7 +178,7 @@ fn main() {
         let _ = SetFocus(Some(edit));
         pump(Duration::from_millis(300));
 
-        // Microsoft's IME is Korean; Typescript is registered under en-US (see guids.rs).
+        // Microsoft's IME is Korean; tacit is registered under en-US (see guids.rs).
         // LAB_LANGID=0412 tries another language the profile is registered under.
         let default_langid = if which == "--ms" { LANGID_KO } else { 0x0409 };
         let langid = std::env::var("LAB_LANGID")
@@ -268,8 +268,7 @@ fn main() {
             pump(Duration::from_millis(400));
             println!("{which}: after the right Alt: {:?}", text_of(edit));
         }
-        let installed =
-            GetModuleHandleW(w!(r"C:\Program Files\Typescript\typescript_tip.dll")).is_ok();
+        let installed = GetModuleHandleW(w!(r"C:\Program Files\tacit\tacit_tip.dll")).is_ok();
         println!("{which}: installed DLL loaded: {installed}");
         let typed = text_of(edit);
         println!("{which}: the control holds {typed:?}  (wanted \"테스트\" after Space)");

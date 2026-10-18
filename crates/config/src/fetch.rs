@@ -81,10 +81,7 @@ impl Http {
             .timeout_global(Some(self.total))
             .build();
         let agent = ureq::Agent::new_with_config(config);
-        let mut response = agent
-            .get(url)
-            .header("User-Agent", "typescript-config")
-            .call()?;
+        let mut response = agent.get(url).header("User-Agent", "tacit-config").call()?;
         response
             .body_mut()
             .with_config()

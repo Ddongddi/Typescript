@@ -1,6 +1,6 @@
-# Typescript Language Pack System & Developer Guide
+# tacit Language Pack System & Developer Guide
 
-To keep the core engine lightweight and ensure instantaneous application startup, Typescript separates language-specific datasets (trigram frequency tables, vocabulary dictionaries, and Kanji conversion indices) into standalone **Language Packs**. Each pack is a single **folder** (`manifest.json` plus its table files); releases ship one zip per language.
+To keep the core engine lightweight and ensure instantaneous application startup, tacit separates language-specific datasets (trigram frequency tables, vocabulary dictionaries, and Kanji conversion indices) into standalone **Language Packs**. Each pack is a single **folder** (`manifest.json` plus its table files); releases ship one zip per language.
 
 [한국어](../ko/language-packs.md) · [English Docs Index](README.md)
 
@@ -11,9 +11,9 @@ To keep the core engine lightweight and ensure instantaneous application startup
 Targets 0.10.x. Update program and packs together. The Japanese dictionary uses Mozc OSS word/connection costs in the native Rust converter; no Mozc executable is needed.
 
 ```
-%LOCALAPPDATA%\Typescript\packs\ (Windows)
-~/.local/share/Typescript/packs/ (Linux)
-~/Library/Application Support/Typescript/packs/ (macOS)
+%LOCALAPPDATA%\tacit\packs\ (Windows)
+~/.local/share/tacit/packs/ (Linux)
+~/Library/Application Support/tacit/packs/ (macOS)
 ├── en-0.10.1\              (~0.45 MB zip) - English trigrams and vocabulary
 │   ├── manifest.json      (id · version · core range · table file hashes)
 │   ├── english_levels.txt
@@ -31,7 +31,7 @@ Targets 0.10.x. Update program and packs together. The Japanese dictionary uses 
     └── dictionary-sources.json
 ```
 
-The installer downloads a release's `typescript-pack-<id>-<version>.zip`, unpacks it, and only registers it as a pack folder when every table file matches `packs.json` (SHA-256 and size) and the manifest hashes.
+The installer downloads a release's `tacit-pack-<id>-<version>.zip`, unpacks it, and only registers it as a pack folder when every table file matches `packs.json` (SHA-256 and size) and the manifest hashes.
 
 ### Architectural Benefits
 1. **Minimal Memory Footprint**: The DLL loaded into each client process stays under 4MB.
@@ -68,17 +68,17 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 
 ---
 
-## 3. Pack Generator Tooling (`typescript-packgen`)
+## 3. Pack Generator Tooling (`tacit-packgen`)
 
-The `typescript-packgen` crate converts raw text datasets (corpus frequencies, word lists) into finalized language packs (binary table files plus a manifest).
+The `tacit-packgen` crate converts raw text datasets (corpus frequencies, word lists) into finalized language packs (binary table files plus a manifest).
 
 ### 3.1 Building Packs
 ```powershell
 # Compile all official language packs (en, ko, ja)
-cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
+cargo run -p tacit-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-The default output is one folder per language version, like `target/packs/en-0.10.0/` (what a checkout installs directly). With `--release` it writes the release zips `typescript-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `typescript-config` reads).
+The default output is one folder per language version, like `target/packs/en-0.10.0/` (what a checkout installs directly). With `--release` it writes the release zips `tacit-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `tacit-config` reads).
 
 ---
 
@@ -125,15 +125,15 @@ Add a builder recipe in `crates/packgen/src/main.rs` to compile the new raw data
 Ensure the new language does not degrade recognition accuracy for existing languages:
 
 ```powershell
-cargo test -p typescript-core --test accuracy
-cargo test -p typescript-core --test golden
+cargo test -p tacit-core --test accuracy
+cargo test -p tacit-core --test golden
 ```
 
 ---
 
 ## 5. Dataset Licensing Compliance
 
-Typescript maintains strict open-source licensing standards:
+tacit maintains strict open-source licensing standards:
 
 1. **Permissive and Share-Alike Datasets Only**: Acceptable licenses include CC-BY, CC BY-SA, MIT, BSD, or Apache-2.0.
 2. **No Non-Commercial (NC) Data**: Datasets with CC-BY-NC or commercial restrictions are strictly prohibited.

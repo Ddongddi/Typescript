@@ -1,4 +1,4 @@
-# Typescript Installation & Build Guide
+# tacit Installation & Build Guide
 
 This document covers installation, building from source, and uninstallation across all supported operating systems: Windows, macOS, Linux, and Android.
 
@@ -12,8 +12,8 @@ This document covers installation, building from source, and uninstallation acro
 | --- | --- | --- | --- |
 | **Windows** | TSF Text Service (x64 / x86 COM DLL) | Physical keyboard | EN/KO/JA detection, Tab autocomplete, word learning, preview UI |
 | **Android** | Standalone APK (`InputMethodService`) | Virtual & external keyboards | EN/KO detection, 2-set engraved keyboard, hardware keyboard |
-| **macOS** | InputMethodKit app (`Typescript.app`) | Physical keyboard | EN/KO/JA detection, Option+Space pause, Esc cycle |
-| **Linux** | IBus Engine (`ibus-engine-typescript`) | Physical keyboard | EN/KO/JA detection, IBus desktop integration |
+| **macOS** | InputMethodKit app (`tacit.app`) | Physical keyboard | EN/KO/JA detection, Option+Space pause, Esc cycle |
+| **Linux** | IBus Engine (`ibus-engine-tacit`) | Physical keyboard | EN/KO/JA detection, IBus desktop integration |
 
 ---
 
@@ -24,7 +24,7 @@ This document covers installation, building from source, and uninstallation acro
 Open PowerShell and run the following command (requires a single UAC administrator prompt):
 
 ```powershell
-irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
 ```
 
 - On a first install, a **welcome page** opens in your browser to pick the active languages (English, Korean, Japanese; the list order is the `Esc` cycling order) and walk through a short practice. Update installs don't show it.
@@ -34,7 +34,7 @@ irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install
 You can automate or customize the installation without the interactive menu:
 
 ```powershell
-$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
+$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 
 # Explicitly select languages and Esc order (Korean, English, Japanese)
 & $i -Languages ko,en,ja
@@ -50,9 +50,9 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 ```
 
 ### 2.2 Selecting the Input Method
-1. Press **Win + Space** and select **Typescript** or **Typescript (Autocomplete)**.
-2. In the Windows language list, Typescript appears under **English (United States)**. *(This intentional design avoids interim composition clipping bugs found in legacy IMM32 apps such as KakaoTalk).*
-3. Applications that were already running when you installed Typescript must be restarted to detect the new text service.
+1. Press **Win + Space** and select **tacit** or **tacit (Autocomplete)**.
+2. In the Windows language list, tacit appears under **English (United States)**. *(This intentional design avoids interim composition clipping bugs found in legacy IMM32 apps such as KakaoTalk).*
+3. Applications that were already running when you installed tacit must be restarted to detect the new text service.
 
 ### 2.3 Building from Source on Windows
 The Windows TSF service requires building both 64-bit and 32-bit DLLs to support native and legacy 32-bit processes.
@@ -63,8 +63,8 @@ The Windows TSF service requires building both 64-bit and 32-bit DLLs to support
 - Visual Studio C++ Build Tools (MSVC)
 
 ```powershell
-git clone https://github.com/iamallyouneed/Typescript.git
-cd Typescript
+git clone https://github.com/iamallyouneed/tacit.git
+cd tacit
 
 # Compiles x64 + x86 DLLs and registers TSF COM service
 .\scripts\install.ps1
@@ -82,12 +82,12 @@ cd Typescript
 Run in Terminal (no administrator privileges required):
 
 ```sh
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh
 ```
 
-- Installed to `~/Library/Input Methods/Typescript.app`.
+- Installed to `~/Library/Input Methods/tacit.app`.
 - After installation, **log out and log back in**.
-- Open **System Settings** → **Keyboard** → **Text Input (Input Sources)** → **Edit**, click `+`, and add **Typescript**.
+- Open **System Settings** → **Keyboard** → **Text Input (Input Sources)** → **Edit**, click `+`, and add **tacit**.
 - *Note:* Because releases are unsigned and un-notarized, macOS Gatekeeper may prompt you under **Privacy & Security** to "Open Anyway" on first run.
 
 ### 3.2 Building from Source on macOS
@@ -106,12 +106,12 @@ sh platforms/macos/build.sh
 ### 4.1 Quick Install (IBus)
 
 ```sh
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh
 ```
 
-- The engine installs to `~/.local/share/typescript/`, and the component XML to `~/.local/share/ibus/component/`.
+- The engine installs to `~/.local/share/tacit/`, and the component XML to `~/.local/share/ibus/component/`.
 - Log out and log back in, or run `ibus restart`.
-- Add **Typescript** via your desktop's keyboard settings or `ibus-setup`.
+- Add **tacit** via your desktop's keyboard settings or `ibus-setup`.
 
 ### 4.2 Building from Source on Linux
 **Prerequisites (Ubuntu/Debian):**
@@ -122,7 +122,7 @@ sudo apt install libibus-1.0-dev pkg-config build-essential
 
 **Build and Install:**
 ```sh
-cargo build --release -p typescript-ffi
+cargo build --release -p tacit-ffi
 make -C platforms/linux
 make -C platforms/linux install
 ibus restart
@@ -133,10 +133,10 @@ ibus restart
 ## 5. Android Installation
 
 ### 5.1 Standalone APK Install
-1. Download **`typescript.apk`** from [GitHub Releases](https://github.com/iamallyouneed/Typescript/releases/latest).
+1. Download **`tacit.apk`** from [GitHub Releases](https://github.com/iamallyouneed/tacit/releases/latest).
 2. Open the APK on your device and permit installation from unknown sources.
-3. Navigate to Android **Settings** → **System** → **Languages & input** → **On-screen keyboard**, and toggle **Typescript** ON.
-4. Tap any text field, select the input switcher icon, and select Typescript.
+3. Navigate to Android **Settings** → **System** → **Languages & input** → **On-screen keyboard**, and toggle **tacit** ON.
+4. Tap any text field, select the input switcher icon, and select tacit.
 
 ### 5.2 Building from Source on Android
 **Prerequisites:**
@@ -155,7 +155,7 @@ ibus restart
 .\platforms\android\build.ps1 -Abi arm64-v8a
 
 # Install directly to a connected device via ADB
-adb install -r platforms\android\build\typescript.apk
+adb install -r platforms\android\build\tacit.apk
 ```
 
 ---
@@ -164,15 +164,15 @@ adb install -r platforms\android\build\typescript.apk
 
 ### Windows
 ```powershell
-$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
+$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall
 
 # To wipe user settings and learned vocabulary:
-Remove-Item -Recurse -Force "$env:APPDATA\Typescript"
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Typescript"
+Remove-Item -Recurse -Force "$env:APPDATA\tacit"
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\tacit"
 ```
 
 ### macOS / Linux
 ```sh
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --uninstall
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --uninstall
 ```

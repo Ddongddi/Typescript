@@ -9,10 +9,10 @@ use std::rc::{Rc, Weak};
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
-use typescript_core::session::NoopClient;
-use typescript_core::store::keys::{ChordKey, HangulAction, KeyAction, Mods};
-use typescript_core::store::policy::Override;
-use typescript_core::{
+use tacit_core::session::NoopClient;
+use tacit_core::store::keys::{ChordKey, HangulAction, KeyAction, Mods};
+use tacit_core::store::policy::Override;
+use tacit_core::{
     make_engine, AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
 };
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
@@ -27,7 +27,7 @@ use crate::candidates::CandidateWindow;
 use crate::client::{EditSession, TsfClient};
 use crate::display;
 use crate::ghost::Ghost;
-use crate::guids::{CLSID_TYPESCRIPT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
+use crate::guids::{CLSID_TACIT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
 use crate::keymap::{chord_key, held_mods, key_for, send_shortcut, sent_by_us};
 use crate::shared::{converter, engine, history, refresh_packs, reload_engines};
 
@@ -42,7 +42,7 @@ fn active_profile_has_completion() -> Option<bool> {
         profiles
             .GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut profile)
             .ok()?;
-        if profile.clsid != CLSID_TYPESCRIPT {
+        if profile.clsid != CLSID_TACIT {
             return None;
         }
         PROFILES
@@ -171,7 +171,7 @@ impl Inner {
             };
             let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
             if languages.contains(Language::Japanese)
-                && typescript_core::pack::available(Language::Japanese)
+                && tacit_core::pack::available(Language::Japanese)
             {
                 session = session.with_japanese(converter(), settings.live_conversion);
             }
@@ -195,11 +195,11 @@ impl Inner {
         self.completion_profile.replace(with_completion) != with_completion
     }
 
-    /// Appends an event to %APPDATA%\Typescript\debug.log, only while a file named debug.on sits
+    /// Appends an event to %APPDATA%\tacit\debug.log, only while a file named debug.on sits
     /// next to it. Event names only: never what was typed, nor which keys.
     pub fn trace(&self, what: &str) {
         use std::io::Write;
-        let Some(dir) = typescript_core::support_dir() else {
+        let Some(dir) = tacit_core::support_dir() else {
             return;
         };
         if !dir.join("debug.on").exists() {

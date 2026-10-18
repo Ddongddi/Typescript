@@ -38,7 +38,7 @@ def build(source, target):
     scripts = [src / 'dictionary' / name for name in ['gen_aux_dictionary.py', 'gen_filtered_dictionary.py']]
     for path in base + extra + manual + scripts:
         sources[path.relative_to(src).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    with tempfile.TemporaryDirectory(prefix='typescript-mozc-') as work:
+    with tempfile.TemporaryDirectory(prefix='tacit-mozc-') as work:
         aux, filtered = Path(work) / 'aux.txt', Path(work) / 'filtered.txt'
         # Use the pinned upstream preprocessing, including manual fixes and cost inheritance.
         subprocess.run([sys.executable, str(scripts[0]), '--strict', '--output', str(aux),

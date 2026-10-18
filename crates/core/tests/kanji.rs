@@ -3,17 +3,15 @@
 
 use std::sync::Arc;
 
-use typescript_core::session::testing::FakeTextField;
-use typescript_core::{
+use tacit_core::session::testing::FakeTextField;
+use tacit_core::{
     make_engine, AppPolicies, DictionaryConverter, InputSession, JapaneseConverter, Key, Languages,
     TextClient,
 };
 
 fn rig(name: &str) -> (InputSession, FakeTextField, Arc<DictionaryConverter>) {
-    let lexicon = std::env::temp_dir().join(format!(
-        "typescript-kanji-{name}-{}.json",
-        std::process::id()
-    ));
+    let lexicon =
+        std::env::temp_dir().join(format!("tacit-kanji-{name}-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&lexicon);
     let engine = make_engine(Some(lexicon), &Languages::legacy(true));
     let converter = Arc::new(DictionaryConverter::new(None));
@@ -100,9 +98,8 @@ fn a_chosen_candidate_is_first_next_time() {
 
 #[test]
 fn a_reading_remembers_its_five_latest_picks_newest_first_and_saves_them() {
-    use typescript_core::ConversionCandidate;
-    let path =
-        std::env::temp_dir().join(format!("typescript-kanji-cap-{}.json", std::process::id()));
+    use tacit_core::ConversionCandidate;
+    let path = std::env::temp_dir().join(format!("tacit-kanji-cap-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);
     let converter = DictionaryConverter::new(Some(path.clone()));
     for pick in ["一", "二", "三", "四", "五", "六"] {

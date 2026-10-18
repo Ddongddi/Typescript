@@ -1,4 +1,4 @@
-# Builds platforms/android/build/typescript.apk without Gradle:
+# Builds platforms/android/build/tacit.apk without Gradle:
 # cargo-ndk (Rust) -> aapt2 -> javac -> d8 -> zip -> zipalign -> apksigner (debug key).
 #   .\build.ps1                      arm64 + x86_64 (emulator)
 #   .\build.ps1 -Abi arm64-v8a       phones only (smaller)
@@ -28,7 +28,7 @@ function Run($what, [scriptblock] $block) {
 New-Item -ItemType Directory -Force $build | Out-Null
 $libs = Join-Path $build 'jniLibs'
 $abiArgs = $Abi | ForEach-Object { '-t'; $_ }
-Run 'cargo ndk' { cargo ndk @abiArgs -o $libs build --release -p typescript-android }
+Run 'cargo ndk' { cargo ndk @abiArgs -o $libs build --release -p tacit-android }
 
 # Resources and manifest.
 $res = Join-Path $build 'res.zip'
@@ -56,15 +56,15 @@ $zip = [System.IO.Compression.ZipFile]::Open($unsigned, 'Update')
 try {
     [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Join-Path $dex 'classes.dex'), 'classes.dex')
     foreach ($a in $Abi) {
-        $so = Join-Path $libs "$a\libtypescript_android.so"
-        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $so, "lib/$a/libtypescript_android.so")
+        $so = Join-Path $libs "$a\libtacit_android.so"
+        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $so, "lib/$a/libtacit_android.so")
     }
 } finally { $zip.Dispose() }
 
-# Align and sign. With TS_KEYSTORE and TS_KEYSTORE_PASS set (the release key, alias "typescript")
+# Align and sign. With TS_KEYSTORE and TS_KEYSTORE_PASS set (the release key, alias "tacit")
 # the apk can be updated over earlier releases; without them a debug key is created once.
 $aligned = Join-Path $build 'aligned.apk'
-$apk = Join-Path $build 'typescript.apk'
+$apk = Join-Path $build 'tacit.apk'
 Run 'zipalign' { & "$($tools.FullName)\zipalign.exe" -f -p 4 $unsigned $aligned }
 if ($env:TS_KEYSTORE) {
     $keystore = $env:TS_KEYSTORE
@@ -76,7 +76,7 @@ if ($env:TS_KEYSTORE) {
     if (-not (Test-Path $keystore)) {
         Run 'keytool' {
             keytool -genkeypair -keystore $keystore -storepass $pass -keypass $pass -alias debug `
-                -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Typescript Debug'
+                -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=tacit Debug'
         }
     }
 }

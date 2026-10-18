@@ -1,9 +1,9 @@
 //! The tool against a release built from the real data: what packgen publishes is what
-//! typescript-config installs, and what the text service then loads.
+//! tacit-config installs, and what the text service then loads.
 use std::path::PathBuf;
 
-use typescript_config::{cli, env::Env, source::Source};
-use typescript_core::{pack, Languages};
+use tacit_config::{cli, env::Env, source::Source};
+use tacit_core::{pack, Languages};
 
 fn args(line: &str) -> Vec<String> {
     line.split_whitespace().map(String::from).collect()
@@ -15,7 +15,7 @@ fn a_real_release_installs_and_loads() {
     let root = std::env::temp_dir().join(format!("ts-real-release-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let release = root.join("release");
-    typescript_packgen::write_release(&data, &release).unwrap();
+    tacit_packgen::write_release(&data, &release).unwrap();
 
     let env = Env {
         settings: root.join("home/settings.json"),
@@ -37,9 +37,9 @@ fn a_real_release_installs_and_loads() {
 
     let ja = found.packs.iter().find(|f| f.manifest.id == "ja").unwrap();
     let dictionary = std::fs::read(ja.dir.join("ipadic_compact.bin")).unwrap();
-    assert!(typescript_core::KanjiDictionary::valid(&dictionary));
+    assert!(tacit_core::KanjiDictionary::valid(&dictionary));
 
-    let on = typescript_config::languages::enabled(&env);
+    let on = tacit_config::languages::enabled(&env);
     assert_eq!(on, Languages::from_ids(&["ko", "ja"]).unwrap());
 
     cli::run(&args("remove ja"), &env, &source).unwrap();

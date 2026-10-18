@@ -1,8 +1,8 @@
-//! Removing Typescript from this computer, asked for in the dashboard. On an installed Windows
+//! Removing tacit from this computer, asked for in the dashboard. On an installed Windows
 //! copy the program and the text service go through the installer's own `-Uninstall` (which asks
 //! Windows for administrator rights), and only once that worked is what the user left behind
 //! removed: the settings, what was learned, the language packs. Run from anything else (a build
-//! folder, a `TYPESCRIPT_HOME` test folder) the program is never touched, only the data.
+//! folder, a `TACIT_HOME` test folder) the program is never touched, only the data.
 
 use std::fs;
 use std::io;
@@ -14,7 +14,7 @@ use serde_json::{json, Value};
 use crate::env::Env;
 
 /// What the program keeps next to settings.json. In a real install the whole folder is
-/// Typescript's and goes; a folder of any other name may hold anything, so only these go.
+/// tacit's and goes; a folder of any other name may hold anything, so only these go.
 const KEPT_FILES: [&str; 8] = [
     "settings.json",
     "apps.json",
@@ -57,7 +57,7 @@ impl Outcome {
 
 fn is_ours(dir: &Path) -> bool {
     dir.file_name()
-        .is_some_and(|n| n.eq_ignore_ascii_case("Typescript"))
+        .is_some_and(|n| n.eq_ignore_ascii_case("tacit"))
 }
 
 /// The files of `dir` that are the program's own (see `KEPT_FILES`).
@@ -79,7 +79,7 @@ fn kept_entries(dir: &Path) -> Vec<PathBuf> {
 }
 
 /// What removing would take away, from the folders in `env`. `exe_dir` is where the running
-/// program sits; `test_home` is a `TYPESCRIPT_HOME` run, which never touches an installation.
+/// program sits; `test_home` is a `TACIT_HOME` run, which never touches an installation.
 pub fn plan(env: &Env, exe_dir: Option<&Path>, test_home: bool) -> Plan {
     let mut targets = Vec::new();
     let settings_dir = env.settings.parent().map(Path::to_path_buf);
@@ -98,7 +98,7 @@ pub fn plan(env: &Env, exe_dir: Option<&Path>, test_home: bool) -> Plan {
                 targets.extend(kept_entries(&dir));
             }
         }
-        // On Windows the packs folder sits alone in Typescript's own folder; elsewhere the folder
+        // On Windows the packs folder sits alone in tacit's own folder; elsewhere the folder
         // also holds the input method itself, so only the packs go.
         match packs_root {
             Some(root) if cfg!(windows) && is_ours(&root) => targets.push(root),
@@ -113,7 +113,7 @@ pub fn plan(env: &Env, exe_dir: Option<&Path>, test_home: bool) -> Plan {
     let installer = exe_dir
         .map(|d| d.join("install.ps1"))
         .filter(|p| cfg!(windows) && !test_home && p.is_file())
-        .filter(|p| p.with_file_name("typescript_tip.dll").is_file());
+        .filter(|p| p.with_file_name("tacit_tip.dll").is_file());
     Plan { installer, targets }
 }
 
@@ -151,7 +151,7 @@ fn remove_all(targets: &[PathBuf]) {
         } else {
             fs::remove_file(path)
         };
-        // A folder of Typescript's own left empty (the one a pack folder sat in) goes too.
+        // A folder of tacit's own left empty (the one a pack folder sat in) goes too.
         if let Some(parent) = path.parent().filter(|p| is_ours(p)) {
             let _ = fs::remove_dir(parent);
         }
@@ -249,10 +249,10 @@ mod tests {
     }
 
     #[test]
-    fn typescripts_own_folders_go_whole() {
+    fn tacits_own_folders_go_whole() {
         let f = fixture("uninstall-real");
-        let settings = f.root.join("Roaming").join("Typescript");
-        let packs = f.root.join("Local").join("Typescript").join("packs");
+        let settings = f.root.join("Roaming").join("tacit");
+        let packs = f.root.join("Local").join("tacit").join("packs");
         touch(&settings.join("lexicon.json"));
         touch(&settings.join("anything-else.dat"));
         touch(&packs.join("en-1").join("manifest.json"));
@@ -288,15 +288,15 @@ mod tests {
     #[test]
     fn an_installed_program_hands_the_removal_to_its_installer_and_waits() {
         let f = fixture("uninstall-installed");
-        let exe_dir = f.root.join("Program Files").join("Typescript");
+        let exe_dir = f.root.join("Program Files").join("tacit");
         touch(&exe_dir.join("install.ps1"));
-        touch(&exe_dir.join("typescript_tip.dll"));
-        let settings = f.root.join("Roaming").join("Typescript");
+        touch(&exe_dir.join("tacit_tip.dll"));
+        let settings = f.root.join("Roaming").join("tacit");
         touch(&settings.join("lexicon.json"));
         let env = Env {
             settings: settings.join("settings.json"),
             apps: settings.join("apps.json"),
-            packs: f.root.join("Local").join("Typescript").join("packs"),
+            packs: f.root.join("Local").join("tacit").join("packs"),
         };
         let planned = plan(&env, Some(&exe_dir), false);
         assert_eq!(planned.installer, Some(exe_dir.join("install.ps1")));

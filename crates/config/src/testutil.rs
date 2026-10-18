@@ -59,7 +59,7 @@ fn catalog_pack(id: &str, version: &str, requires: &[&str], zip: &[u8]) -> Catal
         requires: requires.iter().map(|r| r.to_string()).collect(),
         size: zip.len() as u64,
         sha256: sha256_hex(zip),
-        url: format!("typescript-pack-{id}-{version}.zip"),
+        url: format!("tacit-pack-{id}-{version}.zip"),
     }
 }
 
@@ -68,7 +68,7 @@ pub fn fixture(name: &str) -> Fixture {
     let root = std::env::temp_dir().join(format!("ts-cfg-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let release = root.join("release");
-    let home = root.join("home").join("Typescript");
+    let home = root.join("home").join("tacit");
     std::fs::create_dir_all(&release).unwrap();
     std::fs::create_dir_all(&home).unwrap();
     let mut packs = Vec::new();
@@ -81,14 +81,14 @@ pub fn fixture(name: &str) -> Fixture {
     }
     let catalog = Catalog {
         version: "0.4.0".into(),
-        core: typescript_packgen::core_range(),
+        core: tacit_packgen::core_range(),
         packs,
     };
     Fixture {
         env: Env {
             settings: home.join("settings.json"),
             apps: home.join("apps.json"),
-            packs: root.join("local").join("Typescript").join("packs"),
+            packs: root.join("local").join("tacit").join("packs"),
         },
         source: Dir(release),
         catalog,

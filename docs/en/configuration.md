@@ -1,6 +1,6 @@
-# Typescript Configuration & Management Guide
+# tacit Configuration & Management Guide
 
-Typescript provides a local browser-based dashboard, a unified CLI management tool (`typescript-config`), and human-readable JSON configuration files.
+tacit provides a local browser-based dashboard, a unified CLI management tool (`tacit-config`), and human-readable JSON configuration files.
 
 [한국어](../ko/configuration.md) · [English Docs Index](README.md)
 
@@ -12,18 +12,18 @@ Configuration and user-learned state are stored under the following platform pat
 
 | OS | Path |
 | --- | --- |
-| **Windows** | `%APPDATA%\Typescript\` (`C:\Users\<User>\AppData\Roaming\Typescript\`) |
-| **macOS** | `~/Library/Application Support/Typescript/` |
-| **Linux** | `~/.config/Typescript/` (or `$XDG_CONFIG_HOME/Typescript/`) |
+| **Windows** | `%APPDATA%\tacit\` (`C:\Users\<User>\AppData\Roaming\tacit\`) |
+| **macOS** | `~/Library/Application Support/tacit/` |
+| **Linux** | `~/.config/tacit/` (or `$XDG_CONFIG_HOME/tacit/`) |
 
 ---
 
-## 2. Web Dashboard (`typescript-config`)
+## 2. Web Dashboard (`tacit-config`)
 
-Launch the web management interface by clicking **Typescript Settings** from the Start Menu or executing `typescript-config` in your terminal:
+Launch the web management interface by clicking **tacit Settings** from the Start Menu or executing `tacit-config` in your terminal:
 
 ```powershell
-typescript-config
+tacit-config
 ```
 
 ### Security & Lifecycle Design
@@ -42,42 +42,42 @@ typescript-config
 
 ## 3. CLI Command Reference
 
-Manage all settings headless via the `typescript-config` command-line utility:
+Manage all settings headless via the `tacit-config` command-line utility:
 
 ```powershell
 # List installed packs, downloadable packs, and active cycle order
-typescript-config list
+tacit-config list
 
 # Download and enable a language pack (e.g., Japanese)
-typescript-config add ja
+tacit-config add ja
 
 # Disable a language and remove its pack files
-typescript-config remove ja
+tacit-config remove ja
 
 # Reorder the Esc rotation sequence among active languages
-typescript-config order ko,en,ja
+tacit-config order ko,en,ja
 
 # Check GitHub Releases for new updates
-typescript-config check
+tacit-config check
 
 # Upgrade installed packs and run the updated installer
-typescript-config update
+tacit-config update
 
 # Non-interactive automated initial setup
-typescript-config setup --languages ko,en
+tacit-config setup --languages ko,en
 
 # The first-run page: choose languages, short practice
-typescript-config welcome
+tacit-config welcome
 
 # Reinstall the already-enabled languages (for updates; fails on a first install)
-typescript-config setup --if-configured
+tacit-config setup --if-configured
 ```
 
 ---
 
 ## 4. Configuration Files Reference
 
-Configuration files are formatted in standard JSON and can be edited in any text editor. Typescript automatically reloads configuration whenever input focus switches between windows.
+Configuration files are formatted in standard JSON and can be edited in any text editor. tacit automatically reloads configuration whenever input focus switches between windows.
 
 ### 4.1 `settings.json` (Global Settings)
 
@@ -104,8 +104,8 @@ Configuration files are formatted in standard JSON and can be edited in any text
 | `hangulKey` | `string` | `"Hangul"` | The key that serves as the Han/Eng key. `HangulKey` in the lists below stands for it. If it is a modifier such as `Ctrl` or `RAlt`, combinations like `Alt+HangulKey` can't be built. |
 | `hangulAction` | `string` | `"flip"` | What the Han/Eng key does on its own: `"flip"` (switch the word's language), `"none"` (nothing), or a shortcut to send to the app (`"Ctrl+C"`, `"Win+L"`, `"Alt+Tab"`, ...). Sending a shortcut replaces the language switch. Also set on the "키" (Keys) tab of the dashboard (Windows). |
 | `flipKeys` | `string[]` | `["Esc", "HangulKey"]` | Keys that switch the word being typed (or just typed) to its next language. Combinations such as `"Ctrl+Space"` work; a lone modifier such as `"Ctrl"` or `"RCtrl"` acts when released without another key. Up to 8; `[]` turns it off. |
-| `pauseKeys` | `string[]` | `["Alt+HangulKey"]` | Keys that pause/resume Typescript. Same format as `flipKeys`; a key can't be in both lists. The old `pauseKey` is read and moved (`"off"` becomes `[]`). |
-| `autocomplete` | `bool` | `true` | Enables `Tab` autocomplete and word frequency learning in `Typescript (Autocomplete)`. |
+| `pauseKeys` | `string[]` | `["Alt+HangulKey"]` | Keys that pause/resume tacit. Same format as `flipKeys`; a key can't be in both lists. The old `pauseKey` is read and moved (`"off"` becomes `[]`). |
+| `autocomplete` | `bool` | `true` | Enables `Tab` autocomplete and word frequency learning in `tacit (Autocomplete)`. |
 | `checkUpdates` | `bool` | `true` | Automatically checks GitHub Releases once a day for new versions. |
 | `liveConversion` | `bool` | `false` | (Japanese) Displays ranked Kanji candidate conversions in real-time during typing. |
 | `fullWidthDigits` | `bool` | `false` | (Japanese) Converts digits following Japanese phrases to full-width (`０３-１２３４`). |
@@ -143,10 +143,10 @@ Define custom behavior keyed by the application's executable filename (lowercase
 
 | Property | Type | Description |
 | --- | --- | --- |
-| `enabled` | `bool` | When `false`, completely bypasses Typescript in that executable (passes raw keystrokes). Essential for games. |
+| `enabled` | `bool` | When `false`, completely bypasses tacit in that executable (passes raw keystrokes). Essential for games. |
 | `conversionThreshold` | `float` | Confidence score required to classify a word as Korean/Japanese (`0.0` to `1.0`). Default is `0.5`. Set to `0.97` in terminals to prevent short commands (`ls`, `git`) from being translated into Hangul. |
 | `escapeToApp` | `bool` | Passes standard `Esc` keystrokes directly to the application (e.g., Vim Normal Mode). Language rotation can still be triggered via `Shift + Esc`. |
-| `useSystemIme` | `bool` | Automatically falls back to the native Microsoft Korean IME when this window gains focus, returning to Typescript when focus leaves. |
+| `useSystemIme` | `bool` | Automatically falls back to the native Microsoft Korean IME when this window gains focus, returning to tacit when focus leaves. |
 | `fullWidth` | `bool` | Set to `false` to enforce half-width digits/spaces in specific apps (such as terminals), overriding global settings. |
 | `returnConfirmsOnly` | `bool` | Per-app Enter behavior. `false`: one Enter both commits and sends (chat apps). Slack, Discord, KakaoTalk and friends are already covered by this built-in default. |
 
@@ -173,6 +173,6 @@ Stores explicit user overrides generated when pressing `Esc` during or immediate
 
 ### 4.4 `user_history.json` (Autocomplete Vocabulary)
 
-Tracks frequency metrics for committed words in the `Typescript (Autocomplete)` profile.
+Tracks frequency metrics for committed words in the `tacit (Autocomplete)` profile.
 - **Requires 2+ occurrences**: Only words typed at least twice appear in Tab autocomplete suggestions, preventing accidental password or typo exposure.
 - Flushed to disk every 10 committed words and on input focus shifts, making newly learned vocabulary immediately available across applications.

@@ -18,10 +18,10 @@ jobs:
           targets: i686-pc-windows-msvc, aarch64-linux-android
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
-      # Not together with typescript-cli (a development tool, not packaged): its embedded packs
+      # Not together with tacit-cli (a development tool, not packaged): its embedded packs
       # would end up in these two as well (+2.5 MB each, unused: they read the installed packs).
-      - run: cargo build --release -p typescript-tip -p typescript-config
-      - run: cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+      - run: cargo build --release -p tacit-tip -p tacit-config
+      - run: cargo build --release -p tacit-tip --target i686-pc-windows-msvc
       - run: cargo install cargo-ndk --locked
       - name: Build the APK (signed with the release key)
         env:
@@ -33,7 +33,7 @@ jobs:
           [IO.File]::WriteAllBytes($env:TS_KEYSTORE, [Convert]::FromBase64String($env:KEYSTORE_BASE64))
           ./platforms/android/build.ps1 -Abi arm64-v8a
       - run: ./scripts/package.ps1
-      - run: Copy-Item platforms/android/build/typescript.apk dist/
+      - run: Copy-Item platforms/android/build/tacit.apk dist/
       - uses: actions/upload-artifact@v4
         with:
           name: dist-windows
@@ -54,8 +54,8 @@ jobs:
       - name: IBus headers
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev pkg-config zip
-      - run: cargo test --workspace --exclude typescript-tip
-      - run: cargo build --release -p typescript-cli -p typescript-config -p typescript-ffi
+      - run: cargo test --workspace --exclude tacit-tip
+      - run: cargo build --release -p tacit-cli -p tacit-config -p tacit-ffi
       - run: sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
       - uses: actions/upload-artifact@v4
         with:

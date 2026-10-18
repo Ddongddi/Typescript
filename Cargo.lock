@@ -524,6 +524,74 @@ dependencies = [
 ]
 
 [[package]]
+name = "tacit-android"
+version = "0.10.1"
+dependencies = [
+ "jni",
+ "tacit-core",
+]
+
+[[package]]
+name = "tacit-cli"
+version = "0.10.1"
+dependencies = [
+ "tacit-core",
+]
+
+[[package]]
+name = "tacit-config"
+version = "0.10.1"
+dependencies = [
+ "getrandom 0.3.4",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tacit-core",
+ "tacit-packgen",
+ "tiny_http",
+ "ureq",
+ "windows",
+ "zip",
+]
+
+[[package]]
+name = "tacit-core"
+version = "0.10.1"
+dependencies = [
+ "memmap2",
+ "serde",
+ "serde_json",
+ "tacit-core",
+ "tacit-packgen",
+]
+
+[[package]]
+name = "tacit-ffi"
+version = "0.10.1"
+dependencies = [
+ "tacit-android",
+ "tacit-core",
+]
+
+[[package]]
+name = "tacit-packgen"
+version = "0.10.1"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "zip",
+]
+
+[[package]]
+name = "tacit-tip"
+version = "0.10.1"
+dependencies = [
+ "tacit-core",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -580,74 +648,6 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
-
-[[package]]
-name = "typescript-android"
-version = "0.10.1"
-dependencies = [
- "jni",
- "typescript-core",
-]
-
-[[package]]
-name = "typescript-cli"
-version = "0.10.1"
-dependencies = [
- "typescript-core",
-]
-
-[[package]]
-name = "typescript-config"
-version = "0.10.1"
-dependencies = [
- "getrandom 0.3.4",
- "serde",
- "serde_json",
- "sha2",
- "tiny_http",
- "typescript-core",
- "typescript-packgen",
- "ureq",
- "windows",
- "zip",
-]
-
-[[package]]
-name = "typescript-core"
-version = "0.10.1"
-dependencies = [
- "memmap2",
- "serde",
- "serde_json",
- "typescript-core",
- "typescript-packgen",
-]
-
-[[package]]
-name = "typescript-ffi"
-version = "0.10.1"
-dependencies = [
- "typescript-android",
- "typescript-core",
-]
-
-[[package]]
-name = "typescript-packgen"
-version = "0.10.1"
-dependencies = [
- "serde_json",
- "sha2",
- "zip",
-]
-
-[[package]]
-name = "typescript-tip"
-version = "0.10.1"
-dependencies = [
- "typescript-core",
- "windows",
- "windows-core",
-]
 
 [[package]]
 name = "unicode-ident"

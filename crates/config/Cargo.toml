@@ -1,19 +1,19 @@
 [package]
-name = "typescript-config"
+name = "tacit-config"
 version = "0.10.1"
 edition = "2021"
 license = "AGPL-3.0-only"
-repository = "https://github.com/iamallyouneed/Typescript"
+repository = "https://github.com/iamallyouneed/tacit"
 
 [lib]
-name = "typescript_config"
+name = "tacit_config"
 
 [[bin]]
-name = "typescript-config"
+name = "tacit-config"
 path = "src/main.rs"
 
 [dependencies]
-typescript-core = { path = "../core" }
+tacit-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
@@ -23,7 +23,7 @@ tiny_http = "0.12"
 getrandom = "0.3"
 
 [dev-dependencies]
-typescript-packgen = { path = "../packgen" }
+tacit-packgen = { path = "../packgen" }
 
 [target.'cfg(windows)'.dependencies]
 # UI_Input_KeyboardAndMouse is required: TF_INPUTPROCESSORPROFILE / GetActiveProfile used by

@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use typescript_core::{DecisionEngine, TextConverter};
+use tacit_core::{DecisionEngine, TextConverter};
 
 use crate::corpus::{token_hits, Report};
 use crate::keys_of_text;

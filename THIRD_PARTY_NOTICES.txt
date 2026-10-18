@@ -1,6 +1,6 @@
-Third-party data and code used by Typescript (crates/core/data)
+Third-party data and code used by tacit (crates/core/data)
 
-Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
+tacit is a Rust port of Seamtype and ships these word lists inside the DLL.
 
 1. Seamtype (code and design)
    Copyright (c) 2026 aimdevlee. MIT License.
@@ -52,7 +52,7 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
    also distributed in the Japanese pack as mozc-LICENSE.txt and
    mozc-DICTIONARY-LICENSE.txt. Source hashes, revision and transformations:
    crates/core/data/ipadic_compact.sources.json, tools/build_mozc.py.
-   Modified by Typescript: kana-only readings, exact-tuple deduplication,
+   Modified by tacit: kana-only readings, exact-tuple deduplication,
    lossless packed representations and transposed connection matrix.
    No evaluation corpus is used to construct this dictionary.
 

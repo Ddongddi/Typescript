@@ -72,12 +72,12 @@ function toast(text, bad, action) {
   );
 }
 
-// The address carries a token that is new every time typescript-config starts: a bookmarked or
+// The address carries a token that is new every time tacit-config starts: a bookmarked or
 // old page is refused (401). Say so, and what to do, instead of a bare error on every click.
 function showExpired() {
   const banner = $("expired");
   banner.textContent =
-    "이 창은 더 이상 쓸 수 없습니다. 설정 앱이 다시 시작되었거나 주소가 오래되었습니다. 시작 메뉴의 ‘Typescript 설정’(또는 터미널에서 typescript-config)을 다시 열어 주세요.";
+    "이 창은 더 이상 쓸 수 없습니다. 설정 앱이 다시 시작되었거나 주소가 오래되었습니다. 시작 메뉴의 ‘tacit 설정’(또는 터미널에서 tacit-config)을 다시 열어 주세요.";
   banner.hidden = false;
 }
 

@@ -2,7 +2,7 @@ import Cocoa
 import InputMethodKit
 import Carbon.HIToolbox
 
-/// Key kinds, as in typescript.h.
+/// Key kinds, as in tacit.h.
 private enum Kind: Int32 {
     case letter = 0, printable, delete, escape, cycle, enter, tab, other
 }
@@ -11,8 +11,8 @@ private let noRange = NSRange(location: NSNotFound, length: NSNotFound)
 /// How much text before the caret the engine gets to see (UTF-16 units).
 private let lookBehind = 64
 
-@objc(TypescriptController)
-class TypescriptController: IMKInputController {
+@objc(TacitController)
+class TacitController: IMKInputController {
     override func activateServer(_ sender: Any!) {
         guard let ime = ime else { return }
         let client = sender as? IMKTextInput
@@ -43,7 +43,7 @@ class TypescriptController: IMKInputController {
             return false
         }
         let before = textBeforeCaret(client)
-        // Option+Space pauses Typescript in this text field (macOS has no 한/영 key to catch).
+        // Option+Space pauses tacit in this text field (macOS has no 한/영 key to catch).
         if event.modifierFlags.contains(.option), event.keyCode == 49 {
             return run(ts_toggle_pause(ime, before), client)
         }

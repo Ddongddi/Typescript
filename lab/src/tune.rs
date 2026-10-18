@@ -5,8 +5,8 @@
 //! out cut as written; English words and Korean words must stay uncut. A fifth of every list is
 //! held out and only reported at the end, so a fit that just memorised shows.
 
-use typescript_core::decide::codeswitch::{CodeSwitch, Params};
-use typescript_core::{DecisionContext, EnglishModel};
+use tacit_core::decide::codeswitch::{CodeSwitch, Params};
+use tacit_core::{DecisionContext, EnglishModel};
 
 use super::{
     data_lines, english_list, keys_of_text, korean_list, CODE_SWITCH, KOREAN_VOCAB, KOREAN_WORDS,

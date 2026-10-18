@@ -164,7 +164,7 @@ function renderUpdate() {
           h(
             "div",
             { class: "banner", role: "status" },
-            "설치가 끝나면 이 설정 창을 닫고 터미널에서 typescript-config 를 다시 여세요. 지금 보이는 화면은 이전 버전입니다.",
+            "설치가 끝나면 이 설정 창을 닫고 터미널에서 tacit-config 를 다시 여세요. 지금 보이는 화면은 이전 버전입니다.",
           ),
         ]
       : []),
@@ -172,7 +172,7 @@ function renderUpdate() {
     h(
       "div",
       { class: "card pad" },
-      h("div", {}, h("b", {}, "Typescript " + state.version)),
+      h("div", {}, h("b", {}, "tacit " + state.version)),
       h(
         "p",
         { class: "note ver-link", style: "margin:6px 0 0" },
@@ -180,11 +180,11 @@ function renderUpdate() {
         h(
           "a",
           {
-            href: "https://github.com/iamallyouneed/Typescript",
+            href: "https://github.com/iamallyouneed/tacit",
             target: "_blank",
             rel: "noopener noreferrer",
           },
-          "iamallyouneed/Typescript",
+          "iamallyouneed/tacit",
         ),
       ),
     ),

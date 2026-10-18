@@ -7,7 +7,7 @@ use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use typescript_core::pack::{self, Manifest};
+use tacit_core::pack::{self, Manifest};
 
 use crate::catalog::{Catalog, CatalogPack};
 use crate::env::Env;
@@ -312,7 +312,7 @@ mod tests {
             install_pack(&f.env, &f.source, base(), en).unwrap(),
             Installed::New
         );
-        let found = typescript_core::pack::scan(&f.env.packs);
+        let found = tacit_core::pack::scan(&f.env.packs);
         assert!(found.problems.is_empty(), "{:?}", found.problems);
         assert_eq!(found.packs.len(), 1);
         assert_eq!(found.packs[0].manifest.id, "en");
@@ -395,12 +395,7 @@ mod tests {
             url: "evil.zip".into(),
         };
         assert!(install_pack(&f.env, &f.source, base(), &pack).is_err());
-        assert!(!f
-            .root
-            .join("local")
-            .join("Typescript")
-            .join("evil.txt")
-            .exists());
+        assert!(!f.root.join("local").join("tacit").join("evil.txt").exists());
         assert!(!f.root.join("evil.txt").exists());
         assert!(!f.env.pack_folder("evil", "1").exists());
     }
@@ -521,7 +516,7 @@ mod tests {
             install_pack(&f.env, &f.source, base(), ko).unwrap(),
             Installed::New
         );
-        let found = typescript_core::pack::scan(&f.env.packs);
+        let found = tacit_core::pack::scan(&f.env.packs);
         assert!(
             found.packs.iter().any(|p| p.manifest.id == "ko"),
             "{:?}",
@@ -576,10 +571,10 @@ mod tests {
     #[test]
     fn the_program_packages_of_every_system_unpack() {
         let linux = [
-            "typescript",
-            "typescript-config",
-            "ibus-engine-typescript",
-            "typescript.xml.in",
+            "tacit",
+            "tacit-config",
+            "ibus-engine-tacit",
+            "tacit.xml.in",
             "install.sh",
             "VERSION",
             "LICENSE",
@@ -587,9 +582,9 @@ mod tests {
             "THIRD_PARTY_NOTICES.txt",
         ];
         let mac = [
-            "typescript",
-            "typescript-config",
-            "Typescript.app.tar",
+            "tacit",
+            "tacit-config",
+            "tacit.app.tar",
             "install.sh",
             "VERSION",
             "LICENSE",

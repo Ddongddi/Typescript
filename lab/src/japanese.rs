@@ -2,7 +2,7 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use typescript_core::{
+use tacit_core::{
     make_engine, DecisionContext, DecisionEngine, DictionaryConverter, JapaneseConverter, Language,
     Languages, RomajiComposer,
 };

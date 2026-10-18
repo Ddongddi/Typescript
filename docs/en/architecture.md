@@ -1,6 +1,6 @@
-# Typescript Architecture & Design Principles
+# tacit Architecture & Design Principles
 
-Typescript is strictly architected into an OS-agnostic core written in pure Rust (`crates/core`) and native platform adapter layers (`platforms/`) that integrate with each operating system's native input method framework.
+tacit is strictly architected into an OS-agnostic core written in pure Rust (`crates/core`) and native platform adapter layers (`platforms/`) that integrate with each operating system's native input method framework.
 
 [한국어](../ko/architecture.md) · [English Docs Index](README.md)
 
@@ -124,17 +124,17 @@ Standard non-mixed tokens are evaluated using statistical language models:
 
 ## 5. Memory-Mapped Language Packs (`lang/pack.rs`)
 
-Because Typescript runs as an in-process DLL loaded into every active application, memory efficiency and instant startup times are paramount.
+Because tacit runs as an in-process DLL loaded into every active application, memory efficiency and instant startup times are paramount.
 
 - **Zero-Copy Binary Tables**: Trigram frequencies and lexical indices are precompiled into contiguous binary tables by `crates/packgen`.
-- **Memory Mapping (`mmap`)**: Packs are mapped directly into virtual memory. Multiple processes concurrently running Typescript share the same underlying physical memory pages.
+- **Memory Mapping (`mmap`)**: Packs are mapped directly into virtual memory. Multiple processes concurrently running tacit share the same underlying physical memory pages.
 - **Modular Packaging**: Large dictionaries (such as the ~10MB Japanese IPADIC pack) are decoupled from the base binaries and only loaded if the user enables the language.
 
 ---
 
 ## 6. Storage & State Persistence (`store/`)
 
-Per-user runtime configuration is located under `%APPDATA%\Typescript\` (Windows) or `~/.config/Typescript/` (Linux):
+Per-user runtime configuration is located under `%APPDATA%\tacit\` (Windows) or `~/.config/tacit/` (Linux):
 - `settings.json`: Global operational parameters (language cycle order, autocomplete toggles, enter key rules).
 - `apps.json`: Per-executable rules (conversion thresholds, pass-through flags).
 - `lexicon.json`: User-corrected word associations.

@@ -1,5 +1,5 @@
-// Typescript for macOS: an InputMethodKit input method. All the typing logic is in
-// libtypescript_ffi (typescript.h); this maps key events to it and its commands to the client.
+// tacit for macOS: an InputMethodKit input method. All the typing logic is in
+// libtacit_ffi (tacit.h); this maps key events to it and its commands to the client.
 import Cocoa
 import InputMethodKit
 

@@ -1,6 +1,6 @@
-# Typescript 공식 문서 (한국어)
+# tacit 공식 문서 (한국어)
 
-Typescript는 한/영 키를 누를 필요 없이, 영문 쿼티(QWERTY) 키보드로 치는 내용을 단어 단위로 분석하여 **영어**, **한국어(두벌식)**, **일본어(로마자/가나/한자)**를 자동으로 판별해 알맞은 글자로 변환해 주는 다국어 스마트 입력기(IME)입니다.
+tacit는 한/영 키를 누를 필요 없이, 영문 쿼티(QWERTY) 키보드로 치는 내용을 단어 단위로 분석하여 **영어**, **한국어(두벌식)**, **일본어(로마자/가나/한자)**를 자동으로 판별해 알맞은 글자로 변환해 주는 다국어 스마트 입력기(IME)입니다.
 
 [English Documentation](../en/README.md) · [전체 문서 인덱스](../README.md)
 
@@ -23,7 +23,7 @@ Typescript는 한/영 키를 누를 필요 없이, 영문 쿼티(QWERTY) 키보�
    - 언어 팩 다운로드 및 오프라인 배포
 
 3. [**설정 및 관리 가이드**](configuration.md)
-   - 로컬 웹 대시보드 (`typescript-config`) 사용법
+   - 로컬 웹 대시보드 (`tacit-config`) 사용법
    - CLI 명령어 레퍼런스
    - 설정 파일 (`settings.json`, `apps.json`, `lexicon.json`)
    - 앱별 규칙 (터미널, 에디터, 게임 최적화)
@@ -31,7 +31,7 @@ Typescript는 한/영 키를 누를 필요 없이, 영문 쿼티(QWERTY) 키보�
 
 4. [**언어 팩 시스템**](language-packs.md)
    - 언어 팩 구조 및 포맷 사양 (`manifest.json`, 바이너리 테이블)
-   - `typescript-packgen` 도구 사용법
+   - `tacit-packgen` 도구 사용법
    - 새로운 언어 모듈 추가 절차
    - 사전/트라이그램 데이터셋 요건 및 라이선스 고지
 
@@ -48,13 +48,13 @@ Typescript는 한/영 키를 누를 필요 없이, 영문 쿼티(QWERTY) 키보�
 관리자 권한 PowerShell에서 아래 한 줄을 실행하면 최신 버전을 설치하고 입력기를 활성화합니다:
 
 ```powershell
-irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
 ```
 
-설치가 끝나면 브라우저에 **시작 안내 페이지**가 열려 사용할 언어(영어, 한국어, 일본어)를 고르고 켤 수 있습니다. 설치 후 **Win + Space**를 눌러 **Typescript** 또는 **Typescript (자동완성)**을 선택하면 즉시 사용할 수 있습니다.
+설치가 끝나면 브라우저에 **시작 안내 페이지**가 열려 사용할 언어(영어, 한국어, 일본어)를 고르고 켤 수 있습니다. 설치 후 **Win + Space**를 눌러 **tacit** 또는 **tacit (자동완성)**을 선택하면 즉시 사용할 수 있습니다.
 
-설정 창을 열려면 시작 메뉴에서 **Typescript 설정**을 클릭하거나, 터미널에서 다음 명령을 실행합니다:
+설정 창을 열려면 시작 메뉴에서 **tacit 설정**을 클릭하거나, 터미널에서 다음 명령을 실행합니다:
 
 ```powershell
-typescript-config
+tacit-config
 ```

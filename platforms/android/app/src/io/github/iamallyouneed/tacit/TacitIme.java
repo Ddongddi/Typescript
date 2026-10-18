@@ -1,4 +1,4 @@
-package io.github.iamallyouneed.typescript;
+package io.github.iamallyouneed.tacit;
 
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
@@ -19,7 +19,7 @@ import java.util.Set;
  * Android version since 1.5 and not a dependency).
  */
 @SuppressWarnings("deprecation")
-public class TypescriptIme extends InputMethodService implements KeyboardView.OnKeyboardActionListener {
+public class TacitIme extends InputMethodService implements KeyboardView.OnKeyboardActionListener {
     private static final int BEFORE_CARET = 64;
     private static final int CODE_CYCLE = -100;
     private static final int CODE_PAUSE = -101;
@@ -256,7 +256,7 @@ public class TypescriptIme extends InputMethodService implements KeyboardView.On
     @Override
     public void swipeUp() {}
 
-    /** The Han/Eng key shows whether Typescript is paused. */
+    /** The Han/Eng key shows whether tacit is paused. */
     private void refresh() {
         if (keyboardView == null || ime == 0) return;
         String label = active && Native.nativePaused(ime) ? "OFF" : "한/영";

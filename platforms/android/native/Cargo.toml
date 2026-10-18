@@ -1,14 +1,14 @@
 [package]
-name = "typescript-android"
+name = "tacit-android"
 version = "0.10.1"
 edition = "2021"
 license = "AGPL-3.0-only"
-repository = "https://github.com/iamallyouneed/Typescript"
+repository = "https://github.com/iamallyouneed/tacit"
 
 [lib]
-name = "typescript_android"
+name = "tacit_android"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-typescript-core = { path = "../../../crates/core", features = ["embedded-en", "embedded-ko"] }
+tacit-core = { path = "../../../crates/core", features = ["embedded-en", "embedded-ko"] }
 jni = "0.21"

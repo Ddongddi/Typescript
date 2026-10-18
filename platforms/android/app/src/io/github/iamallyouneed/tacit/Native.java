@@ -1,9 +1,9 @@
-package io.github.iamallyouneed.typescript;
+package io.github.iamallyouneed.tacit;
 
 /** The Rust side (platforms/android/native). All logic lives there; this only declares it. */
 final class Native {
     static {
-        System.loadLibrary("typescript_android");
+        System.loadLibrary("tacit_android");
     }
 
     // Key kinds, as in ime.rs.

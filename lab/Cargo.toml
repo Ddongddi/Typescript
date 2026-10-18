@@ -2,7 +2,7 @@
 # packaging scripts, so nothing here reaches an installer. Own lockfile and target dir.
 #   cargo run --release --manifest-path lab/Cargo.toml
 [package]
-name = "typescript-lab"
+name = "tacit-lab"
 version = "0.1.2"
 edition = "2021"
 license = "AGPL-3.0-only"
@@ -11,7 +11,7 @@ publish = false
 [workspace]
 
 [dependencies]
-typescript-core = { path = "../crates/core", features = ["embedded-en", "embedded-ko", "embedded-ja", "tuning"] }
+tacit-core = { path = "../crates/core", features = ["embedded-en", "embedded-ko", "embedded-ja", "tuning"] }
 
 # Same as the shipped engine (root Cargo.toml), so the timings mean what users get.
 [profile.release]
@@ -19,5 +19,5 @@ opt-level = 3
 lto = true
 codegen-units = 1
 
-[profile.release.package.typescript-core]
+[profile.release.package.tacit-core]
 opt-level = "s"

@@ -5,7 +5,7 @@
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 
-use typescript_core::session::{CandidatePage, Range, TextClient, NOT_FOUND};
+use tacit_core::session::{CandidatePage, Range, TextClient, NOT_FOUND};
 use windows::core::{implement, w, Error, Interface, Result, BOOL};
 use windows::Win32::Foundation::{E_FAIL, LPARAM, RECT, WPARAM};
 use windows::Win32::System::Com::CoTaskMemFree;

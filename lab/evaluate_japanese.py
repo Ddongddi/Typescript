@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fetch pinned Japanese evaluation corpora and score a lab executable (no user learning).
 
-python lab/evaluate_japanese.py --binary lab/target/release/typescript-lab.exe --out temp/ja.json
+python lab/evaluate_japanese.py --binary lab/target/release/tacit-lab.exe --out temp/ja.json
 AJIMEE data: CC-BY-SA 3.0, azooKey/AJIMEE-Bench (Wikipedia JWTD test subset).
 Mozc regression data: upstream BSD-3-Clause notices, google/mozc.
 Raw sources and hashes stay in ignored lab/data/japanese; never training or release input.
@@ -132,7 +132,7 @@ def selftest():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--binary', default='lab/target/release/typescript-lab.exe')
+    parser.add_argument('--binary', default='lab/target/release/tacit-lab.exe')
     parser.add_argument('--out', default='temp/japanese-evaluation.json')
     parser.add_argument('--selftest', action='store_true')
     parser.add_argument('--check', action='store_true', help='enforce Japanese quality floors')

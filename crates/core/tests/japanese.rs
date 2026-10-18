@@ -8,10 +8,10 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use typescript_core::session::testing::FakeTextField;
-use typescript_core::session::NOT_FOUND;
-use typescript_core::store::policy::Override;
-use typescript_core::{
+use tacit_core::session::testing::FakeTextField;
+use tacit_core::session::NOT_FOUND;
+use tacit_core::store::policy::Override;
+use tacit_core::{
     make_engine, AppPolicies, ConversionCandidate, DecisionContext, DecisionEngine, EnglishModel,
     HeuristicEngine, InputSession, JapaneseConverter, JapaneseModel, Key, Language, Languages,
     TextClient,
@@ -181,8 +181,7 @@ impl JaRig {
 }
 
 fn lexicon_path(name: &str) -> PathBuf {
-    let path =
-        std::env::temp_dir().join(format!("typescript-ja-{name}-{}.json", std::process::id()));
+    let path = std::env::temp_dir().join(format!("tacit-ja-{name}-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);
     path
 }
@@ -643,11 +642,11 @@ fn number_helpers() {
     assert_eq!(InputSession::digits_of("東京都１－２"), "12");
     assert_eq!(InputSession::half_width("０３－１２３４"), "03-1234");
     assert_eq!(
-        typescript_core::RomajiComposer::compose("03-1234", false).text,
+        tacit_core::RomajiComposer::compose("03-1234", false).text,
         "０３－１２３４"
     );
     assert_eq!(
-        typescript_core::RomajiComposer::compose("ra-men", false).text,
+        tacit_core::RomajiComposer::compose("ra-men", false).text,
         "らーめん"
     );
 }
@@ -1000,7 +999,7 @@ fn terminal_policies() -> AppPolicies {
     AppPolicies::new([(
         "test.terminal".to_string(),
         Override {
-            conversion_threshold: Some(typescript_core::AppPolicy::STRICT_THRESHOLD),
+            conversion_threshold: Some(tacit_core::AppPolicy::STRICT_THRESHOLD),
             escape_to_app: Some(true),
             ..Default::default()
         },

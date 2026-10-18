@@ -1,7 +1,7 @@
 //! Virtual keys → the session's `Key`. Assumes a US QWERTY keyboard, like the original.
 
-use typescript_core::store::keys::{ChordKey, Mods, Shortcut, ShortcutKey};
-use typescript_core::Key;
+use tacit_core::store::keys::{ChordKey, Mods, Shortcut, ShortcutKey};
+use tacit_core::Key;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
     KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VIRTUAL_KEY,

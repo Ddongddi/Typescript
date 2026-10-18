@@ -1,5 +1,5 @@
 //! Native kana → kanji conversion over Mozc's OSS lexicon and IME connection costs.
-//! The Rust lattice, candidate UI and learning remain Typescript's; no Mozc runtime is linked.
+//! The Rust lattice, candidate UI and learning remain tacit's; no Mozc runtime is linked.
 //! Readings use a sorted hiragana index, word paths use Viterbi and A* N-best search.
 //!
 //! `tools/build_mozc.py` builds `data/ipadic_compact.bin` (legacy filename) as TSIPDIC4:
@@ -794,7 +794,7 @@ impl KanjiDictionary {
 
 /// The dictionary-backed converter: `candidates` from the lattice, `learn` per covered
 /// reading (the same shape as seamtype's `AppleJapaneseConverter`: five texts per reading,
-/// most recent first, in `%APPDATA%\Typescript\kanji_learning.json`).
+/// most recent first, in `%APPDATA%\tacit\kanji_learning.json`).
 pub struct DictionaryConverter {
     dict: &'static KanjiDictionary,
     learning_path: Option<PathBuf>,
@@ -943,10 +943,8 @@ mod tests {
 
     #[test]
     fn learned_choice_comes_first() {
-        let path = std::env::temp_dir().join(format!(
-            "typescript-kanji-learn-{}.json",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("tacit-kanji-learn-{}.json", std::process::id()));
         let _ = fs::remove_file(&path);
         let converter = DictionaryConverter::new(Some(path.clone()));
         let choice = converter

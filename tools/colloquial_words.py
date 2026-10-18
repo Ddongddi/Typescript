@@ -48,7 +48,7 @@ def keys(word: str) -> str:
 
 
 def main() -> None:
-    request = urllib.request.Request(NSMC, headers={"User-Agent": "typescript-ime/0.0"})
+    request = urllib.request.Request(NSMC, headers={"User-Agent": "tacit-ime/0.0"})
     reviews = urllib.request.urlopen(request, timeout=120).read()
     said = collections.Counter()
     for line in reviews.decode("utf-8").splitlines()[1:]:

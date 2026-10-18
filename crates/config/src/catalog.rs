@@ -1,7 +1,7 @@
 //! `packs.json`, the release's list of language packs.
 
 use serde::Deserialize;
-use typescript_core::pack::version_matches;
+use tacit_core::pack::version_matches;
 
 use crate::error::{err, Result};
 
@@ -106,7 +106,7 @@ mod tests {
     use super::*;
 
     fn json(extra: &str) -> String {
-        let core = typescript_packgen::core_range();
+        let core = tacit_packgen::core_range();
         format!(
             r#"{{ "version": "0.4.0", "core": "{core}", "packs": [
               {{ "id": "en", "name": "English", "version": "0.4.0", "size": 10, "sha256": "aa", "url": "en.zip" }},
@@ -149,7 +149,7 @@ mod tests {
     fn a_catalog_for_another_core_is_incompatible() {
         let c = Catalog::parse(
             json("")
-                .replace(&typescript_packgen::core_range(), ">=99.0.0")
+                .replace(&tacit_packgen::core_range(), ">=99.0.0")
                 .as_bytes(),
         )
         .unwrap();

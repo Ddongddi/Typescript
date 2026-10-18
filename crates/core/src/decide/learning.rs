@@ -1,5 +1,5 @@
 //! Words the user corrected with Esc (LearningEngine in DecisionEngine.swift): a correction
-//! made twice wins over the heuristics. Stored in `%APPDATA%\Typescript\lexicon.json`.
+//! made twice wins over the heuristics. Stored in `%APPDATA%\tacit\lexicon.json`.
 //!
 //! Several processes share the file (a TIP lives inside every app), so changes re-read the
 //! file first and replace it atomically. ponytail: no cross-process lock; with two

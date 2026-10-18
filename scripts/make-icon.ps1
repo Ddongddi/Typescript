@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Draws assets\typescript.ico: the white logo glyph on a dark rounded square, PNG-encoded at
+  Draws assets\tacit.ico: the white logo glyph on a dark rounded square, PNG-encoded at
   16/24/32/48/64/256 px. Run after changing the design: .\scripts\make-icon.ps1
 #>
 Add-Type -AssemblyName System.Drawing
@@ -65,7 +65,7 @@ for ($i = 0; $i -lt $sizes.Count; $i++) {
 }
 foreach ($img in $images) { $w.Write($img) }
 $w.Flush()
-$target = Join-Path $assets 'typescript.ico'
+$target = Join-Path $assets 'tacit.ico'
 [System.IO.File]::WriteAllBytes($target, $file.ToArray())
 # A 256 px preview of the same drawing, handy for checking the design.
 [System.IO.File]::WriteAllBytes((Join-Path $assets 'icon.png'), $images[-1])

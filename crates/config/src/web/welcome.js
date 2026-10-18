@@ -1,15 +1,15 @@
 "use strict";
 // The first-run page: a title and one thing under it, and a segmented bar on top.
-//   1. "안녕하세요", then type "안녕 typescript" the usual way (the Han/Eng key flashes red);
-//   2. "is the Han/Eng key really needed?" -> try dkssud typescript without it;
+//   1. "안녕하세요", then type "안녕 tacit" the usual way (the Han/Eng key flashes red);
+//   2. "is the Han/Eng key really needed?" -> try dkssud tacit without it;
 //   3. "your Han/Eng key becomes a shortcut" (a slot machine of shortcuts);
-//   4. choose the languages, switch to Typescript, practice (type freely; only the result is checked).
+//   4. choose the languages, switch to tacit, practice (type freely; only the result is checked).
 
 const PASS_PAUSE = 600; // ms the check mark stays before the next screen
 const ASK_PAUSE = 1800; // ms "자, 어떠신가요?" stays: time to look at what the box made
 const TITLE_IN = 450; // ms a new title takes to come in, before what depends on it wakes
-const INTRO_TEXT = "안녕 typescript";
-const TRIAL_KEYS = "dkssud typescript";
+const INTRO_TEXT = "안녕 tacit";
+const TRIAL_KEYS = "dkssud tacit";
 // What the box shows after each of the first six keys of the trial: the Korean the program makes
 // of "dkssud" as it goes (the languages are not installed yet at this point, so it is scripted).
 const TRIAL_HANGUL = ["ㅇ", "아", "안", "안ㄴ", "안녀", "안녕"];
@@ -113,7 +113,7 @@ async function beat() {
   try {
     const answer = await api("/api/heartbeat", {});
     imeKnown = !!(answer && answer.ime);
-    imeIsOurs = imeKnown && answer.ime.typescript;
+    imeIsOurs = imeKnown && answer.ime.tacit;
   } catch (e) {
     /* the next ping tries again */
   }
@@ -201,7 +201,7 @@ function intro() {
   askIntro();
 }
 
-// "안녕하세요", and under it in grey what to ask of you: type "안녕 typescript" with your own
+// "안녕하세요", and under it in grey what to ask of you: type "안녕 tacit" with your own
 // input method. Every press of the Han/Eng key shows what this page is about.
 function askIntro() {
   const hint = h("p", { class: "hint", role: "status" });
@@ -381,7 +381,7 @@ async function chooseLanguages() {
     ),
   );
   show(
-    "Typescript",
+    "tacit",
     h("p", { class: "caption" }, "쓸 언어를 고르세요"),
     h("ul", { class: "langs" }, ...rows),
     start,
@@ -454,7 +454,7 @@ function switchScreen(state, next) {
   );
   const unsure = h("button", { type: "button", class: "btn", onclick: next }, "바꿨어요");
   unsure.hidden = true;
-  show("입력기를 Typescript로 바꾸세요", cap, unsure);
+  show("입력기를 tacit로 바꾸세요", cap, unsure);
   beatEvery = 1000;
   const wait = setInterval(() => {
     if (imeKnown && imeIsOurs) {
@@ -504,7 +504,7 @@ function typingScreen(spec, next) {
       if (finished || input.value === spec.expect) return;
       hint.textContent =
         imeKnown && !imeIsOurs
-          ? "Typescript가 선택되어 있지 않아요. 지우고 다시 쳐 보세요"
+          ? "tacit가 선택되어 있지 않아요. 지우고 다시 쳐 보세요"
           : "다른 글자가 나왔어요. 지우고 다시 쳐 보세요";
     }, 800);
   };
@@ -634,7 +634,7 @@ if (view) {
       h(
         "p",
         { class: "hint" },
-        e.message + " 터미널에서 typescript-config welcome 을 다시 실행해 주세요.",
+        e.message + " 터미널에서 tacit-config welcome 을 다시 실행해 주세요.",
       ),
     );
   });

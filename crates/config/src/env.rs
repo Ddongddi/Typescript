@@ -2,22 +2,22 @@
 
 use std::path::PathBuf;
 
-use typescript_core::{pack_dirs, AppPolicies, Settings};
+use tacit_core::{pack_dirs, AppPolicies, Settings};
 
 #[derive(Clone, Debug)]
 pub struct Env {
     pub settings: PathBuf,
     pub apps: PathBuf,
-    /// `<...>/Typescript/packs`: one folder per installed pack version.
+    /// `<...>/tacit/packs`: one folder per installed pack version.
     pub packs: PathBuf,
 }
 
 impl Env {
     /// The current user's real locations (None when the system gives no home folder).
     pub fn detect() -> Option<Env> {
-        // TYPESCRIPT_HOME: keep everything in one folder (trying the tool without touching the
+        // TACIT_HOME: keep everything in one folder (trying the tool without touching the
         // real settings and packs).
-        if let Some(home) = std::env::var_os("TYPESCRIPT_HOME") {
+        if let Some(home) = std::env::var_os("TACIT_HOME") {
             let home = PathBuf::from(home);
             return Some(Env {
                 settings: home.join("settings.json"),

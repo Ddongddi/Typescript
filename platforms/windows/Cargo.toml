@@ -1,16 +1,16 @@
 [package]
-name = "typescript-tip"
+name = "tacit-tip"
 version = "0.10.1"
 edition = "2021"
 license = "AGPL-3.0-only"
-repository = "https://github.com/iamallyouneed/Typescript"
+repository = "https://github.com/iamallyouneed/tacit"
 
 [lib]
-name = "typescript_tip"
+name = "tacit_tip"
 crate-type = ["cdylib"]
 
 [dependencies]
-typescript-core = { path = "../../crates/core" }
+tacit-core = { path = "../../crates/core" }
 windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Foundation",

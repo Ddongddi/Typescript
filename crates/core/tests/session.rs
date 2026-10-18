@@ -4,30 +4,24 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use typescript_core::session::testing::FakeTextField;
-use typescript_core::session::NOT_FOUND;
-use typescript_core::store::policy::Override;
-use typescript_core::History;
-use typescript_core::{
+use tacit_core::session::testing::FakeTextField;
+use tacit_core::session::NOT_FOUND;
+use tacit_core::store::policy::Override;
+use tacit_core::History;
+use tacit_core::{
     AppPolicies, AppPolicy, EnglishModel, HeuristicEngine, InputSession, Key, LearningEngine,
     SplittingEngine, TextClient,
 };
 
 fn engine(name: &str) -> Arc<LearningEngine> {
-    let path = std::env::temp_dir().join(format!(
-        "typescript-sess-{name}-{}.json",
-        std::process::id()
-    ));
+    let path = std::env::temp_dir().join(format!("tacit-sess-{name}-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);
     let base = SplittingEngine::new(Box::new(HeuristicEngine::new()), EnglishModel::shared());
     Arc::new(LearningEngine::new(Box::new(base), Some(path)))
 }
 
 fn lexicon_path(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!(
-        "typescript-sess-{name}-{}.json",
-        std::process::id()
-    ))
+    std::env::temp_dir().join(format!("tacit-sess-{name}-{}.json", std::process::id()))
 }
 
 struct Rig {
@@ -461,7 +455,7 @@ fn correction_counts_once_with_the_final_choice() {
     r.type_("x"); // any other key closes it
     assert_eq!(
         r.session.engine().pending().get("hello"),
-        Some(&typescript_core::Language::Korean)
+        Some(&tacit_core::Language::Korean)
     );
 }
 
@@ -485,7 +479,7 @@ fn esc_while_typing_is_learned_the_second_time() {
     r.type_("the so⎋ ");
     assert_eq!(
         r.session.engine().learned().get("so"),
-        Some(&typescript_core::Language::Korean)
+        Some(&tacit_core::Language::Korean)
     );
     r.type_("the so ");
     assert!(r.text().ends_with("내 "), "{}", r.text());

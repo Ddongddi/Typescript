@@ -2,7 +2,7 @@
 
 use std::fmt::Write as _;
 
-use typescript_core::{pack, Language};
+use tacit_core::{pack, Language};
 
 use crate::env::Env;
 use crate::error::{err, Result};
@@ -11,7 +11,7 @@ use crate::languages;
 use crate::source::Source;
 use crate::update;
 
-pub const USAGE: &str = "typescript-config [command]
+pub const USAGE: &str = "tacit-config [command]
   (none)            open the dashboard
   welcome           open the first-run page: choose languages, then a short practice
   setup --languages ko,en   install those languages without asking (for scripts)
@@ -21,8 +21,8 @@ pub const USAGE: &str = "typescript-config [command]
   remove <id>       turn a language off and delete its pack
   order <a,b,c>     change the Esc order of the languages that are on
   check             is there a newer release?
-  update            update the packs (and Typescript itself when it changed)
-Set TYPESCRIPT_RELEASE to a folder or URL to use another release.";
+  update            update the packs (and tacit itself when it changed)
+Set TACIT_RELEASE to a folder or URL to use another release.";
 
 pub fn list(env: &Env, source: &Source) -> Result<String> {
     let installed = pack::scan(&env.packs);
@@ -113,14 +113,14 @@ pub fn check(env: &Env, api: &dyn Fetch, url: &str) -> Result<String> {
         let first = info.notes.lines().next().unwrap_or("");
         format!(
             "{} is out (you have {}). {first}
-Run: typescript-config update
+Run: tacit-config update
 ",
             info.latest,
             crate::catalog::CORE_VERSION
         )
     } else {
         format!(
-            "typescript {} is the latest
+            "tacit {} is the latest
 ",
             crate::catalog::CORE_VERSION
         )
@@ -133,7 +133,7 @@ pub fn notice(env: &Env, api: &dyn Fetch, url: &str) -> Option<String> {
     let info = update::check(env, api, url, update::now(), false).ok()?;
     info.available.then(|| {
         format!(
-            "typescript {} is out: typescript-config update
+            "tacit {} is out: tacit-config update
 ",
             info.latest
         )

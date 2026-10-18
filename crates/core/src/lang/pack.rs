@@ -1,6 +1,6 @@
 //! Language packs: `<root>/<id>-<version>/manifest.json` plus the tables it lists. Packs are
 //! memory-mapped read-only, so the processes sharing them share the pages, as they did when the
-//! tables were baked into the DLL. Hashes are checked when a pack is installed (typescript-config),
+//! tables were baked into the DLL. Hashes are checked when a pack is installed (tacit-config),
 //! not here: hashing 10 MB in every application that loads the text service would be slow.
 //!
 //! Missing data never panics: `bytes`/`text` return empty data and `available` says the
@@ -262,7 +262,7 @@ fn map(path: &Path) -> Option<&'static [u8]> {
         return Some(&[]);
     }
     // SAFETY: pack files are never modified in place: an update writes a new version folder
-    // (install.ps1 skips folders that exist, typescript-config will do the same), and Windows
+    // (install.ps1 skips folders that exist, tacit-config will do the same), and Windows
     // refuses to truncate or overwrite a file that has a mapped view, so the mapped bytes
     // can't change under the models.
     let mmap = unsafe { memmap2::Mmap::map(&file) }.ok()?;

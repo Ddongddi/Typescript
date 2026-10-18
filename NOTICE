@@ -1,13 +1,13 @@
-Typescript
+tacit
 Copyright (C) 2026 Necessity
 
-Typescript is free software: you can redistribute it and/or modify it under the terms of the
+tacit is free software: you can redistribute it and/or modify it under the terms of the
 GNU Affero General Public License, version 3, as published by the Free Software Foundation.
 The full text is in LICENSE. SPDX-License-Identifier: AGPL-3.0-only
 
 The program is the work of Necessity and its contributors (see CONTRIBUTING.md).
 Its model, Seamtype, was inspired by Meltype (https://github.com/yksr-melt/Meltype, GPL-3.0);
-Typescript contains no code or data from Meltype.
+tacit contains no code or data from Meltype.
 
 Earlier releases
 ----------------

@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-  Installs (or removes) Typescript: the x64 and x86 text service and the settings tool.
+  Installs (or removes) tacit: the x64 and x86 text service and the settings tool.
 
   One line, from anywhere (downloads the latest GitHub release, checks its SHA-256):
-    irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+    irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
   Remove it, or pick a version:
-    & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Uninstall
-    & ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Version v0.2.0
+    & ([scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))) -Uninstall
+    & ([scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))) -Version v0.2.0
 
   From a checkout (builds first; needs Rust + the i686-pc-windows-msvc target):
     .\scripts\install.ps1              install or update (English + Korean language packs)
     .\scripts\install.ps1 -Japanese    also install and turn on the Japanese pack
-    .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\Typescript are kept)
+    .\scripts\install.ps1 -Uninstall   remove it (settings in %APPDATA%\tacit are kept)
 
   Registering a text service writes HKLM, so this asks for administrator rights once (UAC).
   The elevated half then downloads and checks the release itself, from GitHub: the commands it
@@ -19,7 +19,7 @@
   some other process of the user could swap in before the prompt is answered. A local folder is
   only ever used by -LocalSource (development), and it says so.
 
-  Afterwards pick "Typescript" with Win+Space (or in Settings > Time & language > Language
+  Afterwards pick "tacit" with Win+Space (or in Settings > Time & language > Language
   & region > English (United States) > Keyboards).
 #>
 
@@ -28,11 +28,11 @@ param(
     # Release tag to install (default: the latest release).
     [string]$Version = 'latest',
     # Also install and turn on the Japanese language pack (romaji -> kana -> kanji, a 10 MB
-    # dictionary). The packs go to %LOCALAPPDATA%\Typescript\packs; settings.json "languages"
+    # dictionary). The packs go to %LOCALAPPDATA%\tacit\packs; settings.json "languages"
     # says which are on, in Esc order.
     [switch]$Japanese,
     # The languages to turn on, in Esc order, e.g. ko,en,ja. Without it a new install asks
-    # (typescript-config setup) and an update keeps the languages already on.
+    # (tacit-config setup) and an update keeps the languages already on.
     [string]$Languages = '',
     # Internal: the elevated half of the script.
     [switch]$Elevated,
@@ -42,12 +42,12 @@ param(
     [string]$Source
 )
 
-$GitHubRepo = 'iamallyouneed/Typescript'
+$GitHubRepo = 'iamallyouneed/tacit'
 $ErrorActionPreference = 'Stop'
-$dest = Join-Path $env:ProgramFiles 'Typescript'
-$dll64 = Join-Path $dest 'typescript_tip.dll'
+$dest = Join-Path $env:ProgramFiles 'tacit'
+$dll64 = Join-Path $dest 'tacit_tip.dll'
 # The picker entries (CLSID + profile GUID, see platforms/windows/src/guids.rs): with and without Tab completion.
-# Registered under English (US), not Korean: see LANGID_TYPESCRIPT in guids.rs for why.
+# Registered under English (US), not Korean: see LANGID_TACIT in guids.rs for why.
 $profiles = @(
     '{E231DAD4-326F-436F-B74C-D08F1D66D822}{D7B9871C-E74A-4B4F-9791-CBD1E9E074FE}',
     '{E231DAD4-326F-436F-B74C-D08F1D66D822}{BFC1C2A9-657F-443A-B4DE-ACF8EACA9AEC}'
@@ -85,10 +85,10 @@ function Set-Keyboards([bool]$Present) {
 $elevatedScript = @'
 param([string]$Version, [switch]$Uninstall, [switch]$LocalSource, [string]$Source)
 $ErrorActionPreference = 'Stop'
-$GitHubRepo = 'iamallyouneed/Typescript'
-$dest = Join-Path $env:ProgramFiles 'Typescript'
-$dll64 = Join-Path $dest 'typescript_tip.dll'
-$dll86 = Join-Path $dest 'typescript_tip_x86.dll'
+$GitHubRepo = 'iamallyouneed/tacit'
+$dest = Join-Path $env:ProgramFiles 'tacit'
+$dll64 = Join-Path $dest 'tacit_tip.dll'
+$dll86 = Join-Path $dest 'tacit_tip_x86.dll'
 $regsvr64 = Join-Path $env:SystemRoot 'System32\regsvr32.exe'
 $regsvr86 = Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
 
@@ -146,7 +146,7 @@ function Unregister-Existing {
 
 # The transcript goes into a fresh random folder marked high integrity: nothing running
 # without the administrator token can plant a file there or swap one under the transcript.
-$logDir = Join-Path $env:TEMP ("typescript-install-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$logDir = Join-Path $env:TEMP ("tacit-install-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item $logDir -ItemType Directory -Force | Out-Null
 try { & icacls.exe $logDir /setintegritylevel '(OI)(CI)High' 2>$null } catch { }
 Start-Transcript -Path (Join-Path $logDir 'install.log') -Force | Out-Null
@@ -171,11 +171,11 @@ try {
             Write-Warning "Installing from a local folder ($Source): these files are not checked against a GitHub release. Development use only."
             New-Item $dest -ItemType Directory -Force | Out-Null
             Unregister-Existing
-            foreach ($name in 'typescript_tip.dll', 'typescript_tip_x86.dll', 'typescript-config.exe') {
+            foreach ($name in 'tacit_tip.dll', 'tacit_tip_x86.dll', 'tacit-config.exe') {
                 Move-Aside (Join-Path $dest $name)
                 Copy-Item (Join-Path $Source $name) (Join-Path $dest $name) -Force
             }
-            foreach ($name in 'typescript.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
+            foreach ($name in 'tacit.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
                 Copy-Item (Join-Path $Source $name) $dest -Force -ErrorAction SilentlyContinue
             }
         } else {
@@ -187,10 +187,10 @@ try {
             }
             [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
             $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" } else { "https://github.com/$GitHubRepo/releases/download/$Version" }
-            Write-Host "Downloading Typescript ($Version)..."
+            Write-Host "Downloading tacit ($Version)..."
             $web = New-Object Net.WebClient
-            $zip = $web.DownloadData("$base/typescript-windows.zip")
-            $expected = ($web.DownloadString("$base/typescript-windows.zip.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
+            $zip = $web.DownloadData("$base/tacit-windows.zip")
+            $expected = ($web.DownloadString("$base/tacit-windows.zip.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
             $sha = [Security.Cryptography.SHA256]::Create()
             $actual = (($sha.ComputeHash($zip) | ForEach-Object { $_.ToString('x2') }) -join '')
             if (-not $expected -or $actual -ne $expected) { throw "Checksum mismatch (expected '$expected', got '$actual')" }
@@ -253,30 +253,30 @@ function New-SourceStage {
     $repo = Split-Path -Parent $PSScriptRoot
     Push-Location $repo
     try {
-        # Not together with typescript-cli: its embedded packs would end up in these two (+2.5 MB each).
-        & cargo build --release -p typescript-tip -p typescript-config
+        # Not together with tacit-cli: its embedded packs would end up in these two (+2.5 MB each).
+        & cargo build --release -p tacit-tip -p tacit-config
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
-        & cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+        & cargo build --release -p tacit-tip --target i686-pc-windows-msvc
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
         # Out-Host: what it prints must not become part of this function's result (the stage path).
-        & cargo run --release -p typescript-packgen --bin build-packs -- crates\core\data target\packs | Out-Host
+        & cargo run --release -p tacit-packgen --bin build-packs -- crates\core\data target\packs | Out-Host
         if ($LASTEXITCODE) { throw 'building the language packs failed' }
     } finally {
         Pop-Location
     }
     $stage = New-TempDirectory
-    Copy-Item (Join-Path $repo 'target\release\typescript_tip.dll') $stage
-    Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\typescript_tip.dll') (Join-Path $stage 'typescript_tip_x86.dll')
-    Copy-Item (Join-Path $repo 'target\release\typescript-config.exe') $stage
+    Copy-Item (Join-Path $repo 'target\release\tacit_tip.dll') $stage
+    Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\tacit_tip.dll') (Join-Path $stage 'tacit_tip_x86.dll')
+    Copy-Item (Join-Path $repo 'target\release\tacit-config.exe') $stage
     Copy-Item (Join-Path $repo 'target\packs') (Join-Path $stage 'packs') -Recurse
-    Copy-Item (Join-Path $repo 'assets\typescript.ico') $stage
+    Copy-Item (Join-Path $repo 'assets\tacit.ico') $stage
     foreach ($notice in 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt') { Copy-Item (Join-Path $repo $notice) $stage -ErrorAction SilentlyContinue }
     Copy-Item $PSCommandPath $stage
     return $stage
 }
 
 function New-TempDirectory {
-    $dir = Join-Path $env:TEMP "typescript-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    $dir = Join-Path $env:TEMP "tacit-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
     New-Item $dir -ItemType Directory | Out-Null
     return $dir
 }
@@ -285,9 +285,9 @@ function New-TempDirectory {
 # user's profile (no administrator needed to add one later); AppContainer apps (Store apps,
 # sandboxed browsers) load the text service too and must be able to read them.
 function Install-Packs([string]$from) {
-    $packRoot = Join-Path $env:LOCALAPPDATA 'Typescript\packs'
+    $packRoot = Join-Path $env:LOCALAPPDATA 'tacit\packs'
     New-Item $packRoot -ItemType Directory -Force | Out-Null
-    $settingsPath = Join-Path $env:APPDATA 'Typescript\settings.json'
+    $settingsPath = Join-Path $env:APPDATA 'tacit\settings.json'
     $settings = [pscustomobject]@{}
     if (Test-Path $settingsPath) {
         try { $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json }
@@ -329,42 +329,42 @@ function Install-Packs([string]$from) {
     [IO.File]::WriteAllText($settingsPath, ($settings | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 }
 
-# "Typescript <settings>" in Korean, built from code points: Windows PowerShell 5.1 reads a script
+# "tacit <settings>" in Korean, built from code points: Windows PowerShell 5.1 reads a script
 # file without a byte order mark as ANSI, so this file stays ASCII.
-$settingsLabel = 'Typescript ' + [string][char]0xC124 + [char]0xC815
+$settingsLabel = 'tacit ' + [string][char]0xC124 + [char]0xC815
 
-# The Start menu entry that opens the settings page (typescript-config is not on PATH).
+# The Start menu entry that opens the settings page (tacit-config is not on PATH).
 function Set-SettingsShortcut([bool]$Present) {
     $link = Join-Path $env:APPDATA ('Microsoft\Windows\Start Menu\Programs\' + $settingsLabel + '.lnk')
     if (-not $Present) { Remove-Item $link -Force -ErrorAction SilentlyContinue; return }
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($link)
-    $shortcut.TargetPath = Join-Path $dest 'typescript-config.exe'
-    $shortcut.IconLocation = Join-Path $dest 'typescript.ico'
-    $shortcut.Description = 'Typescript: languages, settings, updates'
+    $shortcut.TargetPath = Join-Path $dest 'tacit-config.exe'
+    $shortcut.IconLocation = Join-Path $dest 'tacit.ico'
+    $shortcut.Description = 'tacit: languages, settings, updates'
     $shortcut.Save()
 }
 
 # The Han/Eng key's shortcut works everywhere (desktop, taskbar, any app) through a keyboard
-# hook in its own process, started at sign-in: `rundll32 typescript_tip.dll,KeyHook`.
+# hook in its own process, started at sign-in: `rundll32 tacit_tip.dll,KeyHook`.
 function Stop-KeyHook {
     Get-CimInstance Win32_Process -Filter "Name='rundll32.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -like '*typescript_tip*KeyHook*' } |
+        Where-Object { $_.CommandLine -like '*tacit_tip*KeyHook*' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
 function Set-KeyHook([bool]$Present) {
     $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
     Stop-KeyHook
-    if (-not $Present) { Remove-ItemProperty $run -Name 'Typescript keys' -ErrorAction SilentlyContinue; return }
+    if (-not $Present) { Remove-ItemProperty $run -Name 'tacit keys' -ErrorAction SilentlyContinue; return }
     $command = "rundll32.exe `"$dll64`",KeyHook"
-    Set-ItemProperty $run -Name 'Typescript keys' -Value $command
+    Set-ItemProperty $run -Name 'tacit keys' -Value $command
     Start-Process rundll32.exe -ArgumentList "`"$dll64`",KeyHook"
 }
 
 # The languages already on in settings.json, as a list (empty on a first install).
 function Get-ConfiguredLanguages {
-    $path = Join-Path $env:APPDATA 'Typescript\settings.json'
+    $path = Join-Path $env:APPDATA 'tacit\settings.json'
     if (-not (Test-Path $path)) { return @() }
     try { $s = Get-Content $path -Raw | ConvertFrom-Json } catch { return @() }
     if ($s.PSObject.Properties['languages']) { return @($s.languages) }
@@ -376,22 +376,22 @@ function Get-ConfiguredLanguages {
 # end, see Open-Welcome) lets the user choose them.
 $script:FreshInstall = $false
 
-# A release install: the packs come from the release through typescript-config. Languages that
+# A release install: the packs come from the release through tacit-config. Languages that
 # are given (-Languages, -Japanese) or already on are installed quietly; on a first install the
 # first-run page asks instead.
 function Install-ReleasePacks {
-    $config = Join-Path $dest 'typescript-config.exe'
+    $config = Join-Path $dest 'tacit-config.exe'
     if (-not (Test-Path $config)) {
-        # A release from before typescript-config (-Version): it has no language packs to fetch.
-        Write-Warning 'This release has no typescript-config, so no language packs were installed. Install a newer release to choose languages.'
+        # A release from before tacit-config (-Version): it has no language packs to fetch.
+        Write-Warning 'This release has no tacit-config, so no language packs were installed. Install a newer release to choose languages.'
         return
     }
-    $localRoot = Join-Path $env:LOCALAPPDATA 'Typescript'
+    $localRoot = Join-Path $env:LOCALAPPDATA 'tacit'
     New-Item (Join-Path $localRoot 'packs') -ItemType Directory -Force | Out-Null
     # Store apps and sandboxed processes read the packs; set before any pack exists so they inherit it.
     & icacls.exe $localRoot /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' /T | Out-Null
-    $previousRelease = $env:TYPESCRIPT_RELEASE
-    if ($Version -ne 'latest') { $env:TYPESCRIPT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
+    $previousRelease = $env:TACIT_RELEASE
+    if ($Version -ne 'latest') { $env:TACIT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
     $wanted = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     if (-not $wanted.Count) { $wanted = Get-ConfiguredLanguages }
     if ($Japanese -and $wanted.Count -and $wanted -notcontains 'ja') { $wanted += 'ja' }
@@ -401,22 +401,22 @@ function Install-ReleasePacks {
         else { $script:FreshInstall = $true }
     } finally {
         # Do not leave the pin in the user's shell (this runs inside `irm | iex`).
-        if ($null -eq $previousRelease) { Remove-Item Env:\TYPESCRIPT_RELEASE -ErrorAction SilentlyContinue } else { $env:TYPESCRIPT_RELEASE = $previousRelease }
+        if ($null -eq $previousRelease) { Remove-Item Env:\TACIT_RELEASE -ErrorAction SilentlyContinue } else { $env:TACIT_RELEASE = $previousRelease }
     }
-    if ($LASTEXITCODE) { throw "typescript-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: typescript-config setup --languages ko,en" }
+    if ($LASTEXITCODE) { throw "tacit-config setup failed (exit $LASTEXITCODE). Run it again from a terminal: tacit-config setup --languages ko,en" }
 }
 
 # The first-run page: the greeting, the language choice, a short practice. It runs on its own
 # (as this user, not elevated) and ends by itself a few minutes after its tab is closed.
 function Open-Welcome {
-    $config = Join-Path $dest 'typescript-config.exe'
-    $previousRelease = $env:TYPESCRIPT_RELEASE
+    $config = Join-Path $dest 'tacit-config.exe'
+    $previousRelease = $env:TACIT_RELEASE
     # The page fetches the packs of the release being installed, not of the latest one.
-    if ($Version -ne 'latest') { $env:TYPESCRIPT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
+    if ($Version -ne 'latest') { $env:TACIT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
     try {
         Start-Process $config -ArgumentList 'welcome' -WindowStyle Hidden
     } finally {
-        if ($null -eq $previousRelease) { Remove-Item Env:\TYPESCRIPT_RELEASE -ErrorAction SilentlyContinue } else { $env:TYPESCRIPT_RELEASE = $previousRelease }
+        if ($null -eq $previousRelease) { Remove-Item Env:\TACIT_RELEASE -ErrorAction SilentlyContinue } else { $env:TACIT_RELEASE = $previousRelease }
     }
 }
 
@@ -447,14 +447,14 @@ try {
     Write-Host 'Asking for administrator rights to register the text service...'
     $p = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
     if ($p.ExitCode -ne 0) {
-        throw "The elevated step failed (exit $($p.ExitCode)). A transcript, when the step ran, is in $env:TEMP\typescript-install-*."
+        throw "The elevated step failed (exit $($p.ExitCode)). A transcript, when the step ran, is in $env:TEMP\tacit-install-*."
     }
 
     if ($Uninstall) {
         Set-Keyboards $false
         Set-SettingsShortcut $false
         Set-KeyHook $false
-        Write-Host 'Typescript removed. Settings stay in %APPDATA%\Typescript, language packs in %LOCALAPPDATA%\Typescript.'
+        Write-Host 'tacit removed. Settings stay in %APPDATA%\tacit, language packs in %LOCALAPPDATA%\tacit.'
     } else {
         $packSource = if ($stage) { $stage } else { $Source }
         if ($LocalSource -or $inCheckout) { Install-Packs $packSource } else { Install-ReleasePacks }
@@ -463,10 +463,10 @@ try {
         Set-Keyboards $true
         Set-SettingsShortcut $true
         Set-KeyHook $true
-        Write-Host 'Typescript installed.'
-        Write-Host '  Win+Space  -> "Typescript (autocomplete)" or "Typescript" (no autocomplete)'
-        Write-Host '  Switch word language -> Esc or Han/Eng; Pause -> Alt+Han/Eng, per text field. Keys: dashboard settings, or %APPDATA%\Typescript\settings.json'
-        Write-Host ('  Languages and settings: Start menu > ' + $settingsLabel + ' (opens a page in your browser), or ' + (Join-Path $dest 'typescript-config.exe'))
+        Write-Host 'tacit installed.'
+        Write-Host '  Win+Space  -> "tacit (autocomplete)" or "tacit" (no autocomplete)'
+        Write-Host '  Switch word language -> Esc or Han/Eng; Pause -> Alt+Han/Eng, per text field. Keys: dashboard settings, or %APPDATA%\tacit\settings.json'
+        Write-Host ('  Languages and settings: Start menu > ' + $settingsLabel + ' (opens a page in your browser), or ' + (Join-Path $dest 'tacit-config.exe'))
         Write-Host '  Apps already running pick the new text service up when you reopen them.'
         if ($script:FreshInstall) {
             Write-Host 'Opening the first-run page in your browser (choose languages, try it out)...'

@@ -7,7 +7,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use typescript_core::{
+use tacit_core::{
     make_engine, DecisionContext, DecisionEngine, Language, Languages, TextConverter,
 };
 
@@ -205,7 +205,7 @@ fn code_switch(korean: &[&String], terms: &[&str], rng: &mut Rng) -> Vec<(&'stat
 /// One form of a term corrected twice: how many *other* forms does the engine then get right?
 fn learning(terms: &[&str], report: &mut Report) {
     let endings = ["이", "을", "에", "에서", "으로", "는", "와", "도"];
-    let store = std::env::temp_dir().join(format!("typescript-lab-{}.json", std::process::id()));
+    let store = std::env::temp_dir().join(format!("tacit-lab-{}.json", std::process::id()));
     let _ = fs::remove_file(&store);
     let engine = make_engine(Some(store.clone()), &Languages::legacy(false));
     let forms = |term: &str| -> Vec<(String, String)> {
@@ -264,7 +264,7 @@ fn transfer(
     context: &DecisionContext,
     report: &mut Report,
 ) {
-    let store = std::env::temp_dir().join(format!("typescript-lab-t-{}.json", std::process::id()));
+    let store = std::env::temp_dir().join(format!("tacit-lab-t-{}.json", std::process::id()));
     let _ = fs::remove_file(&store);
     let engine = make_engine(Some(store.clone()), &Languages::legacy(false));
     let right = |engine: &dyn DecisionEngine, (_, keys, want): &(String, String, String)| {

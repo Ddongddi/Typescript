@@ -2,7 +2,7 @@
 
 #![allow(dead_code)] // each test binary uses a different subset
 
-use typescript_core::lang::hangul::DubeolsikLayout;
+use tacit_core::lang::hangul::DubeolsikLayout;
 
 const CHO: &str = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 const JUNG: [&str; 21] = [

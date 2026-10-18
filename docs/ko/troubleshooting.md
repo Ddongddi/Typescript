@@ -1,6 +1,6 @@
-# Typescript 문제 해결 및 앱 호환성 가이드
+# tacit 문제 해결 및 앱 호환성 가이드
 
-Typescript 사용 중 발생할 수 있는 키 충돌, 애플리케이션 호환성 문제, 디버깅 절차 및 해결 방법을 설명합니다.
+tacit 사용 중 발생할 수 있는 키 충돌, 애플리케이션 호환성 문제, 디버깅 절차 및 해결 방법을 설명합니다.
 
 [English](../en/troubleshooting.md) · [한국어 문서 홈](README.md)
 
@@ -14,10 +14,10 @@ Typescript 사용 중 발생할 수 있는 키 충돌, 애플리케이션 호환
 #### 기술적 배경:
 - 윈도우 운영체제는 현대적인 TSF(Text Services Framework) 입력기의 조합 이벤트를 내부 번역 계층을 거쳐 IMM32 메시지(`WM_IME_COMPOSITION`)로 변환합니다.
 - 이때 윈도우는 한국어 입력기에 대해 **"한글 조합은 항상 1음절(Interim)이어야 한다"**는 강제 규칙을 적용합니다.
-- 따라서 Typescript처럼 단어 전체(여러 음절)를 밑줄로 미리보기 조합하는 방식은, 한국어 IME로 등록될 경우 글자를 칠 때마다 강제로 앞 글자를 확정해 버려 `테스트`가 `ㅌpㅅmㅌm`으로 깨지는 현상이 발생합니다.
+- 따라서 tacit처럼 단어 전체(여러 음절)를 밑줄로 미리보기 조합하는 방식은, 한국어 IME로 등록될 경우 글자를 칠 때마다 강제로 앞 글자를 확정해 버려 `테스트`가 `ㅌpㅅmㅌm`으로 깨지는 현상이 발생합니다.
 
 #### 해결책:
-- Typescript는 시스템에 **영어(미국) 키보드 레이아웃의 서브 텍스트 서비스**로 등록됩니다.
+- tacit는 시스템에 **영어(미국) 키보드 레이아웃의 서브 텍스트 서비스**로 등록됩니다.
 - 영어 레이아웃에서는 윈도우가 임의로 조합 길이를 제한하지 않으므로, 카카오톡을 비롯한 모든 IMM32 앱에서 여러 음절의 단어 전체가 하나의 매끄러운 조합(Composition)으로 유지됩니다.
 - 작업 표시줄에 `ENG`로 표시되는 것은 이 기술적 문제를 해결하기 위한 의도된 동작입니다.
 
@@ -31,7 +31,7 @@ Typescript 사용 중 발생할 수 있는 키 충돌, 애플리케이션 호환
   }
 }
 ```
-해당 앱 창으로 전환되면 자동으로 Microsoft 한국어 입력기로 전환되며, 다른 앱으로 벗어나면 다시 Typescript로 복귀합니다.
+해당 앱 창으로 전환되면 자동으로 Microsoft 한국어 입력기로 전환되며, 다른 앱으로 벗어나면 다시 tacit로 복귀합니다.
 
 ---
 
@@ -63,7 +63,7 @@ Windows Terminal, cmd, PowerShell, WezTerm, Alacritty 같은 터미널은 이 �
 ## 3. 에디터(Vim, VSCode) 및 게임 최적화
 
 ### 3.1 Vim/VSCode에서 Esc 키가 노멀 모드로 안 넘어갈 때
-기본 설정에서 `Esc` 키는 Typescript의 언어 순환(영어 ↔ 한국어) 기능을 수행합니다. 따라서 Vim의 Normal 모드 진입 키와 충돌할 수 있습니다.
+기본 설정에서 `Esc` 키는 tacit의 언어 순환(영어 ↔ 한국어) 기능을 수행합니다. 따라서 Vim의 Normal 모드 진입 키와 충돌할 수 있습니다.
 
 #### 해결 방법:
 에디터 앱 설정에 `"escapeToApp": true`를 부여합니다:
@@ -102,7 +102,7 @@ Windows Terminal, cmd, PowerShell, WezTerm, Alacritty 같은 터미널은 이 �
 입력기가 특정 앱에서 비정상적으로 동작하거나 충돌이 의심될 때 이벤트 로그를 수집할 수 있습니다.
 
 ### 4.1 로그 활성화
-1. `%APPDATA%\Typescript\` 폴더(또는 macOS/Linux 설정 폴더)로 이동합니다.
+1. `%APPDATA%\tacit\` 폴더(또는 macOS/Linux 설정 폴더)로 이동합니다.
 2. 빈 파일 **`debug.on`**을 생성합니다.
 3. 문제가 발생하는 앱을 다시 실행하여 타이핑을 시도합니다.
 4. 동일한 폴더에 **`debug.log`** 파일이 생성되어 실시간 TSF 이벤트(포커스 획득/상실, 조합 시작/종료, 캐럿 이동 등)가 기록됩니다.
@@ -113,11 +113,11 @@ Windows Terminal, cmd, PowerShell, WezTerm, Alacritty 같은 터미널은 이 �
 리포지토리 소스에서 직접 실제 RichEdit 윈도우를 띄워 TSF/IMM 메시지를 덤프할 수 있습니다:
 
 ```powershell
-# Typescript 동작 시뮬레이션
-cargo run -p typescript-tip --example richedit_lab -- --ts
+# tacit 동작 시뮬레이션
+cargo run -p tacit-tip --example richedit_lab -- --ts
 
 # Microsoft 기본 IME 동작 비교
-cargo run -p typescript-tip --example richedit_lab -- --ms
+cargo run -p tacit-tip --example richedit_lab -- --ms
 ```
 
 ---

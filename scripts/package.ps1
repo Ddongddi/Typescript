@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
   Packs the release builds into dist\ (run after the release builds, see .github\workflows\release.yml):
-    typescript-windows.zip         the text service, typescript-config.exe
-    <zip>.sha256                   checked by the one-line installer and by typescript-config update
+    tacit-windows.zip         the text service, tacit-config.exe
+    <zip>.sha256                   checked by the one-line installer and by tacit-config update
     install.ps1                    the one-line installer itself (released next to the zip)
-    typescript-pack-<id>-<version>.zip, packs.json
+    tacit-pack-<id>-<version>.zip, packs.json
                                    the language packs and their list (built by build-packs --release)
 #>
 $ErrorActionPreference = 'Stop'
@@ -15,17 +15,17 @@ if (Test-Path $dist) { Get-ChildItem $dist | Remove-Item -Recurse -Force } else 
 # Not Compress-Archive: it opens files without sharing and trips over a virus scanner reading them.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$name = 'typescript-windows'
-$tip64 = Join-Path $repo 'target\release\typescript_tip.dll'
+$name = 'tacit-windows'
+$tip64 = Join-Path $repo 'target\release\tacit_tip.dll'
 if (-not (Test-Path $tip64)) { throw "$tip64 was not built" }
 
 $stage = Join-Path $dist "stage-$name"
 New-Item $stage -ItemType Directory | Out-Null
 $files = @(
-    @('target\release\typescript_tip.dll', 'typescript_tip.dll'),
-    @('target\i686-pc-windows-msvc\release\typescript_tip.dll', 'typescript_tip_x86.dll'),
-    @('target\release\typescript-config.exe', 'typescript-config.exe'),
-    @('assets\typescript.ico', 'typescript.ico'),
+    @('target\release\tacit_tip.dll', 'tacit_tip.dll'),
+    @('target\i686-pc-windows-msvc\release\tacit_tip.dll', 'tacit_tip_x86.dll'),
+    @('target\release\tacit-config.exe', 'tacit-config.exe'),
+    @('assets\tacit.ico', 'tacit.ico'),
     @('LICENSE', 'LICENSE'),
     @('NOTICE', 'NOTICE'),
     @('THIRD_PARTY_NOTICES.txt', 'THIRD_PARTY_NOTICES.txt'),
@@ -40,7 +40,7 @@ $zip = Join-Path $dist "$name.zip"
 $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
 Set-Content "$zip.sha256" "$hash  $name.zip" -Encoding ascii
 Remove-Item $stage -Recurse -Force
-& cargo run --release -p typescript-packgen --bin build-packs -- --release (Join-Path $repo 'crates\core\data') $dist
+& cargo run --release -p tacit-packgen --bin build-packs -- --release (Join-Path $repo 'crates\core\data') $dist
 if ($LASTEXITCODE) { throw 'building the language pack release failed' }
 Copy-Item (Join-Path $repo 'scripts\install.ps1') $dist
 Get-ChildItem $dist | Select-Object Name, Length

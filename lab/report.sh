@@ -2,8 +2,8 @@
 # Prints report sections for docs/report/performance.md: a "## 한눈에: prev → cur"
 # comparison with level bars, then the "## cur" detail section. Paste both at the
 # top of performance.md, replacing the previous 한눈에 block:
-#   cargo build --release -p typescript-tip -p typescript-config
-#   cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+#   cargo build --release -p tacit-tip -p tacit-config
+#   cargo build --release -p tacit-tip --target i686-pc-windows-msvc
 #   powershell -File scripts/package.ps1
 #   sh lab/report.sh > section.md
 # Check the checked-in 한눈에 block against the sections below (no lab run needed):
@@ -248,7 +248,7 @@ version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/core/Cargo.toml | head -1)
 kb() { echo $(( ($(wc -c < "$1") + 512) / 1024 )); }
 
 size_row() {
-  case $1 in *i686*) _arch=" (x86)" ;; *release/typescript_tip.dll) _arch=" (x64)" ;; *) _arch= ;; esac
+  case $1 in *i686*) _arch=" (x86)" ;; *release/tacit_tip.dll) _arch=" (x64)" ;; *) _arch= ;; esac
   _disp="\`$(basename "$1")\`$_arch"
   _kb=$(kb "$1")
   printf '| %s | %s |\n' "$_disp" "$_kb"
@@ -268,7 +268,7 @@ metric() {
     awk '{ v[NR] = $1 } END { printf "%s", v[int((NR + 1) / 2)] }'
 }
 
-SIZE_FILES="target/release/typescript_tip.dll target/i686-pc-windows-msvc/release/typescript_tip.dll target/release/typescript-config.exe dist/typescript-windows.zip dist/typescript-pack-en-$version.zip dist/typescript-pack-ko-$version.zip dist/typescript-pack-ja-$version.zip"
+SIZE_FILES="target/release/tacit_tip.dll target/i686-pc-windows-msvc/release/tacit_tip.dll target/release/tacit-config.exe dist/tacit-windows.zip dist/tacit-pack-en-$version.zip dist/tacit-pack-ko-$version.zip dist/tacit-pack-ja-$version.zip"
 
 {
 echo "## $version"

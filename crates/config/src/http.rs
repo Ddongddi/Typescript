@@ -148,7 +148,7 @@ pub fn open_browser(url: &str) -> bool {
     command.spawn().is_ok()
 }
 
-/// `typescript-config` with no command: serve the dashboard, open it, and wait until it closes.
+/// `tacit-config` with no command: serve the dashboard, open it, and wait until it closes.
 pub fn run(env: Env, source: Source, open: bool, page: &str) -> Result<String> {
     let running = start(env, source, IDLE)?;
     println!(

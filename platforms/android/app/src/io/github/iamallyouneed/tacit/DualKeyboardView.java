@@ -1,4 +1,4 @@
-package io.github.iamallyouneed.typescript;
+package io.github.iamallyouneed.tacit;
 
 import android.content.Context;
 import android.graphics.Canvas;

@@ -34,7 +34,7 @@ fn reply(env: &JNIEnv, s: &str) -> jstring {
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeCreate(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeCreate(
     mut env: JNIEnv,
     _: JClass,
     dir: JString,
@@ -45,7 +45,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeCrea
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeDestroy(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeDestroy(
     _: JNIEnv,
     _: JClass,
     handle: jlong,
@@ -57,7 +57,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeDest
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeActivate(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeActivate(
     mut env: JNIEnv,
     _: JClass,
     handle: jlong,
@@ -68,7 +68,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeActi
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeKey(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeKey(
     mut env: JNIEnv,
     _: JClass,
     handle: jlong,
@@ -83,7 +83,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeKey(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeReset(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeReset(
     _: JNIEnv,
     _: JClass,
     handle: jlong,
@@ -92,7 +92,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeRese
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeTogglePause(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeTogglePause(
     mut env: JNIEnv,
     _: JClass,
     handle: jlong,
@@ -104,7 +104,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativeTogg
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_typescript_Native_nativePaused(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativePaused(
     _: JNIEnv,
     _: JClass,
     handle: jlong,

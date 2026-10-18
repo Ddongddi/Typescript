@@ -66,7 +66,7 @@ const CATEGORIES: [windows::core::GUID; 4] = [
 pub fn register() -> Result<()> {
     init_com();
     let path = dll_path()?;
-    let class = format!(r"SOFTWARE\Classes\CLSID\{}", guid_string(&CLSID_TYPESCRIPT));
+    let class = format!(r"SOFTWARE\Classes\CLSID\{}", guid_string(&CLSID_TACIT));
     set_string(&class, None, DESCRIPTION)?;
     let server = format!(r"{class}\InprocServer32");
     set_string(&server, None, &path)?;
@@ -77,12 +77,12 @@ pub fn register() -> Result<()> {
         // Start clean: profiles of earlier versions (they were under Korean) must not linger.
         let old: ITfInputProcessorProfiles =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
-        let _ = old.Unregister(&CLSID_TYPESCRIPT); // fails when there is nothing to remove
+        let _ = old.Unregister(&CLSID_TACIT); // fails when there is nothing to remove
         let profiles: ITfInputProcessorProfileMgr =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
-        // typescript.ico sits next to the DLL (install.ps1 puts it there); without it Windows
+        // tacit.ico sits next to the DLL (install.ps1 puts it there); without it Windows
         // shows its default keyboard icon.
-        let icon_path = std::path::Path::new(&path).with_file_name("typescript.ico");
+        let icon_path = std::path::Path::new(&path).with_file_name("tacit.ico");
         let icon: Vec<u16> = if icon_path.exists() {
             icon_path.to_string_lossy().encode_utf16().collect()
         } else {
@@ -91,8 +91,8 @@ pub fn register() -> Result<()> {
         for (guid, name, _) in PROFILES {
             let description: Vec<u16> = name.encode_utf16().collect();
             profiles.RegisterProfile(
-                &CLSID_TYPESCRIPT,
-                LANGID_TYPESCRIPT,
+                &CLSID_TACIT,
+                LANGID_TACIT,
                 &guid,
                 &description,
                 &icon,
@@ -106,7 +106,7 @@ pub fn register() -> Result<()> {
         let categories: ITfCategoryMgr =
             CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
         for category in CATEGORIES {
-            categories.RegisterCategory(&CLSID_TYPESCRIPT, &category, &CLSID_TYPESCRIPT)?;
+            categories.RegisterCategory(&CLSID_TACIT, &category, &CLSID_TACIT)?;
         }
     }
     Ok(())
@@ -127,11 +127,7 @@ pub fn unregister() -> Result<()> {
             CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)
         {
             for category in CATEGORIES {
-                note(categories.UnregisterCategory(
-                    &CLSID_TYPESCRIPT,
-                    &category,
-                    &CLSID_TYPESCRIPT,
-                ));
+                note(categories.UnregisterCategory(&CLSID_TACIT, &category, &CLSID_TACIT));
             }
         }
         // Every profile under every language, including the Korean ones of earlier versions.
@@ -140,11 +136,11 @@ pub fn unregister() -> Result<()> {
             None,
             CLSCTX_INPROC_SERVER,
         ) {
-            note(profiles.Unregister(&CLSID_TYPESCRIPT));
+            note(profiles.Unregister(&CLSID_TACIT));
         }
         let class = wide(&format!(
             r"SOFTWARE\Classes\CLSID\{}",
-            guid_string(&CLSID_TYPESCRIPT)
+            guid_string(&CLSID_TACIT)
         ));
         note(RegDeleteTreeW(HKEY_LOCAL_MACHINE, PCWSTR(class.as_ptr())).ok());
     }
@@ -159,7 +155,7 @@ pub fn enable_for_user() -> Result<()> {
         let profiles: ITfInputProcessorProfiles =
             CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
         for (guid, _, _) in PROFILES {
-            profiles.EnableLanguageProfile(&CLSID_TYPESCRIPT, LANGID_TYPESCRIPT, &guid, true)?;
+            profiles.EnableLanguageProfile(&CLSID_TACIT, LANGID_TACIT, &guid, true)?;
         }
         Ok(())
     }

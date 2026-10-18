@@ -23,8 +23,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::time::{Duration, Instant};
 
-use typescript_core::lang::hangul::DubeolsikLayout;
-use typescript_core::{
+use tacit_core::lang::hangul::DubeolsikLayout;
+use tacit_core::{
     make_engine, DecisionContext, DecisionEngine, Language, Languages, TextConverter,
 };
 
@@ -342,8 +342,8 @@ fn main() {
     // `--trace TEXT [--all] [--before-digit] [--after-digit]`: how the code-switch search
     // scores TEXT (given as it should come out).
     if let Some(text) = args.iter().position(|a| a == "--trace").and_then(|i| args.get(i + 1)) {
-        let search = typescript_core::decide::codeswitch::CodeSwitch::new(
-            typescript_core::EnglishModel::shared(),
+        let search = tacit_core::decide::codeswitch::CodeSwitch::new(
+            tacit_core::EnglishModel::shared(),
             Default::default(),
         );
         let context = DecisionContext {

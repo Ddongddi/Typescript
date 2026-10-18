@@ -1,7 +1,7 @@
 //! Installing a given list of languages at install time (`setup --languages ko,en`). Choosing
-//! them is the welcome page's first screen (`typescript-config welcome`).
+//! them is the welcome page's first screen (`tacit-config welcome`).
 
-use typescript_core::{Language, Languages};
+use tacit_core::{Language, Languages};
 
 use crate::catalog::Catalog;
 use crate::env::Env;
@@ -74,7 +74,7 @@ fn requested(args: &[String], env: &Env) -> Result<Vec<String>> {
     }
     if args.iter().any(|a| a == "--if-configured") {
         if !env.settings.exists() {
-            return err("no languages are chosen yet: run typescript-config welcome");
+            return err("no languages are chosen yet: run tacit-config welcome");
         }
         return Ok(languages::enabled(env)
             .ids()
@@ -82,7 +82,7 @@ fn requested(args: &[String], env: &Env) -> Result<Vec<String>> {
             .map(String::from)
             .collect());
     }
-    err("setup needs --languages ko,en (or run typescript-config welcome)")
+    err("setup needs --languages ko,en (or run tacit-config welcome)")
 }
 
 /// `setup --languages ko,en` or `setup --if-configured`. Plain `setup` opens the welcome page
@@ -168,11 +168,7 @@ mod tests {
     #[test]
     fn a_failed_download_keeps_the_previous_languages() {
         let f = fixture("setup-fail");
-        crate::languages::save(
-            &f.env,
-            &typescript_core::Languages::from_ids(&["en"]).unwrap(),
-        )
-        .unwrap();
+        crate::languages::save(&f.env, &tacit_core::Languages::from_ids(&["en"]).unwrap()).unwrap();
         let nowhere = crate::fetch::Dir(f.root.join("nowhere"));
         assert!(apply(
             &f.env,
@@ -191,7 +187,7 @@ mod tests {
         let f = fixture("setup-configured");
         crate::languages::save(
             &f.env,
-            &typescript_core::Languages::from_ids(&["ko", "en"]).unwrap(),
+            &tacit_core::Languages::from_ids(&["ko", "en"]).unwrap(),
         )
         .unwrap();
         assert_eq!(

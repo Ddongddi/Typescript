@@ -78,9 +78,9 @@ L환율 = Σ c × ln( max(x, T) / T )
 | 속도 | `commit.p50_us` | 10 | 0.00640 |
 | 속도 | `commit.p95_us` | 10 | 0.00960 |
 | 속도 | `commit.p99_us` | 10 | 0.00960 |
-| 용량 | `size.zip` (`typescript-windows.zip`) | 3072 | 0.15200 |
-| 용량 | `size.x64` (`typescript_tip.dll` x64) | 2048 | 0.07600 |
-| 용량 | `size.x86` (`typescript_tip.dll` x86) | 512 | 0.07600 |
+| 용량 | `size.zip` (`tacit-windows.zip`) | 3072 | 0.15200 |
+| 용량 | `size.x64` (`tacit_tip.dll` x64) | 2048 | 0.07600 |
+| 용량 | `size.x86` (`tacit_tip.dll` x86) | 512 | 0.07600 |
 | 용량 | `size.packs` (en 팩 + ko 팩 합) | 512 | 0.07600 |
 | 메모리·시작 | `heap.peak_kb` | 4096 | 0.03200 |
 | 메모리·시작 | `heap.loaded_kb` | 16 | 0.02400 |
@@ -266,7 +266,7 @@ Score = 10000 × exp(−(0.9997 + 0 + 0.0149)) = 3625
 2. held-out 용어 목록은 태그가 아니라 **현재 `packgen`** 으로 고정합니다. 태그마다 목록이 다르면 세트가 달라져 비교가 깨집니다.
 3. 팩 구조 이전(0.3.0 이하)은 `make_engine` 호출 모양만 맞춰 같은 lab에 붙이고, `size.packs`는 0으로 둡니다. 코어에 없는 API를 쓰는 `lab/src/tune.rs`는 그 worktree에서만 뺍니다.
 4. 모든 태그의 lab 바이너리를 만든 뒤, 한 바퀴에 태그마다 한 번씩 번갈아 5바퀴 돌려 지표별 중앙값을 냅니다(기계 상태의 흔들림이 모든 태그에 같이 걸립니다).
-5. 크기는 릴리즈 절이 없는 옛 버전도 있으므로 모든 릴리즈에서 GitHub 릴리즈 에셋을 씁니다. `size.zip`은 `typescript-windows.zip`, `size.x64`와 `size.x86`은 그 zip 안의 `typescript_tip.dll`과 `typescript_tip_x86.dll`, `size.packs`는 팩 에셋(en + ko)의 합입니다. CI 빌드라 로컬 빌드보다 약 3% 큽니다.
+5. 크기는 릴리즈 절이 없는 옛 버전도 있으므로 모든 릴리즈에서 GitHub 릴리즈 에셋을 씁니다. `size.zip`은 `tacit-windows.zip`, `size.x64`와 `size.x86`은 그 zip 안의 `tacit_tip.dll`과 `tacit_tip_x86.dll`, `size.packs`는 팩 에셋(en + ko)의 합입니다. CI 빌드라 로컬 빌드보다 약 3% 큽니다.
 6. 위 값을 `metrics.json`(`{태그: {지표: 값}}`, 릴리즈 순서)에 담아 `python lab/score.py`에 넘깁니다.
 
 이렇게 계산한 점수는 8절의 예시(릴리즈 절의 값)와 달라서, 그래프의 0.8.7(3871)과 예시의 3625는 서로 다른 입력의 결과입니다.

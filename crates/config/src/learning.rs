@@ -5,9 +5,9 @@
 use std::path::PathBuf;
 
 use serde_json::{json, Value};
-use typescript_core::decide::learning::Store;
-use typescript_core::store::{load_or_quarantine, persist};
-use typescript_core::{History, Language};
+use tacit_core::decide::learning::Store;
+use tacit_core::store::{load_or_quarantine, persist};
+use tacit_core::{History, Language};
 
 use crate::env::Env;
 use crate::error::{err, Result};

@@ -174,14 +174,14 @@ impl Ghost {
                 let class = WNDCLASSW {
                     lpfnWndProc: Some(window_proc),
                     hInstance: instance,
-                    lpszClassName: w!("TypescriptCompletionHint"),
+                    lpszClassName: w!("tacitCompletionHint"),
                     ..Default::default()
                 };
                 RegisterClassW(&class);
             });
             let hwnd = CreateWindowExW(
                 WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
-                w!("TypescriptCompletionHint"),
+                w!("tacitCompletionHint"),
                 None,
                 WS_POPUP,
                 0,

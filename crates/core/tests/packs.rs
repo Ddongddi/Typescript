@@ -3,8 +3,8 @@
 
 use std::path::PathBuf;
 
-use typescript_core::pack;
-use typescript_packgen::{sha256_hex, write_pack, PACKS};
+use tacit_core::pack;
+use tacit_packgen::{sha256_hex, write_pack, PACKS};
 
 fn built_packs(name: &str) -> PathBuf {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
@@ -55,10 +55,10 @@ fn the_released_dictionary_passes_its_own_validity_check() {
     let found = pack::scan(&root);
     let ja = found.packs.iter().find(|f| f.manifest.id == "ja").unwrap();
     let bytes = std::fs::read(ja.dir.join("ipadic_compact.bin")).unwrap();
-    assert!(typescript_core::KanjiDictionary::valid(&bytes));
-    assert!(!typescript_core::KanjiDictionary::valid(
+    assert!(tacit_core::KanjiDictionary::valid(&bytes));
+    assert!(!tacit_core::KanjiDictionary::valid(
         &bytes[..bytes.len() - 100]
     ));
-    assert!(!typescript_core::KanjiDictionary::valid(b""));
+    assert!(!tacit_core::KanjiDictionary::valid(b""));
     let _ = std::fs::remove_dir_all(&root);
 }

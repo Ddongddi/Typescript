@@ -37,7 +37,7 @@ impl ITfDisplayAttributeInfo_Impl for DisplayInfo_Impl {
         Ok(GUID_DISPLAY_ATTRIBUTE)
     }
     fn GetDescription(&self) -> Result<BSTR> {
-        Ok(BSTR::from("Typescript composition"))
+        Ok(BSTR::from("tacit composition"))
     }
     fn GetAttributeInfo(&self, pda: *mut TF_DISPLAYATTRIBUTE) -> Result<()> {
         if pda.is_null() {

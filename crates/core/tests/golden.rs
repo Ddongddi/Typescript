@@ -3,7 +3,7 @@
 //!
 //! Regenerate only on purpose (and with the user's agreement):
 //!   GOLDEN_WRITE=1 cargo test --test golden
-//!   GOLDEN_WRITE=1 cargo test --test golden --features typescript-core/japanese
+//!   GOLDEN_WRITE=1 cargo test --test golden --features tacit-core/japanese
 
 mod common;
 
@@ -12,9 +12,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use common::keys_of;
-use typescript_core::session::testing::FakeTextField;
-use typescript_core::session::Range;
-use typescript_core::{
+use tacit_core::session::testing::FakeTextField;
+use tacit_core::session::Range;
+use tacit_core::{
     make_engine, AppPolicies, DecisionContext, DecisionEngine, History, InputSession, Key,
     Language, Languages, LearningEngine, TextClient,
 };
@@ -237,8 +237,8 @@ fn session_for(config: &str) -> Option<InputSession> {
     }
     if japanese {
         {
-            let converter: Arc<dyn typescript_core::JapaneseConverter> =
-                Arc::new(typescript_core::DictionaryConverter::new(None));
+            let converter: Arc<dyn tacit_core::JapaneseConverter> =
+                Arc::new(tacit_core::DictionaryConverter::new(None));
             session = session.with_japanese(converter, config == "enkoja-live");
         }
         if config == "enkoja-fw" {

@@ -1,6 +1,6 @@
 //! The Han/Eng key as a shortcut, everywhere. The text service only sees keys typed into a
 //! text field of an app that loaded it, but a shortcut (Win+D) must work on the desktop, the
-//! taskbar and in apps started before the install too. So `rundll32 typescript_tip.dll,KeyHook`
+//! taskbar and in apps started before the install too. So `rundll32 tacit_tip.dll,KeyHook`
 //! (started at sign-in) keeps a low-level keyboard hook: while the Han/Eng key is set to send a
 //! shortcut, it takes that key away from everyone and sends the shortcut instead.
 
@@ -8,8 +8,8 @@ use std::cell::RefCell;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::time::SystemTime;
 
-use typescript_core::store::keys::{HangulAction, KeyAction, Mods};
-use typescript_core::Settings;
+use tacit_core::store::keys::{HangulAction, KeyAction, Mods};
+use tacit_core::Settings;
 use windows::core::w;
 use windows::Win32::Foundation::{
     GetLastError, ERROR_ALREADY_EXISTS, HINSTANCE, LPARAM, LRESULT, WPARAM,
@@ -142,7 +142,7 @@ unsafe extern "system" fn proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRE
 pub fn run() {
     // SAFETY: plain Win32 calls; the mutex lives as long as the process.
     unsafe {
-        let _single = CreateMutexW(None, true, w!("Local\\TypescriptKeyHook"));
+        let _single = CreateMutexW(None, true, w!("Local\\tacitKeyHook"));
         if GetLastError() == ERROR_ALREADY_EXISTS {
             return;
         }
@@ -165,7 +165,7 @@ mod tests {
 
     fn state(hangul: &str, action: &str) -> State {
         let settings = Settings {
-            hangul_key: typescript_core::store::keys::parse_hangul(hangul).unwrap(),
+            hangul_key: tacit_core::store::keys::parse_hangul(hangul).unwrap(),
             hangul_action: action.parse().unwrap(),
             ..Settings::default()
         };

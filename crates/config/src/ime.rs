@@ -1,27 +1,27 @@
 //! Which input method the user has selected right now, so the dashboard can say when it is not
-//! Typescript (the keys and the typing it configures only work while Typescript is selected).
+//! tacit (the keys and the typing it configures only work while tacit is selected).
 
 use serde_json::{json, Value};
 
 /// What `/api/heartbeat` reports: `{"ime": null}` where the system cannot say (not Windows, or
-/// TSF does not answer), else `{"ime": {"typescript": bool, "name": "..."}}`.
+/// TSF does not answer), else `{"ime": {"tacit": bool, "name": "..."}}`.
 pub fn status() -> Value {
     match active() {
-        Some((typescript, name)) => json!({ "ime": { "typescript": typescript, "name": name } }),
+        Some((tacit, name)) => json!({ "ime": { "tacit": tacit, "name": name } }),
         None => json!({ "ime": null }),
     }
 }
 
 /// macOS: the selected input source from `defaults read com.apple.HIToolbox
-/// AppleSelectedInputSources`. Typescript is selected when its name is in it; otherwise the
+/// AppleSelectedInputSources`. tacit is selected when its name is in it; otherwise the
 /// keyboard layout (or input mode) it names is the name.
 #[cfg(any(target_os = "macos", test))]
 fn parse_macos_input_source(output: &str) -> Option<(bool, String)> {
     if output.trim().is_empty() {
         return None;
     }
-    if output.to_lowercase().contains("typescript") {
-        return Some((true, "Typescript".to_string()));
+    if output.to_lowercase().contains("tacit") {
+        return Some((true, "tacit".to_string()));
     }
     let name = output
         .lines()
@@ -41,7 +41,7 @@ fn active() -> Option<(bool, String)> {
     parse_macos_input_source(&String::from_utf8_lossy(&out.stdout))
 }
 
-/// Linux (IBus): `ibus engine` names the engine in use; Typescript's is `typescript`.
+/// Linux (IBus): `ibus engine` names the engine in use; tacit's is `tacit`.
 #[cfg(all(unix, not(target_os = "macos")))]
 fn active() -> Option<(bool, String)> {
     let out = std::process::Command::new("ibus")
@@ -52,7 +52,7 @@ fn active() -> Option<(bool, String)> {
         return None;
     }
     let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    (!name.is_empty()).then(|| (name == "typescript", name))
+    (!name.is_empty()).then(|| (name == "tacit", name))
 }
 
 #[cfg(not(any(windows, unix)))]
@@ -60,9 +60,9 @@ fn active() -> Option<(bool, String)> {
     None
 }
 
-/// The CLSID of the Typescript text service (platforms/windows/src/guids.rs).
+/// The CLSID of the tacit text service (platforms/windows/src/guids.rs).
 #[cfg(windows)]
-const CLSID_TYPESCRIPT: windows::core::GUID =
+const CLSID_TACIT: windows::core::GUID =
     windows::core::GUID::from_u128(0xE231DAD4_326F_436F_B74C_D08F1D66D822);
 
 #[cfg(windows)]
@@ -86,8 +86,8 @@ fn active() -> Option<(bool, String)> {
             manager
                 .GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut profile)
                 .ok()?;
-            if profile.clsid == CLSID_TYPESCRIPT {
-                return Some((true, "Typescript".to_string()));
+            if profile.clsid == CLSID_TACIT {
+                return Some((true, "tacit".to_string()));
             }
             let name = if profile.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR {
                 let profiles: ITfInputProcessorProfiles = manager.cast().ok()?;
@@ -117,7 +117,7 @@ mod tests {
     fn the_status_is_always_an_ime_object_or_null() {
         let status = super::status();
         let ime = &status["ime"];
-        assert!(ime.is_null() || ime["typescript"].is_boolean());
+        assert!(ime.is_null() || ime["tacit"].is_boolean());
     }
 
     use super::*;
@@ -129,11 +129,10 @@ mod tests {
             parse_macos_input_source(abc),
             Some((false, "ABC".to_string()))
         );
-        let ours =
-            "(\n {\n \"Bundle ID\" = \"io.github.iamallyouneed.inputmethod.Typescript\";\n }\n)";
+        let ours = "(\n {\n \"Bundle ID\" = \"io.github.iamallyouneed.inputmethod.tacit\";\n }\n)";
         assert_eq!(
             parse_macos_input_source(ours),
-            Some((true, "Typescript".to_string()))
+            Some((true, "tacit".to_string()))
         );
         assert_eq!(parse_macos_input_source("  "), None);
     }

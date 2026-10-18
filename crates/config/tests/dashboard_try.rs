@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use serde_json::{json, Value};
-use typescript_config::app::{App, Request, Response};
-use typescript_config::{cli, env::Env, source::Source};
+use tacit_config::app::{App, Request, Response};
+use tacit_config::{cli, env::Env, source::Source};
 
 const TOKEN: &str = "tok";
 const PORT: u16 = 4466;
@@ -32,7 +32,7 @@ fn dashboard(name: &str) -> (App, PathBuf) {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../core/data");
     let root = std::env::temp_dir().join(format!("ts-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    typescript_packgen::write_release(&data, &root.join("release")).unwrap();
+    tacit_packgen::write_release(&data, &root.join("release")).unwrap();
     let env = Env {
         settings: root.join("home/settings.json"),
         apps: root.join("home/apps.json"),
@@ -150,7 +150,7 @@ fn a_language_without_a_usable_pack_is_left_out() {
     .unwrap();
     // A build with the Japanese data inside the binary (another crate of the workspace turns
     // that on) always has Japanese; then all there is to check is that nothing panics.
-    let built_in = typescript_core::pack::available(typescript_core::Language::Japanese);
+    let built_in = tacit_core::pack::available(tacit_core::Language::Japanese);
     let r = post(&app, "/api/try", json!({ "text": "dkssud" }));
     let alts = r["segments"][0]["alts"].as_array().unwrap();
     assert!(built_in || alts.len() == 2, "no Japanese reading: {r}");

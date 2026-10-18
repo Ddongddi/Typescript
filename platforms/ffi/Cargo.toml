@@ -1,15 +1,15 @@
 [package]
-name = "typescript-ffi"
+name = "tacit-ffi"
 version = "0.10.1"
 edition = "2021"
 license = "AGPL-3.0-only"
-repository = "https://github.com/iamallyouneed/Typescript"
+repository = "https://github.com/iamallyouneed/tacit"
 description = "C interface of the input method for the macOS and Linux text services"
 
 [lib]
-name = "typescript_ffi"
+name = "tacit_ffi"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
-typescript-android = { path = "../android/native" }
-typescript-core = { path = "../../crates/core", features = ["embedded-en", "embedded-ko"] }
+tacit-android = { path = "../android/native" }
+tacit-core = { path = "../../crates/core", features = ["embedded-en", "embedded-ko"] }

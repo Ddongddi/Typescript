@@ -14,7 +14,7 @@ use crate::support_dir;
 
 use super::keys::{self, Chord, ChordKey, HangulAction, KeyAction, Mods};
 
-/// How eagerly Typescript converts in a given app.
+/// How eagerly tacit converts in a given app.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AppPolicy {
     /// When false, every key passes through (plain English typing).
@@ -25,7 +25,7 @@ pub struct AppPolicy {
     /// Esc belongs to the app (vim, editors): it commits the word and goes through, and
     /// Shift+Esc switches the word's language instead.
     pub escape_to_app: bool,
-    /// Typescript steps aside in this app: the text service hands the process over to the
+    /// tacit steps aside in this app: the text service hands the process over to the
     /// system's Korean IME, so the Han/Eng key works as it does everywhere else. For apps that
     /// don't get along with composition-based input (KakaoTalk).
     pub use_system_ime: bool,
@@ -247,7 +247,7 @@ fn key_list(
     (list.is_empty() || !kept.is_empty()).then_some(kept)
 }
 
-/// User settings from `%APPDATA%\Typescript\settings.json`. A missing file or key means the
+/// User settings from `%APPDATA%\tacit\settings.json`. A missing file or key means the
 /// default; unknown keys are ignored (and kept on save).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settings {
@@ -260,7 +260,7 @@ pub struct Settings {
     pub hangul_action: HangulAction,
     /// Keys that switch the word being typed to its next language.
     pub flip_keys: Vec<Chord>,
-    /// Keys that pause Typescript in the text field. Empty: no pause key.
+    /// Keys that pause tacit in the text field. Empty: no pause key.
     pub pause_keys: Vec<Chord>,
     /// Tab completes the word being typed, and the words typed are counted for that.
     pub autocomplete: bool,
@@ -441,7 +441,7 @@ mod tests {
 
     fn temp(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "typescript-{name}-{}-{:?}.json",
+            "tacit-{name}-{}-{:?}.json",
             std::process::id(),
             std::thread::current().id()
         ))

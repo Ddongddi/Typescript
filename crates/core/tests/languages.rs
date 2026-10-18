@@ -1,7 +1,7 @@
 //! Any combination of languages, including one: decisions only ever come out in a language
 //! that is on.
 
-use typescript_core::{make_engine, DecisionContext, DecisionEngine, Language, Languages};
+use tacit_core::{make_engine, DecisionContext, DecisionEngine, Language, Languages};
 
 fn decide(ids: &[&str], keys: &str) -> (Language, String) {
     let engine = make_engine(None, &Languages::from_ids(ids).unwrap());
@@ -100,8 +100,8 @@ mod japanese {
 }
 
 mod session {
-    use typescript_core::session::testing::FakeTextField;
-    use typescript_core::{make_engine, AppPolicies, InputSession, Key, Languages, TextClient};
+    use tacit_core::session::testing::FakeTextField;
+    use tacit_core::{make_engine, AppPolicies, InputSession, Key, Languages, TextClient};
 
     fn typed(ids: &[&str], script: &str) -> String {
         let engine = make_engine(None, &Languages::from_ids(ids).unwrap());

@@ -279,6 +279,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "tacit-core"
+version = "0.10.1"
+dependencies = [
+ "memmap2",
+ "serde",
+ "serde_json",
+ "tacit-packgen",
+]
+
+[[package]]
+name = "tacit-lab"
+version = "0.1.2"
+dependencies = [
+ "tacit-core",
+]
+
+[[package]]
+name = "tacit-packgen"
+version = "0.10.1"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "zip",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -303,32 +329,6 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
-
-[[package]]
-name = "typescript-core"
-version = "0.10.1"
-dependencies = [
- "memmap2",
- "serde",
- "serde_json",
- "typescript-packgen",
-]
-
-[[package]]
-name = "typescript-lab"
-version = "0.1.2"
-dependencies = [
- "typescript-core",
-]
-
-[[package]]
-name = "typescript-packgen"
-version = "0.10.1"
-dependencies = [
- "serde_json",
- "sha2",
- "zip",
-]
 
 [[package]]
 name = "unicode-ident"

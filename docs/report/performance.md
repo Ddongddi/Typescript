@@ -61,14 +61,14 @@
 ## 측정 방법
 
 ```sh
-cargo build --release -p typescript-tip -p typescript-config   # typescript-cli와 묶지 않는다: 내장 팩이 TIP·config에도 들어간다
-cargo build --release -p typescript-tip --target i686-pc-windows-msvc
+cargo build --release -p tacit-tip -p tacit-config   # tacit-cli와 묶지 않는다: 내장 팩이 TIP·config에도 들어간다
+cargo build --release -p tacit-tip --target i686-pc-windows-msvc
 powershell -File scripts/package.ps1          # dist/ 에 릴리즈와 같은 zip
 python lab/fetch_data.py                      # 처음 한 번 (큰 세트용 데이터, git에 안 들어감)
 sh lab/report.sh > section.md                 # 맨 위 한눈에 교체 + 새 버전 절
 ```
 
-- 크기는 릴리즈 워크플로(`release.yml`)와 같은 빌드의 산출물입니다. 0.8.7까지는 `typescript-cli`와 같이 빌드해서 영어·한국어 팩이 x64 TIP과 `typescript-config`에 내장되었고(기능 통합), 이후로는 CLI를 묶지 않고 패키지에도 넣지 않습니다.
+- 크기는 릴리즈 워크플로(`release.yml`)와 같은 빌드의 산출물입니다. 0.8.7까지는 `tacit-cli`와 같이 빌드해서 영어·한국어 팩이 x64 TIP과 `tacit-config`에 내장되었고(기능 통합), 이후로는 CLI를 묶지 않고 패키지에도 넣지 않습니다.
 - 정확도는 `lab/`의 세트입니다. `acc.*`는 단어 단위(직접 고른 목록 포함), `big.*`는 실제 문장·제목에서 만든 큰 세트입니다. `sentence`는 문장 전체가 맞아야 맞고, `token`은 단어 하나씩 셉니다. 자세한 건 `lab/src/main.rs`와 `lab/src/corpus.rs`에 있습니다.
 - 속도는 결정 한 번(`commit`)과 키 입력 한 번(`keystroke`)의 마이크로초이고, 5회 중앙값입니다. 릴리즈끼리 비교할 때는 한 바퀴에 릴리즈마다 한 번씩 번갈아 돌려, 기계 상태의 흔들림이 모든 릴리즈에 같이 걸리게 합니다. 같은 컴퓨터에서도 백그라운드 작업에 따라 10~20% 흔들리므로 릴리즈 사이의 작은 차이는 잡음으로 봅니다.
 - 메모리는 팩을 올린 뒤 힙(`heap.loaded_kb`)과 측정 중 최대 힙(`heap.peak_kb`)입니다.
@@ -117,13 +117,13 @@ sh lab/report.sh > section.md                 # 맨 위 한눈에 교체 + 새 �
 
 | 항목 | 0.9.0 | 0.9.1 | 변화 |
 | --- | ---: | ---: | ---: |
-| `typescript_tip.dll` (x64) | 927 `██░░░░░░░░░░` | 943 `██░░░░░░░░░░` | +16 (+1.7%) ▼ |
-| `typescript_tip.dll` (x86) | 751 `██░░░░░░░░░░` | 760 `██░░░░░░░░░░` | +9 (+1.2%) ▼ |
-| `typescript-config.exe` | 3350 `████████░░░░` | 3265 `████████░░░░` | -85 (-2.5%) ▲ |
-| `typescript-windows.zip` | 2469 `██████░░░░░░` | 2369 `██████░░░░░░` | -100 (-4.1%) ▲ |
-| `typescript-pack-en-0.9.1.zip` | 446 `█░░░░░░░░░░░` | 446 `█░░░░░░░░░░░` | 0 = |
-| `typescript-pack-ko-0.9.1.zip` | 450 `█░░░░░░░░░░░` | 450 `█░░░░░░░░░░░` | 0 = |
-| `typescript-pack-ja-0.9.1.zip` | 4763 `████████████` | 4763 `████████████` | 0 = |
+| `tacit_tip.dll` (x64) | 927 `██░░░░░░░░░░` | 943 `██░░░░░░░░░░` | +16 (+1.7%) ▼ |
+| `tacit_tip.dll` (x86) | 751 `██░░░░░░░░░░` | 760 `██░░░░░░░░░░` | +9 (+1.2%) ▼ |
+| `tacit-config.exe` | 3350 `████████░░░░` | 3265 `████████░░░░` | -85 (-2.5%) ▲ |
+| `tacit-windows.zip` | 2469 `██████░░░░░░` | 2369 `██████░░░░░░` | -100 (-4.1%) ▲ |
+| `tacit-pack-en-0.9.1.zip` | 446 `█░░░░░░░░░░░` | 446 `█░░░░░░░░░░░` | 0 = |
+| `tacit-pack-ko-0.9.1.zip` | 450 `█░░░░░░░░░░░` | 450 `█░░░░░░░░░░░` | 0 = |
+| `tacit-pack-ja-0.9.1.zip` | 4763 `████████████` | 4763 `████████████` | 0 = |
 
 ### 지연 비교 (µs 중앙값, 낮을수록 좋음, 막대 표 안 최대 기준)
 
@@ -154,13 +154,13 @@ commit 646dec9, 2026-10-18, rustc 1.93.1 (01f6ddf75 2026-02-11)
 
 | 항목 | KiB |
 | --- | ---: |
-| `typescript_tip.dll` (x64) | 943 |
-| `typescript_tip.dll` (x86) | 760 |
-| `typescript-config.exe` | 3265 |
-| `typescript-windows.zip` | 2369 |
-| `typescript-pack-en-0.9.1.zip` | 446 |
-| `typescript-pack-ko-0.9.1.zip` | 450 |
-| `typescript-pack-ja-0.9.1.zip` | 4763 |
+| `tacit_tip.dll` (x64) | 943 |
+| `tacit_tip.dll` (x86) | 760 |
+| `tacit-config.exe` | 3265 |
+| `tacit-windows.zip` | 2369 |
+| `tacit-pack-en-0.9.1.zip` | 446 |
+| `tacit-pack-ko-0.9.1.zip` | 450 |
+| `tacit-pack-ja-0.9.1.zip` | 4763 |
 
 ### 정확도 (%)
 
@@ -244,13 +244,13 @@ commit d249a85, 2026-10-17, rustc 1.93.1 (01f6ddf75 2026-02-11). 크기는 릴�
 
 | 항목 | KiB |
 | --- | ---: |
-| `typescript_tip.dll` (x64) | 927 |
-| `typescript_tip.dll` (x86) | 751 |
-| `typescript-config.exe` | 3350 |
-| `typescript-windows.zip` | 2469 |
-| `typescript-pack-en-0.9.0.zip` | 446 |
-| `typescript-pack-ko-0.9.0.zip` | 450 |
-| `typescript-pack-ja-0.9.0.zip` | 4763 |
+| `tacit_tip.dll` (x64) | 927 |
+| `tacit_tip.dll` (x86) | 751 |
+| `tacit-config.exe` | 3350 |
+| `tacit-windows.zip` | 2469 |
+| `tacit-pack-en-0.9.0.zip` | 446 |
+| `tacit-pack-ko-0.9.0.zip` | 450 |
+| `tacit-pack-ja-0.9.0.zip` | 4763 |
 
 ### 정확도 (%)
 
@@ -334,14 +334,14 @@ commit d249a85, 2026-10-17, rustc 1.93.1 (01f6ddf75 2026-02-11). 크기는 릴�
 
 | 항목 | KiB |
 | --- | ---: |
-| `typescript_tip.dll` (x64) | 3457 |
-| `typescript_tip.dll` (x86) | 724 |
-| `typescript.exe` | 3103 |
-| `typescript-config.exe` | 5877 |
-| `typescript-windows.zip` | 5235 |
-| `typescript-pack-en-0.8.8.zip` | 446 |
-| `typescript-pack-ko-0.8.8.zip` | 387 |
-| `typescript-pack-ja-0.8.8.zip` | 4763 |
+| `tacit_tip.dll` (x64) | 3457 |
+| `tacit_tip.dll` (x86) | 724 |
+| `tacit.exe` | 3103 |
+| `tacit-config.exe` | 5877 |
+| `tacit-windows.zip` | 5235 |
+| `tacit-pack-en-0.8.8.zip` | 446 |
+| `tacit-pack-ko-0.8.8.zip` | 387 |
+| `tacit-pack-ja-0.8.8.zip` | 4763 |
 
 ### 정확도 (%)
 
@@ -425,14 +425,14 @@ commit 9527580(정확도·속도는 커밋된 lab으로 재측정), 2026-10-16, 
 
 | 항목 | KiB |
 | --- | ---: |
-| `typescript_tip.dll` (x64) | 3460 |
-| `typescript_tip.dll` (x86) | 724 |
-| `typescript.exe` | 3110 |
-| `typescript-config.exe` | 5793 |
-| `typescript-windows.zip` | 5069 |
-| `typescript-pack-en-0.8.7.zip` | 446 |
-| `typescript-pack-ko-0.8.7.zip` | 387 |
-| `typescript-pack-ja-0.8.7.zip` | 4763 |
+| `tacit_tip.dll` (x64) | 3460 |
+| `tacit_tip.dll` (x86) | 724 |
+| `tacit.exe` | 3110 |
+| `tacit-config.exe` | 5793 |
+| `tacit-windows.zip` | 5069 |
+| `tacit-pack-en-0.8.7.zip` | 446 |
+| `tacit-pack-ko-0.8.7.zip` | 387 |
+| `tacit-pack-ja-0.8.7.zip` | 4763 |
 
 ### 정확도 (%)
 
@@ -550,14 +550,14 @@ commit 9527580(정확도·속도는 커밋된 lab으로 재측정), 2026-10-16, 
 
 | 항목                            |  KiB |
 | ------------------------------- | ---: |
-| `typescript_tip.dll` (x64)      | 3435 |
-| `typescript_tip.dll` (x86)      |  704 |
-| `typescript.exe`                | 3081 |
-| `typescript-config.exe`         | 5765 |
-| `typescript-windows.zip` (설치) | 5036 |
-| `typescript-pack-en-0.8.6.zip`  |  446 |
-| `typescript-pack-ko-0.8.6.zip`  |  387 |
-| `typescript-pack-ja-0.8.6.zip`  | 4763 |
+| `tacit_tip.dll` (x64)      | 3435 |
+| `tacit_tip.dll` (x86)      |  704 |
+| `tacit.exe`                | 3081 |
+| `tacit-config.exe`         | 5765 |
+| `tacit-windows.zip` (설치) | 5036 |
+| `tacit-pack-en-0.8.6.zip`  |  446 |
+| `tacit-pack-ko-0.8.6.zip`  |  387 |
+| `tacit-pack-ja-0.8.6.zip`  | 4763 |
 
 ### 정확도 (%)
 

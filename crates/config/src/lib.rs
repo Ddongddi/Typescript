@@ -1,4 +1,4 @@
-//! typescript-config: install, remove, reorder and update language packs, and the settings that
+//! tacit-config: install, remove, reorder and update language packs, and the settings that
 //! go with them. The command line, the setup screen and the dashboard all call into here.
 
 pub mod app;

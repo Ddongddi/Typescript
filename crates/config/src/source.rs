@@ -8,8 +8,7 @@ use crate::catalog::Catalog;
 use crate::error::{err, Result};
 use crate::fetch::{Dir, Fetch, Http};
 
-pub const GITHUB_LATEST: &str =
-    "https://github.com/iamallyouneed/Typescript/releases/latest/download/";
+pub const GITHUB_LATEST: &str = "https://github.com/iamallyouneed/tacit/releases/latest/download/";
 const CATALOG_NAME: &str = "packs.json";
 const CATALOG_MAX: usize = 1024 * 1024;
 
@@ -52,9 +51,9 @@ impl Source {
         }
     }
 
-    /// `TYPESCRIPT_RELEASE` overrides GitHub (offline installs, testing a release by hand).
+    /// `TACIT_RELEASE` overrides GitHub (offline installs, testing a release by hand).
     pub fn detect() -> Source {
-        match std::env::var("TYPESCRIPT_RELEASE") {
+        match std::env::var("TACIT_RELEASE") {
             Ok(spec) if !spec.is_empty() => Source::from_spec(&spec),
             _ => Source::github(),
         }
@@ -90,7 +89,7 @@ impl Source {
         let catalog = Catalog::parse(&bytes)?;
         if !catalog.compatible() {
             return err(format!(
-                "the language packs of this release are for typescript {}, this tool is {}: update Typescript first",
+                "the language packs of this release are for tacit {}, this tool is {}: update tacit first",
                 catalog.core,
                 crate::catalog::CORE_VERSION
             ));

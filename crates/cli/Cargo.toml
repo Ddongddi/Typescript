@@ -1,17 +1,17 @@
 [package]
-name = "typescript-cli"
+name = "tacit-cli"
 version = "0.10.1"
 edition = "2021"
 license = "AGPL-3.0-only"
-repository = "https://github.com/iamallyouneed/Typescript"
+repository = "https://github.com/iamallyouneed/tacit"
 
 [[bin]]
-name = "typescript"
+name = "tacit"
 path = "src/main.rs"
 
 [features]
 # Embeds the Japanese pack too (10 MB), for tuning without installing it.
-japanese = ["typescript-core/embedded-ja"]
+japanese = ["tacit-core/embedded-ja"]
 
 [dependencies]
-typescript-core = { path = "../core", features = ["embedded-en", "embedded-ko"] }
+tacit-core = { path = "../core", features = ["embedded-en", "embedded-ko"] }

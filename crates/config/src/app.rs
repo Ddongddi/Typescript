@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
-use typescript_core::session::testing::FakeTextField;
-use typescript_core::session::{Range, TextClient, NOT_FOUND};
-use typescript_core::store::keys::{self, Chord, HangulAction};
-use typescript_core::store::policy::Override;
-use typescript_core::{
+use tacit_core::session::testing::FakeTextField;
+use tacit_core::session::{Range, TextClient, NOT_FOUND};
+use tacit_core::store::keys::{self, Chord, HangulAction};
+use tacit_core::store::policy::Override;
+use tacit_core::{
     make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine,
     DictionaryConverter, History, InputSession, JapaneseConverter, Key, Language, Languages,
     LearningEngine, Settings,
@@ -764,7 +764,7 @@ impl App {
 
     fn write_json(&self, path: &std::path::Path, value: &Value) -> Result<(), String> {
         let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-        typescript_core::store::write_atomic(path, text.as_bytes())
+        tacit_core::store::write_atomic(path, text.as_bytes())
             .map_err(|e| format!("could not save: {e}"))
     }
 
@@ -841,10 +841,10 @@ impl App {
         })
     }
 
-    /// Where the program runs from and whether it is a `TYPESCRIPT_HOME` test run: what decides
+    /// Where the program runs from and whether it is a `TACIT_HOME` test run: what decides
     /// what removing may touch.
     fn uninstall_plan(&self) -> (crate::uninstall::Plan, bool) {
-        let test_home = std::env::var_os("TYPESCRIPT_HOME").is_some();
+        let test_home = std::env::var_os("TACIT_HOME").is_some();
         let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
@@ -946,7 +946,7 @@ mod tests {
         let page = app.handle(&r);
         assert_eq!(page.status, 200);
         assert!(page.content_type.starts_with("text/html"));
-        assert!(String::from_utf8_lossy(&page.body).contains("Typescript"));
+        assert!(String::from_utf8_lossy(&page.body).contains("tacit"));
         r.host = Some("evil.test".into());
         assert_eq!(app.handle(&r).status, 403, "still only for this host");
         let mut api = req("GET", "/api/state", None);
@@ -1161,7 +1161,7 @@ mod tests {
             200
         );
         assert_eq!(json_of(&app.handle(&req("GET", "/api/apps", None))), rules);
-        let policies = typescript_core::AppPolicies::load(Some(&f.env.apps));
+        let policies = tacit_core::AppPolicies::load(Some(&f.env.apps));
         assert!(!policies.policy(Some("game.exe")).enabled);
         for bad in [
             json!({"a.exe": {"enabled": "no"}}),
@@ -1324,7 +1324,7 @@ mod tests {
         let message = json_of(&done)["message"].as_str().unwrap().to_string();
         assert!(message.contains("installer"), "{message}");
         assert!(
-            message.contains("typescript-config again"),
+            message.contains("tacit-config again"),
             "the open settings page is the old version: {message}"
         );
         assert!(started.lock().unwrap().as_ref().unwrap().is_file());

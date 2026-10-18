@@ -1,5 +1,5 @@
 "use strict";
-// 삭제 (in the 업데이트 tab): takes Typescript and what it learned off this computer. Never one
+// 삭제 (in the 업데이트 tab): takes tacit and what it learned off this computer. Never one
 // click: the first button only opens a question, and the answer is a button that has to be held
 // down for HOLD_MS, filling as it goes. Letting go, moving off it, or losing the focus starts over.
 

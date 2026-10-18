@@ -1,6 +1,6 @@
-# Typescript Official Documentation (English)
+# tacit Official Documentation (English)
 
-Typescript is an intelligent, automatic multilingual Input Method Editor (IME) that lets you type without ever toggling a language key. As you type on a standard QWERTY keyboard, it analyzes keystrokes word-by-word to accurately distinguish and convert **English**, **Korean (2-set Hangul)**, and **Japanese (Romaji/Kana/Kanji)** on the fly.
+tacit is an intelligent, automatic multilingual Input Method Editor (IME) that lets you type without ever toggling a language key. As you type on a standard QWERTY keyboard, it analyzes keystrokes word-by-word to accurately distinguish and convert **English**, **Korean (2-set Hangul)**, and **Japanese (Romaji/Kana/Kanji)** on the fly.
 
 [한국어 공식 문서](../ko/README.md) · [Main Documentation Index](../README.md)
 
@@ -23,7 +23,7 @@ Typescript is an intelligent, automatic multilingual Input Method Editor (IME) t
    - Language pack downloads and offline deployment
 
 3. [**Configuration & Management**](configuration.md)
-   - Local web dashboard (`typescript-config`) usage
+   - Local web dashboard (`tacit-config`) usage
    - CLI command reference
    - Configuration files (`settings.json`, `apps.json`, `lexicon.json`)
    - Per-app custom rules (Terminal, Editor, Gaming optimizations)
@@ -31,7 +31,7 @@ Typescript is an intelligent, automatic multilingual Input Method Editor (IME) t
 
 4. [**Language Pack System**](language-packs.md)
    - Language pack structure and specification (`manifest.json`, binary tables)
-   - `typescript-packgen` toolchain usage
+   - `tacit-packgen` toolchain usage
    - Step-by-step procedure for adding new languages
    - Dataset requirements and licensing compliance
 
@@ -45,16 +45,16 @@ Typescript is an intelligent, automatic multilingual Input Method Editor (IME) t
 
 ## ⚡ Quick Start (Windows)
 
-Run the following command in PowerShell with administrator privileges to download, install, and activate Typescript:
+Run the following command in PowerShell with administrator privileges to download, install, and activate tacit:
 
 ```powershell
-irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
 ```
 
-When a first install finishes, a **welcome page** opens in your browser to pick your languages (English, Korean, Japanese; the list order is the cycling order). After installation, press **Win + Space** and select **Typescript** or **Typescript (Autocomplete)**.
+When a first install finishes, a **welcome page** opens in your browser to pick your languages (English, Korean, Japanese; the list order is the cycling order). After installation, press **Win + Space** and select **tacit** or **tacit (Autocomplete)**.
 
-To open the graphical settings dashboard, click **Typescript Settings** from the Start Menu or run:
+To open the graphical settings dashboard, click **tacit Settings** from the Start Menu or run:
 
 ```powershell
-typescript-config
+tacit-config
 ```

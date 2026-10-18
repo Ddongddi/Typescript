@@ -55,7 +55,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 - A function word (`The`) is no host for a case particle: `The는` no longer turns into `쏟는`.
 
 ### Packaging
-- The release package no longer holds `typescript.exe` (the development CLI). Built together with the CLI, the packs it embeds ended up in the other binaries too, 2.5 MB each.
+- The release package no longer holds `tacit.exe` (the development CLI). Built together with the CLI, the packs it embeds ended up in the other binaries too, 2.5 MB each.
 
 ## [0.8.8] - 2026-10-16
 
@@ -121,7 +121,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 ## [0.8.2] - 2026-10-15
 
 ### Changed
-- Welcome guide (tutorial): the first two screens are one. Under "안녕하세요", in small grey text, it asks you to type `안녕 typescript`, and when you have, the same screen moves on to "Is the Han/Eng key really needed?".
+- Welcome guide (tutorial): the first two screens are one. Under "안녕하세요", in small grey text, it asks you to type `안녕 tacit`, and when you have, the same screen moves on to "Is the Han/Eng key really needed?".
 - The welcome guide's Esc screen is now three rounds. Type `깨짐` (`Rowla` on an English layout), fix it with Esc, then "Could you do it once more?" and "One last time". The program learns a word the second time it is corrected the same way, so the last round comes out as `깨짐` without Esc, and then it tells you "words you fix twice like this are remembered". If it has not been learned yet it does not say so and simply moves on. A correction is recorded only once the word is confirmed (Space), so each round tells you to press Space.
 - The welcome guide's last screen wording was polished, and the progress bar segments are lit or off, never half.
 
@@ -141,30 +141,30 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [0.8.0] - 2026-10-15
 
-This version is **0.8.0**, not 0.7.1, because the pack file format changed. Packs and the program are only compatible within the same minor version (0.7.x packs are for 0.7.x programs), and the new Japanese pack is in a format the older program (0.7.x) cannot read, so the compatibility range is split here. A 0.7.x program sees this release's pack list as incompatible, does not download it, and says "update Typescript first". Updating installs the program and the Japanese pack together.
+This version is **0.8.0**, not 0.7.1, because the pack file format changed. Packs and the program are only compatible within the same minor version (0.7.x packs are for 0.7.x programs), and the new Japanese pack is in a format the older program (0.7.x) cannot read, so the compatibility range is split here. A 0.7.x program sees this release's pack list as incompatible, does not download it, and says "update tacit first". Updating installs the program and the Japanese pack together.
 
 ### Changed
 - The Japanese pack got smaller: 17.2 MB → 10.1 MB installed, and the download about 5.9 MB → 4.9 MB. The tables are stored again at their natural width, so detection and conversion results are the same as before. (This is the change that alters the pack format: `kana_trigrams.txt` became `kana_trigrams.bin` and the dictionary went from `TSIPDIC2` to `TSIPDIC3`.) Thanks to Ddongddi for the contribution.
-- Release binaries are smaller. `typescript-config` is about 7% smaller (6.6 → 6.1 MB) and `typescript` about 2%; the input method DLL is unchanged.
+- Release binaries are smaller. `tacit-config` is about 7% smaller (6.6 → 6.1 MB) and `tacit` about 2%; the input method DLL is unchanged.
 
 ### Added
 - An English changelog ([CHANGELOG.en.md](CHANGELOG.en.md)).
 
 ### Fixed
-- Files that could not be deleted on uninstall or reinstall because a running app held them (the DLLs in `C:\Program Files\Typescript`) are now scheduled for deletion at the next restart. Before, the folder stayed behind after an uninstall and only a message said otherwise.
+- Files that could not be deleted on uninstall or reinstall because a running app held them (the DLLs in `C:\Program Files\tacit`) are now scheduled for deletion at the next restart. Before, the folder stayed behind after an uninstall and only a message said otherwise.
 
 ## [0.7.0] - 2026-10-14
 
 ### Added
-- First-run tutorial (welcome page, `typescript-config welcome`): starts with "안녕하세요", shows the hassle of typing while hitting the Han/Eng key, then lets you try `dkssud typescript` without it. Picking languages downloads and enables them (per-language progress and completion are shown), and practices switching input methods, Korean, and Esc one screen at a time. The Esc screen shows an intentionally wrong example (typing `깨짐` on an English layout leaves `Rowla`) and explains that undecided text can be changed with Esc. A progress bar sits on top, practice fields are free-typing with only the result checked. It opens only on a fresh install (never on update) and can be reopened from the dashboard's "Tutorial" link.
-- `typescript-config setup --if-configured`: reinstalls the already-enabled languages (for updates). It fails on a fresh install so the install scripts can tell the two cases apart.
+- First-run tutorial (welcome page, `tacit-config welcome`): starts with "안녕하세요", shows the hassle of typing while hitting the Han/Eng key, then lets you try `dkssud tacit` without it. Picking languages downloads and enables them (per-language progress and completion are shown), and practices switching input methods, Korean, and Esc one screen at a time. The Esc screen shows an intentionally wrong example (typing `깨짐` on an English layout leaves `Rowla`) and explains that undecided text can be changed with Esc. A progress bar sits on top, practice fields are free-typing with only the result checked. It opens only on a fresh install (never on update) and can be reopened from the dashboard's "Tutorial" link.
+- `tacit-config setup --if-configured`: reinstalls the already-enabled languages (for updates). It fails on a fresh install so the install scripts can tell the two cases apart.
 - Dashboard update tab: the changelog for every version in one place (since 0.1.0). Expand/collapse all, and records for versions newer than the current one are fetched from GitHub and shown on top.
 - Dashboard: a "taught words" section on the language tab (delete one, clear all) and a "word history" section on the input-settings tab (remembered word count, clear). Both need two presses to clear.
 - Dashboard: also detects the currently selected input method on macOS and Linux, shows a one-time setup checklist, and adapts the switch-key guidance to the system.
 - Dashboard: opening an old address (expired token) shows a "please reopen" notice. Added `GET /api/health` (version, uptime, whether busy).
 
 ### Changed
-- The language prompt during installation (checklist and ordering) moved to the welcome page's first screen. Passing `-Languages` or having already-configured languages (an update) still installs quietly. Dropped the `dialoguer` dependency for the terminal prompt, and a bare `typescript-config setup` opens the welcome page instead of asking in the terminal.
+- The language prompt during installation (checklist and ordering) moved to the welcome page's first screen. Passing `-Languages` or having already-configured languages (an update) still installs quietly. Dropped the `dialoguer` dependency for the terminal prompt, and a bare `tacit-config setup` opens the welcome page instead of asking in the terminal.
 - Dashboard: server error responses carry a `code` (invalid, upstream, busy, …). The connectivity check slows to every 30 seconds while the window is hidden and backs off while it keeps failing.
 
 ### Fixed
@@ -175,8 +175,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 ### Changed
 - Security: password fields are passed straight to the app — nothing there is read, counted, or learned. Detected via input scope (password) on Windows, secure-input mode on macOS, and input purpose (password/PIN) on Linux (IBus). (Previously Android only.)
-- Security: language packs and updates are fetched over https only. An `http://` address in `TYPESCRIPT_RELEASE` is refused unless it is this machine (localhost). Folders can still be used as-is.
-- Security: opening `typescript-config` from the terminal no longer always prints the address carrying the session token; it is shown only when the browser fails to open.
+- Security: language packs and updates are fetched over https only. An `http://` address in `TACIT_RELEASE` is refused unless it is this machine (localhost). Folders can still be used as-is.
+- Security: opening `tacit-config` from the terminal no longer always prints the address carrying the session token; it is shown only when the browser fails to open.
 - Built-in rules for terminals, editors, and messengers. Terminals (Windows Terminal, cmd, PowerShell, …) use a strict conversion threshold, editors (VS Code, Cursor, JetBrains, …) pass Esc to the app, and messengers (Slack, Discord, Teams, Telegram, LINE, KakaoTalk) send on a single Enter. An entry in `apps.json` for that app wins. App rules gain `returnConfirmsOnly` (per-app Enter behavior).
 - Security: `install.sh` refuses to install archives containing paths outside their folder (`../`, absolute paths).
 - Damaged word-history and kanji-learning files are moved aside to `.unreadable` instead of being silently overwritten (same as the correction-learning file). All saves are atomic, including the update-check cache.
@@ -203,7 +203,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 ## [0.6.3] - 2026-10-14
 
 ### Added
-- Dashboard: a banner when the currently selected input method is not Typescript, naming it and telling you to switch with Win+Space. (Windows)
+- Dashboard: a banner when the currently selected input method is not tacit, naming it and telling you to switch with Win+Space. (Windows)
 
 ### Changed
 - Dashboard: trimmed the "connected" indicator at the top down to a small dot and text.
@@ -230,7 +230,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 ### Fixed
 - Dashboard: typing digits in the input-settings tab's chat input switched tabs.
-- Windows: shortcuts assigned to the Han/Eng key (`Win+D` and the like) worked only inside text fields. They now work everywhere, including the desktop, the taskbar, and already-running apps. Same for laptops where the Han/Eng key arrives as right Alt. Installing starts a key watcher at sign-in (`rundll32 typescript_tip.dll,KeyHook`). It does not act in front of windows run as administrator.
+- Windows: shortcuts assigned to the Han/Eng key (`Win+D` and the like) worked only inside text fields. They now work everywhere, including the desktop, the taskbar, and already-running apps. Same for laptops where the Han/Eng key arrives as right Alt. Installing starts a key watcher at sign-in (`rundll32 tacit_tip.dll,KeyHook`). It does not act in front of windows run as administrator.
 
 ## [0.6.0] - 2026-10-14
 
@@ -258,7 +258,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 - Dashboard input settings gain **try in chat**: type on an English layout and check it the same way the real input method does.
   With "Enter only confirms" on it takes two Enters to send, with it off one — the bubble's `Enter ×N`
   shows it, and buttons compare the two behaviors. Tab completion and Backspace work too.
-- When an update replaces the program, the settings page tells you to close it and reopen `typescript-config`.
+- When an update replaces the program, the settings page tells you to close it and reopen `tacit-config`.
 
 ### Fixed
 - "Unusable pack: …needs core …" staying on the dashboard after a program update. When a newer version of the same pack already works, old version folders are no longer reported as problems, and installing a pack cleans up that pack's old version folders.
@@ -268,10 +268,10 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 ## [0.5.0] - 2026-10-14
 
 ### Added
-- **macOS**: InputMethodKit input method (`Typescript.app`, Apple silicon + Intel).
-- **Linux**: IBus engine (`ibus-engine-typescript`).
+- **macOS**: InputMethodKit input method (`tacit.app`, Apple silicon + Intel).
+- **Linux**: IBus engine (`ibus-engine-tacit`).
 - `install.sh`: one-line install/uninstall for macOS and Linux (current user only, no administrator rights, SHA-256 verified).
-- `platforms/ffi`: the input method wrapped as C functions (`typescript.h`). The macOS and Linux input methods share it.
+- `platforms/ffi`: the input method wrapped as C functions (`tacit.h`). The macOS and Linux input methods share it.
 - Dashboard: clicking a word on the try-out tab shows and switches to how it reads in other languages.
 - Dashboard: the app-rule conversion threshold becomes a slider with a live preview of how a sample sentence reads while it moves.
 - Dashboard: drag the Esc order chips to reorder and press Esc to preview the cycle.
@@ -281,8 +281,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 - `LICENSE` changed to AGPL-3.0 with `NOTICE`, `CONTRIBUTING.md`, and this changelog added.
 
 ### Changed
-- Settings and language-pack folders are per system. Windows is unchanged; macOS uses `~/Library/Application Support/Typescript`,
-  Linux uses `~/.config/Typescript` (packs under `~/.local/share/Typescript/packs`).
+- Settings and language-pack folders are per system. Windows is unchanged; macOS uses `~/Library/Application Support/tacit`,
+  Linux uses `~/.config/tacit` (packs under `~/.local/share/tacit/packs`).
 - License: MIT → AGPL-3.0-only (releases up to v0.4.1 stay MIT).
 - Dashboard sources split into markup, style, and script files under `crates/config/src/web/`.
 - CI and releases build, test, and package on Linux and macOS in addition to Windows and Android.
@@ -305,7 +305,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 ### Added
 - **Language packs**: language data ships as packs so only what is needed is fetched. Structure for adding languages as modules.
-- `typescript-config`: terminal setup screen, command line, web dashboard.
+- `tacit-config`: terminal setup screen, command line, web dashboard.
 - Update checks for new versions and language packs from releases.
 - Pick languages at install time and fetch their packs.
 
@@ -345,33 +345,33 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.1...HEAD
-[0.10.1]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...v0.10.1
-[0.10.0]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...v0.10.0
-[0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
-[0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
-[0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8
-[0.8.7]: https://github.com/iamallyouneed/Typescript/compare/v0.8.6...v0.8.7
-[0.8.6]: https://github.com/iamallyouneed/Typescript/compare/v0.8.5...v0.8.6
-[0.8.5]: https://github.com/iamallyouneed/Typescript/compare/v0.8.4...v0.8.5
-[0.8.4]: https://github.com/iamallyouneed/Typescript/compare/v0.8.3...v0.8.4
-[0.8.3]: https://github.com/iamallyouneed/Typescript/compare/v0.8.2...v0.8.3
-[0.8.2]: https://github.com/iamallyouneed/Typescript/compare/v0.8.1...v0.8.2
-[0.8.1]: https://github.com/iamallyouneed/Typescript/compare/v0.8.0...v0.8.1
-[0.8.0]: https://github.com/iamallyouneed/Typescript/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/iamallyouneed/Typescript/compare/v0.6.5...v0.7.0
-[0.6.5]: https://github.com/iamallyouneed/Typescript/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/iamallyouneed/Typescript/compare/v0.6.3...v0.6.4
-[0.6.3]: https://github.com/iamallyouneed/Typescript/compare/v0.6.2...v0.6.3
-[0.6.2]: https://github.com/iamallyouneed/Typescript/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/iamallyouneed/Typescript/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/iamallyouneed/Typescript/compare/v0.5.2...v0.6.0
-[0.5.2]: https://github.com/iamallyouneed/Typescript/compare/v0.5.1...v0.5.2
-[0.5.1]: https://github.com/iamallyouneed/Typescript/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/iamallyouneed/Typescript/compare/v0.4.1...v0.5.0
-[0.4.1]: https://github.com/iamallyouneed/Typescript/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/iamallyouneed/Typescript/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/iamallyouneed/Typescript/compare/v0.2.1...v0.3.0
-[0.2.1]: https://github.com/iamallyouneed/Typescript/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/iamallyouneed/Typescript/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/iamallyouneed/Typescript/releases/tag/v0.1.1
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/iamallyouneed/tacit/compare/v0.9.1...v0.10.0
+[0.9.1]: https://github.com/iamallyouneed/tacit/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/iamallyouneed/tacit/compare/v0.8.8...v0.9.0
+[0.8.8]: https://github.com/iamallyouneed/tacit/compare/v0.8.7...v0.8.8
+[0.8.7]: https://github.com/iamallyouneed/tacit/compare/v0.8.6...v0.8.7
+[0.8.6]: https://github.com/iamallyouneed/tacit/compare/v0.8.5...v0.8.6
+[0.8.5]: https://github.com/iamallyouneed/tacit/compare/v0.8.4...v0.8.5
+[0.8.4]: https://github.com/iamallyouneed/tacit/compare/v0.8.3...v0.8.4
+[0.8.3]: https://github.com/iamallyouneed/tacit/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/iamallyouneed/tacit/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/iamallyouneed/tacit/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/iamallyouneed/tacit/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/iamallyouneed/tacit/compare/v0.6.5...v0.7.0
+[0.6.5]: https://github.com/iamallyouneed/tacit/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/iamallyouneed/tacit/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/iamallyouneed/tacit/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/iamallyouneed/tacit/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/iamallyouneed/tacit/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/iamallyouneed/tacit/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/iamallyouneed/tacit/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/iamallyouneed/tacit/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/iamallyouneed/tacit/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/iamallyouneed/tacit/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/iamallyouneed/tacit/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/iamallyouneed/tacit/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/iamallyouneed/tacit/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/iamallyouneed/tacit/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/iamallyouneed/tacit/releases/tag/v0.1.1

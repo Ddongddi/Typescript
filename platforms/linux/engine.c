@@ -1,15 +1,15 @@
-/* Typescript for IBus: the engine process ibus-daemon starts (see typescript.xml).
-   All the typing logic is in libtypescript_ffi; this file maps IBus key events to it and its
+/* tacit for IBus: the engine process ibus-daemon starts (see tacit.xml).
+   All the typing logic is in libtacit_ffi; this file maps IBus key events to it and its
    commands (preedit / commit) back to IBus. */
 #include <ibus.h>
 #include <stdlib.h>
 #include <string.h>
-#include "typescript.h"
+#include "tacit.h"
 
-#define ENGINE_NAME "typescript"
+#define ENGINE_NAME "tacit"
 #define SEP '\x01'
 
-/* Kinds, as in typescript.h. */
+/* Kinds, as in tacit.h. */
 enum { LETTER, PRINTABLE, DELETE, ESCAPE, CYCLE, ENTER, TAB, OTHER };
 
 typedef struct { IBusEngine parent; } TsEngine;
@@ -77,7 +77,7 @@ static int kind_of(guint keyval, guint32 *ch) {
 
 static gboolean process_key(IBusEngine *e, guint keyval, guint keycode, guint state) {
   if (state & IBUS_RELEASE_MASK || secure) return FALSE;
-  /* The pause key (한/영) turns Typescript off and on in this text field. */
+  /* The pause key (한/영) turns tacit off and on in this text field. */
   if (keyval == IBUS_KEY_Hangul || keyval == IBUS_KEY_Pause)
     return apply(e, ts_toggle_pause(ime, composing->str));
   /* Shift+Esc cycles the reading of the word, like on Android. */
@@ -133,13 +133,13 @@ int main(int argc, char **argv) {
   IBusFactory *factory = ibus_factory_new(ibus_bus_get_connection(bus));
   ibus_factory_add_engine(factory, ENGINE_NAME, ts_engine_get_type());
   if (from_ibus) {
-    ibus_bus_request_name(bus, "io.github.iamallyouneed.Typescript", 0);
+    ibus_bus_request_name(bus, "io.github.iamallyouneed.tacit", 0);
   } else {
     IBusComponent *component = ibus_component_new(
-        "io.github.iamallyouneed.Typescript", "Typescript", "0", "AGPL-3.0-only", "Necessity",
-        "https://github.com/iamallyouneed/Typescript", "", "ibus-typescript");
+        "io.github.iamallyouneed.tacit", "tacit", "0", "AGPL-3.0-only", "Necessity",
+        "https://github.com/iamallyouneed/tacit", "", "ibus-tacit");
     ibus_component_add_engine(component,
-        ibus_engine_desc_new(ENGINE_NAME, "Typescript", "English / Korean / Japanese by word",
+        ibus_engine_desc_new(ENGINE_NAME, "tacit", "English / Korean / Japanese by word",
                              "en", "AGPL-3.0-only", "Necessity", "", "us"));
     ibus_bus_register_component(bus, component);
   }

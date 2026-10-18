@@ -1,7 +1,7 @@
 //! Drives `Ime` the way the Java side does: applies the returned commands to a text field and
 //! types the keys the input method did not consume.
 
-use typescript_android::ime::{Ime, DELETE, LETTER, PRINTABLE};
+use tacit_android::ime::{Ime, DELETE, LETTER, PRINTABLE};
 
 struct Editor {
     ime: Ime,

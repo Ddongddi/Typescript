@@ -1,19 +1,19 @@
 //! Tuning and evaluation tool. Usage:
-//!   typescript "dkssudgktpdy rmfjgek hello world"   convert arguments
-//!   typescript -v "..."                              also print per-word scores
-//!   echo "..." | typescript                          convert stdin line by line
-//!   typescript --compose < keys.txt                  print "keys<TAB>hangul" per line
-//!   typescript --suggest < keys.txt                  "keys, language, shown, Tab completion" per line
-//!   typescript --decide < keys_prev.tsv            verdict for "keys<TAB>previous" lines
+//!   tacit "dkssudgktpdy rmfjgek hello world"   convert arguments
+//!   tacit -v "..."                              also print per-word scores
+//!   echo "..." | tacit                          convert stdin line by line
+//!   tacit --compose < keys.txt                  print "keys<TAB>hangul" per line
+//!   tacit --suggest < keys.txt                  "keys, language, shown, Tab completion" per line
+//!   tacit --decide < keys_prev.tsv            verdict for "keys<TAB>previous" lines
 //!                                                    (previous: english|korean|mixed|japanese|empty)
-//!   typescript --convert < kana.txt                kanji candidates per kana line
+//!   tacit --convert < kana.txt                kanji candidates per kana line
 //! Add --japanese to score romaji Japanese too (--decide, -v); it needs the Japanese pack.
 
 use std::io::{self, BufRead};
 
-use typescript_core::lang::hangul::HangulComposer;
-use typescript_core::store::history::suggest;
-use typescript_core::{
+use tacit_core::lang::hangul::HangulComposer;
+use tacit_core::store::history::suggest;
+use tacit_core::{
     make_engine, DecisionContext, DecisionEngine, DictionaryConverter, JapaneseConverter, Language,
     Languages, TextConverter,
 };
@@ -27,12 +27,12 @@ fn main() {
     // No lexicon: evaluation must not depend on (or change) what this user has learned.
     // English and Korean are built in; Japanese comes from the installed pack (or a build with
     // `--features japanese`).
-    for root in typescript_core::pack_dirs() {
-        typescript_core::pack::refresh(&root);
+    for root in tacit_core::pack_dirs() {
+        tacit_core::pack::refresh(&root);
     }
     let japanese = args.iter().any(|a| a == "--japanese");
     if (japanese || args.first().is_some_and(|a| a == "--convert"))
-        && !typescript_core::pack::available(Language::Japanese)
+        && !tacit_core::pack::available(Language::Japanese)
     {
         eprintln!("no Japanese pack: install it (install.ps1 -Japanese) or build with --features japanese");
         std::process::exit(1);

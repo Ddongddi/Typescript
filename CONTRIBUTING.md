@@ -6,7 +6,7 @@
 
 ## 한국어
 
-Typescript는 **Necessity**의 프로젝트로 운영되는 오픈소스입니다. 라이선스는 [AGPL-3.0-only](LICENSE)입니다.
+tacit는 **Necessity**의 프로젝트로 운영되는 오픈소스입니다. 라이선스는 [AGPL-3.0-only](LICENSE)입니다.
 버그 제보, 문서, 코드, 언어 데이터 모두 환영합니다. 큰 변경은 먼저 이슈로 이야기해 주세요.
 
 ### 기여 조건 (DCO)
@@ -33,18 +33,18 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니다: `--workspace --exclude typescript-tip`.
+Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니다: `--workspace --exclude tacit-tip`.
 
 | 시스템 | 빌드 |
 | --- | --- |
-| Windows | `cargo build --release -p typescript-tip -p typescript-config` (`typescript-cli`는 개발용이라 같이 빌드하지 않습니다: 내장 팩이 다른 바이너리에도 들어가 커집니다) (x86은 `rustup target add i686-pc-windows-msvc`), 설치는 `.\scripts\install.ps1` (관리자 권한 한 번) |
+| Windows | `cargo build --release -p tacit-tip -p tacit-config` (`tacit-cli`는 개발용이라 같이 빌드하지 않습니다: 내장 팩이 다른 바이너리에도 들어가 커집니다) (x86은 `rustup target add i686-pc-windows-msvc`), 설치는 `.\scripts\install.ps1` (관리자 권한 한 번) |
 | Android | `.\platforms\android\build.ps1` (Android SDK·NDK, JDK 17, `cargo install cargo-ndk`) |
 | macOS | `sh platforms/macos/build.sh` (Xcode 명령줄 도구, `rustup target add aarch64-apple-darwin x86_64-apple-darwin`) |
-| Linux | `sudo apt install libibus-1.0-dev pkg-config` 후 `cargo build --release -p typescript-ffi && make -C platforms/linux` |
+| Linux | `sudo apt install libibus-1.0-dev pkg-config` 후 `cargo build --release -p tacit-ffi && make -C platforms/linux` |
 
 - **웹 대시보드**는 `crates/config/src/web/`(마크업, 스타일, 스크립트)에 있고 컴파일 때 한 페이지로 합쳐집니다.
   내 설정을 건드리지 않고 시험하려면 다음처럼 실행하세요.
-  `TYPESCRIPT_HOME=/tmp/dash TYPESCRIPT_NO_BROWSER=1 cargo run -p typescript-config`
+  `TACIT_HOME=/tmp/dash TACIT_NO_BROWSER=1 cargo run -p tacit-config`
 - **골든 테스트**(`crates/core/tests/golden/`)는 영어·한국어·일본어 판별 결과의 스냅샷입니다. 동작을 바꾸려는 게
   아니라면 이 파일이 달라져서는 안 되고, 바꿔야 한다면 PR에서 이유를 설명해 주세요. Linux·macOS에서는 부동소수점
   표현 차이로 숫자만 1e-6까지 허용하고, Windows에서는 바이트 단위로 같아야 합니다.
@@ -77,7 +77,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 ### 언어와 사전 데이터 기여
 
 - **새 언어**는 `crates/core/src/lang/<id>/` 모듈과 `registry.rs`의 한 줄, 그리고 `crates/packgen`의 팩 정의로
-  들어갑니다. 팩은 `cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs`로 만듭니다.
+  들어갑니다. 팩은 `cargo run -p tacit-packgen --bin build-packs -- crates/core/data target/packs`로 만듭니다.
 - **데이터의 출처와 라이선스**를 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt)에 적어 주세요. 라이선스를
   모르는 데이터, 재배포가 막힌 데이터는 받을 수 없습니다.
 - CC BY-SA 같은 데이터는 코드와 별개로 **원래 라이선스를 유지**합니다. 데이터는 코드와 섞지 말고 `crates/core/data`
@@ -86,11 +86,11 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 ### 버그와 보안 제보
 
-- **버그**는 [이슈](https://github.com/iamallyouneed/Typescript/issues)로 알려 주세요. 입력기는 환경에 따라
-  달라서 이것들이 있으면 재현이 빨라집니다: 시스템과 버전(Windows·Android·macOS·Linux), 입력기 종류와 Typescript
+- **버그**는 [이슈](https://github.com/iamallyouneed/tacit/issues)로 알려 주세요. 입력기는 환경에 따라
+  달라서 이것들이 있으면 재현이 빨라집니다: 시스템과 버전(Windows·Android·macOS·Linux), 입력기 종류와 tacit
   버전, 입력하던 **앱 이름**, 친 **키 순서**, 기대한 결과와 실제 결과, 가능하면 대시보드 체험 탭의 결과.
 - **보안 취약점**은 공개 이슈에 올리지 말고 GitHub의
-  [비공개 보안 권고](https://github.com/iamallyouneed/Typescript/security/advisories/new)로 보내 주세요.
+  [비공개 보안 권고](https://github.com/iamallyouneed/tacit/security/advisories/new)로 보내 주세요.
 
 ### 기여자
 
@@ -104,7 +104,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 ## English
 
-Typescript is open source, run as a project of **Necessity**, under the
+tacit is open source, run as a project of **Necessity**, under the
 [AGPL-3.0-only](LICENSE). Bug reports, docs, code and language data are all welcome. Please discuss big
 changes in an issue first.
 
@@ -132,18 +132,18 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-On Linux and macOS leave out the Windows-only text service: `--workspace --exclude typescript-tip`.
+On Linux and macOS leave out the Windows-only text service: `--workspace --exclude tacit-tip`.
 
 | System | Build |
 | --- | --- |
-| Windows | `cargo build --release -p typescript-tip -p typescript-config` (not with `typescript-cli`, a development tool: its embedded packs would end up in the other binaries too) (for x86: `rustup target add i686-pc-windows-msvc`); install with `.\scripts\install.ps1` (one administrator prompt) |
+| Windows | `cargo build --release -p tacit-tip -p tacit-config` (not with `tacit-cli`, a development tool: its embedded packs would end up in the other binaries too) (for x86: `rustup target add i686-pc-windows-msvc`); install with `.\scripts\install.ps1` (one administrator prompt) |
 | Android | `.\platforms\android\build.ps1` (Android SDK and NDK, JDK 17, `cargo install cargo-ndk`) |
 | macOS | `sh platforms/macos/build.sh` (Xcode command line tools, `rustup target add aarch64-apple-darwin x86_64-apple-darwin`) |
-| Linux | `sudo apt install libibus-1.0-dev pkg-config`, then `cargo build --release -p typescript-ffi && make -C platforms/linux` |
+| Linux | `sudo apt install libibus-1.0-dev pkg-config`, then `cargo build --release -p tacit-ffi && make -C platforms/linux` |
 
 - The **web dashboard** lives in `crates/config/src/web/` (markup, styles, scripts) and is put together into one
   page at compile time. To try it without touching your own settings:
-  `TYPESCRIPT_HOME=/tmp/dash TYPESCRIPT_NO_BROWSER=1 cargo run -p typescript-config`
+  `TACIT_HOME=/tmp/dash TACIT_NO_BROWSER=1 cargo run -p tacit-config`
 - The **golden tests** (`crates/core/tests/golden/`) are snapshots of what is decided for English, Korean and
   Japanese. They must not change unless you mean to change behavior; if they must, explain why in the PR. On
   Linux and macOS numbers may differ by 1e-6 (floating-point libraries); on Windows they match byte for byte.
@@ -178,7 +178,7 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 ### Language and dictionary data
 
 - A **new language** is a module `crates/core/src/lang/<id>/`, one line in `registry.rs`, and a pack definition
-  in `crates/packgen`. Build packs with `cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs`.
+  in `crates/packgen`. Build packs with `cargo run -p tacit-packgen --bin build-packs -- crates/core/data target/packs`.
 - State the **source and license** of the data in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt). Data of
   unknown license, or that cannot be redistributed, cannot be accepted.
 - Data such as CC BY-SA **keeps its own license**, separate from the code: keep it in its own files under
@@ -188,12 +188,12 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 
 ### Bugs and security
 
-- Report **bugs** as [issues](https://github.com/iamallyouneed/Typescript/issues). An input method depends on its
+- Report **bugs** as [issues](https://github.com/iamallyouneed/tacit/issues). An input method depends on its
   environment, so please include: system and version (Windows, Android, macOS, Linux), which input method and
-  Typescript version, the **app** you were typing in, the **keys** you pressed, what you expected and what you
+  tacit version, the **app** you were typing in, the **keys** you pressed, what you expected and what you
   got, and the dashboard's 체험 (try) result if you can.
 - Report **security vulnerabilities** through GitHub's
-  [private security advisory](https://github.com/iamallyouneed/Typescript/security/advisories/new), not in a
+  [private security advisory](https://github.com/iamallyouneed/tacit/security/advisories/new), not in a
   public issue.
 
 ### Contributors

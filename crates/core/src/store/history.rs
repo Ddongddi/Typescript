@@ -211,10 +211,8 @@ mod tests {
     use super::*;
 
     fn temp(name: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "typescript-history-{name}-{}.json",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("tacit-history-{name}-{}.json", std::process::id()));
         let _ = fs::remove_file(&path);
         path
     }

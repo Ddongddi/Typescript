@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="assets/icon.png" alt="Typescript" width="112">
+  <img src="assets/icon.png" alt="tacit" width="112">
 </p>
 
-<h1 align="center">Typescript</h1>
+<h1 align="center">tacit</h1>
+
+> 기존 **Typescript**에서 옮길 때는 이전 설치기로 먼저 제거한 뒤 tacit을 설치하세요. 설정·학습 데이터는 자동 이전하지 않습니다. 실행 중인 앱을 닫고 기존 `Typescript` 사용자 폴더의 내용을 같은 위치의 `tacit` 폴더로 복사하면 유지할 수 있습니다 (Windows: `%APPDATA%`, 팩은 `%LOCALAPPDATA%`; macOS: `~/Library/Application Support`; Linux: `~/.config`, 팩은 `$XDG_DATA_HOME` 또는 `~/.local/share`). Android는 패키지 ID가 바뀌어 별도 앱으로 설치되므로 입력기를 다시 선택해야 합니다.
+
 
 <h3 align="center">
 한/영 키 없이, 치는 대로 영어·한국어·일본어를 알아서 가려 주는 입력기
@@ -24,8 +27,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iamallyouneed/Typescript/releases/latest"><img src="https://img.shields.io/github/v/release/iamallyouneed/Typescript?label=release&color=2ea44f" alt="release"></a>
-  <a href="https://github.com/iamallyouneed/Typescript/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/iamallyouneed/Typescript/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://github.com/iamallyouneed/tacit/releases/latest"><img src="https://img.shields.io/github/v/release/iamallyouneed/tacit?label=release&color=2ea44f" alt="release"></a>
+  <a href="https://github.com/iamallyouneed/tacit/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/iamallyouneed/tacit/ci.yml?branch=main&label=CI" alt="CI"></a>
   <img src="https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white" alt="Rust">
   <img src="https://img.shields.io/badge/Windows-TSF-0078D4?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Android-IME-3DDC84?logo=android&logoColor=white" alt="Android">
@@ -53,13 +56,13 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 
 1. **설치.** PowerShell을 열고 한 줄을 붙여 넣습니다. 관리자 권한 확인창이 한 번 뜹니다.
    ```powershell
-   irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+   irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
    ```
    끝나면 브라우저에 시작 안내 페이지가 열립니다. 쓸 언어를 고르고(영어·한국어가 기본) 시작을 누르세요.
-2. **입력기 고르기.** **Win+Space** 를 눌러 `Typescript (자동완성)` 을 고릅니다. 이미 떠 있는 앱은 다시 열어야 합니다.
+2. **입력기 고르기.** **Win+Space** 를 눌러 `tacit (자동완성)` 을 고릅니다. 이미 떠 있는 앱은 다시 열어야 합니다.
 3. **쳐 보기.** 메모장에서 `dkssud` 를 치면 밑줄과 함께 `안녕` 이 보입니다. Space나 Enter로 확정합니다.
 4. **틀렸을 때.** 영어로 쓰려던 단어가 한글로 나오면 **Esc** 를 누르세요. 영어 → 한국어 → … 순서로 바뀝니다.
-5. **더 만지고 싶으면.** 시작 메뉴에서 **Typescript 설정** 을 엽니다 → [대시보드](#대시보드-설정-페이지). 오른쪽 채팅창에서 설정을 바꿔 가며 바로 쳐 볼 수 있습니다.
+5. **더 만지고 싶으면.** 시작 메뉴에서 **tacit 설정** 을 엽니다 → [대시보드](#대시보드-설정-페이지). 오른쪽 채팅창에서 설정을 바꿔 가며 바로 쳐 볼 수 있습니다.
 
 끝입니다. 한/영 키를 누를 일이 없어야 정상입니다.
 
@@ -78,7 +81,7 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 | Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위, 일본어는 가나 한 글자 |
 | Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성하고, 기록에 없으면 내장 사전에서 완성한다. 완성할 단어는 단어 아래 작은 알약 창에 `안녕하세요  Tab` 으로 미리 보인다. 완성할 게 없으면 Tab은 앱으로 간다 |
 | ⌃K / F7, ⌃J / F6 | (일본어) 읽기를 가타카나 / 히라가나로 보여 준다. Space로 둘을 뒤집고 Enter로 확정한다 |
-| **한/영 키** | 기본은 단어의 언어를 돌려 바꿉니다. Alt+한/영 은 이 입력칸에서 Typescript를 끄고 켭니다 (다른 칸으로 가면 다시 켜진다). 둘 다 [키 탭](#대시보드-설정-페이지)에서 바꿉니다 |
+| **한/영 키** | 기본은 단어의 언어를 돌려 바꿉니다. Alt+한/영 은 이 입력칸에서 tacit를 끄고 켭니다 (다른 칸으로 가면 다시 켜진다). 둘 다 [키 탭](#대시보드-설정-페이지)에서 바꿉니다 |
 
 **섞어 쓰기.** 띄어쓰기 없이 영어와 한국어를 붙여 써도 알아서 나눕니다. `githubdp` → `github에`, `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `nwp` → `n제`.
 
@@ -91,19 +94,19 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 PowerShell에서 한 줄이면 최신 릴리스를 받아 설치하고 입력기까지 켭니다 (관리자 권한 확인창 1회). 처음 설치하면 설치가 끝난 뒤 브라우저에 **시작 안내 페이지**가 열립니다. 한/영 키 없이 치는 맛을 보여 주고, **쓸 언어를 고르면**(영어·한국어가 기본, 목록 순서가 Esc 순환 순서) 받아서 켠 뒤 짧은 연습까지 안내합니다. 업데이트로 설치하면 뜨지 않습니다. 안내는 대시보드 위쪽의 **튜토리얼** 링크로 언제든 다시 볼 수 있습니다.
 
 ```powershell
-irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
 ```
 
 화면 없이 바로 정하려면 `-Languages` 를 줍니다. 영어·한국어·일본어 중 1개 이상을 자유롭게 조합합니다 (예: 한국어만, 일본어 → 영어).
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Languages ko,en,ja
+& ([scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))) -Languages ko,en,ja
 ```
 
 이미 설치했다면 같은 명령을 다시 실행해도 됩니다 (켜진 언어는 그대로). 제거와 버전 지정은 스크립트 블록으로 부릅니다.
 
 ```powershell
-$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
+$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
 & $i -Version v0.10.1       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
@@ -115,8 +118,8 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/rele
 
 | 입력기 | 하는 일 |
 | --- | --- |
-| `Typescript (자동완성)` | 자동 판별 + Tab 자동완성 + 쓴 단어 학습 |
-| `Typescript` | 자동 판별만 (자동완성도, 단어 기록도 없다) |
+| `tacit (자동완성)` | 자동 판별 + Tab 자동완성 + 쓴 단어 학습 |
+| `tacit` | 자동 판별만 (자동완성도, 단어 기록도 없다) |
 
 <details>
 <summary>소스에서 직접 빌드해 설치</summary>
@@ -138,19 +141,19 @@ Rust와 `rustup target add i686-pc-windows-msvc` 가 필요합니다.
 한 줄로 설치합니다 (현재 사용자에게만 설치하고 관리자 권한은 필요 없습니다. 릴리스를 받아 SHA-256을 확인합니다).
 
 ```sh
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh
 # 언어를 고르거나 제거할 때:
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --languages ko,en,ja
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --uninstall
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --languages ko,en,ja
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --uninstall
 ```
 
-- **macOS:** `~/Library/Input Methods/Typescript.app` 로 설치됩니다. 로그아웃했다가 다시 들어온 뒤 시스템 설정 → 키보드 → 입력 소스 → 편집에서 **Typescript** 를 추가합니다. 서명·공증을 하지 않아 처음에는 개인정보 보호 및 보안에서 허용해야 할 수 있습니다. 한/영 키가 없으니 **Option+Space** 가 일시정지입니다.
-- **Linux:** IBus 엔진이 `~/.local/share/typescript/` 에 설치됩니다. 설정 → 키보드 → 입력 소스(또는 `ibus-setup`)에서 **Typescript** 를 추가합니다. 목록에 없으면 로그아웃했다가 다시 들어오세요. fcitx5는 아직 지원하지 않습니다.
-- 설정은 macOS에서 `~/Library/Application Support/Typescript/`, Linux에서 `~/.config/Typescript/` 에 저장됩니다. 설정 페이지는 `typescript-config` 로 엽니다 (`~/.local/bin` 이 PATH에 있어야 합니다).
+- **macOS:** `~/Library/Input Methods/tacit.app` 로 설치됩니다. 로그아웃했다가 다시 들어온 뒤 시스템 설정 → 키보드 → 입력 소스 → 편집에서 **tacit** 를 추가합니다. 서명·공증을 하지 않아 처음에는 개인정보 보호 및 보안에서 허용해야 할 수 있습니다. 한/영 키가 없으니 **Option+Space** 가 일시정지입니다.
+- **Linux:** IBus 엔진이 `~/.local/share/tacit/` 에 설치됩니다. 설정 → 키보드 → 입력 소스(또는 `ibus-setup`)에서 **tacit** 를 추가합니다. 목록에 없으면 로그아웃했다가 다시 들어오세요. fcitx5는 아직 지원하지 않습니다.
+- 설정은 macOS에서 `~/Library/Application Support/tacit/`, Linux에서 `~/.config/tacit/` 에 저장됩니다. 설정 페이지는 `tacit-config` 로 엽니다 (`~/.local/bin` 이 PATH에 있어야 합니다).
 
 ### Android
 
-릴리스의 **`typescript.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Typescript** 를 켜고, 입력창에서 키보드로 고릅니다.
+릴리스의 **`tacit.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **tacit** 를 켜고, 입력창에서 키보드로 고릅니다.
 
 - 화면 키보드는 두벌식 자모를 키마다 같이 표시합니다. 블루투스/USB 물리 키보드도 됩니다.
 - 화면 키보드의 `가/A` 키는 Esc와 같습니다. `한/영` 키는 일시정지이고 켜져 있으면 `OFF` 로 보입니다.
@@ -161,12 +164,12 @@ curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/
 <summary>APK 직접 빌드</summary>
 
 ```powershell
-.\platforms\android\build.ps1                 # platforms\android\build\typescript.apk (arm64 + x86_64)
+.\platforms\android\build.ps1                 # platforms\android\build\tacit.apk (arm64 + x86_64)
 .\platforms\android\build.ps1 -Abi arm64-v8a  # 폰용만
-adb install -r platforms\android\build\typescript.apk
+adb install -r platforms\android\build\tacit.apk
 ```
 
-Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-linux-android x86_64-linux-android`, `cargo install cargo-ndk` 가 필요합니다. 직접 빌드하면 디버그 키로 서명되므로 릴리스 APK와는 덮어 설치되지 않습니다. 릴리스 키로 서명하려면 `TS_KEYSTORE`, `TS_KEYSTORE_PASS` 환경변수를 주세요 (별칭은 `typescript`).
+Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-linux-android x86_64-linux-android`, `cargo install cargo-ndk` 가 필요합니다. 직접 빌드하면 디버그 키로 서명되므로 릴리스 APK와는 덮어 설치되지 않습니다. 릴리스 키로 서명하려면 `TS_KEYSTORE`, `TS_KEYSTORE_PASS` 환경변수를 주세요 (별칭은 `tacit`).
 
 </details>
 
@@ -174,7 +177,7 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 
 | | Windows | Android | macOS | Linux |
 | --- | --- | --- | --- | --- |
-| 형태 | TSF 텍스트 서비스 (x64 + x86 DLL) | `InputMethodService` APK (arm64) | InputMethodKit 입력기 (`Typescript.app`, 유니버설) | IBus 엔진 (`ibus-engine-typescript`) |
+| 형태 | TSF 텍스트 서비스 (x64 + x86 DLL) | `InputMethodService` APK (arm64) | InputMethodKit 입력기 (`tacit.app`, 유니버설) | IBus 엔진 (`ibus-engine-tacit`) |
 | 입력 | 물리 키보드 | 화면 키보드 + 블루투스/USB 키보드 | 물리 키보드 | 물리 키보드 |
 | 영어·한국어 | 있음 | 있음 | 있음 | 있음 |
 | 자동완성(Tab)·단어 학습 | 있음 | 없음 | 없음 | 없음 |
@@ -184,12 +187,12 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 
 ## 대시보드 (설정 페이지)
 
-설정은 파일을 고칠 필요 없이 대시보드에서 합니다. 시작 메뉴의 **Typescript 설정** (또는 `C:\Program Files\Typescript\typescript-config.exe`, macOS·Linux는 `typescript-config`)을 실행하면 브라우저에 설정 페이지가 열립니다.
+설정은 파일을 고칠 필요 없이 대시보드에서 합니다. 시작 메뉴의 **tacit 설정** (또는 `C:\Program Files\tacit\tacit-config.exe`, macOS·Linux는 `tacit-config`)을 실행하면 브라우저에 설정 페이지가 열립니다.
 
 - 이 컴퓨터(127.0.0.1)에서만 열리고, 실행할 때마다 바뀌는 토큰이 주소에 들어 있어 다른 사이트는 접근할 수 없습니다.
 - 탭을 닫으면 잠시 뒤 스스로 끝납니다.
 - 바꾸면 **바로 저장**되고, 열려 있는 앱에는 곧 반영됩니다. 저장 버튼은 없습니다.
-- 상단의 점은 연결 상태입니다. 지금 선택된 입력기가 Typescript가 아니면 위쪽에 알려 주고 Win+Space로 바꾸라고 안내합니다.
+- 상단의 점은 연결 상태입니다. 지금 선택된 입력기가 tacit가 아니면 위쪽에 알려 주고 Win+Space로 바꾸라고 안내합니다.
 - **오른쪽의 채팅창**은 모든 탭에서 보입니다. 여기서 치는 키는 실제 입력기를 거치므로, 설정을 바꾸고 바로 어떻게 달라지는지 쳐 볼 수 있습니다. 입력창 밖 빈 곳에서 글자를 쳐도 채팅에 들어갑니다.
 - 단축키: 숫자 **1–5** 로 탭 이동, **/** 로 앱 찾기, 언어 탭에서 **Esc** 로 순환 미리 보기.
 
@@ -204,24 +207,24 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 같은 일을 명령으로도 할 수 있습니다.
 
 ```powershell
-typescript-config list                 # 설치됨 / 받을 수 있음 / 켜짐 순서
-typescript-config add ja               # 일본어 팩을 받고 켠다
-typescript-config remove ja            # 끄고 팩을 지운다
-typescript-config order ko,en          # Esc 순서 (켜진 언어끼리만 바꿀 수 있다)
-typescript-config check                # 새 버전이 있는지
-typescript-config update               # 언어 팩 갱신 + 새 프로그램 설치기 실행
-typescript-config welcome              # 시작 안내 페이지: 언어 고르기 + 짧은 연습
-typescript-config setup --languages ko,en   # 설치 때 쓰는 선택 (화면 없이, 스크립트용)
-typescript-config setup --if-configured     # 이미 켜 둔 언어를 다시 설치 (업데이트용, 처음 설치면 실패)
+tacit-config list                 # 설치됨 / 받을 수 있음 / 켜짐 순서
+tacit-config add ja               # 일본어 팩을 받고 켠다
+tacit-config remove ja            # 끄고 팩을 지운다
+tacit-config order ko,en          # Esc 순서 (켜진 언어끼리만 바꿀 수 있다)
+tacit-config check                # 새 버전이 있는지
+tacit-config update               # 언어 팩 갱신 + 새 프로그램 설치기 실행
+tacit-config welcome              # 시작 안내 페이지: 언어 고르기 + 짧은 연습
+tacit-config setup --languages ko,en   # 설치 때 쓰는 선택 (화면 없이, 스크립트용)
+tacit-config setup --if-configured     # 이미 켜 둔 언어를 다시 설치 (업데이트용, 처음 설치면 실패)
 ```
 
-받은 팩은 릴리스 목록(`packs.json`)의 SHA-256과 크기가 맞고, 안의 표 파일이 manifest의 해시와 맞을 때만 설치됩니다. 하루에 한 번 새 릴리스를 확인해 알려 줍니다 (끄려면 입력 설정의 *새 버전 확인*). `TYPESCRIPT_RELEASE` 에 폴더나 주소를 주면 다른 릴리스(오프라인 설치)를 씁니다.
+받은 팩은 릴리스 목록(`packs.json`)의 SHA-256과 크기가 맞고, 안의 표 파일이 manifest의 해시와 맞을 때만 설치됩니다. 하루에 한 번 새 릴리스를 확인해 알려 줍니다 (끄려면 입력 설정의 *새 버전 확인*). `TACIT_RELEASE` 에 폴더나 주소를 주면 다른 릴리스(오프라인 설치)를 씁니다.
 
 ## 문제가 생겼을 때
 
 | 증상 | 해결 |
 | --- | --- |
-| Win+Space 목록에 Typescript가 없다 | 설치를 다시 실행하세요. **영어(미국)** 아래에 있어야 합니다. 이미 떠 있던 앱은 다시 열어야 새 입력기를 읽습니다 |
+| Win+Space 목록에 tacit가 없다 | 설치를 다시 실행하세요. **영어(미국)** 아래에 있어야 합니다. 이미 떠 있던 앱은 다시 열어야 새 입력기를 읽습니다 |
 | 어떤 앱에서만 안 된다 | 대시보드 **앱별 규칙**에서 그 앱을 찾아 "끄기"나 "시스템 IME" 프리셋을 적용해 보세요 |
 | 터미널에서 짧은 명령(`ls`, `git`)이 한글로 바뀐다 | 앱별 규칙에서 터미널에 *터미널 · 엄격* 프리셋을 적용하세요 (변환 기준을 올립니다) |
 | 에디터에서 Esc가 먹힌다 / 앱의 Esc가 안 간다 | 앱 규칙의 `escapeToApp` 을 켜면 Esc는 앱으로 가고, 읽기 순환은 **Shift+Esc** 입니다 |
@@ -229,9 +232,9 @@ typescript-config setup --if-configured     # 이미 켜 둔 언어를 다시 �
 | 한/영 키가 반응이 없다 | **키** 탭에서 "한/영 키 지정"으로 실제 키를 알려 주세요 (오른쪽 Alt인 노트북이 많습니다) |
 | 카카오톡에서 글자가 끊긴다 | 입력기가 영어(미국) 아래에 등록돼 있어야 합니다. 한국어 아래에 두면 안 됩니다 ([앱 호환](#앱-호환)) |
 | 완전히 끄고 싶다 | 입력칸에서 Alt+한/영 (일시정지), 또는 Win+Space로 다른 입력기를 고르세요 |
-| 원인을 모르겠다 | `%APPDATA%\Typescript\debug.on` 파일을 만들면 `debug.log` 에 이벤트 이름만 남습니다 (친 글자는 기록하지 않습니다). 끝나면 파일을 지우세요 |
+| 원인을 모르겠다 | `%APPDATA%\tacit\debug.on` 파일을 만들면 `debug.log` 에 이벤트 이름만 남습니다 (친 글자는 기록하지 않습니다). 끝나면 파일을 지우세요 |
 
-그래도 안 되면 [이슈](https://github.com/iamallyouneed/Typescript/issues)로 알려 주세요. 자세한 내용은 [docs/ko/troubleshooting.md](docs/ko/troubleshooting.md) 에 있습니다.
+그래도 안 되면 [이슈](https://github.com/iamallyouneed/tacit/issues)로 알려 주세요. 자세한 내용은 [docs/ko/troubleshooting.md](docs/ko/troubleshooting.md) 에 있습니다.
 
 ## 일본어
 
@@ -245,7 +248,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 ```
 
 - **Space가 변환을 엽니다.** 후보를 Space/↓(다음), ↑(이전), 1–9, Enter(확정)로 고르고, Esc/Backspace는 가나 편집으로 돌아갑니다. ←/→는 첫 구절의 경계를 늘리고 줄입니다.
-- **한자 변환**은 IPADIC 사전(39만 항목 + 연결 비용, NAIST 라이선스)으로 하고, 단어 비용은 wordfreq 빈도로 보정합니다. 고른 후보는 읽기별로 학습합니다 (`%APPDATA%\Typescript\kanji_learning.json`, 읽기당 5개).
+- **한자 변환**은 IPADIC 사전(39만 항목 + 연결 비용, NAIST 라이선스)으로 하고, 단어 비용은 wordfreq 빈도로 보정합니다. 고른 후보는 읽기별로 학습합니다 (`%APPDATA%\tacit\kanji_learning.json`, 읽기당 5개).
 - 품질은 Mozc·Apple 엔진보다 낮습니다. 첫 후보가 틀리면 Space로 넘기면 되고(예: `ほん` → ホン, 本 순서), 같은 교정을 두 번 하면 다음부터 먼저 나옵니다.
 - 입력 설정의 *치는 동안 바로 변환* (`liveConversion`) 을 켜면 치는 동안 첫 후보를 바로 보여 줍니다.
 - *전각 숫자·공백* 은 기본 꺼짐입니다. 앱 규칙의 `"fullWidth": false` 로 그 앱에서만 반각으로 둘 수 있습니다 (터미널).
@@ -254,7 +257,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 
 ## 설정 파일
 
-대시보드로 충분하지만, JSON을 직접 편집해도 됩니다. 위치는 `%APPDATA%\Typescript\` (macOS `~/Library/Application Support/Typescript/`, Linux `~/.config/Typescript/`). 앱 간 전환할 때 다시 읽습니다.
+대시보드로 충분하지만, JSON을 직접 편집해도 됩니다. 위치는 `%APPDATA%\tacit\` (macOS `~/Library/Application Support/tacit/`, Linux `~/.config/tacit/`). 앱 간 전환할 때 다시 읽습니다.
 
 `settings.json`
 
@@ -266,7 +269,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 | 키 | 뜻 |
 | --- | --- |
 | `returnConfirmsOnly` | `true`면 Enter는 밑줄 단어를 확정만 한다 |
-| `autocomplete` | `false`면 `Typescript (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
+| `autocomplete` | `false`면 `tacit (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
 | `hangulKey` | 한영키로 쓸 키 (기본 `"Hangul"`). 아래 목록의 `HangulKey`가 이 키를 가리킨다 |
 | `hangulAction` | 한/영 키만 눌렀을 때 하는 일: `"flip"`(단어 언어 전환, 기본) · `"none"` · 앱에 보낼 단축키(`"Ctrl+C"`, `"Win+L"` …) |
 | `flipKeys` | 단어의 언어를 바꾸는 키 목록 (기본 `["Esc", "HangulKey"]`). `"Ctrl+Space"` 같은 조합도 되고 `[]`이면 끈다 |
@@ -300,7 +303,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 
 - **카카오톡, RichEdit 기반 앱 (IMM32 앱).** Windows는 TSF 입력기의 조합을 IMM32 메시지로 바꿔 주는데, *한국어* 입력기에는 "조합은 한 글자(interim)" 규칙을 적용해 나머지를 바로 확정합니다. 단어 전체를 미리보기로 보여 주는 이 입력기는 한국어로 등록하면 키마다 끊겼습니다 (`테스트` → `ㅌpㅅmㅌm`). 그래서 **영어(미국)로 등록합니다.** 그러면 같은 앱에서도 단어 전체가 하나의 조합으로 유지됩니다. 또 IMM32 앱은 입력기가 "가져가겠다"고 한 키를 돌려받지 못하므로, 단어를 끝내고 앱으로 넘어가는 키(Space, 구두점, Enter, Tab, 방향키)는 TSF가 키를 물어보는 단계에서 바로 처리합니다.
 - **시스템 한국어 입력기를 쓰고 싶은 앱.** 앱별 규칙의 *시스템 IME* (`useSystemIme`) 로 그 프로세스만 Microsoft 한국어 IME로 넘길 수 있습니다 (다른 앱으로 가면 되돌아옵니다).
-- `cargo run -p typescript-tip --example richedit_lab -- --ts` (또는 `--ms`) 는 RichEdit 창에 실제 키를 보내 결과와 앱이 받는 IME 메시지를 찍습니다 (카카오톡과 같은 컨트롤).
+- `cargo run -p tacit-tip --example richedit_lab -- --ts` (또는 `--ms`) 는 RichEdit 창에 실제 키를 보내 결과와 앱이 받는 IME 메시지를 찍습니다 (카카오톡과 같은 컨트롤).
 
 ## 특징
 
@@ -335,17 +338,17 @@ flowchart LR
 | `session/` | 입력 상태 머신: `word`, `preview`(밑줄), `flip`(확정 직후 Esc), `japanese`, `client`/`key`(앱과의 경계) |
 | `store/` | 디스크에 남는 것: 앱별 정책·설정(`policy`), 단어 기록(`history`) |
 
-- `crates/config` 가 대시보드(`typescript-config`)입니다. 웹 페이지(`src/web/`)를 바이너리에 넣어 로컬 서버로 엽니다.
-- `platforms/windows` 가 TSF COM DLL이고 언어 데이터는 설치된 팩(`%LOCALAPPDATA%\Typescript\packs`)에서 읽습니다. `platforms/android` 는 코어를 JNI로 감싼 Rust 라이브러리와 Java `InputMethodService` 입니다.
+- `crates/config` 가 대시보드(`tacit-config`)입니다. 웹 페이지(`src/web/`)를 바이너리에 넣어 로컬 서버로 엽니다.
+- `platforms/windows` 가 TSF COM DLL이고 언어 데이터는 설치된 팩(`%LOCALAPPDATA%\tacit\packs`)에서 읽습니다. `platforms/android` 는 코어를 JNI로 감싼 Rust 라이브러리와 Java `InputMethodService` 입니다.
 - 언어 데이터는 `crates/packgen` 이 팩(`manifest.json` + 표 파일)으로 만듭니다. 새 언어는 `lang/<id>/` 모듈, `registry.rs` 등록, 엔진 점수, 팩 등록이 필요합니다 (목록은 [docs/ko/language-packs.md](docs/ko/language-packs.md)).
 - 더 깊은 설명은 [docs/](docs/README.md) 에 있습니다. 기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```powershell
 cargo test                                   # core 단위/통합 테스트
-cargo run -p typescript-cli -- -v "dkssud hello"
-echo "dkssud`tenglish" | cargo run -p typescript-cli -- --decide
+cargo run -p tacit-cli -- -v "dkssud hello"
+echo "dkssud`tenglish" | cargo run -p tacit-cli -- --decide
 cargo clippy --all-targets -- -D warnings
-cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs   # 릴리스 팩 (en, ko, ja)
+cargo run -p tacit-packgen --bin build-packs -- crates/core/data target/packs   # 릴리스 팩 (en, ko, ja)
 ```
 
 **릴리스.** `v` 로 시작하는 태그를 푸시하면 GitHub Actions(`release.yml`)가 테스트 → 빌드 → 언어 팩 생성 → 패키징 → 릴리스까지 합니다. 푸시와 PR마다 `ci.yml` 이 fmt, clippy, 테스트를 돌립니다.

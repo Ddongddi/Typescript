@@ -333,8 +333,8 @@ fn zip_flat(dir: &Path) -> io::Result<Vec<u8>> {
     Ok(out.into_inner())
 }
 
-/// A release's language-pack assets in `out`: `typescript-pack-<id>-<version>.zip` for every
-/// pack, and `packs.json` listing them with their size and SHA-256 (what typescript-config reads).
+/// A release's language-pack assets in `out`: `tacit-pack-<id>-<version>.zip` for every
+/// pack, and `packs.json` listing them with their size and SHA-256 (what tacit-config reads).
 pub fn write_release(data: &Path, out: &Path) -> io::Result<()> {
     fs::create_dir_all(out)?;
     let work = out.join("work");
@@ -343,7 +343,7 @@ pub fn write_release(data: &Path, out: &Path) -> io::Result<()> {
         let folder = work.join(spec.id);
         write_pack(spec.id, data, &folder)?;
         let zip = zip_flat(&folder)?;
-        let name = format!("typescript-pack-{}-{VERSION}.zip", spec.id);
+        let name = format!("tacit-pack-{}-{VERSION}.zip", spec.id);
         fs::write(out.join(&name), &zip)?;
         listed.push(serde_json::json!({
             "id": spec.id,
@@ -475,7 +475,7 @@ mod release_tests {
             let zip = fs::read(out.join(url)).unwrap();
             assert_eq!(p["size"].as_u64().unwrap(), zip.len() as u64, "{url}");
             assert_eq!(p["sha256"].as_str().unwrap(), sha256_hex(&zip), "{url}");
-            assert!(url.starts_with("typescript-pack-") && url.ends_with(".zip"));
+            assert!(url.starts_with("tacit-pack-") && url.ends_with(".zip"));
         }
         let ko = packs.iter().find(|p| p["id"] == "ko").unwrap();
         assert_eq!(ko["requires"], serde_json::json!(["en"]));
@@ -486,7 +486,7 @@ mod release_tests {
     fn a_pack_zip_is_flat_with_its_manifest_first() {
         let out = temp("flat");
         write_release(&data(), &out).unwrap();
-        let zip = fs::read(out.join(format!("typescript-pack-en-{VERSION}.zip"))).unwrap();
+        let zip = fs::read(out.join(format!("tacit-pack-en-{VERSION}.zip"))).unwrap();
         let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
         let names: Vec<String> = (0..archive.len())
             .map(|i| archive.by_index(i).unwrap().name().to_string())

@@ -1,4 +1,4 @@
-//! Typescript core: decides per word whether QWERTY keystrokes were meant as English,
+//! tacit core: decides per word whether QWERTY keystrokes were meant as English,
 //! Korean (2-set) or Japanese (romaji), and drives the typing session on top of that.
 //! No OS dependencies.
 
@@ -57,12 +57,12 @@ fn mac_support(get: Var) -> Option<PathBuf> {
     Some(
         home.join("Library")
             .join("Application Support")
-            .join("Typescript"),
+            .join("tacit"),
     )
 }
 
-/// Settings and learned data: `%APPDATA%\Typescript` on Windows, `~/Library/Application
-/// Support/Typescript` on macOS, `$XDG_CONFIG_HOME/Typescript` (else `~/.config/Typescript`)
+/// Settings and learned data: `%APPDATA%\tacit` on Windows, `~/Library/Application
+/// Support/tacit` on macOS, `$XDG_CONFIG_HOME/tacit` (else `~/.config/tacit`)
 /// elsewhere. Holds settings.json, apps.json, lexicon.json, user_history.json.
 pub fn support_dir() -> Option<PathBuf> {
     support_dir_for(Os::current(), &var)
@@ -70,26 +70,22 @@ pub fn support_dir() -> Option<PathBuf> {
 
 fn support_dir_for(os: Os, get: Var) -> Option<PathBuf> {
     match os {
-        Os::Windows => get("APPDATA").map(|d| PathBuf::from(d).join("Typescript")),
+        Os::Windows => get("APPDATA").map(|d| PathBuf::from(d).join("tacit")),
         Os::Mac => mac_support(get),
         Os::Linux => match get("XDG_CONFIG_HOME") {
-            Some(d) => Some(PathBuf::from(d).join("Typescript")),
-            None => Some(
-                PathBuf::from(get("HOME")?)
-                    .join(".config")
-                    .join("Typescript"),
-            ),
+            Some(d) => Some(PathBuf::from(d).join("tacit")),
+            None => Some(PathBuf::from(get("HOME")?).join(".config").join("tacit")),
         },
     }
 }
 
-/// Where installed language packs live. Windows: `%LOCALAPPDATA%\Typescript\packs`, and the
+/// Where installed language packs live. Windows: `%LOCALAPPDATA%\tacit\packs`, and the
 /// same path under the user profile. In an AppContainer process (a Store app, a sandboxed
 /// browser) the first is usually redirected to the package's own folder, which has no packs;
 /// the second is where the installer put them. Both are scanned. The folder is in the user's
 /// local profile, not the roaming one, so the installer can grant AppContainer read access to
-/// it. macOS: next to the settings. Elsewhere: `$XDG_DATA_HOME/Typescript/packs` (else
-/// `~/.local/share/Typescript/packs`).
+/// it. macOS: next to the settings. Elsewhere: `$XDG_DATA_HOME/tacit/packs` (else
+/// `~/.local/share/tacit/packs`).
 pub fn pack_dirs() -> Vec<PathBuf> {
     pack_dirs_for(Os::current(), &var)
 }
@@ -106,7 +102,7 @@ fn pack_dirs_for(os: Os, get: Var) -> Vec<PathBuf> {
                 Some(d) => Some(PathBuf::from(d)),
                 None => get("HOME").map(|h| PathBuf::from(h).join(".local").join("share")),
             };
-            base.map(|b| b.join("Typescript").join("packs"))
+            base.map(|b| b.join("tacit").join("packs"))
                 .into_iter()
                 .collect()
         }
@@ -117,7 +113,7 @@ fn pack_dirs_from(
     local: Option<std::ffi::OsString>,
     profile: Option<std::ffi::OsString>,
 ) -> Vec<PathBuf> {
-    let under = |base: PathBuf| base.join("Typescript").join("packs");
+    let under = |base: PathBuf| base.join("tacit").join("packs");
     let mut dirs: Vec<PathBuf> = local.into_iter().map(|d| under(d.into())).collect();
     if let Some(profile) = profile {
         let dir = under(PathBuf::from(profile).join("AppData").join("Local"));
@@ -160,7 +156,7 @@ mod tests {
         let dirs = pack_dirs_from(Some(redirected.into()), Some("u".into()));
         assert_eq!(dirs.len(), 2);
         assert!(dirs[1].starts_with(local_app_data("u")));
-        assert!(dirs[1].ends_with("Typescript/packs"));
+        assert!(dirs[1].ends_with("tacit/packs"));
     }
 
     #[test]
@@ -186,11 +182,11 @@ mod tests {
         let linux = vars(&[("HOME", "/home/a")]);
         assert_eq!(
             support_dir_for(Os::Linux, &linux),
-            Some(PathBuf::from("/home/a/.config/Typescript"))
+            Some(PathBuf::from("/home/a/.config/tacit"))
         );
         assert_eq!(
             pack_dirs_for(Os::Linux, &linux),
-            vec![PathBuf::from("/home/a/.local/share/Typescript/packs")]
+            vec![PathBuf::from("/home/a/.local/share/tacit/packs")]
         );
         let xdg = vars(&[
             ("HOME", "/h"),
@@ -199,23 +195,21 @@ mod tests {
         ]);
         assert_eq!(
             support_dir_for(Os::Linux, &xdg),
-            Some(PathBuf::from("/c/Typescript"))
+            Some(PathBuf::from("/c/tacit"))
         );
         assert_eq!(
             pack_dirs_for(Os::Linux, &xdg),
-            vec![PathBuf::from("/d/Typescript/packs")]
+            vec![PathBuf::from("/d/tacit/packs")]
         );
         let mac = vars(&[("HOME", "/Users/a")]);
         assert_eq!(
             support_dir_for(Os::Mac, &mac),
-            Some(PathBuf::from(
-                "/Users/a/Library/Application Support/Typescript"
-            ))
+            Some(PathBuf::from("/Users/a/Library/Application Support/tacit"))
         );
         assert_eq!(
             pack_dirs_for(Os::Mac, &mac),
             vec![PathBuf::from(
-                "/Users/a/Library/Application Support/Typescript/packs"
+                "/Users/a/Library/Application Support/tacit/packs"
             )]
         );
         let none = vars(&[]);
@@ -224,7 +218,7 @@ mod tests {
         let win = vars(&[("APPDATA", "C:/A")]);
         assert_eq!(
             support_dir_for(Os::Windows, &win),
-            Some(PathBuf::from("C:/A/Typescript"))
+            Some(PathBuf::from("C:/A/tacit"))
         );
     }
 }

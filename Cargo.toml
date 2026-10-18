@@ -12,14 +12,14 @@ strip = true
 
 # The core engine at "s": measured (lab, 3 runs each) 3% slower per decision (21.8 vs 21.0 µs)
 # for a 12% smaller TIP (896 vs 1023 KB). "z" is 35% slower, so not that.
-[profile.release.package.typescript-core]
+[profile.release.package.tacit-core]
 opt-level = "s"
 
 # Not latency-sensitive: smaller without behaving any differently. The TIP stays at
 # opt-level 3.
-[profile.release.package.typescript-config]
+[profile.release.package.tacit-config]
 opt-level = "z"
-[profile.release.package.typescript-cli]
+[profile.release.package.tacit-cli]
 opt-level = "z"
-[profile.release.package.typescript-packgen]
+[profile.release.package.tacit-packgen]
 opt-level = "z"

@@ -7,9 +7,9 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use typescript_core::session::testing::FakeTextField;
-use typescript_core::session::NoopClient;
-use typescript_core::{
+use tacit_core::session::testing::FakeTextField;
+use tacit_core::session::NoopClient;
+use tacit_core::{
     make_engine, AppPolicies, InputSession, Key, Languages, LearningEngine, Range, Settings,
     TextClient,
 };
@@ -165,7 +165,7 @@ impl Ime {
         self.composing.clear();
     }
 
-    /// Pauses or resumes Typescript in this text field.
+    /// Pauses or resumes tacit in this text field.
     pub fn toggle_pause(&mut self, before: &str) -> String {
         self.run(before, |s, c| {
             s.toggle_pause(c);

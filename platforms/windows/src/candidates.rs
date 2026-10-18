@@ -17,7 +17,7 @@ use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use crate::popup::{extent, font, palette, px, scale};
-use typescript_core::session::CandidatePage;
+use tacit_core::session::CandidatePage;
 
 /// Logical pixels at 96 dpi.
 const LINE_HEIGHT: i32 = 28;
@@ -288,14 +288,14 @@ impl CandidateWindow {
                 let class = WNDCLASSW {
                     lpfnWndProc: Some(window_proc),
                     hInstance: instance,
-                    lpszClassName: w!("TypescriptCandidates"),
+                    lpszClassName: w!("tacitCandidates"),
                     ..Default::default()
                 };
                 RegisterClassW(&class);
             });
             let hwnd = CreateWindowExW(
                 WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
-                w!("TypescriptCandidates"),
+                w!("tacitCandidates"),
                 None,
                 WS_POPUP,
                 0,

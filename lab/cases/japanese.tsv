@@ -1,4 +1,4 @@
-# Original Typescript evaluation cases (AGPL-3.0-only). Not dictionary training input.
+# Original tacit evaluation cases (AGPL-3.0-only). Not dictionary training input.
 # category<TAB>reading<TAB>accepted full outputs separated by |
 everyday	きょうはいいてんきですね	今日はいい天気ですね
 everyday	あしたはあめです	明日は雨です

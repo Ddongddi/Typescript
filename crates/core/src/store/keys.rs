@@ -12,7 +12,7 @@ pub const MAX_KEYS: usize = 8;
 pub enum KeyAction {
     /// Switch the word being typed (or just typed) to its next language.
     Flip,
-    /// Pause or resume Typescript in this text field.
+    /// Pause or resume tacit in this text field.
     Pause,
     /// The Han/Eng key sends its shortcut to the app (`Settings::hangul_action`).
     Send,
@@ -218,7 +218,7 @@ impl Chord {
             _ => false,
         };
         if reserved {
-            return Err(format!("{self} is already used by Windows or Typescript"));
+            return Err(format!("{self} is already used by Windows or tacit"));
         }
         Ok(())
     }

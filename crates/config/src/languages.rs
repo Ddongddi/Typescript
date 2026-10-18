@@ -3,7 +3,7 @@
 
 use std::sync::Mutex;
 
-use typescript_core::{Language, Languages, Settings};
+use tacit_core::{Language, Languages, Settings};
 
 use crate::catalog::Catalog;
 use crate::env::Env;
@@ -117,7 +117,7 @@ mod tests {
     use super::*;
     use crate::install::install_with_requirements;
     use crate::testutil::fixture;
-    use typescript_core::Languages;
+    use tacit_core::Languages;
 
     fn base() -> &'static str {
         "https://example.test/release/packs.json"

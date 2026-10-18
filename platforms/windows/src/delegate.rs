@@ -1,10 +1,10 @@
-//! Hands the process over to the system's Korean IME, for apps where Typescript is set to step
+//! Hands the process over to the system's Korean IME, for apps where tacit is set to step
 //! aside (`"useSystemIme": true` in apps.json): the user then has the Han/Eng key as in any
-//! other app, and Typescript's composition never meets the app's text handling.
+//! other app, and tacit's composition never meets the app's text handling.
 //!
 //! Switching profiles deactivates this very text service, so it is not done inside TSF's own
 //! callback: a message to a hidden window makes it happen right after the callback returns.
-//! Failing (no Korean IME installed) just leaves Typescript in place.
+//! Failing (no Korean IME installed) just leaves tacit in place.
 //!
 //! The active input method is shared between apps, so it would stay the system IME in every
 //! other app too. A foreground hook therefore puts back what was active before as soon as
@@ -153,9 +153,9 @@ unsafe extern "system" fn foreground_changed(
 fn restore() {
     let previous = PREVIOUS.lock().unwrap_or_else(|e| e.into_inner()).take();
     let (clsid, profile, langid) = previous.unwrap_or((
-        crate::guids::CLSID_TYPESCRIPT,
+        crate::guids::CLSID_TACIT,
         crate::guids::GUID_PROFILE,
-        crate::guids::LANGID_TYPESCRIPT,
+        crate::guids::LANGID_TACIT,
     ));
     HANDED_OVER.store(false, Ordering::SeqCst);
     if let Some(profiles) = profiles() {
@@ -178,14 +178,14 @@ pub fn hand_over() {
             let class = WNDCLASSW {
                 lpfnWndProc: Some(window_proc),
                 hInstance: instance,
-                lpszClassName: w!("TypescriptHandOver"),
+                lpszClassName: w!("tacitHandOver"),
                 ..Default::default()
             };
             RegisterClassW(&class);
         });
         let Ok(hwnd) = CreateWindowExW(
             WINDOW_EX_STYLE::default(),
-            w!("TypescriptHandOver"),
+            w!("tacitHandOver"),
             None,
             WINDOW_STYLE::default(),
             0,

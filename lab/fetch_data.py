@@ -38,7 +38,7 @@ EN_SENTENCE = re.compile(r"^[A-Za-z0-9 ,.?!']+$")
 
 def get(url: str) -> bytes:
     print("fetch", url)
-    request = urllib.request.Request(url, headers={"User-Agent": "typescript-ime-lab/0.0 (corpus fetch)"})
+    request = urllib.request.Request(url, headers={"User-Agent": "tacit-ime-lab/0.0 (corpus fetch)"})
     with urllib.request.urlopen(request, timeout=120) as r:
         return r.read()
 

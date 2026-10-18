@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use typescript_packgen::{write_pack, PACKS, VERSION};
+use tacit_packgen::{write_pack, PACKS, VERSION};
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -14,11 +14,11 @@ fn main() -> ExitCode {
     let [data, out] = args.as_slice() else {
         eprintln!("usage: build-packs [--release] <data_dir> <out_dir>");
         eprintln!("  default: <out_dir>/<id>-<version>/ folders (for installing from a checkout)");
-        eprintln!("  --release: typescript-pack-<id>-<version>.zip files and packs.json");
+        eprintln!("  --release: tacit-pack-<id>-<version>.zip files and packs.json");
         return ExitCode::from(2);
     };
     if release {
-        return match typescript_packgen::write_release(&PathBuf::from(data), &PathBuf::from(out)) {
+        return match tacit_packgen::write_release(&PathBuf::from(data), &PathBuf::from(out)) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("release: {e}");

@@ -5,14 +5,14 @@ mod common;
 
 use std::path::PathBuf;
 
-use typescript_core::EnglishModel;
-use typescript_core::{
+use tacit_core::EnglishModel;
+use tacit_core::{
     make_engine, DecisionContext, DecisionEngine, HeuristicEngine, Language, Languages,
     LearningEngine, SplittingEngine, TextConverter,
 };
 
 fn temp_lexicon(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("typescript-{name}-{}.json", std::process::id()))
+    std::env::temp_dir().join(format!("tacit-{name}-{}.json", std::process::id()))
 }
 
 fn heuristic() -> HeuristicEngine {
@@ -149,7 +149,7 @@ fn partial_preview_does_not_punish_pending_consonant() {
     assert_eq!(d.language, Language::Korean, "{}", d.explanation);
 }
 
-fn typed(keys: &str, previous: Option<Language>, partial: bool) -> typescript_core::Decision {
+fn typed(keys: &str, previous: Option<Language>, partial: bool) -> tacit_core::Decision {
     heuristic().decide(
         keys,
         &DecisionContext {

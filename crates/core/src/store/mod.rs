@@ -1,4 +1,4 @@
-//! What the user keeps on disk under `%APPDATA%\Typescript`: per-app policies, settings, word history.
+//! What the user keeps on disk under `%APPDATA%\tacit`: per-app policies, settings, word history.
 
 pub mod history;
 pub mod keys;

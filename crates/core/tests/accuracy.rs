@@ -4,7 +4,7 @@
 mod common;
 
 use common::keys_of;
-use typescript_core::{DecisionContext, DecisionEngine, HeuristicEngine, Language};
+use tacit_core::{DecisionContext, DecisionEngine, HeuristicEngine, Language};
 
 const KOREAN_WORDS: &str = include_str!("../data/korean_words.txt");
 const KOREAN_VOCAB: &str = include_str!("../data/korean_vocabulary.txt");
@@ -39,7 +39,7 @@ fn accuracy(label: &str, keys: &[String], expected: Language) -> f64 {
 #[test]
 fn keys_round_trip_through_the_composer() {
     for w in ["안녕하세요", "값이", "읽었다", "의사", "왜", "뷁"] {
-        let composed = typescript_core::lang::hangul::HangulComposer::compose(&keys_of(w)).unwrap();
+        let composed = tacit_core::lang::hangul::HangulComposer::compose(&keys_of(w)).unwrap();
         assert_eq!(composed.text(), w);
     }
 }

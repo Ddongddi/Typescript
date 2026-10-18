@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="assets/icon.png" alt="Typescript" width="112">
+  <img src="assets/icon.png" alt="tacit" width="112">
 </p>
 
-<h1 align="center">Typescript</h1>
+<h1 align="center">tacit</h1>
+
+> When moving from **Typescript**, uninstall it with its original installer before installing tacit. Settings and learned data are not migrated automatically. Close running apps, then copy the contents of each old `Typescript` user folder into the sibling `tacit` folder (Windows: `%APPDATA%` and `%LOCALAPPDATA%` for packs; macOS: `~/Library/Application Support`; Linux: `~/.config` and `$XDG_DATA_HOME` or `~/.local/share` for packs). Android uses a new package ID and installs as a separate app; select the new keyboard in system settings.
+
 
 <h3 align="center">
 Type English, Korean, and Japanese on one QWERTY keyboard — it works out which language you meant, word by word. No language-toggle key.
@@ -24,8 +27,8 @@ Type English, Korean, and Japanese on one QWERTY keyboard — it works out which
 </p>
 
 <p align="center">
-  <a href="https://github.com/iamallyouneed/Typescript/releases/latest"><img src="https://img.shields.io/github/v/release/iamallyouneed/Typescript?label=release&color=2ea44f" alt="release"></a>
-  <a href="https://github.com/iamallyouneed/Typescript/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/iamallyouneed/Typescript/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://github.com/iamallyouneed/tacit/releases/latest"><img src="https://img.shields.io/github/v/release/iamallyouneed/tacit?label=release&color=2ea44f" alt="release"></a>
+  <a href="https://github.com/iamallyouneed/tacit/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/iamallyouneed/tacit/ci.yml?branch=main&label=CI" alt="CI"></a>
   <img src="https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white" alt="Rust">
   <img src="https://img.shields.io/badge/Windows-TSF-0078D4?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Android-IME-3DDC84?logo=android&logoColor=white" alt="Android">
@@ -43,7 +46,7 @@ fltpssm ghkdlxld                    →  리센느 화이팅
 kyouhaiitenkidesune                 →  きょうはいいてんきですね   (Japanese pack)
 ```
 
-Type on a plain English layout. Typescript decides, **per word**, whether you meant English, Korean (2-set Hangul), or Japanese (romaji) and converts it as you go. Wrong guess? **Press Esc once** to cycle to the next reading. Make the same correction twice and it learns the word.
+Type on a plain English layout. tacit decides, **per word**, whether you meant English, Korean (2-set Hangul), or Japanese (romaji) and converts it as you go. Wrong guess? **Press Esc once** to cycle to the next reading. Make the same correction twice and it learns the word.
 
 ## Quick start
 
@@ -51,13 +54,13 @@ Windows shown; other systems are under [Installation](#installation).
 
 1. **Install.** Open PowerShell and paste one line (one admin/UAC prompt):
    ```powershell
-   irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+   irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
    ```
    A welcome page opens in your browser: tick your languages (English and Korean are on by default) and press Start.
-2. **Pick the input method.** Press **Win+Space** and choose `Typescript (Autocomplete)`. Apps that were already open need a restart.
+2. **Pick the input method.** Press **Win+Space** and choose `tacit (Autocomplete)`. Apps that were already open need a restart.
 3. **Try it.** In Notepad type `dkssud` — you see `안녕` with a dotted underline. Space or Enter commits it.
 4. **If it guessed wrong.** A word you meant in English came out as Hangul? Press **Esc**. It cycles English → Korean → …
-5. **Want to tweak things?** Open **Typescript Settings** from the Start menu → [the dashboard](#the-dashboard). The chat on the right lets you change a setting and test it immediately.
+5. **Want to tweak things?** Open **tacit Settings** from the Start menu → [the dashboard](#the-dashboard). The chat on the right lets you change a setting and test it immediately.
 
 That's it. You should never need the Han/Eng key again.
 
@@ -76,7 +79,7 @@ Just type. The dotted underline shows the current guess — the same result Spac
 | Backspace | English: one letter. Korean: jamo → syllable, like a 2-set keyboard. Japanese: one kana |
 | Tab | (Autocomplete profile) Completes the word from your frequent words, then the built-in dictionary. A small pill under the word previews it (`안녕하세요  Tab`). Nothing to complete → Tab goes to the app |
 | ⌃K / F7, ⌃J / F6 | (Japanese) Show the reading as katakana / hiragana; Space swaps, Enter commits |
-| **Han/Eng key** | By default it cycles the word's language. Alt+Han/Eng pauses/resumes Typescript for the current text field. Both are changeable on the dashboard's **Keys** tab |
+| **Han/Eng key** | By default it cycles the word's language. Alt+Han/Eng pauses/resumes tacit for the current text field. Both are changeable on the dashboard's **Keys** tab |
 
 **Mixed words.** English and Korean typed with no space are split for you: `githubdp` → `github에`, `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `nwp` → `n제`.
 
@@ -89,19 +92,19 @@ Just type. The dotted underline shows the current guess — the same result Spac
 One line in PowerShell downloads the latest release, installs it and registers the input method (one UAC prompt). On a first install a **welcome page** opens in your browser when setup finishes: it shows what typing without the Han/Eng key feels like, lets you **pick your languages** (English and Korean are ticked; the list order is the Esc cycle order), downloads them and walks you through a short practice. An update install does not show it. The **Tutorial** link at the top of the dashboard opens it again.
 
 ```powershell
-irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1 | iex
+irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
 ```
 
 Skip the screen with `-Languages`: any combination of `en`, `ko`, `ja` (e.g. Korean only, or Japanese → English).
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))) -Languages ko,en,ja
+& ([scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))) -Languages ko,en,ja
 ```
 
 Re-running the command on an existing install is fine (enabled languages are kept). To uninstall or pin a version:
 
 ```powershell
-$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/Typescript/releases/latest/download/install.ps1))
+$i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # remove (settings and language packs are kept)
 & $i -Version v0.10.1       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
@@ -113,8 +116,8 @@ After installing, press **Win+Space** and choose the input method. It lives unde
 
 | Profile | What it does |
 | --- | --- |
-| `Typescript (Autocomplete)` | Auto-detection + Tab autocomplete + learns the words you type |
-| `Typescript` | Auto-detection only (no autocomplete, no word history) |
+| `tacit (Autocomplete)` | Auto-detection + Tab autocomplete + learns the words you type |
+| `tacit` | Auto-detection only (no autocomplete, no word history) |
 
 <details>
 <summary>Build and install from source</summary>
@@ -134,19 +137,19 @@ Needs Rust and `rustup target add i686-pc-windows-msvc`.
 One line, per-user, no root (downloads the release and checks its SHA-256):
 
 ```sh
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh
 # choose languages / uninstall:
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --languages ko,en,ja
-curl -fsSL https://github.com/iamallyouneed/Typescript/releases/latest/download/install.sh | sh -s -- --uninstall
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --languages ko,en,ja
+curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --uninstall
 ```
 
-- **macOS:** installs `~/Library/Input Methods/Typescript.app`. Log out and back in, then add **Typescript** under System Settings → Keyboard → Input Sources. It isn't signed or notarized, so you may need to allow it in Privacy & Security the first time. There is no Han/Eng key, so **Option+Space** pauses.
-- **Linux:** installs the IBus engine under `~/.local/share/typescript/`. Add **Typescript** in Settings → Keyboard → Input Sources (or `ibus-setup`); if it's missing, log out and back in. fcitx5 isn't supported yet.
-- Settings live in `~/Library/Application Support/Typescript/` (macOS) or `~/.config/Typescript/` (Linux). Open the dashboard with `typescript-config` (needs `~/.local/bin` on your PATH).
+- **macOS:** installs `~/Library/Input Methods/tacit.app`. Log out and back in, then add **tacit** under System Settings → Keyboard → Input Sources. It isn't signed or notarized, so you may need to allow it in Privacy & Security the first time. There is no Han/Eng key, so **Option+Space** pauses.
+- **Linux:** installs the IBus engine under `~/.local/share/tacit/`. Add **tacit** in Settings → Keyboard → Input Sources (or `ibus-setup`); if it's missing, log out and back in. fcitx5 isn't supported yet.
+- Settings live in `~/Library/Application Support/tacit/` (macOS) or `~/.config/tacit/` (Linux). Open the dashboard with `tacit-config` (needs `~/.local/bin` on your PATH).
 
 ### Android
 
-Download **`typescript.apk`** from the [latest release](https://github.com/iamallyouneed/Typescript/releases/latest) and install it (allow unknown sources). Enable **Typescript** in Settings → keyboards, then pick it from the keyboard switcher in any text field.
+Download **`tacit.apk`** from the [latest release](https://github.com/iamallyouneed/tacit/releases/latest) and install it (allow unknown sources). Enable **tacit** in Settings → keyboards, then pick it from the keyboard switcher in any text field.
 
 - The on-screen keyboard shows the 2-set jamo on each key. Bluetooth/USB keyboards work too.
 - The `가/A` key acts as Esc. The `한/영` key pauses and shows `OFF` while paused.
@@ -157,7 +160,7 @@ Download **`typescript.apk`** from the [latest release](https://github.com/iamal
 
 | | Windows | Android | macOS | Linux |
 | --- | --- | --- | --- | --- |
-| Form | TSF text service (x64 + x86 DLL) | `InputMethodService` APK (arm64) | InputMethodKit app (`Typescript.app`, universal) | IBus engine (`ibus-engine-typescript`) |
+| Form | TSF text service (x64 + x86 DLL) | `InputMethodService` APK (arm64) | InputMethodKit app (`tacit.app`, universal) | IBus engine (`ibus-engine-tacit`) |
 | Input | Physical keyboard | On-screen + Bluetooth/USB | Physical keyboard | Physical keyboard |
 | English & Korean | Yes | Yes | Yes | Yes |
 | Tab autocomplete & learning | Yes | No | No | No |
@@ -167,12 +170,12 @@ Download **`typescript.apk`** from the [latest release](https://github.com/iamal
 
 ## The dashboard
 
-You don't need to edit files. Open **Typescript Settings** from the Start menu (or run `typescript-config`; on Windows it's `C:\Program Files\Typescript\typescript-config.exe`) and a settings page opens in your browser.
+You don't need to edit files. Open **tacit Settings** from the Start menu (or run `tacit-config`; on Windows it's `C:\Program Files\tacit\tacit-config.exe`) and a settings page opens in your browser.
 
 - It listens on this machine only (127.0.0.1) and the address contains a per-launch token, so other websites can't reach it.
 - It exits by itself shortly after you close the tab.
 - Changes **save immediately** and reach open apps within moments. There is no Save button.
-- The dot at the top is the connection state. If the active input method isn't Typescript, a banner tells you and points you to Win+Space.
+- The dot at the top is the connection state. If the active input method isn't tacit, a banner tells you and points you to Win+Space.
 - The **chat panel on the right** is on every tab. Keys typed there go through the real input method with your saved settings, so you can change something and immediately see the effect. Typing on a blank part of the page also goes to the chat.
 - Shortcuts: **1–5** switch tabs, **/** searches apps, **Esc** on the Languages tab previews the cycle.
 
@@ -187,18 +190,18 @@ You don't need to edit files. Open **Typescript Settings** from the Start menu (
 The same things from the command line:
 
 ```powershell
-typescript-config list                 # installed / available / enabled order
-typescript-config add ja               # download and enable the Japanese pack
-typescript-config remove ja            # disable and delete it
-typescript-config order ko,en          # Esc order (among enabled languages)
-typescript-config check                # is there a new version?
-typescript-config update               # refresh packs + run the new installer
-typescript-config welcome              # the first-run page: choose languages, short practice
-typescript-config setup --languages ko,en   # the install-time choice, no UI (for scripts)
-typescript-config setup --if-configured     # reinstall the languages already on (updates; fails on a first install)
+tacit-config list                 # installed / available / enabled order
+tacit-config add ja               # download and enable the Japanese pack
+tacit-config remove ja            # disable and delete it
+tacit-config order ko,en          # Esc order (among enabled languages)
+tacit-config check                # is there a new version?
+tacit-config update               # refresh packs + run the new installer
+tacit-config welcome              # the first-run page: choose languages, short practice
+tacit-config setup --languages ko,en   # the install-time choice, no UI (for scripts)
+tacit-config setup --if-configured     # reinstall the languages already on (updates; fails on a first install)
 ```
 
-A pack is installed only if its size and SHA-256 match the release's `packs.json` and its tables match the manifest hashes. New releases are checked once a day (turn off with *check for updates*). Set `TYPESCRIPT_RELEASE` to a folder or URL to install from a different release (offline).
+A pack is installed only if its size and SHA-256 match the release's `packs.json` and its tables match the manifest hashes. New releases are checked once a day (turn off with *check for updates*). Set `TACIT_RELEASE` to a folder or URL to install from a different release (offline).
 
 ## Troubleshooting
 
@@ -212,9 +215,9 @@ A pack is installed only if its size and SHA-256 match the release's `packs.json
 | Han/Eng key does nothing | **Keys** tab → "set Han/Eng key" and press the actual key (often Right Alt on laptops) |
 | Text is chopped up in KakaoTalk | The input method must be registered under English (US), not Korean — see [App compatibility](#app-compatibility) |
 | Want it off entirely | Alt+Han/Eng in the field (pause), or pick another input method with Win+Space |
-| Not sure what's wrong | Create `%APPDATA%\Typescript\debug.on`; event names (never typed text) go to `debug.log`. Delete the file when done |
+| Not sure what's wrong | Create `%APPDATA%\tacit\debug.on`; event names (never typed text) go to `debug.log`. Delete the file when done |
 
-Still stuck? Open an [issue](https://github.com/iamallyouneed/Typescript/issues). More in [docs/en/troubleshooting.md](docs/en/troubleshooting.md).
+Still stuck? Open an [issue](https://github.com/iamallyouneed/tacit/issues). More in [docs/en/troubleshooting.md](docs/en/troubleshooting.md).
 
 ## Japanese
 
@@ -228,7 +231,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (English words inside 
 ```
 
 - **Space opens conversion.** Pick with Space/↓ (next), ↑ (previous), 1–9, Enter (commit); Esc/Backspace return to kana editing; ←/→ grow/shrink the first phrase.
-- **Kanji** come from IPADIC (390k entries + connection costs, NAIST license), word costs corrected with wordfreq frequencies. Your picks are learned per reading (`%APPDATA%\Typescript\kanji_learning.json`, 5 per reading).
+- **Kanji** come from IPADIC (390k entries + connection costs, NAIST license), word costs corrected with wordfreq frequencies. Your picks are learned per reading (`%APPDATA%\tacit\kanji_learning.json`, 5 per reading).
 - Quality is below Mozc/Apple. If the first candidate is wrong, Space to the next (e.g. `ほん` → ホン, 本); correct it twice and it comes first next time.
 - *Convert while typing* (`liveConversion`) shows the first candidate as you type.
 - *Full-width digits/space* are off by default; `"fullWidth": false` in an app rule keeps half-width in that app (terminals).
@@ -237,7 +240,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (English words inside 
 
 ## Config files
 
-The dashboard covers everything below, but the JSON is yours to edit. Location: `%APPDATA%\Typescript\` (macOS `~/Library/Application Support/Typescript/`, Linux `~/.config/Typescript/`). It's re-read when you switch apps.
+The dashboard covers everything below, but the JSON is yours to edit. Location: `%APPDATA%\tacit\` (macOS `~/Library/Application Support/tacit/`, Linux `~/.config/tacit/`). It's re-read when you switch apps.
 
 `settings.json`
 
@@ -283,7 +286,7 @@ The dashboard covers everything below, but the JSON is yours to edit. Location: 
 
 - **KakaoTalk and other RichEdit/IMM32 apps.** Windows translates a TSF composition into IMM32 messages and applies an "interim = one character" rule to *Korean* input methods, committing the rest immediately. Registered as Korean, this IME — which previews the whole word — got chopped per key (`테스트` → `ㅌpㅅmㅌm`). So it is **registered under English (US)**, where the whole word stays one composition. IMM32 apps also can't hand back keys an IME claims, so the keys that end a word and go to the app (Space, punctuation, Enter, Tab, arrows) are handled right when TSF asks about them.
 - **Apps where you want the system Korean IME.** The *system IME* app rule (`useSystemIme`) hands just that process to the Microsoft Korean IME (it reverts when you leave the app).
-- `cargo run -p typescript-tip --example richedit_lab -- --ts` (or `--ms`) sends real keys to a RichEdit window and prints the result and the IME messages the app receives (the same control KakaoTalk uses).
+- `cargo run -p tacit-tip --example richedit_lab -- --ts` (or `--ms`) sends real keys to a RichEdit window and prints the result and the IME messages the app receives (the same control KakaoTalk uses).
 
 ## Features
 
@@ -318,16 +321,16 @@ flowchart LR
 | `session/` | The input state machine: `word`, `preview` (the underline), `flip` (Esc right after a commit), `japanese`, `client`/`key` (the boundary with the app) |
 | `store/` | What persists: per-app policy & settings (`policy`), word history (`history`) |
 
-- `crates/core` — the engine. `crates/config` — the dashboard (`typescript-config`; its web page lives in `src/web/`). `crates/packgen` — builds language packs. `platforms/` — Windows TSF DLL, Android, macOS, Linux adapters.
+- `crates/core` — the engine. `crates/config` — the dashboard (`tacit-config`; its web page lives in `src/web/`). `crates/packgen` — builds language packs. `platforms/` — Windows TSF DLL, Android, macOS, Linux adapters.
 - A new language needs a `lang/<id>/` module, a `registry.rs` entry, engine scoring, and a pack (checklist: [docs/en/language-packs.md](docs/en/language-packs.md)).
 - Deeper docs: [docs/](docs/README.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```powershell
 cargo test
-cargo run -p typescript-cli -- -v "dkssud hello"
-echo "dkssud`tenglish" | cargo run -p typescript-cli -- --decide
+cargo run -p tacit-cli -- -v "dkssud hello"
+echo "dkssud`tenglish" | cargo run -p tacit-cli -- --decide
 cargo clippy --all-targets -- -D warnings
-cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
+cargo run -p tacit-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
 **Releasing.** Pushing a `v*` tag runs `release.yml`: tests → builds → language packs → packaging → GitHub release. `ci.yml` runs fmt, clippy and tests on every push and PR.

@@ -1,4 +1,4 @@
-//! Typescript as a Windows text service (TSF): a COM DLL that Windows loads into every
+//! tacit as a Windows text service (TSF): a COM DLL that Windows loads into every
 //! application the user types in. The DLL exports the usual COM entry points plus
 //! `EnableForUser` and `KeyHook` for `rundll32`.
 //!
@@ -37,7 +37,7 @@ use windows::Win32::Foundation::{
 use windows::Win32::System::Com::{IClassFactory, IClassFactory_Impl};
 use windows::Win32::System::LibraryLoader::DisableThreadLibraryCalls;
 
-use guids::CLSID_TYPESCRIPT;
+use guids::CLSID_TACIT;
 
 static MODULE: AtomicIsize = AtomicIsize::new(0);
 /// Live text services; `DllCanUnloadNow` only says yes at zero.
@@ -84,7 +84,7 @@ pub unsafe extern "system" fn DllGetClassObject(
         // SAFETY: checked non-null; COM passes valid pointers.
         unsafe {
             *out = null_mut();
-            if *clsid != CLSID_TYPESCRIPT {
+            if *clsid != CLSID_TACIT {
                 return CLASS_E_CLASSNOTAVAILABLE;
             }
             let factory: IClassFactory = ClassFactory.into();
@@ -112,7 +112,7 @@ pub extern "system" fn DllUnregisterServer() -> HRESULT {
     guarded(|| registry::unregister().map_or_else(|e| e.code(), |_| S_OK))
 }
 
-/// `rundll32 typescript_tip.dll,EnableForUser`: switches the profile on for the current user.
+/// `rundll32 tacit_tip.dll,EnableForUser`: switches the profile on for the current user.
 #[no_mangle]
 pub extern "system" fn EnableForUser(
     _hwnd: HWND,
@@ -123,7 +123,7 @@ pub extern "system" fn EnableForUser(
     let _ = catch_unwind(AssertUnwindSafe(registry::enable_for_user));
 }
 
-/// `rundll32 typescript_tip.dll,KeyHook`: the Han/Eng key's shortcut, everywhere (started at
+/// `rundll32 tacit_tip.dll,KeyHook`: the Han/Eng key's shortcut, everywhere (started at
 /// sign-in; runs until the session ends).
 #[no_mangle]
 pub extern "system" fn KeyHook(_hwnd: HWND, _instance: HMODULE, _command_line: PCSTR, _show: i32) {
