@@ -8,30 +8,34 @@ To keep the core engine lightweight and ensure instantaneous application startup
 
 ## 1. Language Pack Architecture
 
+Targets 0.10.0. Update program and packs together. The Japanese dictionary uses Mozc OSS word/connection costs in the native Rust converter; no Mozc executable is needed.
+
 ```
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en-0.9.1\              (~0.45 MB zip) - English trigrams and vocabulary
+├── en-0.10.0\              (~0.45 MB zip) - English trigrams and vocabulary
 │   ├── manifest.json      (id · version · core range · table file hashes)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.9.1\              (~0.45 MB zip) - Korean word/syllable tables and word filter
+├── ko-0.10.0\              (~0.45 MB zip) - Korean word/syllable tables and word filter
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.9.1\              (~4.7 MB zip, ~9.5 MB unpacked) - Kana trigrams + IPADIC dictionary
+└── ja-0.10.0\              (~38.1 MB dictionary) - Kana trigrams + Mozc OSS IME data
     ├── manifest.json
     ├── kana_trigrams.bin
-    └── ipadic_compact.bin
+    ├── ipadic_compact.bin  (TSIPDIC4; legacy filename)
+    ├── mozc-LICENSE.txt · mozc-DICTIONARY-LICENSE.txt
+    └── dictionary-sources.json
 ```
 
 The installer downloads a release's `typescript-pack-<id>-<version>.zip`, unpacks it, and only registers it as a pack folder when every table file matches `packs.json` (SHA-256 and size) and the manifest hashes.
 
 ### Architectural Benefits
 1. **Minimal Memory Footprint**: The DLL loaded into each client process stays under 4MB.
-2. **Selective Downloads**: Users only download packs for the languages they actually use (the Japanese dictionary is about 9.5 MB unpacked).
+2. **Selective Downloads**: Users only download packs for the languages they actually use (the Japanese dictionary is about 38.1 MB unpacked).
 3. **Memory Mapping (`mmap`)**: All running processes share the exact same physical memory pages mapped from the table files, eliminating system RAM bloat.
 4. **Decoupled Extensibility**: Adding new language support requires minimal modifications to the core engine.
 
@@ -48,8 +52,8 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.9.1",
-  "core": ">=0.9.0, <0.10.0",
+  "version": "0.10.0",
+  "core": ">=0.10.0, <0.11.0",
   "requires": ["en"],
   "files": {
     "ipadic_compact.bin": "9c1e…",
@@ -74,7 +78,7 @@ The `typescript-packgen` crate converts raw text datasets (corpus frequencies, w
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-The default output is one folder per language version, like `target/packs/en-0.9.1/` (what a checkout installs directly). With `--release` it writes the release zips `typescript-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `typescript-config` reads).
+The default output is one folder per language version, like `target/packs/en-0.10.0/` (what a checkout installs directly). With `--release` it writes the release zips `typescript-pack-<id>-<version>.zip` plus a `packs.json` listing their sizes and SHA-256 hashes (what `typescript-config` reads).
 
 ---
 

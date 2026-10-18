@@ -1,0 +1,511 @@
+{
+  "date": "2026-10-18",
+  "method": "Five interleaved runs; median of each run percentile, same pinned data and lab 0.1.2. Context-bearing AJIMEE cases omit left context. No upstream product runtime benchmark.",
+  "sources": {
+    "ajimee.json": {
+      "url": "https://raw.githubusercontent.com/azooKey/AJIMEE-Bench/401666cd56d1a570c2021798b64b6da4396bfd45/JWTD_v2/v1/evaluation_items.json",
+      "sha256": "e9eb668fd6aa14b1e26436f429b5550108af0a1dfd443b8cea0bcb3ab3028fca"
+    },
+    "mozc.tsv": {
+      "url": "https://raw.githubusercontent.com/google/mozc/0136c35782536cb43d710575c311cd4185982738/src/data/test/quality_regression_test/oss.tsv",
+      "sha256": "4ea1ad4b54cfd6ca2e4d62a0d75c922e18144afc36f1e0ceee3e09670264d5c7"
+    }
+  },
+  "results": {
+    "baseline": {
+      "groups": {
+        "ajimee.context_omitted": {
+          "n": 100,
+          "top1": 8.0,
+          "top5": 24.0,
+          "cer": 61.8121
+        },
+        "ajimee.no_context": {
+          "n": 100,
+          "top1": 11.0,
+          "top5": 29.0,
+          "cer": 64.5827
+        },
+        "mozc.regex": {
+          "n": 90,
+          "top1": 51.1111
+        },
+        "mozc.exact": {
+          "n": 220,
+          "top1": 15.4545,
+          "top5": 43.1818,
+          "cer": 57.1677
+        }
+      },
+      "latency_us": {
+        "n": 506,
+        "mean": 332.64505928853754,
+        "p50": 190.9,
+        "p95": 1382.9,
+        "p99": 1939.9
+      },
+      "curated": {
+        "ja.convert.ALL.n": 64.0,
+        "ja.convert.ALL.top1": 70.312,
+        "ja.convert.ALL.top5": 93.75,
+        "ja.convert.avg_us": 127.622,
+        "ja.convert.everyday.n": 20.0,
+        "ja.convert.everyday.top1": 60.0,
+        "ja.convert.everyday.top5": 90.0,
+        "ja.convert.homophone.n": 10.0,
+        "ja.convert.homophone.top1": 40.0,
+        "ja.convert.homophone.top5": 80.0,
+        "ja.convert.inflection.n": 10.0,
+        "ja.convert.inflection.top1": 80.0,
+        "ja.convert.inflection.top5": 100.0,
+        "ja.convert.katakana.n": 10.0,
+        "ja.convert.katakana.top1": 100.0,
+        "ja.convert.katakana.top5": 100.0,
+        "ja.convert.mixed.n": 4.0,
+        "ja.convert.mixed.top1": 100.0,
+        "ja.convert.mixed.top5": 100.0,
+        "ja.convert.names.n": 10.0,
+        "ja.convert.names.top1": 70.0,
+        "ja.convert.names.top5": 100.0,
+        "ja.convert.p50_us": 112.8,
+        "ja.convert.p95_us": 229.3,
+        "ja.convert.p99_us": 330.0,
+        "ja.detect.after-ja.n": 60.0,
+        "ja.detect.after-ja.top1": 100.0,
+        "ja.detect.none.n": 60.0,
+        "ja.detect.none.top1": 100.0,
+        "ja.dictionary.bytes": 9696266.0,
+        "ja.guard.english.n": 20.0,
+        "ja.guard.english.top1": 100.0,
+        "ja.load.ms": 14.074
+      },
+      "binary_sha256": "61b7cd757b50189c3cd5a90fd993a473183f362f5bbdf8ca327219ea70ad28a2",
+      "runs": [
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 8.0,
+              "top5": 24.0,
+              "cer": 61.8121
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 11.0,
+              "top5": 29.0,
+              "cer": 64.5827
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 51.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 15.4545,
+              "top5": 43.1818,
+              "cer": 57.1677
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 332.92490118577075,
+            "p50": 190.9,
+            "p95": 1382.0,
+            "p99": 1939.5
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 8.0,
+              "top5": 24.0,
+              "cer": 61.8121
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 11.0,
+              "top5": 29.0,
+              "cer": 64.5827
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 51.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 15.4545,
+              "top5": 43.1818,
+              "cer": 57.1677
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 326.5875494071146,
+            "p50": 180.0,
+            "p95": 1396.3,
+            "p99": 1920.0
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 8.0,
+              "top5": 24.0,
+              "cer": 61.8121
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 11.0,
+              "top5": 29.0,
+              "cer": 64.5827
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 51.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 15.4545,
+              "top5": 43.1818,
+              "cer": 57.1677
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 326.04229249011854,
+            "p50": 187.0,
+            "p95": 1371.3,
+            "p99": 1939.9
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 8.0,
+              "top5": 24.0,
+              "cer": 61.8121
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 11.0,
+              "top5": 29.0,
+              "cer": 64.5827
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 51.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 15.4545,
+              "top5": 43.1818,
+              "cer": 57.1677
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 345.02430830039526,
+            "p50": 193.3,
+            "p95": 1436.6,
+            "p99": 2026.6
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 8.0,
+              "top5": 24.0,
+              "cer": 61.8121
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 11.0,
+              "top5": 29.0,
+              "cer": 64.5827
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 51.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 15.4545,
+              "top5": 43.1818,
+              "cer": 57.1677
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 332.64505928853754,
+            "p50": 190.9,
+            "p95": 1382.9,
+            "p99": 2042.0
+          }
+        }
+      ],
+      "windows_peak_working_set_kb": {
+        "median": 19940.0,
+        "runs": [
+          19936.0,
+          19940.0,
+          20004.0,
+          19936.0,
+          19948.0
+        ],
+        "method": "GetProcessMemoryInfo PeakWorkingSetSize, queried every 1ms while standalone Japanese lab runs"
+      }
+    },
+    "native_mozc": {
+      "groups": {
+        "ajimee.context_omitted": {
+          "n": 100,
+          "top1": 49.0,
+          "top5": 70.0,
+          "cer": 8.4998
+        },
+        "ajimee.no_context": {
+          "n": 100,
+          "top1": 53.0,
+          "top5": 73.0,
+          "cer": 5.2092
+        },
+        "mozc.regex": {
+          "n": 90,
+          "top1": 81.1111
+        },
+        "mozc.exact": {
+          "n": 220,
+          "top1": 70.0,
+          "top5": 92.7273,
+          "cer": 11.7401
+        }
+      },
+      "latency_us": {
+        "n": 506,
+        "mean": 429.29980237154155,
+        "p50": 279.7,
+        "p95": 1419.1,
+        "p99": 2175.5
+      },
+      "curated": {
+        "ja.convert.ALL.n": 64.0,
+        "ja.convert.ALL.top1": 85.938,
+        "ja.convert.ALL.top5": 96.875,
+        "ja.convert.avg_us": 217.217,
+        "ja.convert.everyday.n": 20.0,
+        "ja.convert.everyday.top1": 85.0,
+        "ja.convert.everyday.top5": 100.0,
+        "ja.convert.homophone.n": 10.0,
+        "ja.convert.homophone.top1": 50.0,
+        "ja.convert.homophone.top5": 80.0,
+        "ja.convert.inflection.n": 10.0,
+        "ja.convert.inflection.top1": 90.0,
+        "ja.convert.inflection.top5": 100.0,
+        "ja.convert.katakana.n": 10.0,
+        "ja.convert.katakana.top1": 100.0,
+        "ja.convert.katakana.top5": 100.0,
+        "ja.convert.mixed.n": 4.0,
+        "ja.convert.mixed.top1": 100.0,
+        "ja.convert.mixed.top5": 100.0,
+        "ja.convert.names.n": 10.0,
+        "ja.convert.names.top1": 100.0,
+        "ja.convert.names.top5": 100.0,
+        "ja.convert.p50_us": 207.6,
+        "ja.convert.p95_us": 387.8,
+        "ja.convert.p99_us": 491.7,
+        "ja.detect.after-ja.n": 60.0,
+        "ja.detect.after-ja.top1": 100.0,
+        "ja.detect.none.n": 60.0,
+        "ja.detect.none.top1": 100.0,
+        "ja.dictionary.bytes": 38137564.0,
+        "ja.guard.english.n": 20.0,
+        "ja.guard.english.top1": 100.0,
+        "ja.heap.loaded_kb": 5816.563,
+        "ja.load.ms": 50.103
+      },
+      "binary_sha256": "7c659a25c3eedfb8d98c1eec8c7cd3d5680cfb9d736b9023f4ac0b11e4d0db95",
+      "runs": [
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 49.0,
+              "top5": 70.0,
+              "cer": 8.4998
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 53.0,
+              "top5": 73.0,
+              "cer": 5.2092
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 81.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 70.0,
+              "top5": 92.7273,
+              "cer": 11.7401
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 429.29980237154155,
+            "p50": 279.7,
+            "p95": 1419.1,
+            "p99": 2175.5
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 49.0,
+              "top5": 70.0,
+              "cer": 8.4998
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 53.0,
+              "top5": 73.0,
+              "cer": 5.2092
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 81.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 70.0,
+              "top5": 92.7273,
+              "cer": 11.7401
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 415.7575098814229,
+            "p50": 267.4,
+            "p95": 1382.1,
+            "p99": 2073.5
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 49.0,
+              "top5": 70.0,
+              "cer": 8.4998
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 53.0,
+              "top5": 73.0,
+              "cer": 5.2092
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 81.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 70.0,
+              "top5": 92.7273,
+              "cer": 11.7401
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 400.95375494071146,
+            "p50": 259.5,
+            "p95": 1393.3,
+            "p99": 1980.9
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 49.0,
+              "top5": 70.0,
+              "cer": 8.4998
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 53.0,
+              "top5": 73.0,
+              "cer": 5.2092
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 81.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 70.0,
+              "top5": 92.7273,
+              "cer": 11.7401
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 442.348418972332,
+            "p50": 297.3,
+            "p95": 1479.5,
+            "p99": 2298.8
+          }
+        },
+        {
+          "groups": {
+            "ajimee.context_omitted": {
+              "n": 100,
+              "top1": 49.0,
+              "top5": 70.0,
+              "cer": 8.4998
+            },
+            "ajimee.no_context": {
+              "n": 100,
+              "top1": 53.0,
+              "top5": 73.0,
+              "cer": 5.2092
+            },
+            "mozc.regex": {
+              "n": 90,
+              "top1": 81.1111
+            },
+            "mozc.exact": {
+              "n": 220,
+              "top1": 70.0,
+              "top5": 92.7273,
+              "cer": 11.7401
+            }
+          },
+          "latency_us": {
+            "n": 506,
+            "mean": 459.6270750988142,
+            "p50": 299.6,
+            "p95": 1631.3,
+            "p99": 2518.0
+          }
+        }
+      ],
+      "windows_peak_working_set_kb": {
+        "median": 43480.0,
+        "runs": [
+          43484.0,
+          43480.0,
+          43448.0,
+          43496.0,
+          43452.0
+        ],
+        "method": "GetProcessMemoryInfo PeakWorkingSetSize, queried every 1ms while standalone Japanese lab runs"
+      }
+    }
+  }
+}

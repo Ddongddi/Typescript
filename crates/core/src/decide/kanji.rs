@@ -1,20 +1,17 @@
-//! Kana → kanji conversion over a compact IPADIC dictionary (the `JapaneseConverter` of
-//! decide/convert.rs). Readings are looked up in a sorted hiragana index and rendered by the
-//! best paths through the word lattice, scored with IPADIC's word costs and connection matrix
-//! — the MeCab model (the connection formula was checked against MeCab's `connector.h`:
-//! `matrix[left.rcAttr + lsize * right.lcAttr]`, BOS/EOS attributes 0).
+//! Native kana → kanji conversion over Mozc's OSS lexicon and IME connection costs.
+//! The Rust lattice, candidate UI and learning remain Typescript's; no Mozc runtime is linked.
+//! Readings use a sorted hiragana index, word paths use Viterbi and A* N-best search.
 //!
-//! `tools/build_ipadic.py` builds `data/ipadic_compact.bin` (`tools/repack_ipadic.py` upgrades
-//! an older one): every table at its natural width, so the same words take ~40% fewer bytes.
+//! `tools/build_mozc.py` builds `data/ipadic_compact.bin` (legacy filename) as TSIPDIC4:
+//! 12-bit contexts, u16 homophone counts and full Unicode scalars. TSIPDIC3 IPADIC remains readable.
 //! The blobs are still read zero-copy; the stored per-reading lengths become u32 prefix sums
 //! once, at load.
-//! Seamtype gets kanji from macOS's engines (libmecabra, AzooKey); this is the Windows
-//! counterpart: the best paths, their clause boundaries and the user's earlier choices become
-//! the candidates the session cycles through.
+//! The same dictionary and converter serve every platform through JapaneseConverter.
 
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap, HashSet};
+use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::{LazyLock, Mutex};
 
 use crate::decide::convert::{ConversionCandidate, JapaneseConverter};
@@ -24,11 +21,14 @@ use crate::lang::romaji::RomajiComposer;
 use crate::support_dir;
 
 const MAGIC: &[u8; 8] = b"TSIPDIC3";
+const WIDE_MAGIC: &[u8; 8] = b"TSIPDIC4";
 
 /// No entry covers this character (a latin run, a stray mark): the path keeps it as typed.
 const UNKNOWN_COST: i32 = 15_000;
 /// Whole-reading paths offered, best first.
 const FULL_CANDIDATES: usize = 8;
+// shortcut: bound N-best memory; use a lazy k-shortest-path algorithm if this clips useful alternatives.
+const MAX_NBEST_STATES: usize = 65_536;
 /// Clause boundaries of the best path, offered as first-clause candidates.
 const PREFIX_CANDIDATES: usize = 4;
 /// A reading no real word covers comes out as an odd multi-piece path (よーそろー → よー粗ロー at
@@ -42,12 +42,12 @@ const LEARNED_PER_READING: usize = 5;
 /// The compact dictionary (see tools/build_ipadic.py for the packed layout, and
 /// tools/repack_ipadic.py for upgrading an older file).
 pub struct KanjiDictionary {
+    wide: bool,
     n_readings: usize,
     n_entries: usize,
     max_reading_chars: usize,
     lsize: usize,
     reading_offsets: Vec<u32>,
-    entry_offsets: Vec<u32>,
     entry_byte_offsets: Vec<u32>,
     readings: &'static [u8],
     entries: &'static [u8],
@@ -105,9 +105,13 @@ impl KanjiDictionary {
     /// The arithmetic runs on file-supplied numbers: all of it checked, so a crafted header
     /// cannot wrap (the shipped 32-bit service is where that would bite).
     pub fn valid(data: &[u8]) -> bool {
-        if data.len() <= 36 || &data[..8] != MAGIC {
+        if data.len() <= 36 || (&data[..8] != MAGIC && &data[..8] != WIDE_MAGIC) {
             return false;
         }
+        let wide = &data[..8] == WIDE_MAGIC;
+        let count_width = if wide { 2 } else { 1 };
+        let char_width = if wide { 4 } else { 2 };
+        let bits = if wide { 12 } else { 11 };
         let u32_at = |at: usize| {
             u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
         };
@@ -125,12 +129,15 @@ impl KanjiDictionary {
         if n_top > 128 || n_rest > 0x8000 {
             return false;
         }
-        let Some(at_charset) = n_readings.checked_mul(4).and_then(|n| n.checked_add(36)) else {
+        let Some(at_charset) = n_readings
+            .checked_mul(3 + count_width)
+            .and_then(|n| n.checked_add(36))
+        else {
             return false;
         };
         let Some(at_readings) = n_top
             .checked_add(n_rest)
-            .and_then(|n| n.checked_mul(2))
+            .and_then(|n| n.checked_mul(char_width))
             .and_then(|n| n.checked_add(at_charset))
         else {
             return false;
@@ -152,14 +159,20 @@ impl KanjiDictionary {
         }
         let tables = 36;
         let reading_lens = &data[tables..tables + n_readings];
-        let entry_counts = &data[tables + n_readings..tables + 2 * n_readings];
-        let entry_byte_lens = &data[tables + 2 * n_readings..tables + 4 * n_readings];
+        let entry_counts = &data[tables + n_readings..tables + (1 + count_width) * n_readings];
+        let entry_byte_lens = &data[tables + (1 + count_width) * n_readings..at_charset];
         let charset = &data[at_charset..at_readings];
         let readings = &data[at_readings..at_readings + readings_len];
         let entries = &data[at_readings + readings_len..regions_end];
         // Every code point has to be a character; the reader takes them as such.
         for i in 0..(n_top + n_rest) {
-            if char::from_u32(u16_at(charset, i * 2) as u32).is_none() {
+            let code = if wide {
+                let at = i * 4;
+                u32::from_le_bytes(charset[at..at + 4].try_into().unwrap())
+            } else {
+                u16_at(charset, i * 2) as u32
+            };
+            if char::from_u32(code).is_none() {
                 return false;
             }
         }
@@ -179,9 +192,13 @@ impl KanjiDictionary {
         // per-reading byte lengths the reader jumps by agree with the records it will find.
         let mut at = 0usize;
         let mut walked = 0usize;
-        for (i, &count) in entry_counts.iter().enumerate() {
+        for i in 0..n_readings {
             let start = at;
-            let count = count as usize;
+            let count = if wide {
+                u16_at(entry_counts, i * 2) as usize
+            } else {
+                entry_counts[i] as usize
+            };
             let Some(total) = walked.checked_add(count) else {
                 return false;
             };
@@ -196,7 +213,7 @@ impl KanjiDictionary {
                     return false;
                 }
                 let packed = u24_at(entries, at);
-                if (packed & 0x7FF) >= rsize || (packed >> 11) >= lsize {
+                if (packed & ((1 << bits) - 1)) >= rsize || (packed >> bits) >= lsize {
                     return false;
                 }
                 let end = at + 6 + entries[at + 5] as usize;
@@ -234,20 +251,23 @@ impl KanjiDictionary {
     fn new(data: &'static [u8]) -> Self {
         assert!(
             Self::valid(data),
-            "ipadic_compact.bin: bad magic or truncated (rebuild with tools/build_ipadic.py)"
+            "ipadic_compact.bin: invalid dictionary (rebuild with tools/build_mozc.py)"
         );
         let u32_at = |at: usize| {
             u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]]) as usize
         };
         let n_readings = u32_at(8);
+        let wide = &data[..8] == WIDE_MAGIC;
+        let count_width = if wide { 2 } else { 1 };
+        let char_width = if wide { 4 } else { 2 };
         let n_entries = u32_at(12);
         let max_reading_chars = data[16] as usize;
         let (lsize, rsize) = (u16_at(data, 20) as usize, u16_at(data, 22) as usize);
         let (readings_len, entries_len) = (u32_at(24), u32_at(28));
         let (n_top, n_rest) = (u16_at(data, 32) as usize, u16_at(data, 34) as usize);
         let tables = 36;
-        let at_charset = tables + 4 * n_readings;
-        let at_readings = at_charset + 2 * (n_top + n_rest);
+        let at_charset = tables + (3 + count_width) * n_readings;
+        let at_readings = at_charset + char_width * (n_top + n_rest);
         let at_entries = at_readings + readings_len;
         let at_matrix = at_entries + entries_len;
         assert!(
@@ -256,29 +276,29 @@ impl KanjiDictionary {
         );
         // The prefix sums the reader jumps by, widened from the stored lengths once.
         let mut reading_offsets = Vec::with_capacity(n_readings + 1);
-        let mut entry_offsets = Vec::with_capacity(n_readings + 1);
         let mut entry_byte_offsets = Vec::with_capacity(n_readings + 1);
         reading_offsets.push(0);
-        entry_offsets.push(0);
         entry_byte_offsets.push(0);
         for i in 0..n_readings {
             reading_offsets.push(reading_offsets[i] + data[tables + i] as u32);
-            entry_offsets.push(entry_offsets[i] + data[tables + n_readings + i] as u32);
-            entry_byte_offsets
-                .push(entry_byte_offsets[i] + u16_at(data, tables + 2 * n_readings + 2 * i) as u32);
+            entry_byte_offsets.push(
+                entry_byte_offsets[i]
+                    + u16_at(data, tables + (1 + count_width) * n_readings + 2 * i) as u32,
+            );
         }
         Self {
+            wide,
             n_readings,
             n_entries,
             max_reading_chars,
             lsize,
             reading_offsets,
-            entry_offsets,
             entry_byte_offsets,
             readings: &data[at_readings..at_readings + readings_len],
             entries: &data[at_entries..at_entries + entries_len],
-            top_chars: &data[at_charset..at_charset + 2 * n_top],
-            rest_chars: &data[at_charset + 2 * n_top..at_charset + 2 * (n_top + n_rest)],
+            top_chars: &data[at_charset..at_charset + char_width * n_top],
+            rest_chars: &data
+                [at_charset + char_width * n_top..at_charset + char_width * (n_top + n_rest)],
             matrix: &data[at_matrix..at_matrix + lsize * rsize * 2],
         }
     }
@@ -289,32 +309,41 @@ impl KanjiDictionary {
         &blob[self.reading_offsets[i] as usize..self.reading_offsets[i + 1] as usize]
     }
 
-    fn entry_range(&self, i: usize) -> (usize, usize) {
-        (
-            self.entry_offsets[i] as usize,
-            self.entry_offsets[i + 1] as usize,
-        )
+    fn top_char(&self, code: u8) -> char {
+        self.surface_char(self.top_chars, code as usize)
     }
 
-    fn top_char(&self, code: u8) -> char {
-        char::from_u32(u16_at(self.top_chars, code as usize * 2) as u32)
-            .expect("charset code points are characters")
+    fn surface_char(&self, chars: &[u8], index: usize) -> char {
+        let code = if self.wide {
+            u32::from_le_bytes(chars[index * 4..index * 4 + 4].try_into().unwrap())
+        } else {
+            u16_at(chars, index * 2) as u32
+        };
+        char::from_u32(code).expect("charset code points are characters")
     }
 
     fn rest_char(&self, index: usize) -> char {
-        char::from_u32(u16_at(self.rest_chars, index * 2) as u32)
-            .expect("charset code points are characters")
+        self.surface_char(self.rest_chars, index)
     }
 
-    /// The k-th entry of reading `i`: (left context, right context, word cost, surface).
-    fn entry(&self, i: usize, k: usize) -> (u16, u16, i32, String) {
-        let blob = self.entries;
+    /// Decode each entry once; rescanning from the start made common readings quadratic.
+    fn entries(&self, i: usize) -> impl Iterator<Item = (u16, u16, i32, String)> + '_ {
         let mut at = self.entry_byte_offsets[i] as usize;
-        let (start, _) = self.entry_range(i);
-        for _ in start..k {
-            at += 6 + blob[at + 5] as usize;
-        }
+        let end = self.entry_byte_offsets[i + 1] as usize;
+        std::iter::from_fn(move || {
+            if at >= end {
+                return None;
+            }
+            let value = self.entry(at);
+            at += 6 + self.entries[at + 5] as usize;
+            Some(value)
+        })
+    }
+
+    fn entry(&self, at: usize) -> (u16, u16, i32, String) {
+        let blob = self.entries;
         let packed = u24_at(blob, at);
+        let bits = if self.wide { 12 } else { 11 };
         let nbytes = blob[at + 5] as usize;
         let mut text = String::with_capacity(nbytes);
         let mut p = at + 6;
@@ -330,8 +359,8 @@ impl KanjiDictionary {
             }
         }
         (
-            (packed & 0x7FF) as u16,
-            (packed >> 11) as u16,
+            (packed & ((1 << bits) - 1)) as u16,
+            (packed >> bits) as u16,
             i16_at(blob, at + 3) as i32,
             text,
         )
@@ -341,10 +370,14 @@ impl KanjiDictionary {
     /// encoding preserves the order, so the search compares bytes).
     pub fn find_reading(&self, key: &str) -> Option<usize> {
         let key = encoded_reading(key)?;
+        self.find_encoded(&key)
+    }
+
+    fn find_encoded(&self, key: &[u8]) -> Option<usize> {
         let (mut lo, mut hi) = (0usize, self.n_readings);
         while lo < hi {
             let mid = (lo + hi) / 2;
-            match self.reading(mid).cmp(&key[..]) {
+            match self.reading(mid).cmp(key) {
                 std::cmp::Ordering::Less => lo = mid + 1,
                 std::cmp::Ordering::Greater => hi = mid,
                 std::cmp::Ordering::Equal => return Some(mid),
@@ -389,6 +422,15 @@ impl KanjiDictionary {
         }
         let chars: Vec<char> = kana.chars().collect();
         let n = chars.len();
+        // Encode once, rather than allocating and encoding every possible substring.
+        let codes: Vec<u8> = chars
+            .iter()
+            .map(|&c| match c {
+                '\u{3041}'..='\u{3096}' => (c as u32 - 0x3041) as u8,
+                'ー' => 86,
+                _ => 255,
+            })
+            .collect();
 
         // The lattice: every entry whose reading matches a span, plus one unknown character
         // per position (so latin runs and stray marks stay as typed).
@@ -398,13 +440,13 @@ impl KanjiDictionary {
         for i in 0..n {
             let max_len = (n - i).min(self.max_reading_chars);
             for len in 1..=max_len {
-                let span: String = chars[i..i + len].iter().collect();
-                let Some(reading) = self.find_reading(&span) else {
+                if codes[i + len - 1] == 255 {
+                    break;
+                }
+                let Some(reading) = self.find_encoded(&codes[i..i + len]) else {
                     continue;
                 };
-                let (a, b) = self.entry_range(reading);
-                for k in a..b {
-                    let (lc, rc, wcost, surface) = self.entry(reading, k);
+                for (lc, rc, wcost, surface) in self.entries(reading) {
                     nodes.push(Node {
                         start: i,
                         end: i + len,
@@ -487,22 +529,33 @@ impl KanjiDictionary {
             parent: Option<usize>,
             node: Option<usize>,
             g: i32,
+            text: Rc<str>,
         }
         let mut arena: Vec<Path> = Vec::new();
         let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = BinaryHeap::new();
         let mut seq = 0usize;
+        // Equal output prefixes with the same right context have identical continuations.
+        let mut states: HashMap<(usize, u16, Rc<str>), i32> = HashMap::new();
         for &v in &starts[0] {
             let g = self.conn(0, nodes[v].lc) + nodes[v].wcost;
+            let text: Rc<str> = nodes[v].text.as_str().into();
+            let key = (nodes[v].end, nodes[v].rc, text.clone());
+            if states.get(&key).is_some_and(|&cost| cost <= g) {
+                continue;
+            }
+            states.insert(key, g);
             arena.push(Path {
                 parent: None,
                 node: Some(v),
                 g,
+                text,
             });
             heap.push(Reverse((g + h[v], seq, arena.len() - 1)));
             seq += 1;
         }
         let mut full: Vec<(i32, Vec<usize>)> = Vec::new();
-        while let Some(Reverse((_, _, pid))) = heap.pop() {
+        let mut full_texts = HashSet::new();
+        'search: while let Some(Reverse((_, _, pid))) = heap.pop() {
             let (parent, node, g) = (arena[pid].parent, arena[pid].node, arena[pid].g);
             match node {
                 None => {
@@ -515,6 +568,9 @@ impl KanjiDictionary {
                         at = arena[q].parent;
                     }
                     ids.reverse();
+                    if !full_texts.insert(arena[pid].text.clone()) {
+                        continue;
+                    }
                     full.push((g, ids));
                     if full.len() >= FULL_CANDIDATES {
                         break;
@@ -522,28 +578,61 @@ impl KanjiDictionary {
                 }
                 Some(v) => {
                     let (end, rc) = (nodes[v].end, nodes[v].rc);
+                    if states.get(&(end, rc, arena[pid].text.clone())) != Some(&g) {
+                        continue;
+                    }
                     if end == n {
                         let total = g + self.conn(rc, 0);
                         arena.push(Path {
                             parent: Some(pid),
                             node: None,
                             g: total,
+                            text: arena[pid].text.clone(),
                         });
                         heap.push(Reverse((total, seq, arena.len() - 1)));
                         seq += 1;
                     } else {
                         for &w in &starts[end] {
+                            if arena.len() >= MAX_NBEST_STATES {
+                                break 'search;
+                            }
                             let ng = g + self.conn(rc, nodes[w].lc) + nodes[w].wcost;
+                            let text: Rc<str> =
+                                format!("{}{}", arena[pid].text, nodes[w].text).into();
+                            let key = (nodes[w].end, nodes[w].rc, text.clone());
+                            if states.get(&key).is_some_and(|&cost| cost <= ng) {
+                                continue;
+                            }
+                            states.insert(key, ng);
                             arena.push(Path {
                                 parent: Some(pid),
                                 node: Some(w),
                                 g: ng,
+                                text,
                             });
                             heap.push(Reverse((ng + h[w], seq, arena.len() - 1)));
                             seq += 1;
                         }
                     }
                 }
+            }
+        }
+
+        // The Viterbi optimum remains available even if a degenerate lattice exhausts N-best.
+        if full.is_empty() {
+            if let Some(&last) = ends[n]
+                .iter()
+                .min_by_key(|&&v| f[v] + self.conn(nodes[v].rc, 0))
+            {
+                let cost = f[last] + self.conn(nodes[last].rc, 0);
+                let mut ids = Vec::new();
+                let mut at = Some(last);
+                while let Some(v) = at {
+                    ids.push(v);
+                    at = back[v];
+                }
+                ids.reverse();
+                full.push((cost, ids));
             }
         }
 
@@ -576,21 +665,27 @@ impl KanjiDictionary {
         // A reading no real word covers reads as an odd multi-piece path (よーそろー → よー粗ロー);
         // then the kana forms lead instead of trailing the noise. Unknown characters don't
         // count: a latin run inside a phrase (google) is not a sign of a missing word.
-        let plain_forms_lead = match full.first() {
-            Some((cost, ids)) => {
-                let unknown = ids.iter().filter(|&&v| nodes[v].unknown).count() as i32;
-                *cost - unknown * UNKNOWN_COST >= PLAIN_FORMS_LEAD_COST
-            }
-            None => false,
-        };
+        // IPADIC's absolute cost threshold is not calibrated for Mozc's IME cost model.
+        let plain_forms_lead = !self.wide
+            && match full.first() {
+                Some((cost, ids)) => {
+                    let unknown = ids.iter().filter(|&&v| nodes[v].unknown).count() as i32;
+                    *cost - unknown * UNKNOWN_COST >= PLAIN_FORMS_LEAD_COST
+                }
+                None => false,
+            };
 
         let mut out: Vec<ConversionCandidate> = Vec::new();
         if plain_forms_lead {
             out.push(ConversionCandidate::new(kana.to_string(), n));
             out.push(ConversionCandidate::new(RomajiComposer::katakana(kana), n));
         }
-        for (_, ids) in &full {
+        for (_cost, ids) in &full {
             let text: String = ids.iter().map(|&v| nodes[v].text.as_str()).collect();
+            #[cfg(feature = "tuning")]
+            if std::env::var_os("TS_JA_TRACE_COSTS").is_some() {
+                eprintln!("{kana}\t{_cost}\t{text}");
+            }
             out.push(ConversionCandidate::new(text, n));
         }
         for (text, covered) in prefixes {
@@ -716,6 +811,18 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_paths_do_not_spend_the_whole_candidate_budget() {
+        let kana = "こうつうりょうだってそっちのほうがおおい";
+        let candidates = converter().candidates(kana);
+        let whole: Vec<_> = candidates
+            .iter()
+            .filter(|c| c.kana_count == kana.chars().count())
+            .collect();
+        assert!(whole.len() >= FULL_CANDIDATES, "{whole:?}");
+        assert_eq!(whole[0].text, "交通量だってそっちのほうが多い");
+    }
+
+    #[test]
     fn sentence_paths_and_clauses() {
         let candidates = converter().candidates("きょうはいいてんきですね");
         let top = texts(&candidates, 4);
@@ -791,22 +898,26 @@ mod tests {
     /// A reading no word covers (a katakana word IPADIC lacks): the plain forms lead instead of
     /// the odd path pieces (よー粗ロー), and a latin run inside a phrase does not count as junk.
     #[test]
-    fn plain_forms_lead_when_no_word_covers_the_reading() {
+    fn known_katakana_words_do_not_fragment() {
         let candidates = converter().candidates("よーそろー");
-        assert_eq!(texts(&candidates, 2), ["よーそろー", "ヨーソロー"]);
+        assert_eq!(candidates[0].text, "ヨーソロー");
+        assert!(candidates.iter().any(|c| c.text == "よーそろー"));
         let candidates = converter().candidates("きょうはgoogleでけんさく");
         assert_eq!(candidates[0].text, "今日はgoogleで検索");
     }
 
     /// A whole, minimal dictionary — two readings, three entries — small enough to damage one
     /// field at a time, in the layout tools/build_ipadic.py writes.
-    fn minimal_dictionary() -> Vec<u8> {
+    fn minimal_dictionary(wide: bool) -> Vec<u8> {
         let readings = ["あ", "い"]; // codes 0 and 1
-        let charset = ['か', 'き', 'カ']; // one-byte codes 0..2, all in the top table
-                                          // (reading, lc, rc, cost, surface code)
-        let entries: [(usize, u16, u16, i16, u8); 3] =
-            [(0, 1, 1, 100, 0), (0, 0, 2, 50, 1), (1, 1, 1, 10, 2)];
-        let (lsize, rsize) = (3u16, 2u16);
+        let charset = [if wide { '𠮷' } else { 'か' }, 'き', 'カ'];
+        // (reading, lc, rc, cost, surface code)
+        let entries: [(usize, u16, u16, i16, u8); 3] = [
+            (0, if wide { 2048 } else { 1 }, 1, 100, 0),
+            (0, 0, 2, 50, 1),
+            (1, 1, 1, 10, 2),
+        ];
+        let (lsize, rsize) = (3u16, if wide { 2049u16 } else { 2u16 });
 
         let mut readings_blob = Vec::new();
         let mut reading_lens = Vec::new();
@@ -825,19 +936,23 @@ mod tests {
                 if reading != i {
                     continue;
                 }
-                let packed = u32::from(lc) | (u32::from(rc) << 11);
+                let packed = u32::from(lc) | (u32::from(rc) << if wide { 12 } else { 11 });
                 entries_blob.extend(&packed.to_le_bytes()[..3]);
                 entries_blob.extend(cost.to_le_bytes());
                 entries_blob.push(1); // one surface code byte
                 entries_blob.push(surface);
                 n += 1;
             }
-            entry_counts.push(n);
+            if wide {
+                entry_counts.extend((n as u16).to_le_bytes());
+            } else {
+                entry_counts.push(n);
+            }
             entry_byte_lens.extend(((entries_blob.len() - start) as u16).to_le_bytes());
         }
 
         let mut out = Vec::new();
-        out.extend(MAGIC);
+        out.extend(if wide { WIDE_MAGIC } else { MAGIC });
         out.extend(2u32.to_le_bytes()); // readings
         out.extend(3u32.to_le_bytes()); // entries
         out.push(1); // longest reading, in characters
@@ -852,7 +967,11 @@ mod tests {
         out.extend(entry_counts);
         out.extend(entry_byte_lens);
         for c in charset {
-            out.extend((c as u16).to_le_bytes());
+            if wide {
+                out.extend((c as u32).to_le_bytes());
+            } else {
+                out.extend((c as u16).to_le_bytes());
+            }
         }
         out.extend(readings_blob);
         out.extend(entries_blob);
@@ -873,7 +992,7 @@ mod tests {
     /// (this is the check that keeps a half-copied pack from panicking the text service).
     #[test]
     fn a_damaged_dictionary_fails_valid_where_the_reader_would_walk() {
-        let whole = minimal_dictionary();
+        let whole = minimal_dictionary(false);
         assert!(
             KanjiDictionary::valid(&whole),
             "the fixture itself must pass"
@@ -926,5 +1045,31 @@ mod tests {
         for (what, bytes) in cases {
             assert!(!KanjiDictionary::valid(&bytes), "{what} must fail valid()");
         }
+    }
+
+    #[test]
+    fn wide_dictionary_reads_contexts_counts_and_unicode_and_rejects_damage() {
+        let bytes = minimal_dictionary(true);
+        assert!(KanjiDictionary::valid(&bytes));
+        // Two reading lengths, two u16 counts, two u16 lengths, then three u32 scalars.
+        assert!(!KanjiDictionary::valid(&patched(
+            &bytes,
+            38,
+            &300u16.to_le_bytes()
+        )));
+        assert!(!KanjiDictionary::valid(&patched(
+            &bytes,
+            46,
+            &0x110000u32.to_le_bytes()
+        )));
+        for length in [0, 35, bytes.len() - 1] {
+            assert!(!KanjiDictionary::valid(&bytes[..length]));
+        }
+        let dict = KanjiDictionary::new(Box::leak(bytes.into_boxed_slice()));
+        let entries: Vec<_> = dict.entries(dict.find_reading("あ").unwrap()).collect();
+        assert_eq!(
+            entries,
+            [(2048, 1, 100, "𠮷".into()), (0, 2, 50, "き".into())]
+        );
     }
 }

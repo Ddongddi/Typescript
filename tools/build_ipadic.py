@@ -54,6 +54,7 @@ and the candidates are exactly what the old UTF-8 layout produced.
 """
 
 import argparse
+from array import array
 import glob
 import json
 import os
@@ -156,10 +157,11 @@ def load_matrix(ipadic_dir: str):
     return lsize, rsize, matrix
 
 
-def write_compact(out_path: str, readings, by_reading, lsize: int, rsize: int, matrix) -> tuple:
+def write_compact(out_path: str, readings, by_reading, lsize: int, rsize: int, matrix, *, wide=False) -> tuple:
     """Writes the packed table (the layout in the module docstring) for the readings and their
     entries; returns (n_entries, n_top, n_rest)."""
-    assert lsize <= 2048 and rsize <= 2048, "lc/rc are 11-bit fields"
+    bits = 12 if wide else 11
+    assert lsize <= 1 << bits and rsize <= 1 << bits, "context IDs do not fit"
     counts = Counter()
     for r in readings:
         for surface, _cost, _lc, _rc in by_reading[r]:
@@ -199,20 +201,20 @@ def write_compact(out_path: str, readings, by_reading, lsize: int, rsize: int, m
         for surface, cost, lc, rc in by_reading[r]:
             code = surface_code(surface)
             assert len(code) <= 255, f"surface {surface!r} is too long"
-            assert 0 <= lc < 2048 and 0 <= rc < 2048, f"ids of {surface!r} do not fit 11 bits"
-            entries_blob += (lc | (rc << 11)).to_bytes(3, "little")
+            assert 0 <= lc < 1 << bits and 0 <= rc < 1 << bits, f"ids of {surface!r} do not fit"
+            entries_blob += (lc | (rc << bits)).to_bytes(3, "little")
             entries_blob += struct.pack("<hB", cost, len(code))
             entries_blob += code
             n_entries += 1
-        entry_counts.append(len(by_reading[r]))
+        entry_counts += struct.pack("<H" if wide else "<B", len(by_reading[r]))
         delta = len(entries_blob) - start
         assert delta <= 65535, f"reading {r!r} has too many entry bytes"
         entry_byte_lens += struct.pack("<H", delta)
 
-    charset = b"".join(struct.pack("<H", ord(c)) for c in top + rest)
+    charset = b"".join(struct.pack("<I" if wide else "<H", ord(c)) for c in top + rest)
     header = struct.pack(
         "<8sIIB3xHHIIHH",
-        MAGIC,
+        b"TSIPDIC4" if wide else MAGIC,
         len(readings),
         n_entries,
         max(len(r) for r in readings),
@@ -232,7 +234,10 @@ def write_compact(out_path: str, readings, by_reading, lsize: int, rsize: int, m
         f.write(charset)
         f.write(readings_blob)
         f.write(entries_blob)
-        f.write(struct.pack(f"<{lsize * rsize}h", *matrix))
+        packed_matrix = array('h', matrix)
+        if sys.byteorder != 'little':
+            packed_matrix.byteswap()
+        f.write(packed_matrix.tobytes())
     return n_entries, len(top), len(rest)
 
 

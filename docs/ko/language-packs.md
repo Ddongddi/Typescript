@@ -8,30 +8,34 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 
 ## 1. 언어 팩 아키텍처
 
+0.10.0용입니다. 프로그램과 팩을 함께 갱신해야 합니다. 일본어 사전은 Mozc OSS의 단어·접속 비용을 Rust 변환기에서 사용하며, Mozc 실행 파일은 필요하지 않습니다.
+
 ```
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en-0.9.1\              (~0.45 MB zip) - 영어 트라이그램과 사전
+├── en-0.10.0\              (~0.45 MB zip) - 영어 트라이그램과 사전
 │   ├── manifest.json      (id · 버전 · core 호환 범위 · 표 파일 해시)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.9.1\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
+├── ko-0.10.0\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.9.1\              (~4.7 MB zip, 풀면 약 9.5 MB) - 가나 트라이그램 + IPADIC 사전
+└── ja-0.10.0\              (사전 약 38.1 MB) - 가나 트라이그램 + Mozc OSS 변환 데이터
     ├── manifest.json
     ├── kana_trigrams.bin
-    └── ipadic_compact.bin
+    ├── ipadic_compact.bin  (TSIPDIC4; legacy filename)
+    ├── mozc-LICENSE.txt · mozc-DICTIONARY-LICENSE.txt
+    └── dictionary-sources.json
 ```
 
 설치 프로그램은 릴리스의 `typescript-pack-<id>-<version>.zip`을 받아 풀고, 그 표 파일 각각이 `packs.json`(SHA-256·크기)과 manifest의 해시에 맞을 때만 팩 폴더로 등록합니다.
 
 ### 왜 언어 팩 구조인가?
 1. **초경량 메모리 발자국**: 각 앱 프로세스에 로드되는 DLL 파일 크기를 4MB 안쪽으로 유지합니다.
-2. **선택적 다운로드**: 일본어처럼 용량이 큰 사전(압축 해제 시 약 9.5MB)은 일본어 사용을 원하는 유저만 내려받아 사용합니다.
+2. **선택적 다운로드**: 일본어처럼 용량이 큰 사전(압축 해제 시 약 38.1MB)은 일본어 사용을 원하는 유저만 내려받아 사용합니다.
 3. **메모리 매핑(`mmap`)**: 모든 프로세스가 단일 물리 메모리 페이지만 공유하므로 시스템 리소스 낭비가 없습니다.
 4. **쉬운 확장성**: 새로운 언어를 추가할 때 코어 로직의 변경을 최소화하고 팩 단위로 배포할 수 있습니다.
 
@@ -48,8 +52,8 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.9.1",
-  "core": ">=0.9.0, <0.10.0",
+  "version": "0.10.0",
+  "core": ">=0.10.0, <0.11.0",
   "requires": ["en"],
   "files": {
     "ipadic_compact.bin": "9c1e…",
@@ -75,7 +79,7 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 cargo run -p typescript-packgen --bin build-packs -- crates/core/data target/packs
 ```
 
-기본 출력은 `target/packs/en-0.9.1/`처럼 한 언어 버전마다 하나의 폴더입니다 (체크아웃에서 바로 설치할 때 씁니다). `--release`를 주면 릴리스 배포용 `typescript-pack-<id>-<version>.zip`과, 이들의 크기와 SHA-256을 나열한 `packs.json`이 생깁니다 (`typescript-config`가 이 목록을 읽습니다).
+기본 출력은 `target/packs/en-0.10.0/`처럼 한 언어 버전마다 하나의 폴더입니다 (체크아웃에서 바로 설치할 때 씁니다). `--release`를 주면 릴리스 배포용 `typescript-pack-<id>-<version>.zip`과, 이들의 크기와 SHA-256을 나열한 `packs.json`이 생깁니다 (`typescript-config`가 이 목록을 읽습니다).
 
 ---
 

@@ -9,6 +9,17 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-18
+
+### Changed
+
+- Japanese kanji conversion absorbs Mozc OSS vocabulary, IME connection costs, and official auxiliary dictionary/filter preprocessing into the existing Rust lattice. No Mozc process or C++ runtime is required. The Japanese dictionary grows from about 9.7 MB to 38.1 MB.
+- The Japanese pack format now supports 12-bit context IDs, more homophones and supplementary-plane kanji. This is why the minor version is now 0.10.0; update the program and language packs together.
+
+### Added
+
+- Japanese conversion, language detection and English preservation checks in the lab, plus revision/hash-pinned AJIMEE (200 sentences) and Mozc regression evaluations. CI enforces Japanese quality floors.
+
 ## [0.9.1] - 2026-10-18
 
 ### Changed
@@ -327,7 +338,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8

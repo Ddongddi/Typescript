@@ -6,6 +6,16 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.1.2]
+
+### Added
+
+- Japanese converter Top-1/Top-5, per-category accuracy, load and latency metrics;
+  language detection and English preservation guards (`--japanese`).
+- `evaluate_japanese.py`: pinned AJIMEE JWTD_v2/v1 (200 multi-reference cases,
+  with/without context reported separately) and Mozc OSS exact/regex regressions.
+  Exact match, minimum character error rate, and full-string regex semantics are separate.
+
 ## [0.1.1]
 
 ### Added

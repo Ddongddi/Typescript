@@ -6,3 +6,4 @@ platforms/android/build/
 target-*/
 docs/superpowers/
 .superpowers/
+temp/

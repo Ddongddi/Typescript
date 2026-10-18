@@ -32,13 +32,35 @@ Typescript is a Rust port of Seamtype and ships these word lists inside the DLL.
    Derived from Tatoeba sentences, CC BY 2.0 FR. https://tatoeba.org
    License: https://creativecommons.org/licenses/by/2.0/fr/
 
-7. Japanese dictionary (crates/core/data/ipadic_compact.bin, made from mecab-ipadic)
+7. IPADIC-derived data within the Japanese dictionary (see Mozc below)
    Copyright 2000, 2001, 2002, 2003 Nara Institute of Science and Technology.
    All Rights Reserved. Use, reproduction, and distribution of this data is permitted;
    any copy, in its original form or modified, must include this notice.
    https://github.com/taku910/mecab
 
-8. Word-frequency adjustments to the costs inside ipadic_compact.bin
+8. Legacy IPADIC builder's optional word-frequency adjustments (tools/build_ipadic.py;
+   not used in the current Mozc-derived ipadic_compact.bin)
    Made with wordfreq 3.1.1 (code Apache-2.0, https://github.com/rspeer/wordfreq);
    wordfreq's combined data is provided under CC BY-SA 4.0.
    https://creativecommons.org/licenses/by-sa/4.0/
+
+9. Mozc OSS dictionary and connection costs (ipadic_compact.bin, TSIPDIC4)
+   https://github.com/google/mozc/tree/0136c35782536cb43d710575c311cd4185982738
+   Google-authored components: BSD-3-Clause. Dictionary includes IPADIC (NAIST/ICOT)
+   and Okinawa dictionary (public domain); preserve their separate notices.
+   Full notices: crates/core/data/mozc/LICENSE.txt and DICTIONARY-LICENSE.txt,
+   also distributed in the Japanese pack as mozc-LICENSE.txt and
+   mozc-DICTIONARY-LICENSE.txt. Source hashes, revision and transformations:
+   crates/core/data/ipadic_compact.sources.json, tools/build_mozc.py.
+   Modified by Typescript: kana-only readings, exact-tuple deduplication,
+   lossless packed representations and transposed connection matrix.
+   No evaluation corpus is used to construct this dictionary.
+
+10. Lab-only Japanese evaluation data (downloaded, not packaged or redistributed)
+    AJIMEE-Bench JWTD_v2/v1: azooKey, CC-BY-SA 3.0, derived from Japanese Wikipedia
+    input typo dataset v2 (Kyoto University) test data and Wikipedia.
+    https://github.com/azooKey/AJIMEE-Bench/tree/401666cd56d1a570c2021798b64b6da4396bfd45
+    License: https://creativecommons.org/licenses/by-sa/3.0/
+    Input script is normalized from katakana to hiragana; allowed answers are unchanged.
+    Mozc OSS regression tests: google/mozc, BSD-3-Clause (same revision as above).
+    Sources and SHA-256 hashes: lab/evaluate_japanese.py; cached in ignored lab/data/.

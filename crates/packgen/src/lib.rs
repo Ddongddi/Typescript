@@ -72,6 +72,15 @@ pub fn write_pack(id: &str, data: &Path, dir: &Path) -> io::Result<()> {
                 "ipadic_compact.bin",
                 fs::read(data.join("ipadic_compact.bin"))?,
             ),
+            ("mozc-LICENSE.txt", fs::read(data.join("mozc/LICENSE.txt"))?),
+            (
+                "mozc-DICTIONARY-LICENSE.txt",
+                fs::read(data.join("mozc/DICTIONARY-LICENSE.txt"))?,
+            ),
+            (
+                "dictionary-sources.json",
+                fs::read(data.join("ipadic_compact.sources.json"))?,
+            ),
         ],
         _ => unreachable!("checked against PACKS"),
     };

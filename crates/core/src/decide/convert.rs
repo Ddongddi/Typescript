@@ -1,12 +1,8 @@
 //! Kana → kanji conversion (JapaneseConverter.h in the original: `AzooKeyConverter` in the
 //! app, `AppleJapaneseConverter` where macOS's engine can be loaded, fakes in tests).
 //!
-//! Both engines of the original are macOS-only: `AppleJapaneseConverter` loads the private
-//! libmecabra at runtime, and `AzooKeyConverter` links AzooKey's Swift package with its own
-//! bundled dictionary. Neither can be ported. This module keeps the same interface and ships
-//! `KanaConverter`, which offers the forms every converter guarantees (the reading as hiragana
-//! and as katakana): Japanese typing, Esc reading cycling, Delete, the candidate flow and live
-//! conversion all work; kanji conversion waits for a Windows engine behind the same trait.
+//! DictionaryConverter implements this interface with a native Rust lattice and absorbed Mozc
+//! dictionary/cost data. KanaConverter supplies the reading-only fallback used in tests.
 
 use crate::lang::romaji::RomajiComposer;
 

@@ -9,6 +9,17 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-18
+
+### 변경
+
+- 일본어 한자 변환에 Mozc OSS의 사전·접속 비용과 공식 보조 사전·필터를 흡수했습니다. 별도 Mozc 프로세스나 C++ 런타임 없이 기존 Rust 엔진에서 변환합니다. 일본어 사전은 약 9.7MB에서 38.1MB로 커집니다.
+- 일본어 팩이 12비트 문맥 ID·더 많은 동음이의어·비BMP 한자를 담는 새 형식이 되어 마이너 버전을 0.10.0으로 올렸습니다. 프로그램과 언어 팩을 함께 갱신해야 합니다.
+
+### 추가
+
+- lab에 일본어 변환·자동 판별·영어 보존 검사와, 버전·해시를 고정한 AJIMEE 200문장 및 Mozc 회귀 평가를 추가했습니다. 일본어 품질 하한은 CI에서 검사합니다.
+
 ## [0.9.1] - 2026-10-18
 
 ### 변경
@@ -327,7 +338,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/iamallyouneed/Typescript/compare/v0.8.7...v0.8.8

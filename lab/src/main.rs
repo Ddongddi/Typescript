@@ -12,6 +12,7 @@
 //! plus cases/words.tsv and cases/sentences.tsv, which hold what *should* happen.
 
 mod corpus;
+mod japanese;
 mod scenario;
 mod tune;
 
@@ -330,6 +331,10 @@ fn read_baseline() -> Option<Baseline> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--japanese") {
+        japanese::standalone(&args);
+        return;
+    }
     if args.iter().any(|a| a == "--tune") {
         tune::run();
         return;
@@ -602,7 +607,8 @@ fn main() {
         corpus::run(engine.as_ref(), sample, shown, fold)
     };
     let scenarios = scenario::run(engine.as_ref(), shown);
-    for report in big.iter().chain([&scenarios]) {
+    let japanese = japanese::run(shown);
+    for report in big.iter().chain([&scenarios, &japanese]) {
         metrics.extend(report.metrics.iter().cloned());
     }
 
@@ -639,7 +645,7 @@ fn main() {
     print_report(&metrics, &buckets, baseline.as_ref());
     print_changes(&cases, &got, baseline.as_ref());
     print_misses(&cases, &got, shown);
-    for report in big.iter().chain([&scenarios]) {
+    for report in big.iter().chain([&scenarios, &japanese]) {
         for (bucket, misses) in report.misses.iter().filter(|(_, m)| !m.is_empty()) {
             println!("\n  {bucket} (first {})", misses.len());
             misses.iter().for_each(|m| println!("    {m}"));

@@ -58,3 +58,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-ndk --locked
       - run: ./platforms/android/build.ps1
+
+  japanese:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python tools/build_mozc.py --selftest
+      - run: python lab/evaluate_japanese.py --selftest
+      - run: cargo test --manifest-path lab/Cargo.toml japanese
+      - run: cargo build --release --manifest-path lab/Cargo.toml
+      - run: python lab/evaluate_japanese.py --binary lab/target/release/typescript-lab --check

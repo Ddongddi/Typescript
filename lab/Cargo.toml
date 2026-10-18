@@ -3,7 +3,7 @@
 #   cargo run --release --manifest-path lab/Cargo.toml
 [package]
 name = "typescript-lab"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "AGPL-3.0-only"
 publish = false
@@ -11,7 +11,7 @@ publish = false
 [workspace]
 
 [dependencies]
-typescript-core = { path = "../crates/core", features = ["embedded-en", "embedded-ko", "tuning"] }
+typescript-core = { path = "../crates/core", features = ["embedded-en", "embedded-ko", "embedded-ja", "tuning"] }
 
 # Same as the shipped engine (root Cargo.toml), so the timings mean what users get.
 [profile.release]
