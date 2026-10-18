@@ -16,6 +16,8 @@ pub struct ConversionCandidate {
     /// A completion of the reading (ゆーちゅ → YouTube) rather than a conversion of it: offered
     /// in the candidate list, never shown by live conversion.
     pub is_prediction: bool,
+    /// Dictionary right-context ID of the selected path; absent without a dictionary path.
+    pub(crate) right_context: Option<u16>,
 }
 
 impl ConversionCandidate {
@@ -24,6 +26,7 @@ impl ConversionCandidate {
             text: text.into(),
             kana_count,
             is_prediction: false,
+            right_context: None,
         }
     }
 
@@ -32,6 +35,7 @@ impl ConversionCandidate {
             text: text.into(),
             kana_count,
             is_prediction: true,
+            right_context: None,
         }
     }
 }
@@ -39,6 +43,14 @@ impl ConversionCandidate {
 /// Kana → kanji conversion.
 pub trait JapaneseConverter: Send + Sync {
     fn candidates(&self, kana: &str) -> Vec<ConversionCandidate>;
+    /// Continue after a committed clause. Converters without path metadata use BOS.
+    fn candidates_after(
+        &self,
+        kana: &str,
+        _previous: &ConversionCandidate,
+    ) -> Vec<ConversionCandidate> {
+        self.candidates(kana)
+    }
     /// The user committed `candidate`: remember it so it ranks higher next time.
     fn learn(&self, candidate: &ConversionCandidate, kana: &str);
     /// Persist anything learned (called on deactivation).

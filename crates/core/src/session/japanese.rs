@@ -26,6 +26,8 @@ pub struct Conversion {
     pub selected: usize,
     /// The user chose Japanese for these keys with Esc (going back to kana keeps that).
     pub(crate) user_forced: bool,
+    /// The clause committed immediately before this remaining reading.
+    pub(crate) previous: Option<ConversionCandidate>,
 }
 
 impl Conversion {
@@ -193,8 +195,13 @@ impl InputSession {
 
     /// The top candidate covering all of `kana` (cached: the preview asks on every key).
     fn live_candidate(&mut self, kana: &str) -> Option<ConversionCandidate> {
-        if let Some((cached_kana, cached)) = &self.ja.live_cache {
-            if cached_kana == kana {
+        let previous_rc = self
+            .word
+            .previous_clause
+            .as_ref()
+            .and_then(|c| c.right_context);
+        if let Some((cached_kana, cached_rc, cached)) = &self.ja.live_cache {
+            if cached_kana == kana && *cached_rc == previous_rc {
                 return cached.clone();
             }
         }
@@ -215,7 +222,7 @@ impl InputSession {
                 }
             }
         }
-        self.ja.live_cache = Some((kana.to_string(), candidate.clone()));
+        self.ja.live_cache = Some((kana.to_string(), previous_rc, candidate.clone()));
         candidate
     }
 
@@ -296,6 +303,7 @@ impl InputSession {
             candidates,
             selected,
             user_forced,
+            previous: self.word.previous_clause.take(),
         });
         self.word.release();
         self.word.syllable_start = None;
@@ -335,6 +343,7 @@ impl InputSession {
             candidates,
             selected: 0,
             user_forced: false,
+            previous: self.word.previous_clause.take(),
         });
         self.word.keys.clear();
         self.word.release();
@@ -373,7 +382,7 @@ impl InputSession {
         }
         let clause: String = reading[..length as usize].iter().collect();
         let candidates: Vec<ConversionCandidate> = self
-            .conversion_candidates(&clause)
+            .conversion_candidates_after(&clause, conversion.previous.as_ref())
             .into_iter()
             .filter(|c| c.kana_count == char_count(&clause))
             .collect();
@@ -386,6 +395,7 @@ impl InputSession {
             candidates,
             selected: 0,
             user_forced: conversion.user_forced,
+            previous: conversion.previous.clone(),
         })
     }
 
@@ -459,6 +469,7 @@ impl InputSession {
             }
 
             Key::Katakana | Key::Hiragana => {
+                self.word.previous_clause = conversion.previous;
                 self.show_kana_forms(
                     key == Key::Katakana,
                     Some(conversion.kana),
@@ -488,6 +499,8 @@ impl InputSession {
                     self.ja.added_n_marker = true;
                 }
                 self.word.keys = keys;
+                self.word.previous_clause = conversion.previous;
+                self.ja.live_cache = None;
                 self.word.force(Language::Japanese, conversion.user_forced);
                 self.update_preview(client);
                 true
@@ -527,7 +540,7 @@ impl InputSession {
             return;
         }
         let rest_keys = Self::keys_after(&conversion.keys, candidate.kana_count);
-        let candidates = self.conversion_candidates(&rest);
+        let candidates = self.conversion_candidates_after(&rest, Some(&candidate));
         if candidates.is_empty() {
             client.insert_text(&rest, None);
         } else {
@@ -538,6 +551,7 @@ impl InputSession {
                 candidates,
                 selected: 0,
                 user_forced: false,
+                previous: Some(candidate),
             };
             let display = rest_conversion.display();
             self.ja.conversion = Some(rest_conversion);
@@ -560,11 +574,22 @@ impl InputSession {
     /// offers itself (１２３) and its half-width form (123) first; otherwise the candidates that keep
     /// the digits come before those that spell them out (３月, 3月, then 三月; 東京都１, not 東京都一).
     fn conversion_candidates(&self, kana: &str) -> Vec<ConversionCandidate> {
+        self.conversion_candidates_after(kana, self.word.previous_clause.as_ref())
+    }
+
+    fn conversion_candidates_after(
+        &self,
+        kana: &str,
+        previous: Option<&ConversionCandidate>,
+    ) -> Vec<ConversionCandidate> {
         let candidates = self
             .ja
             .converter
             .as_ref()
-            .map(|c| c.candidates(kana))
+            .map(|c| match previous {
+                Some(previous) => c.candidates_after(kana, previous),
+                None => c.candidates(kana),
+            })
             .unwrap_or_default();
         let digits = Self::digits_of(kana);
         if digits.is_empty() {

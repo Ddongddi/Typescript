@@ -82,7 +82,11 @@ struct JapaneseState {
     conversion: Option<Conversion>,
     /// Esc showed the current phrase's kana instead (the next Esc switches language as usual).
     live_suppressed: bool,
-    live_cache: Option<(String, Option<crate::decide::convert::ConversionCandidate>)>,
+    live_cache: Option<(
+        String,
+        Option<u16>,
+        Option<crate::decide::convert::ConversionCandidate>,
+    )>,
     /// "henkan" came back from conversion as "henkan'" (the final n stays ん); dropped again
     /// if the word leaves Japanese, so English doesn't get an apostrophe nobody typed.
     added_n_marker: bool,

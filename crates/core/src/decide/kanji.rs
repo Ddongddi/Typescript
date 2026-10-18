@@ -478,6 +478,15 @@ impl KanjiDictionary {
     /// best path's clause boundaries, the user's earlier choices first, then the reading
     /// itself in hiragana and katakana.
     pub fn candidates(&self, kana: &str, learned: Option<&[String]>) -> Vec<ConversionCandidate> {
+        self.candidates_from(kana, learned, 0)
+    }
+
+    fn candidates_from(
+        &self,
+        kana: &str,
+        learned: Option<&[String]>,
+        previous_rc: u16,
+    ) -> Vec<ConversionCandidate> {
         if kana.is_empty() {
             return Vec::new();
         }
@@ -555,15 +564,32 @@ impl KanjiDictionary {
 
         // Backward: the cheapest cost of finishing after each node.
         let mut h = vec![0i32; nodes.len()];
+        let mut next_costs = vec![i32::MAX; self.matrix.len() / (2 * self.lsize)];
+        let mut next_contexts: Vec<usize> = Vec::new();
         for pos in (0..=n).rev() {
+            // Equal left contexts have the same incoming connection cost.
+            for lc in next_contexts.drain(..) {
+                next_costs[lc] = i32::MAX;
+            }
+            if pos < n {
+                for &w in &starts[pos] {
+                    let cost = nodes[w].wcost + h[w];
+                    let lc = nodes[w].lc as usize;
+                    let best = &mut next_costs[lc];
+                    if *best == i32::MAX {
+                        next_contexts.push(lc);
+                    }
+                    *best = (*best).min(cost);
+                }
+            }
             for &v in &ends[pos] {
                 let node = &nodes[v];
                 h[v] = if pos == n {
                     self.conn(node.rc, 0)
                 } else {
                     let mut best = i32::MAX;
-                    for &w in &starts[pos] {
-                        let cost = self.conn(node.rc, nodes[w].lc) + nodes[w].wcost + h[w];
+                    for &lc in &next_contexts {
+                        let cost = self.conn(node.rc, lc as u16) + next_costs[lc];
                         best = best.min(cost);
                     }
                     best
@@ -574,23 +600,36 @@ impl KanjiDictionary {
         // Forward: the cheapest cost of reaching each node, for the best clauses.
         let mut f = vec![0i32; nodes.len()];
         let mut back: Vec<Option<usize>> = vec![None; nodes.len()];
+        let mut previous_costs = vec![(i32::MAX, usize::MAX); self.lsize];
+        let mut previous_contexts: Vec<usize> = Vec::new();
         for pos in 0..n {
+            // Equal right contexts have identical continuations; keep the cheapest prefix.
+            for rc in previous_contexts.drain(..) {
+                previous_costs[rc] = (i32::MAX, usize::MAX);
+            }
+            for &u in &ends[pos] {
+                let rc = nodes[u].rc as usize;
+                let best = &mut previous_costs[rc];
+                if best.1 == usize::MAX {
+                    previous_contexts.push(rc);
+                }
+                *best = (*best).min((f[u], u));
+            }
             for &v in &starts[pos] {
                 let node = &nodes[v];
                 if pos == 0 {
-                    f[v] = self.conn(0, node.lc) + node.wcost;
+                    f[v] = self.conn(previous_rc, node.lc) + node.wcost;
                 } else {
-                    let mut best = i32::MAX;
-                    let mut from = None;
-                    for &u in &ends[pos] {
-                        let cost = f[u] + self.conn(nodes[u].rc, node.lc) + node.wcost;
-                        if cost < best {
-                            best = cost;
-                            from = Some(u);
-                        }
-                    }
-                    f[v] = best;
-                    back[v] = from;
+                    let (cost, from) = previous_contexts
+                        .iter()
+                        .map(|&rc| {
+                            let (cost, u) = previous_costs[rc];
+                            (cost + self.conn(rc as u16, node.lc) + node.wcost, u)
+                        })
+                        .min()
+                        .expect("every position has an unknown path");
+                    f[v] = cost;
+                    back[v] = Some(from);
                 }
             }
         }
@@ -616,7 +655,7 @@ impl KanjiDictionary {
         // Equal output prefixes with the same right context have identical continuations.
         let mut states: HashMap<(usize, u16, u64), i32> = HashMap::new();
         for &v in &starts[0] {
-            let g = self.conn(0, nodes[v].lc) + nodes[v].wcost;
+            let g = self.conn(previous_rc, nodes[v].lc) + nodes[v].wcost;
             let hash = fnv_extend(FNV_START, text(v));
             let key = (nodes[v].end, nodes[v].rc, hash);
             if states.get(&key).is_some_and(|&cost| cost <= g) {
@@ -716,7 +755,7 @@ impl KanjiDictionary {
         }
 
         // The best path's clause boundaries, as first-clause candidates.
-        let mut prefixes: Vec<(String, usize)> = Vec::new();
+        let mut prefixes: Vec<(String, usize, u16)> = Vec::new();
         if let Some(last) = best_end[n] {
             let mut boundaries: Vec<usize> = Vec::new();
             let mut at = Some(last);
@@ -736,7 +775,7 @@ impl KanjiDictionary {
                         at = back[v];
                     }
                     parts.reverse();
-                    prefixes.push((parts.concat(), p));
+                    prefixes.push((parts.concat(), p, nodes[end].rc));
                 }
             }
         }
@@ -765,16 +804,25 @@ impl KanjiDictionary {
             if std::env::var_os("TS_JA_TRACE_COSTS").is_some() {
                 eprintln!("{kana}\t{_cost}\t{text}");
             }
-            out.push(ConversionCandidate::new(text, n));
+            let mut candidate = ConversionCandidate::new(text, n);
+            candidate.right_context = ids.last().map(|&v| nodes[v].rc);
+            out.push(candidate);
         }
-        for (text, covered) in prefixes {
-            out.push(ConversionCandidate::new(text, covered));
+        for (text, covered, rc) in prefixes {
+            let mut candidate = ConversionCandidate::new(text, covered);
+            candidate.right_context = Some(rc);
+            out.push(candidate);
         }
         // The user's earlier choices for this reading first, most recent first.
         if let Some(learned) = learned {
             for text in learned.iter().rev() {
+                let candidate = out
+                    .iter()
+                    .position(|c| c.text == *text && c.kana_count == n)
+                    .map(|i| out.remove(i))
+                    .unwrap_or_else(|| ConversionCandidate::new(text.clone(), n));
                 out.retain(|c| c.text != *text);
-                out.insert(0, ConversionCandidate::new(text.clone(), n));
+                out.insert(0, candidate);
             }
         }
         // The reading itself, in hiragana and katakana, is always available.
@@ -824,6 +872,19 @@ impl JapaneseConverter for DictionaryConverter {
     fn candidates(&self, kana: &str) -> Vec<ConversionCandidate> {
         let learned = self.lock().get(kana).cloned();
         self.dict.candidates(kana, learned.as_deref())
+    }
+
+    fn candidates_after(
+        &self,
+        kana: &str,
+        previous: &ConversionCandidate,
+    ) -> Vec<ConversionCandidate> {
+        let learned = self.lock().get(kana).cloned();
+        self.dict.candidates_from(
+            kana,
+            learned.as_deref(),
+            previous.right_context.unwrap_or(0),
+        )
     }
 
     fn learn(&self, candidate: &ConversionCandidate, kana: &str) {
@@ -1056,6 +1117,69 @@ mod tests {
             out.extend(0i16.to_le_bytes()); // the connection matrix
         }
         out
+    }
+
+    #[test]
+    fn continuation_uses_the_selected_paths_connection_cost() {
+        for wide in [false, true] {
+            let mut data = minimal_dictionary(wide);
+            let lc = if wide { 2048 } else { 1 };
+            let matrix = data.len() - 3 * (lc + 1) * 2;
+            let at = matrix + (1 + 3 * lc) * 2;
+            data[at..at + 2].copy_from_slice(&(-200i16).to_le_bytes());
+            assert!(KanjiDictionary::valid(&data));
+            let converter = DictionaryConverter {
+                dict: Box::leak(Box::new(KanjiDictionary::new(Box::leak(
+                    data.into_boxed_slice(),
+                )))),
+                learning_path: None,
+                learned: Mutex::new(BTreeMap::new()),
+            };
+            let previous = converter.candidates("い").remove(0);
+            assert_eq!(previous.right_context, Some(1));
+            assert_eq!(converter.candidates("あ")[0].text, "き");
+            let continued = converter.candidates_after("あ", &previous);
+            assert_eq!(continued[0].text, if wide { "𠮷" } else { "か" });
+            assert_eq!(continued[0].right_context, Some(1));
+            // Reordering a learned dictionary path must preserve its context metadata.
+            converter.learn(&continued[0], "あ");
+            assert_eq!(converter.candidates("あ")[0].right_context, Some(1));
+            let plain = ConversionCandidate::new("い", 1);
+            assert_eq!(
+                converter.candidates_after("あ", &plain),
+                converter.candidates("あ")
+            );
+        }
+    }
+
+    #[test]
+    fn shared_contexts_keep_the_cheapest_prefix_and_original_tie_order() {
+        for wide in [false, true] {
+            let original = Box::leak(minimal_dictionary(wide).into_boxed_slice());
+            let layout = KanjiDictionary::new(original);
+            let entries = layout.entries.as_ptr() as usize - original.as_ptr() as usize;
+            let matrix = layout.matrix.as_ptr() as usize - original.as_ptr() as usize;
+            let lc = if wide { 2048 } else { 1 };
+            for bos_cost in [0i16, -50] {
+                let mut data = original.to_vec();
+                // Both alternatives for あ now end in rc=1, with different word costs.
+                let packed = 1u32 << if wide { 12 } else { 11 };
+                data[entries + 7..entries + 10].copy_from_slice(&packed.to_le_bytes()[..3]);
+                let at = matrix + (1 + 3 * lc) * 2;
+                data[at..at + 2].copy_from_slice(&(-200i16).to_le_bytes());
+                let at = matrix + 3 * lc * 2;
+                data[at..at + 2].copy_from_slice(&bos_cost.to_le_bytes());
+                assert!(KanjiDictionary::valid(&data));
+                let dict = KanjiDictionary::new(Box::leak(data.into_boxed_slice()));
+                let candidates = dict.candidates("ああい", None);
+                let first = if wide { "𠮷" } else { "か" };
+                let head = if bos_cost == 0 { "き" } else { first };
+                assert_eq!(candidates[0].text, format!("{head}{first}カ"));
+                let prefix = candidates.iter().find(|c| c.kana_count == 2).unwrap();
+                assert_eq!(prefix.text, format!("{head}{first}"));
+                assert_eq!(prefix.right_context, Some(1));
+            }
+        }
     }
 
     fn patched(dictionary: &[u8], at: usize, bytes: &[u8]) -> Vec<u8> {

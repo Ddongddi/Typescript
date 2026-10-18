@@ -6,6 +6,8 @@ use crate::lang::hangul::{HangulComposer, Unit};
 #[derive(Default)]
 pub(super) struct WordState {
     pub keys: String,
+    /// Clause context retained while a remaining Japanese reading is edited.
+    pub previous_clause: Option<crate::decide::convert::ConversionCandidate>,
     // The reading's steering is private: it changes only through the transitions below, so
     // `forced_by_user` can never outlive `forced`.
     /// The reading chosen with Esc.

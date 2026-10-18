@@ -21,12 +21,14 @@ use tacit_core::{
 /// first-clause candidate to exercise partial commits.
 struct FakeConverter {
     learned: Mutex<Vec<String>>,
+    continuations: Mutex<Vec<(String, String)>>,
 }
 
 impl FakeConverter {
     fn new() -> Self {
         Self {
             learned: Mutex::new(Vec::new()),
+            continuations: Mutex::new(Vec::new()),
         }
     }
 
@@ -36,6 +38,18 @@ impl FakeConverter {
 }
 
 impl JapaneseConverter for FakeConverter {
+    fn candidates_after(
+        &self,
+        kana: &str,
+        previous: &ConversionCandidate,
+    ) -> Vec<ConversionCandidate> {
+        self.continuations
+            .lock()
+            .unwrap()
+            .push((kana.to_string(), previous.text.clone()));
+        self.candidates(kana)
+    }
+
     fn candidates(&self, kana: &str) -> Vec<ConversionCandidate> {
         let count = kana.chars().count();
         match kana {
@@ -993,6 +1007,29 @@ fn live_english_inside_phrase_and_punctuation() {
     assert_eq!(r.text(), "きょうはgoogleでけんさく");
     r.type_(" arigatou.⏎");
     assert!(r.text().ends_with('。'), "{}", r.text());
+}
+
+#[test]
+fn clause_context_survives_resizing_and_ends_with_the_conversion() {
+    let mut r = JaRig::new("ja-clause-context");
+    r.type_("kyouhaiitenkidesune ");
+    r.session.choose(1, &mut r.field);
+    assert_eq!(
+        *r.converter.continuations.lock().unwrap(),
+        [("いいてんきですね".to_string(), "今日は".to_string())]
+    );
+    r.type_("←→");
+    let calls = r.converter.continuations.lock().unwrap().clone();
+    assert_eq!(calls.len(), 3);
+    assert!(calls.iter().all(|(_, previous)| previous == "今日は"));
+    r.type_("⎋ ");
+    let calls = r.converter.continuations.lock().unwrap().clone();
+    assert!(calls.len() > 3);
+    assert!(calls.iter().all(|(_, previous)| previous == "今日は"));
+    let count = calls.len();
+    r.type_("⏎henkan ⏎");
+    assert_eq!(r.converter.continuations.lock().unwrap().len(), count);
+    assert!(r.text().ends_with("変換"), "{}", r.text());
 }
 
 fn terminal_policies() -> AppPolicies {
