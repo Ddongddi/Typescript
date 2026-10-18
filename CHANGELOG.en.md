@@ -9,6 +9,13 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-18
+
+### Changed
+
+- Japanese conversion is faster. Interleaved runs of the same input against 0.10.0 give a mean latency of 0.54x and a p99 of 0.51x, with byte-identical output on 506 readings. The candidate search no longer builds and hashes a string per path (it continues an incremental hash), and lattice nodes share one text buffer instead of allocating a string each.
+- Loading the Japanese dictionary no longer walks all 15 MB again: installed packs are already checked once per file. First initialisation drops from about 45 ms to about 4 ms and the heap after it from 5.8 MB to 3.0 MB. The dictionary format is unchanged, so 0.10.0 packs keep working.
+
 ## [0.10.0] - 2026-10-18
 
 ### Changed
@@ -338,7 +345,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0

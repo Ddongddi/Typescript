@@ -8,22 +8,22 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 
 ## 1. 언어 팩 아키텍처
 
-0.10.0용입니다. 프로그램과 팩을 함께 갱신해야 합니다. 일본어 사전은 Mozc OSS의 단어·접속 비용을 Rust 변환기에서 사용하며, Mozc 실행 파일은 필요하지 않습니다.
+0.10.x용입니다. 프로그램과 팩을 함께 갱신해야 합니다. 일본어 사전은 Mozc OSS의 단어·접속 비용을 Rust 변환기에서 사용하며, Mozc 실행 파일은 필요하지 않습니다.
 
 ```
 %LOCALAPPDATA%\Typescript\packs\ (Windows)
 ~/.local/share/Typescript/packs/ (Linux)
 ~/Library/Application Support/Typescript/packs/ (macOS)
-├── en-0.10.0\              (~0.45 MB zip) - 영어 트라이그램과 사전
+├── en-0.10.1\              (~0.45 MB zip) - 영어 트라이그램과 사전
 │   ├── manifest.json      (id · 버전 · core 호환 범위 · 표 파일 해시)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.10.0\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
+├── ko-0.10.1\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.10.0\              (사전 약 38.1 MB) - 가나 트라이그램 + Mozc OSS 변환 데이터
+└── ja-0.10.1\              (사전 약 38.1 MB) - 가나 트라이그램 + Mozc OSS 변환 데이터
     ├── manifest.json
     ├── kana_trigrams.bin
     ├── ipadic_compact.bin  (TSIPDIC4; legacy filename)
@@ -52,7 +52,7 @@ Typescript는 코어 엔진의 가벼움을 유지하고 프로세스 시작 속
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "core": ">=0.10.0, <0.11.0",
   "requires": ["en"],
   "files": {

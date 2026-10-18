@@ -9,6 +9,13 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-18
+
+### 변경
+
+- 일본어 변환이 빨라졌습니다. 같은 입력을 0.10.0과 번갈아 실행해 비교한 결과 평균 지연은 0.54배, p99는 0.51배입니다(출력은 506개 읽기에서 바이트 단위로 같습니다). 후보 탐색이 경로마다 문자열을 이어 붙여 해시하던 것을 이어 붙임 호환 해시로 바꾸고, 격자 노드마다 문자열을 만들던 것을 하나의 버퍼로 합쳤습니다.
+- 일본어 사전을 불러올 때 15MB 전체를 다시 훑지 않습니다. 설치된 팩은 이미 파일당 한 번 검사해 두기 때문입니다. 최초 초기화가 약 45ms에서 약 4ms로, 초기화 뒤 힙이 5.8MB에서 3.0MB로 줄었습니다. 사전 형식은 그대로여서 0.10.0 팩을 그대로 씁니다.
+
 ## [0.10.0] - 2026-10-18
 
 ### 변경
@@ -338,7 +345,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/iamallyouneed/Typescript/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/iamallyouneed/Typescript/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/iamallyouneed/Typescript/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/iamallyouneed/Typescript/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/iamallyouneed/Typescript/compare/v0.8.8...v0.9.0
