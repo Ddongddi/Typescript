@@ -326,25 +326,35 @@ impl KanjiDictionary {
     }
 
     /// Decode each entry once; rescanning from the start made common readings quadratic.
+    #[cfg(test)]
     fn entries(&self, i: usize) -> impl Iterator<Item = (u16, u16, i32, String)> + '_ {
+        self.entry_positions(i).map(|at| {
+            let mut text = String::new();
+            let (lc, rc, wcost) = self.entry_into(at, &mut text);
+            (lc, rc, wcost, text)
+        })
+    }
+
+    /// Where each of a reading's entries starts in the entry blob.
+    fn entry_positions(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
         let mut at = self.entry_byte_offsets[i] as usize;
         let end = self.entry_byte_offsets[i + 1] as usize;
         std::iter::from_fn(move || {
             if at >= end {
                 return None;
             }
-            let value = self.entry(at);
+            let here = at;
             at += 6 + self.entries[at + 5] as usize;
-            Some(value)
+            Some(here)
         })
     }
 
-    fn entry(&self, at: usize) -> (u16, u16, i32, String) {
+    /// Appends the entry's surface to `text`; returns its contexts and word cost.
+    fn entry_into(&self, at: usize, text: &mut String) -> (u16, u16, i32) {
         let blob = self.entries;
         let packed = u24_at(blob, at);
         let bits = if self.wide { 12 } else { 11 };
         let nbytes = blob[at + 5] as usize;
-        let mut text = String::with_capacity(nbytes);
         let mut p = at + 6;
         let end = p + nbytes;
         while p < end {
@@ -361,7 +371,6 @@ impl KanjiDictionary {
             (packed & ((1 << bits) - 1)) as u16,
             (packed >> bits) as u16,
             i16_at(blob, at + 3) as i32,
-            text,
         )
     }
 
@@ -436,7 +445,8 @@ struct Node {
     lc: u16,
     rc: u16,
     wcost: i32,
-    text: String,
+    /// The surface, as a byte range of the lattice's shared text buffer.
+    text: (u32, u32),
     unknown: bool,
 }
 
@@ -463,6 +473,8 @@ impl KanjiDictionary {
         // The lattice: every entry whose reading matches a span, plus one unknown character
         // per position (so latin runs and stray marks stay as typed).
         let mut nodes: Vec<Node> = Vec::new();
+        // Every node's surface, one after another: no allocation per dictionary entry.
+        let mut buf = String::new();
         let mut starts: Vec<Vec<usize>> = vec![Vec::new(); n];
         let mut ends: Vec<Vec<usize>> = vec![Vec::new(); n + 1];
         for i in 0..n {
@@ -483,14 +495,16 @@ impl KanjiDictionary {
                 if self.reading(reading).len() != len {
                     continue;
                 }
-                for (lc, rc, wcost, surface) in self.entries(reading) {
+                for at in self.entry_positions(reading) {
+                    let from = buf.len() as u32;
+                    let (lc, rc, wcost) = self.entry_into(at, &mut buf);
                     nodes.push(Node {
                         start: i,
                         end: i + len,
                         lc,
                         rc,
                         wcost,
-                        text: surface,
+                        text: (from, buf.len() as u32),
                         unknown: false,
                     });
                     let id = nodes.len() - 1;
@@ -498,19 +512,23 @@ impl KanjiDictionary {
                     ends[i + len].push(id);
                 }
             }
+            let from = buf.len() as u32;
+            buf.push(chars[i]);
             nodes.push(Node {
                 start: i,
                 end: i + 1,
                 lc: 0,
                 rc: 0,
                 wcost: UNKNOWN_COST,
-                text: chars[i].to_string(),
+                text: (from, buf.len() as u32),
                 unknown: true,
             });
             let id = nodes.len() - 1;
             starts[i].push(id);
             ends[i + 1].push(id);
         }
+
+        let text = |v: usize| &buf[nodes[v].text.0 as usize..nodes[v].text.1 as usize];
 
         // Backward: the cheapest cost of finishing after each node.
         let mut h = vec![0i32; nodes.len()];
@@ -576,7 +594,7 @@ impl KanjiDictionary {
         let mut states: HashMap<(usize, u16, u64), i32> = HashMap::new();
         for &v in &starts[0] {
             let g = self.conn(0, nodes[v].lc) + nodes[v].wcost;
-            let hash = fnv_extend(FNV_START, &nodes[v].text);
+            let hash = fnv_extend(FNV_START, text(v));
             let key = (nodes[v].end, nodes[v].rc, hash);
             if states.get(&key).is_some_and(|&cost| cost <= g) {
                 continue;
@@ -606,7 +624,7 @@ impl KanjiDictionary {
                         at = arena[q].parent;
                     }
                     ids.reverse();
-                    let text: String = ids.iter().map(|&v| nodes[v].text.as_str()).collect();
+                    let text: String = ids.iter().map(|&v| text(v)).collect();
                     if !full_texts.insert(text) {
                         continue;
                     }
@@ -636,7 +654,7 @@ impl KanjiDictionary {
                                 break 'search;
                             }
                             let ng = g + self.conn(rc, nodes[w].lc) + nodes[w].wcost;
-                            let hash = fnv_extend(arena[pid].hash, &nodes[w].text);
+                            let hash = fnv_extend(arena[pid].hash, text(w));
                             let key = (nodes[w].end, nodes[w].rc, hash);
                             if states.get(&key).is_some_and(|&cost| cost <= ng) {
                                 continue;
@@ -691,7 +709,7 @@ impl KanjiDictionary {
                     let mut parts: Vec<&str> = Vec::new();
                     let mut at = Some(end);
                     while let Some(v) = at {
-                        parts.push(nodes[v].text.as_str());
+                        parts.push(text(v));
                         at = back[v];
                     }
                     parts.reverse();
@@ -719,7 +737,7 @@ impl KanjiDictionary {
             out.push(ConversionCandidate::new(RomajiComposer::katakana(kana), n));
         }
         for (_cost, ids) in &full {
-            let text: String = ids.iter().map(|&v| nodes[v].text.as_str()).collect();
+            let text: String = ids.iter().map(|&v| text(v)).collect();
             #[cfg(feature = "tuning")]
             if std::env::var_os("TS_JA_TRACE_COSTS").is_some() {
                 eprintln!("{kana}\t{_cost}\t{text}");
