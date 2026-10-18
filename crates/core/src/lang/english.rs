@@ -365,6 +365,15 @@ impl EnglishModel {
     /// Average natural-log probability per symbol (letters + end marker).
     /// Real English words land around -1.8…-2.4; keyboard mash around -3.5 or lower.
     pub fn average_log_probability(&self, token: &str) -> f64 {
+        // Keyboard input is ASCII: reuse the exact streaming sum without case/encoding buffers.
+        if token.is_ascii() {
+            let letters = token.bytes().filter(u8::is_ascii_alphabetic).count();
+            return if letters == 0 {
+                -10.0
+            } else {
+                self.total_log_probability(token) / (letters + 1) as f64
+            };
+        }
         let n = SYMBOLS;
         let codes = encode(&token.to_lowercase());
         if codes.len() <= 3 {
@@ -539,6 +548,52 @@ impl EnglishModel {
 #[cfg(test)]
 mod empty_data {
     use super::*;
+
+    #[test]
+    fn streaming_average_matches_the_original_encoding_bit_for_bit() {
+        let model = EnglishModel::shared();
+        let original = |word: &str| {
+            let codes = encode(&word.to_lowercase());
+            if codes.len() <= 3 {
+                return -10.0f64;
+            }
+            let mut total = 0.0;
+            for i in 2..codes.len() {
+                let c = count((codes[i - 2] * SYMBOLS + codes[i - 1]) * SYMBOLS + codes[i]);
+                let t = count(SYMBOLS * SYMBOLS * SYMBOLS + codes[i - 2] * SYMBOLS + codes[i - 1]);
+                total += f64::from(((c + SMOOTHING) / (t + SMOOTHING * SYMBOLS as f32)).ln());
+            }
+            total / (codes.len() - 2) as f64
+        };
+        for word in [
+            "",
+            "a",
+            "A",
+            "Wi-Fi",
+            "kan'i",
+            "Hi3",
+            "---",
+            "İ",
+            "K",
+            "한글abc",
+            "hello\0world",
+        ] {
+            assert_eq!(
+                model.average_log_probability(word).to_bits(),
+                original(word).to_bits(),
+                "{word}"
+            );
+        }
+        for a in b'a'..=b'z' {
+            for b in b'a'..=b'z' {
+                let word = format!("{}{}", a as char, b as char);
+                assert_eq!(
+                    model.average_log_probability(&word).to_bits(),
+                    original(&word).to_bits()
+                );
+            }
+        }
+    }
 
     #[test]
     fn out_of_range_trigrams_count_zero() {

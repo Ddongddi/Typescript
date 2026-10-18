@@ -281,9 +281,13 @@ impl HeuristicEngine {
     /// Average log-probability of `keys` read as English: character trigrams, lifted to a floor
     /// for dictionary words.
     fn english_score(&self, keys: &str, known: bool) -> f64 {
-        let letters: String = keys.chars().filter(|c| c.is_alphabetic()).collect();
         let count = keys.chars().count();
-        let mut e = self.english.average_log_probability(&letters);
+        let mut e = if keys.is_ascii() {
+            self.english.average_log_probability(keys)
+        } else {
+            let letters: String = keys.chars().filter(|c| c.is_alphabetic()).collect();
+            self.english.average_log_probability(&letters)
+        };
         // Also while typing: the preview must show what Space/Return will commit.
         if known {
             // Short dictionary words collide with real Korean (go=해, so=내, do=애),
