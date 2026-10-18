@@ -1,11 +1,12 @@
 #!/bin/sh
-# Prints report sections for docs/report/performance.md: a "## 한눈에: prev → cur"
+# Prints profile-specific report sections: a "## 한눈에: prev → cur"
 # comparison with level bars, then the "## cur" detail section. Paste both at the
 # top of performance.md, replacing the previous 한눈에 block:
 #   cargo build --release -p tacit-tip -p tacit-config
 #   cargo build --release -p tacit-tip --target i686-pc-windows-msvc
 #   powershell -File scripts/package.ps1
-#   sh lab/report.sh > section.md
+#   sh lab/report.sh --profile enko > section-enko.md
+#   sh lab/report.sh --profile enkoja > section-enkoja.md
 # Check the checked-in 한눈에 block against the sections below (no lab run needed):
 #   sh lab/report.sh --selftest
 # Needs lab/data (python lab/fetch_data.py) for the big.* rows. Not part of any build.
@@ -16,12 +17,32 @@
 set -e
 cd "$(dirname "$0")/.."
 RUNS=${RUNS:-5}
-REPORT=docs/report/performance.md
+PROFILE=enko
+SELFTEST=false
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    --profile)
+      [ "$#" -ge 2 ] || { echo '--profile requires enko or enkoja' >&2; exit 2; }
+      PROFILE=$2; shift 2 ;;
+    --selftest) SELFTEST=true; shift ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+case $PROFILE in
+  enko) REPORT=docs/report/performance.md; LABEL='영·한' ;;
+  enkoja) REPORT=docs/report/performance-enkoja.md; LABEL='영·한·일' ;;
+  *) echo '--profile requires enko or enkoja' >&2; exit 2 ;;
+esac
 GBW=12
 
 ACC_METRICS="acc.ALL acc.en.freq/none acc.en.freq/after-ko acc.ko.words/none acc.ko.vocab/none big.ko.sent.sentence big.ko.sent.token big.ko.phrase.sentence big.ko.long.sentence big.en.sent.sentence big.cs.particle.sentence big.cs.particle.token big.cs_heldout.particle.sentence big.cs.bare.sentence big.cs.number.sentence big.ko.title.none big.ko.title.after-en big.learn.other_forms_before big.learn.other_forms_after"
 LAT_METRICS="commit.avg_us commit.p50_us commit.p95_us commit.p99_us keystroke.avg_us keystroke.p50_us keystroke.p95_us keystroke.p99_us"
 MEM_METRICS="load.ms heap.loaded_kb heap.peak_kb"
+if [ "$PROFILE" = enkoja ]; then
+  ACC_METRICS="$ACC_METRICS ja.convert.ALL.top1 ja.convert.ALL.top5 ja.detect.none.top1 ja.detect.after-ja.top1 ja.guard.english.top1"
+  LAT_METRICS="$LAT_METRICS ja.convert.avg_us ja.convert.p50_us ja.convert.p95_us ja.convert.p99_us"
+  MEM_METRICS="$MEM_METRICS ja.load.ms ja.heap.loaded_kb"
+fi
 SC_TYPES="chat dev writing"
 
 rep() {
@@ -32,7 +53,7 @@ rep() {
 
 # Accuracy bar: fixed 80..100 zoom so point differences show (all rows share it).
 accbar() {
-  _acc_n=$(awk -v v="$1" -v w="$GBW" 'BEGIN { n = int((v - 80) / 20 * w + 0.5); if (n < 0) n = 0; if (n > w) n = w; print n }')
+  _acc_n=$(awk -v v="$1" -v w="$GBW" -v lo="${2:-80}" 'BEGIN { n = int((v - lo) / (100 - lo) * w + 0.5); if (n < 0) n = 0; if (n > w) n = w; print n }')
   rep '█' "$_acc_n"
   rep '░' "$((GBW - _acc_n))"
 }
@@ -77,9 +98,10 @@ mem_delta() {
 }
 
 acc_row() {
+  case $1 in ja.*) _amin=0 ;; *) _amin=80 ;; esac
   if [ -z "$3" ]; then printf '| `%s` | %s | - | - |\n' "$1" "$2"; return; fi
-  if [ -z "$2" ]; then printf '| `%s` | - | %s `%s` | 신규 |\n' "$1" "$3" "$(accbar "$3")"; return; fi
-  printf '| `%s` | %s `%s` | %s `%s` | %s |\n' "$1" "$2" "$(accbar "$2")" "$3" "$(accbar "$3")" "$(acc_delta "$2" "$3")"
+  if [ -z "$2" ]; then printf '| `%s` | - | %s `%s` | 신규 |\n' "$1" "$3" "$(accbar "$3" "$_amin")"; return; fi
+  printf '| `%s` | %s `%s` | %s `%s` | %s |\n' "$1" "$2" "$(accbar "$2" "$_amin")" "$3" "$(accbar "$3" "$_amin")" "$(acc_delta "$2" "$3")"
 }
 
 sc_row() {
@@ -103,7 +125,7 @@ lat_row() {
 mem_row() {
   if [ -z "$3" ]; then printf '| `%s` | %s | - | - |\n' "$1" "$2"; return; fi
   if [ -z "$2" ]; then printf '| `%s` | - | %s | 신규 |\n' "$1" "$3"; return; fi
-  if [ "$1" = "load.ms" ]; then _nz=25; else _nz=1; fi
+  case $1 in *.ms) _nz=25 ;; *) _nz=1 ;; esac
   printf '| `%s` | %s `%s` | %s `%s` | %s |\n' "$1" "$2" "$(gbar "$2" "$4")" "$3" "$(gbar "$3" "$4")" "$(mem_delta "$2" "$3" "$_nz")"
 }
 
@@ -126,7 +148,11 @@ print_compare() {
   echo
   echo "▲ 좋아짐 · ▼ 나빠짐 · = 동점/잡음(정확도 0.05%p, 지연 25% 안은 잡음으로 봄). 정확도는 높을수록, 크기·지연·메모리는 낮을수록 좋음."
   echo
+  echo "이전 열은 같은 프로필의 과거 보고서 기록입니다. 같은 lab·데이터로 교차 재측정하지 않은 지연 차이는 코드 개선의 증거로 해석하지 않습니다."
+  echo
   echo "### 정확도 핵심 (%)"
+  echo
+  echo "막대 범위: 영·한 80~100%, 일본어(ja.*) 0~100%."
   echo
   echo "| 지표 | $1 | $2 | 변화 |"
   echo "| --- | ---: | ---: | ---: |"
@@ -180,15 +206,25 @@ print_compare() {
   done
 }
 
-if [ "${1:-}" = "--selftest" ]; then
+if [ "$SELFTEST" = true ]; then
   [ -f "$REPORT" ] || { echo "selftest: no $REPORT"; exit 1; }
+  grep -F -q "프로필: \`$PROFILE\`" "$REPORT" || { echo "selftest: wrong profile in $REPORT"; exit 1; }
   _fail=0
   _cur=$(ver_at 1 "$REPORT")
   _prev=$(ver_at 2 "$REPORT")
-  if [ -z "$_cur" ] || [ -z "$_prev" ]; then echo "selftest: need two version sections"; exit 1; fi
+  if [ -z "$_cur" ]; then echo "selftest: need a version section"; exit 1; fi
   _st=$(mktemp -d)
   section "$_cur" "$REPORT" > "$_st/cur.md"
   section "$_prev" "$REPORT" > "$_st/prev.md"
+  if [ -z "$_prev" ]; then
+    for m in $ACC_METRICS $LAT_METRICS $MEM_METRICS; do
+      [ -n "$(lookup "\`$m\`" "$_st/cur.md")" ] || { echo "selftest: missing $m"; exit 1; }
+    done
+    rm -f "$_st/cur.md" "$_st/prev.md"
+    rmdir "$_st"
+    echo "selftest passed: $PROFILE first version $_cur (no previous profile baseline)"
+    exit 0
+  fi
   if grep -F -x -q -- "## 한눈에: $_prev → $_cur" "$REPORT"; then
     echo "ok head: $_prev → $_cur"
   else
@@ -203,6 +239,7 @@ if [ "${1:-}" = "--selftest" ]; then
   _chk accbar-86.82 "$(accbar 86.82)" '████░░░░░░░░'
   _chk accbar-97.31 "$(accbar 97.31)" '██████████░░'
   _chk accbar-100 "$(accbar 100)" '████████████'
+  _chk accbar-ja-50 "$(accbar 50 0)" '██████░░░░░░'
   _chk gbar-70.8 "$(gbar 70.8 101.7)" '████████░░░░'
   _chk acc-delta "$(acc_delta 86.82 97.31)" '+10.49 ▲'
   _chk lat-delta "$(lat_delta 23.85 17.46)" '-6.39 (-26.8%) ▲'
@@ -238,7 +275,8 @@ if [ "${1:-}" = "--selftest" ]; then
       echo "FAIL sc.$t missing in $_cur"; _fail=1
     fi
   done
-  rm -rf "$_st"
+  rm -f "$_st/cur.md" "$_st/prev.md" "$_st/disps.txt"
+  rmdir "$_st"
   if [ "$_fail" -ne 0 ]; then echo "selftest FAILED"; exit 1; fi
   echo "selftest passed: $_prev → $_cur"
   exit 0
@@ -255,10 +293,20 @@ size_row() {
   printf '%s|%s\n' "$_disp" "$_kb" >> "$tmp/sizes.txt"
 }
 
+case $RUNS in ''|*[!0-9]*) echo 'RUNS must be a positive integer' >&2; exit 2 ;; esac
+[ "$RUNS" -gt 0 ] || { echo 'RUNS must be a positive integer' >&2; exit 2; }
 tmp=$(mktemp -d)
 i=1
 while [ $i -le "$RUNS" ]; do
-  cargo run -q --release --manifest-path lab/Cargo.toml -- --corpus 3000 > "$tmp/$i.txt" 2>&1
+  if ! cargo run -q --release --manifest-path lab/Cargo.toml -- --profile "$PROFILE" --corpus 3000 > "$tmp/$i.txt" 2>&1; then
+    cat "$tmp/$i.txt" >&2; exit 1
+  fi
+  awk -v metrics="$ACC_METRICS $LAT_METRICS $MEM_METRICS" '
+    { seen[$1] = 1 }
+    END { n = split(metrics, required, " "); for (j = 1; j <= n; j++) if (!seen[required[j]]) {
+      print "missing metric: " required[j] > "/dev/stderr"; failed = 1
+    } exit failed }
+  ' "$tmp/$i.txt"
   i=$((i + 1))
 done
 
@@ -268,12 +316,21 @@ metric() {
     awk '{ v[NR] = $1 } END { printf "%s", v[int((NR + 1) / 2)] }'
 }
 
-SIZE_FILES="target/release/tacit_tip.dll target/i686-pc-windows-msvc/release/tacit_tip.dll target/release/tacit-config.exe dist/tacit-windows.zip dist/tacit-pack-en-$version.zip dist/tacit-pack-ko-$version.zip dist/tacit-pack-ja-$version.zip"
+SIZE_FILES="target/release/tacit_tip.dll target/i686-pc-windows-msvc/release/tacit_tip.dll target/release/tacit-config.exe dist/tacit-windows.zip dist/tacit-pack-en-$version.zip dist/tacit-pack-ko-$version.zip"
+if [ "$PROFILE" = enkoja ]; then SIZE_FILES="$SIZE_FILES dist/tacit-pack-ja-$version.zip"; fi
 
 {
 echo "## $version"
 echo
-echo "commit $(git rev-parse --short HEAD), $(date +%F), $(rustc --version)"
+revision=$(git rev-parse --short HEAD)
+if ! git diff --quiet -- crates/core lab; then revision="$revision (작업 트리 변경 포함)"; fi
+echo "commit $revision, $(date +%F), $(rustc --version)"
+echo
+echo "프로필: \`$PROFILE\` ($LABEL), lab $(sed -n 's/^version = "\(.*\)"/\1/p' lab/Cargo.toml | head -1)."
+echo
+echo '공통 정확도·시나리오는 해당 언어가 켜진 판별기로 측정합니다. acc.ALL은 영·한 공통 세트이며 일본어 정답률과 합산하지 않습니다.'
+echo
+echo 'load.ms·heap.*는 판별기 시작/단어 평가 기준입니다. enkoja의 ja.load.ms·ja.heap.loaded_kb는 별도 가나→한자 변환기 초기화/힙 증가입니다. 설치 zip은 공통이며 팩 목록만 활성 언어에 따라 다릅니다.'
 echo
 echo "### 크기 (KiB)"
 echo
@@ -320,10 +377,12 @@ done
 
 prev=
 if [ -f "$REPORT" ]; then prev=$(ver_at 1 "$REPORT"); fi
+if [ "$prev" = "$version" ]; then prev=$(ver_at 2 "$REPORT"); fi
 if [ -n "$prev" ] && [ "$prev" != "$version" ]; then
   section "$prev" "$REPORT" > "$tmp/prev.md"
   print_compare "$prev" "$version" "$tmp/prev.md" "$tmp/cur.md" "$tmp/sizes.txt"
   echo
 fi
 cat "$tmp/cur.md"
-rm -rf "$tmp"
+rm -f "$tmp"/*.txt "$tmp/cur.md" "$tmp/prev.md"
+rmdir "$tmp"

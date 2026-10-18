@@ -56,6 +56,10 @@ def distance(a, b):
     return row[-1]
 
 
+def expected_rank(candidates, expected):
+    return next((i for i, text in enumerate(candidates, 1) if text in expected), None)
+
+
 def cases():
     out = []
     for item in json.loads((DATA / 'ajimee.json').read_text(encoding='utf-8')):
@@ -96,26 +100,32 @@ def evaluate(binary, items):
     for group, kana, expected, command in items:
         candidates = got[kana]
         if command == 'exact':
-            first = candidates[0] in expected
-            top5 = any(c in expected for c in candidates[:5])
+            rank = expected_rank(candidates, expected)
+            first = rank == 1
+            top5 = rank is not None and rank <= 5
             cer = min(distance(e, candidates[0]) / max(1, len(e)) for e in expected)
         else:
             matched = re.fullmatch(expected[0], candidates[0]) is not None
             first = matched if command == 'Conversion Match' else not matched
             top5, cer = None, None
-        bucket = groups.setdefault(group, {'n': 0, 'top1': 0, 'top5': 0, 'cer': 0})
+        bucket = groups.setdefault(group, {'n': 0, 'top1': 0, 'top5': 0, 'top_available': 0, 'cer': 0})
         bucket['n'] += 1
         bucket['top1'] += first
         if top5 is not None:
             bucket['top5'] += top5
+            bucket['top_available'] += rank is not None
             bucket['cer'] += cer
         if not first:
-            misses.append({'group': group, 'reading': kana, 'expected': expected, 'actual': candidates[:5]})
+            miss = {'group': group, 'reading': kana, 'expected': expected, 'actual': candidates[:5]}
+            if command == 'exact':
+                miss['expected_rank'] = rank
+                miss['failure'] = 'ranking' if rank is not None else 'not_returned'
+            misses.append(miss)
     for name, bucket in groups.items():
-        for key in ['top1', 'top5', 'cer']:
+        for key in ['top1', 'top5', 'top_available', 'cer']:
             bucket[key] = round(100 * bucket[key] / bucket['n'], 4)
         if name == 'mozc.regex':
-            del bucket['top5'], bucket['cer']
+            del bucket['top5'], bucket['top_available'], bucket['cer']
     times.sort()
     return {'groups': groups, 'latency_us': {'n': len(times), 'mean': sum(times) / len(times),
             'p50': times[len(times) // 2], 'p95': times[min(len(times) - 1, len(times) * 95 // 100)],
@@ -127,6 +137,9 @@ def selftest():
     assert distance('abc', 'axc') == 1
     assert distance('', 'abc') == 3
     assert distance('abc', 'abc') == 0
+    assert expected_rank(['a', 'b', 'c'], ['c', 'b']) == 2
+    assert expected_rank(['a', 'b', 'c'], ['d']) is None
+    assert expected_rank([], ['a']) is None
     print('Japanese evaluation selftest passed')
 
 

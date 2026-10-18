@@ -203,11 +203,11 @@ fn code_switch(korean: &[&String], terms: &[&str], rng: &mut Rng) -> Vec<(&'stat
 }
 
 /// One form of a term corrected twice: how many *other* forms does the engine then get right?
-fn learning(terms: &[&str], report: &mut Report) {
+fn learning(terms: &[&str], languages: &Languages, report: &mut Report) {
     let endings = ["이", "을", "에", "에서", "으로", "는", "와", "도"];
     let store = std::env::temp_dir().join(format!("tacit-lab-{}.json", std::process::id()));
     let _ = fs::remove_file(&store);
-    let engine = make_engine(Some(store.clone()), &Languages::legacy(false));
+    let engine = make_engine(Some(store.clone()), languages);
     let forms = |term: &str| -> Vec<(String, String)> {
         endings
             .iter()
@@ -259,6 +259,7 @@ fn taught_language(keys: &str, want: &str) -> Language {
 /// An engine that only remembers the exact keys scores about 0 here.
 fn transfer(
     name: &str,
+    languages: &Languages,
     items: &[(String, String, String)],
     controls: &[(String, String)],
     context: &DecisionContext,
@@ -266,7 +267,7 @@ fn transfer(
 ) {
     let store = std::env::temp_dir().join(format!("tacit-lab-t-{}.json", std::process::id()));
     let _ = fs::remove_file(&store);
-    let engine = make_engine(Some(store.clone()), &Languages::legacy(false));
+    let engine = make_engine(Some(store.clone()), languages);
     let right = |engine: &dyn DecisionEngine, (_, keys, want): &(String, String, String)| {
         engine.decide(keys, context).output == *want
     };
@@ -298,7 +299,7 @@ fn transfer(
     }
     let fixed = unseen
         .iter()
-        .filter(|i| right(engine.as_ref(), **i))
+        .filter(|i| right(engine.as_ref(), i))
         .count();
     let control_after = control_ok(engine.as_ref());
     let broken_controls = control_before
@@ -306,7 +307,7 @@ fn transfer(
         .zip(&control_after)
         .filter(|(before, after)| **before && !**after)
         .count();
-    let broken = hits.iter().filter(|i| !right(engine.as_ref(), **i)).count() + broken_controls;
+    let broken = hits.iter().filter(|i| !right(engine.as_ref(), i)).count() + broken_controls;
     let hits_total = hits.len() + control_before.iter().filter(|b| **b).count();
     let pct = |n: usize, of: usize| 100.0 * n as f64 / of.max(1) as f64;
     for (metric, value) in [
@@ -331,6 +332,7 @@ fn part(items: Vec<String>, fold: Option<(usize, usize)>) -> Vec<String> {
 
 pub fn run(
     engine: &dyn DecisionEngine,
+    languages: &Languages,
     sample: usize,
     shown: usize,
     fold: Option<(usize, usize)>,
@@ -450,7 +452,7 @@ pub fn run(
         shown,
         &mut report,
     );
-    learning(&terms, &mut report);
+    learning(&terms, languages, &mut report);
     // Esc generalization: other terms with a particle, and Korean words after English.
     let particle_items: Vec<(String, String, String)> = held_out
         .iter()
@@ -477,6 +479,7 @@ pub fn run(
     };
     transfer(
         "particle",
+        languages,
         &particle_items,
         &english_words,
         &DecisionContext::default(),
@@ -499,6 +502,7 @@ pub fn run(
     .collect();
     transfer(
         "jamo",
+        languages,
         &jamo_items,
         &abbreviations,
         &DecisionContext::default(),
@@ -510,6 +514,7 @@ pub fn run(
         .collect();
     transfer(
         "title_after_en",
+        languages,
         &title_items,
         &english_words,
         &DecisionContext {

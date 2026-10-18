@@ -18,7 +18,7 @@ Tacit의 구조, 설치 방법, 상세 설정, 언어 팩 개발 및 문제 해�
 | ⚙️ [**설정 및 관리 가이드**](ko/configuration.md) | `settings.json`, `apps.json`, `lexicon.json` 및 `tacit-config` 웹 UI/CLI 사용법 |
 | 📦 [**언어 팩 시스템**](ko/language-packs.md) | 언어 팩 포맷, `packgen` 바이너리 생성기, 새 언어 추가 및 데이터 라이선스 |
 | 🛠️ [**문제 해결 & 앱 호환성**](ko/troubleshooting.md) | IMM32/RichEdit 호환성 원리, 터미널/에디터 충돌 해결, 디버그 로깅 및 FAQ |
-| 📈 [**릴리즈 리포트**](report/performance.md) | 릴리즈마다 크기·정확도·속도·메모리를 같은 방법으로 재서 쌓는 기록 ([score.md](report/score.md) 점수 규격, [trial.md](report/trial.md) 시도 기록) |
+| 📈 **릴리즈 리포트** | [영·한](report/performance.md) / [영·한·일](report/performance-enkoja.md)을 별도로 측정 ([score.md](report/score.md) 영·한 점수 규격, [trial.md](report/trial.md) 시도 기록) |
 
 ---
 
@@ -34,4 +34,4 @@ Comprehensive guides on Tacit's architecture, multi-platform installation, confi
 | ⚙️ [**Configuration Guide**](en/configuration.md) | `settings.json`, `apps.json`, `lexicon.json`, web dashboard, and CLI management |
 | 📦 [**Language Pack System**](en/language-packs.md) | Pack folder format, `packgen` compiler, adding new languages, and licensing |
 | 🛠️ [**Troubleshooting & Compatibility**](en/troubleshooting.md) | Windows IMM32 workarounds, editor/terminal integration, debug logging, and FAQ |
-| 📈 [**Release Reports**](report/performance.md) | Size, accuracy, speed and memory measured the same way for every release ([score.md](report/score.md) for the score spec, [trial.md](report/trial.md) for tried experiments) |
+| 📈 **Release Reports** | Separate [English/Korean](report/performance.md) and [English/Korean/Japanese](report/performance-enkoja.md) measurements ([score.md](report/score.md) for the EN/KO score, [trial.md](report/trial.md) for experiments) |

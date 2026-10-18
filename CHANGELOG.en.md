@@ -9,6 +9,12 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Changed
+
+- Japanese clause commits preserve the chosen dictionary path's right context for the remaining conversion, including clause resizing and editing after Esc. This reuses dictionary connection costs without word-specific exceptions or new weights.
+- Japanese search reuses equivalent part-of-speech connection calculations. Whole-reading candidates and their order remain identical on 506 external readings; seven interleaved runs on the same PC reduce mean latency by about 5% and p95 by about 12%.
+- Performance reports and lab baselines are separate for English/Korean (`enko`) and English/Korean/Japanese (`enkoja`). Common, scenario and learning evaluations use the selected languages; Japanese metrics are not averaged into English/Korean accuracy. `lab/README.md` documents commands and measurement scope.
+
 ## [0.10.2] - 2026-10-18
 
 ### Changed

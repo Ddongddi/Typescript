@@ -6,6 +6,27 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.2.0]
+
+### Changed
+
+- Reports select `--profile enko` (default) or `--profile enkoja`. Common accuracy,
+  scenarios and learning simulations use that profile's enabled languages. Japanese
+  conversion metrics are included only in enkoja and remain separate from `acc.ALL`.
+- Baselines are isolated in `baseline-enko.tsv` and `baseline-enkoja.tsv`; the former
+  `baseline.tsv` is retained as the enko baseline. Saved baselines include the profile.
+- English preview flicker counts any non-English reading, including Japanese.
+- `report.sh` uses separate release histories, excludes the Japanese pack from enko,
+  includes Japanese conversion metrics in enkoja, and refuses missing required metrics.
+
+## [0.1.3]
+
+### Added
+
+- Japanese external evaluation reports `top_available` and each exact-match miss's
+  expected rank, distinguishing a returned but lower-ranked answer from one absent
+  from the returned list. Absence does not by itself establish a dictionary gap.
+
 ## [0.1.2]
 
 ### Added

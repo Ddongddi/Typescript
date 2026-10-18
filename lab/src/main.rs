@@ -1,8 +1,9 @@
 //! Measurement lab for the English/Korean decision: accuracy per bucket (with sentence context),
-//! decide latency and heap, every run compared with `baseline.tsv`.
+//! decide latency and heap, with separate enko/enkoja reports and baselines.
 //!
 //!   cargo run --release --manifest-path lab/Cargo.toml                  report + diff
 //!   cargo run --release --manifest-path lab/Cargo.toml -- --save        also record as baseline
+//!   cargo run --release --manifest-path lab/Cargo.toml -- --profile enkoja
 //!   cargo run --release --manifest-path lab/Cargo.toml -- --misses 20   misses per bucket (5)
 //!   cargo run --release --manifest-path lab/Cargo.toml -- --fold 1/3    only every 3rd sentence of
 //!                                                                       the big sets (fold 1 of 3)
@@ -270,7 +271,9 @@ fn edit_distance(a: &str, b: &str) -> usize {
         row[0] = i + 1;
         for (j, cb) in b.iter().enumerate() {
             let up = row[j + 1];
-            row[j + 1] = (diagonal + usize::from(ca != *cb)).min(up + 1).min(row[j] + 1);
+            row[j + 1] = (diagonal + usize::from(ca != *cb))
+                .min(up + 1)
+                .min(row[j] + 1);
             diagonal = up;
         }
     }
@@ -300,12 +303,22 @@ struct Baseline {
     failed: std::collections::BTreeSet<String>,
 }
 
-fn baseline_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("baseline.tsv")
+fn report_profile(args: &[String]) -> Result<&str, &'static str> {
+    let Some(i) = args.iter().position(|a| a == "--profile") else {
+        return Ok("enko");
+    };
+    match args.get(i + 1).map(String::as_str) {
+        Some(profile @ ("enko" | "enkoja")) => Ok(profile),
+        _ => Err("--profile requires enko or enkoja"),
+    }
 }
 
-fn read_baseline() -> Option<Baseline> {
-    let text = std::fs::read_to_string(baseline_path()).ok()?;
+fn baseline_path(profile: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("baseline-{profile}.tsv"))
+}
+
+fn read_baseline(profile: &str) -> Option<Baseline> {
+    let text = std::fs::read_to_string(baseline_path(profile)).ok()?;
     let mut baseline = Baseline {
         lab: None,
         metrics: BTreeMap::new(),
@@ -314,6 +327,7 @@ fn read_baseline() -> Option<Baseline> {
     for line in text.lines() {
         let f: Vec<&str> = line.split('\t').collect();
         match f.as_slice() {
+            ["#profile", saved] if *saved != profile => return None,
             ["#lab", version] => baseline.lab = Some(version.to_string()),
             ["#metric", name, value] => {
                 if let Ok(v) = value.parse() {
@@ -335,13 +349,23 @@ fn main() {
         japanese::standalone(&args);
         return;
     }
+    let profile = report_profile(&args).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
+    let japanese_enabled = profile == "enkoja";
+    let languages = Languages::legacy(japanese_enabled);
     if args.iter().any(|a| a == "--tune") {
         tune::run();
         return;
     }
     // `--trace TEXT [--all] [--before-digit] [--after-digit]`: how the code-switch search
     // scores TEXT (given as it should come out).
-    if let Some(text) = args.iter().position(|a| a == "--trace").and_then(|i| args.get(i + 1)) {
+    if let Some(text) = args
+        .iter()
+        .position(|a| a == "--trace")
+        .and_then(|i| args.get(i + 1))
+    {
         let search = tacit_core::decide::codeswitch::CodeSwitch::new(
             tacit_core::EnglishModel::shared(),
             Default::default(),
@@ -357,8 +381,12 @@ fn main() {
     }
     // `--cold KEYS`: what deciding KEYS costs when nothing of it is remembered (the first key of a
     // token that was skipped until now), by alternating it with a token that shares nothing.
-    if let Some(keys) = args.iter().position(|a| a == "--cold").and_then(|i| args.get(i + 1)) {
-        let engine = make_engine(None, &Languages::legacy(false));
+    if let Some(keys) = args
+        .iter()
+        .position(|a| a == "--cold")
+        .and_then(|i| args.get(i + 1))
+    {
+        let engine = make_engine(None, &languages);
         let context = DecisionContext {
             partial: true,
             ..Default::default()
@@ -383,7 +411,7 @@ fn main() {
     // the word's own walk is warm, as it is while typing.
     if let Some(i) = args.iter().position(|a| a == "--event") {
         let (word, tail) = (&args[i + 1], &args[i + 2]);
-        let engine = make_engine(None, &Languages::legacy(false));
+        let engine = make_engine(None, &languages);
         let context = DecisionContext {
             partial: true,
             ..Default::default()
@@ -404,13 +432,23 @@ fn main() {
     }
     // `--type KEYS`: what each key costs while KEYS is typed one key at a time (mean of many
     // times over, the token and all after the one before it).
-    if let Some(keys) = args.iter().position(|a| a == "--type").and_then(|i| args.get(i + 1)) {
-        let engine = make_engine(None, &Languages::legacy(false));
+    if let Some(keys) = args
+        .iter()
+        .position(|a| a == "--type")
+        .and_then(|i| args.get(i + 1))
+    {
+        let engine = make_engine(None, &languages);
         let previous = args
             .iter()
             .position(|a| a == "--prev")
             .and_then(|i| args.get(i + 1))
-            .map(|l| if l == "ko" { Language::Korean } else { Language::English });
+            .map(|l| {
+                if l == "ko" {
+                    Language::Korean
+                } else {
+                    Language::English
+                }
+            });
         let context = DecisionContext {
             partial: true,
             previous_language: previous,
@@ -426,7 +464,7 @@ fn main() {
         };
         let mut next = 0;
         for round in 0..6000 {
-            for _ in 0..(noise.len() > 0) as usize * 40 {
+            for _ in 0..(!noise.is_empty()) as usize * 40 {
                 let c = &noise[next % noise.len()];
                 next += 7;
                 for (end, _) in c.keys.char_indices().skip(1) {
@@ -441,13 +479,20 @@ fn main() {
                 }
             }
         }
-        let line: Vec<String> = spent.iter().map(|d| format!("{:.1}", micros(*d) / 5000.0)).collect();
+        let line: Vec<String> = spent
+            .iter()
+            .map(|d| format!("{:.1}", micros(*d) / 5000.0))
+            .collect();
         println!("type {keys}: {}", line.join(" "));
         return;
     }
     // `--probe FILE`: convert each line (the text as it should come out) and print what came out.
-    if let Some(path) = args.iter().position(|a| a == "--probe").and_then(|i| args.get(i + 1)) {
-        let engine = make_engine(None, &Languages::legacy(false));
+    if let Some(path) = args
+        .iter()
+        .position(|a| a == "--probe")
+        .and_then(|i| args.get(i + 1))
+    {
+        let engine = make_engine(None, &languages);
         let converter = TextConverter::new(engine.as_ref());
         let text = std::fs::read_to_string(path).expect("read probe file");
         // `--time`: what one more key costs while the token is this long (the live preview).
@@ -458,7 +503,9 @@ fn main() {
                 ..Default::default()
             };
             for len in [50, 100, 200, 400, 800, 1600] {
-                let Some((end, _)) = keys.char_indices().nth(len) else { break };
+                let Some((end, _)) = keys.char_indices().nth(len) else {
+                    break;
+                };
                 // The key before, as typed a moment ago; then the timed key.
                 let (before, _) = keys.char_indices().nth(len - 1).unwrap();
                 engine.decide(&keys[..before], &context);
@@ -493,9 +540,12 @@ fn main() {
     // Cold start: engine plus the lazy tables the first words pull in.
     let heap_before = HEAP.load(Relaxed);
     let start = Instant::now();
-    let engine = make_engine(None, &Languages::legacy(false));
+    let engine = make_engine(None, &languages);
     for keys in ["dkssud", "hello"] {
         engine.decide(keys, &DecisionContext::default());
+    }
+    if japanese_enabled {
+        engine.decide("nihongo", &DecisionContext::default());
     }
     metrics.insert("load.ms".into(), start.elapsed().as_secs_f64() * 1e3);
     metrics.insert(
@@ -529,7 +579,7 @@ fn main() {
     let mut slowest: Vec<(Duration, String)> = Vec::new();
     let track_slowest = args.iter().any(|a| a == "--slow");
     let mut by_len: std::collections::BTreeMap<usize, Vec<Duration>> = Default::default();
-    // English words whose preview turns Korean on some key before the word is done.
+    // English words whose preview leaves English on some key before the word is done.
     let mut flicker: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
     // Words whose preview on the last key is not what Space then commits.
     let mut mismatch: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
@@ -541,8 +591,8 @@ fn main() {
             let t = Instant::now();
             let preview = engine.decide(&c.keys[..end], &context(c.previous, true));
             let spent = t.elapsed();
-            // The first key is a jamo by design (ㅈ for w); from the second on, Korean is a flip.
-            flipped |= end >= 2 && preview.language == Language::Korean;
+            // The first key is a jamo by design (ㅈ for w); count flips from the second on.
+            flipped |= end >= 2 && preview.language != Language::English;
             keystroke.push(spent);
             by_len.entry(end).or_default().push(spent);
             if track_slowest {
@@ -588,7 +638,11 @@ fn main() {
         for (len, spent) in &mut by_len {
             spent.sort();
             let mean = spent.iter().map(|d| micros(*d)).sum::<f64>() / spent.len() as f64;
-            println!("bylen {len:3} n={:6} mean {mean:6.1}µs  p99 {:6.1}µs", spent.len(), micros(spent[spent.len() * 99 / 100]));
+            println!(
+                "bylen {len:3} n={:6} mean {mean:6.1}µs  p99 {:6.1}µs",
+                spent.len(),
+                micros(spent[spent.len() * 99 / 100])
+            );
         }
     }
     latency(&mut metrics, "commit", commit);
@@ -604,11 +658,11 @@ fn main() {
     let big = if args.iter().any(|a| a == "--no-corpus") {
         None
     } else {
-        corpus::run(engine.as_ref(), sample, shown, fold)
+        corpus::run(engine.as_ref(), &languages, sample, shown, fold)
     };
     let scenarios = scenario::run(engine.as_ref(), shown);
-    let japanese = japanese::run(shown);
-    for report in big.iter().chain([&scenarios, &japanese]) {
+    let japanese = japanese_enabled.then(|| japanese::run(shown));
+    for report in big.iter().chain([&scenarios]).chain(japanese.iter()) {
         metrics.extend(report.metrics.iter().cloned());
     }
 
@@ -641,11 +695,12 @@ fn main() {
         100.0 * (1.0 - edits as f64 / chars.max(1) as f64),
     );
 
-    let baseline = read_baseline();
+    println!("profile {profile} ({})\n", languages.ids().join("+"));
+    let baseline = read_baseline(profile);
     print_report(&metrics, &buckets, baseline.as_ref());
     print_changes(&cases, &got, baseline.as_ref());
     print_misses(&cases, &got, shown);
-    for report in big.iter().chain([&scenarios, &japanese]) {
+    for report in big.iter().chain([&scenarios]).chain(japanese.iter()) {
         for (bucket, misses) in report.misses.iter().filter(|(_, m)| !m.is_empty()) {
             println!("\n  {bucket} (first {})", misses.len());
             misses.iter().for_each(|m| println!("    {m}"));
@@ -653,15 +708,15 @@ fn main() {
     }
 
     if save {
-        let mut out = format!("#lab\t{LAB_VERSION}\n");
+        let mut out = format!("#lab\t{LAB_VERSION}\n#profile\t{profile}\n");
         for (name, value) in &metrics {
             writeln!(out, "#metric\t{name}\t{value:.3}").unwrap();
         }
         for (c, g) in cases.iter().zip(&got).filter(|(c, g)| **g != c.expected) {
             writeln!(out, "{}\t{}\t{}", c.id(), c.expected, g).unwrap();
         }
-        std::fs::write(baseline_path(), out).expect("write baseline.tsv");
-        println!("\nsaved {}", baseline_path().display());
+        std::fs::write(baseline_path(profile), out).expect("write profile baseline");
+        println!("\nsaved {}", baseline_path(profile).display());
     }
 }
 
@@ -671,7 +726,9 @@ fn print_report(
     baseline: Option<&Baseline>,
 ) {
     match baseline.map(|b| b.lab.as_deref()) {
-        None => println!("lab {LAB_VERSION}\n(no baseline.tsv yet: run with --save to record one)\n"),
+        None => println!(
+            "lab {LAB_VERSION}\n(no baseline for this profile: run with --save to record one)\n"
+        ),
         Some(Some(v)) if v == LAB_VERSION => println!("lab {LAB_VERSION}\n"),
         Some(v) => println!(
             "lab {LAB_VERSION} (the baseline is from lab {}: its sets may differ)\n",
@@ -738,5 +795,26 @@ fn print_misses(cases: &[Case], got: &[String], shown: usize) {
         for m in misses.iter().take(shown) {
             println!("    {m}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profiles_validate_arguments_and_keep_baselines_separate() {
+        let args = |values: &[&str]| values.iter().map(|v| v.to_string()).collect::<Vec<_>>();
+        assert_eq!(report_profile(&[]), Ok("enko"));
+        assert_eq!(report_profile(&args(&["--profile", "enko"])), Ok("enko"));
+        assert_eq!(
+            report_profile(&args(&["--profile", "enkoja"])),
+            Ok("enkoja")
+        );
+        assert!(report_profile(&args(&["--profile"])).is_err());
+        assert!(report_profile(&args(&["--profile", "ja"])).is_err());
+        assert_ne!(baseline_path("enko"), baseline_path("enkoja"));
+        assert!(baseline_path("enko").ends_with("baseline-enko.tsv"));
+        assert!(baseline_path("enkoja").ends_with("baseline-enkoja.tsv"));
     }
 }
