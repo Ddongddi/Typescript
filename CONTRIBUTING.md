@@ -25,7 +25,11 @@ git commit -s -m "fix: ..."     # Signed-off-by: 이름 <이메일> 이 붙습�
 
 ### 개발 환경과 빌드·테스트
 
-Rust stable이 필요합니다. 모든 시스템에서 공통으로 이 셋이 통과해야 합니다.
+Rust stable 1.89 이상이 필요합니다. 모든 시스템에서 공통으로 이 셋이 통과해야 합니다.
+
+Android APK를 빌드한 뒤 실행 중인 에뮬레이터·기기에서 JNI를 검사하려면
+`./platforms/android/smoke.ps1 -Serial emulator-5554`를 실행합니다. 생성·활성화,
+영·한 입력, 일시 정지·재개와 해제를 검사하며 시스템 입력기 선택은 바꾸지 않습니다.
 
 ```sh
 cargo fmt --all -- --check
@@ -124,7 +128,11 @@ git commit -s -m "fix: ..."     # adds Signed-off-by: Name <email>
 
 ### Development, build and test
 
-You need Rust stable. On every system these three must pass:
+You need Rust stable 1.89 or later. On every system these three must pass:
+
+After building the Android APK, run `./platforms/android/smoke.ps1 -Serial emulator-5554`
+against a running emulator/device to check JNI creation, activation, English/Korean input,
+pause/resume, reset and destruction. This does not change the system's selected input method.
 
 ```sh
 cargo fmt --all -- --check

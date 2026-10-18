@@ -51,6 +51,21 @@ pub trait JapaneseConverter: Send + Sync {
     ) -> Vec<ConversionCandidate> {
         self.candidates(kana)
     }
+    /// First whole-reading conversion, with the same ordering as the candidate list.
+    fn best_candidate(
+        &self,
+        kana: &str,
+        previous: Option<&ConversionCandidate>,
+    ) -> Option<ConversionCandidate> {
+        let candidates = match previous {
+            Some(previous) => self.candidates_after(kana, previous),
+            None => self.candidates(kana),
+        };
+        let count = kana.chars().count();
+        candidates
+            .into_iter()
+            .find(|c| c.kana_count == count && !c.is_prediction)
+    }
     /// The user committed `candidate`: remember it so it ranks higher next time.
     fn learn(&self, candidate: &ConversionCandidate, kana: &str);
     /// Pick up choices committed by another process when a text field becomes active.

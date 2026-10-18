@@ -127,3 +127,98 @@ fn separate_converters_keep_each_others_learned_choices() {
     assert_eq!(reloaded.candidates("にほん")[0].text, "二本");
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn an_unavailable_lock_keeps_saved_choices_readable_and_does_not_write_unlocked() {
+    let path = std::env::temp_dir().join(format!(
+        "tacit-kanji-lock-failure-{}.json",
+        std::process::id()
+    ));
+    let sidecar = std::path::PathBuf::from(format!("{}.lock", path.display()));
+    let bytes = serde_json::to_vec(&serde_json::json!({"へんかん": ["返還"]})).unwrap();
+    std::fs::write(&path, &bytes).unwrap();
+    // A directory at the sidecar path reliably makes opening the lock fail on every OS.
+    std::fs::create_dir(&sidecar).unwrap();
+    let converter = DictionaryConverter::new(Some(path.clone()));
+    assert_eq!(converter.candidates("へんかん")[0].text, "返還");
+    converter.learn(&tacit_core::ConversionCandidate::new("編纂", 4), "へんかん");
+    converter.reload();
+    assert_eq!(converter.candidates("へんかん")[0].text, "返還");
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(sidecar).unwrap();
+}
+
+#[test]
+#[ignore = "subprocess worker for concurrent_learning_keeps_every_process_choice"]
+fn concurrent_learning_worker() {
+    let path = std::path::PathBuf::from(std::env::var_os("TACIT_TEST_LEARNING").unwrap());
+    let worker = std::env::var("TACIT_TEST_WORKER").unwrap();
+    let converter = DictionaryConverter::new(Some(path.clone()));
+    std::fs::write(path.with_extension(format!("ready-{worker}")), b"").unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    while !path.with_extension("start").exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "start signal timed out"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    for item in 0..24 {
+        let kana = format!("か{worker}-{item}");
+        converter.learn(
+            &tacit_core::ConversionCandidate::new(&kana, kana.chars().count()),
+            &kana,
+        );
+    }
+}
+
+#[test]
+fn concurrent_learning_keeps_every_process_choice() {
+    let path = std::env::temp_dir().join(format!(
+        "tacit-concurrent-kanji-{}.json",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("start"));
+    let mut children: Vec<_> = (0..4)
+        .map(|worker| {
+            let _ = std::fs::remove_file(path.with_extension(format!("ready-{worker}")));
+            std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--ignored", "--exact", "concurrent_learning_worker"])
+                .env("TACIT_TEST_LEARNING", &path)
+                .env("TACIT_TEST_WORKER", worker.to_string())
+                .stdout(std::process::Stdio::null())
+                .spawn()
+                .unwrap()
+        })
+        .collect();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    while !(0..4).all(|worker| path.with_extension(format!("ready-{worker}")).exists()) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "workers did not become ready"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    std::fs::write(path.with_extension("start"), b"").unwrap();
+    for child in &mut children {
+        assert!(child.wait().unwrap().success());
+    }
+    let saved: std::collections::BTreeMap<String, Vec<String>> =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    for worker in 0..4 {
+        for item in 0..24 {
+            let kana = format!("か{worker}-{item}");
+            assert_eq!(
+                saved.get(&kana),
+                Some(&vec![kana.clone()]),
+                "missing {kana}"
+            );
+        }
+        std::fs::remove_file(path.with_extension(format!("ready-{worker}"))).unwrap();
+    }
+    std::fs::remove_file(path.with_extension("start")).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    let _ = std::fs::remove_file(format!("{}.lock", path.display()));
+}

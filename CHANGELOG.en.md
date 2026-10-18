@@ -13,11 +13,12 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 - Japanese clause commits preserve the chosen dictionary path's right context for the remaining conversion, including clause resizing and editing after Esc. This reuses dictionary connection costs without word-specific exceptions or new weights.
 - Japanese search reuses equivalent part-of-speech connection calculations. Whole-reading candidates and their order remain identical on 506 external readings; seven interleaved runs on the same PC reduce mean latency by about 5% and p95 by about 12%.
+- Live Japanese conversion stops after the first complete A* path and skips unused clause calculations. Across 7,998 external reading prefixes, seven alternating full-list/preview runs retain identical top-1 output and reduce mean and p95 search latency by about 58%. Learned choices retain their path metadata; numeric reordering still uses the full list.
 - Performance reports and lab baselines are separate for English/Korean (`enko`) and English/Korean/Japanese (`enkoja`). Common, scenario and learning evaluations use the selected languages; Japanese metrics are not averaged into English/Korean accuracy. `lab/README.md` documents commands and measurement scope.
 
 ### Fixed
 
-- Japanese learning merges the latest saved choices before each commit and reloads on focus, preserving sequential choices from different apps.
+- Japanese learning locks the read/merge/save transaction across processes and reloads on focus, preserving choices from concurrent apps. Read-only profiles can still read saved choices. Building requires Rust 1.89 or later.
 - macOS/Linux input sessions reload changed settings, app rules and learned word files on activation.
 - Performance reports calculate the median correctly for an even number of runs, with both report profiles and all lab tests checked in CI.
 

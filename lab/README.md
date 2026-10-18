@@ -103,6 +103,7 @@ cargo build --release --manifest-path lab/Cargo.toml
 python lab/evaluate_japanese.py --check --out temp/japanese-evaluation.json
 python lab/evaluate_japanese.py --selftest
 cargo test --manifest-path lab/Cargo.toml
+python lab/compare_japanese_preview.py --binary lab/target/release/tacit-lab.exe --out temp/preview.json
 ```
 
 외부 평가는 Windows 실행 파일 경로가 기본값입니다. Linux/macOS에서는
@@ -114,6 +115,13 @@ cargo test --manifest-path lab/Cargo.toml
 `top_available`은 반환 후보 안에 정답이 있는 비율이고, 오답의 `expected_rank`와
 `failure`는 순위 문제(`ranking`)와 반환 목록에 없는 경우(`not_returned`)를 구분합니다.
 후보에 없다는 사실만으로 사전 누락이라고 판단하지 않습니다.
+
+`compare_japanese_preview.py`는 같은 고정 자료의 읽기와 모든 접두어에 대해
+전체 후보 목록 / 라이브 Top-1 경로를 순서를 번갈아 7회 비교합니다. 첫 후보가
+다르면 실패하며, 실행별 평균·p95의 중앙값과 원시 측정치를 JSON으로 저장합니다.
+Linux/macOS에서는 `--binary lab/target/release/tacit-lab`을 사용합니다. CI는
+`--runs 1`로 출력 일치를 검사하며 성능 수치로 통과 여부를 결정하지 않습니다.
+별도 읽기 파일에는 `--japanese --readings PATH --best`로 Top-1만 출력합니다.
 
 lab 자체 버전 변경 규칙과 이력은 [CHANGELOG.md](CHANGELOG.md)에 있습니다.
 `score.py`의 종합 점수 규격은 [기존 영·한 평가](../docs/report/score.md)용입니다.

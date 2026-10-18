@@ -504,7 +504,7 @@ impl KanjiDictionary {
     /// best path's clause boundaries, the user's earlier choices first, then the reading
     /// itself in hiragana and katakana.
     pub fn candidates(&self, kana: &str, learned: Option<&[String]>) -> Vec<ConversionCandidate> {
-        self.candidates_from(kana, learned, 0)
+        self.candidates_from(kana, learned, 0, FULL_CANDIDATES)
     }
 
     fn candidates_from(
@@ -512,6 +512,7 @@ impl KanjiDictionary {
         kana: &str,
         learned: Option<&[String]>,
         previous_rc: u16,
+        full_limit: usize,
     ) -> Vec<ConversionCandidate> {
         if kana.is_empty() {
             return Vec::new();
@@ -623,50 +624,6 @@ impl KanjiDictionary {
             }
         }
 
-        // Forward: the cheapest cost of reaching each node, for the best clauses.
-        let mut f = vec![0i32; nodes.len()];
-        let mut back: Vec<Option<usize>> = vec![None; nodes.len()];
-        let mut previous_costs = vec![(i32::MAX, usize::MAX); self.lsize];
-        let mut previous_contexts: Vec<usize> = Vec::new();
-        for pos in 0..n {
-            // Equal right contexts have identical continuations; keep the cheapest prefix.
-            for rc in previous_contexts.drain(..) {
-                previous_costs[rc] = (i32::MAX, usize::MAX);
-            }
-            for &u in &ends[pos] {
-                let rc = nodes[u].rc as usize;
-                let best = &mut previous_costs[rc];
-                if best.1 == usize::MAX {
-                    previous_contexts.push(rc);
-                }
-                *best = (*best).min((f[u], u));
-            }
-            for &v in &starts[pos] {
-                let node = &nodes[v];
-                if pos == 0 {
-                    f[v] = self.conn(previous_rc, node.lc) + node.wcost;
-                } else {
-                    let (cost, from) = previous_contexts
-                        .iter()
-                        .map(|&rc| {
-                            let (cost, u) = previous_costs[rc];
-                            (cost + self.conn(rc as u16, node.lc) + node.wcost, u)
-                        })
-                        .min()
-                        .expect("every position has an unknown path");
-                    f[v] = cost;
-                    back[v] = Some(from);
-                }
-            }
-        }
-        let mut best_end: Vec<Option<usize>> = vec![None; n + 1];
-        for v in 0..nodes.len() {
-            let e = nodes[v].end;
-            if best_end[e].is_none() || f[v] < f[best_end[e].unwrap()] {
-                best_end[e] = Some(v);
-            }
-        }
-
         // K best paths over the whole reading (A* with the exact backward costs).
         struct Path {
             parent: Option<usize>,
@@ -717,7 +674,7 @@ impl KanjiDictionary {
                         continue;
                     }
                     full.push((g, ids));
-                    if full.len() >= FULL_CANDIDATES {
+                    if full.len() >= full_limit {
                         break;
                     }
                 }
@@ -762,6 +719,56 @@ impl KanjiDictionary {
             }
         }
 
+        // Top-1 needs only the backward costs unless N-best exhausted its state budget.
+        let (f, back, best_end) = if full_limit > 1 || full.is_empty() {
+            // Forward: the cheapest cost of reaching each node, for the best clauses.
+            let mut f = vec![0i32; nodes.len()];
+            let mut back: Vec<Option<usize>> = vec![None; nodes.len()];
+            let mut previous_costs = vec![(i32::MAX, usize::MAX); self.lsize];
+            let mut previous_contexts: Vec<usize> = Vec::new();
+            for pos in 0..n {
+                // Equal right contexts have identical continuations; keep the cheapest prefix.
+                for rc in previous_contexts.drain(..) {
+                    previous_costs[rc] = (i32::MAX, usize::MAX);
+                }
+                for &u in &ends[pos] {
+                    let rc = nodes[u].rc as usize;
+                    let best = &mut previous_costs[rc];
+                    if best.1 == usize::MAX {
+                        previous_contexts.push(rc);
+                    }
+                    *best = (*best).min((f[u], u));
+                }
+                for &v in &starts[pos] {
+                    let node = &nodes[v];
+                    if pos == 0 {
+                        f[v] = self.conn(previous_rc, node.lc) + node.wcost;
+                    } else {
+                        let (cost, from) = previous_contexts
+                            .iter()
+                            .map(|&rc| {
+                                let (cost, u) = previous_costs[rc];
+                                (cost + self.conn(rc as u16, node.lc) + node.wcost, u)
+                            })
+                            .min()
+                            .expect("every position has an unknown path");
+                        f[v] = cost;
+                        back[v] = Some(from);
+                    }
+                }
+            }
+            let mut best_end: Vec<Option<usize>> = vec![None; n + 1];
+            for v in 0..nodes.len() {
+                let e = nodes[v].end;
+                if best_end[e].is_none() || f[v] < f[best_end[e].unwrap()] {
+                    best_end[e] = Some(v);
+                }
+            }
+            (f, back, best_end)
+        } else {
+            (Vec::new(), Vec::new(), Vec::new())
+        };
+
         // The Viterbi optimum remains available even if a degenerate lattice exhausts N-best.
         if full.is_empty() {
             if let Some(&last) = ends[n]
@@ -782,7 +789,7 @@ impl KanjiDictionary {
 
         // The best path's clause boundaries, as first-clause candidates.
         let mut prefixes: Vec<(String, usize, u16)> = Vec::new();
-        if let Some(last) = best_end[n] {
+        if let Some(&Some(last)) = best_end.get(n) {
             let mut boundaries: Vec<usize> = Vec::new();
             let mut at = Some(last);
             while let Some(v) = at {
@@ -877,7 +884,20 @@ pub struct DictionaryConverter {
 
 impl DictionaryConverter {
     pub fn new(learning_path: Option<PathBuf>) -> Self {
-        let learned = crate::store::load_or_quarantine(learning_path.as_deref());
+        let learned = learning_path
+            .as_deref()
+            .map(|path| {
+                if let Ok(_file_lock) = crate::store::lock_file(path) {
+                    crate::store::load_or_quarantine(Some(path))
+                } else {
+                    // Read-only profiles retain their saved choices without quarantining files.
+                    std::fs::read(path)
+                        .ok()
+                        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                        .unwrap_or_default()
+                }
+            })
+            .unwrap_or_default();
         Self {
             dict: KanjiDictionary::shared(),
             learning_path,
@@ -910,7 +930,32 @@ impl JapaneseConverter for DictionaryConverter {
             kana,
             learned.as_deref(),
             previous.right_context.unwrap_or(0),
+            FULL_CANDIDATES,
         )
+    }
+
+    fn best_candidate(
+        &self,
+        kana: &str,
+        previous: Option<&ConversionCandidate>,
+    ) -> Option<ConversionCandidate> {
+        let learned = self.lock().get(kana).cloned();
+        // Learned paths keep their original right-context metadata, even below rank one.
+        let limit = if learned.is_some() {
+            FULL_CANDIDATES
+        } else {
+            1
+        };
+        let count = kana.chars().count();
+        self.dict
+            .candidates_from(
+                kana,
+                learned.as_deref(),
+                previous.and_then(|c| c.right_context).unwrap_or(0),
+                limit,
+            )
+            .into_iter()
+            .find(|c| c.kana_count == count && !c.is_prediction)
     }
 
     fn learn(&self, candidate: &ConversionCandidate, kana: &str) {
@@ -919,10 +964,18 @@ impl JapaneseConverter for DictionaryConverter {
             return;
         }
         let mut learned = self.lock();
-        // shortcut: merge sequential writers; simultaneous processes still need a file lock.
-        if let Some(path) = &self.learning_path {
-            *learned = crate::store::load_or_quarantine(Some(path));
-        }
+        // Hold the same lock through the fresh read and atomic replacement.
+        let _file_lock = match &self.learning_path {
+            Some(path) => {
+                // A read-only or sandboxed profile can still convert; it cannot learn.
+                let Ok(lock) = crate::store::lock_file(path) else {
+                    return;
+                };
+                *learned = crate::store::load_or_quarantine(Some(path));
+                Some(lock)
+            }
+            None => None,
+        };
         let texts = learned.entry(covered).or_default();
         if texts.first() == Some(&candidate.text) {
             return;
@@ -943,7 +996,10 @@ impl JapaneseConverter for DictionaryConverter {
 
     fn reload(&self) {
         if let Some(path) = &self.learning_path {
-            *self.lock() = crate::store::load_or_quarantine(Some(path));
+            let mut learned = self.lock();
+            if let Ok(_file_lock) = crate::store::lock_file(path) {
+                *learned = crate::store::load_or_quarantine(Some(path));
+            }
         }
     }
 }
@@ -1177,9 +1233,17 @@ mod tests {
             let continued = converter.candidates_after("あ", &previous);
             assert_eq!(continued[0].text, if wide { "𠮷" } else { "か" });
             assert_eq!(continued[0].right_context, Some(1));
+            assert_eq!(
+                converter.best_candidate("あ", Some(&previous)).as_ref(),
+                continued.first()
+            );
             // Reordering a learned dictionary path must preserve its context metadata.
             converter.learn(&continued[0], "あ");
             assert_eq!(converter.candidates("あ")[0].right_context, Some(1));
+            assert_eq!(
+                converter.best_candidate("あ", None).as_ref(),
+                converter.candidates("あ").first()
+            );
             let plain = ConversionCandidate::new("い", 1);
             assert_eq!(
                 converter.candidates_after("あ", &plain),
@@ -1211,9 +1275,36 @@ mod tests {
                 let first = if wide { "𠮷" } else { "か" };
                 let head = if bos_cost == 0 { "き" } else { first };
                 assert_eq!(candidates[0].text, format!("{head}{first}カ"));
+                assert_eq!(
+                    dict.candidates_from("ああい", None, 0, 1).first(),
+                    candidates.first()
+                );
                 let prefix = candidates.iter().find(|c| c.kana_count == 2).unwrap();
                 assert_eq!(prefix.text, format!("{head}{first}"));
                 assert_eq!(prefix.right_context, Some(1));
+            }
+        }
+    }
+
+    #[test]
+    fn best_keeps_legacy_plain_forms_and_the_exhausted_search_fallback() {
+        for (cost, kana) in [(14_000i16, "あ".to_string()), (0, "あ".repeat(17))] {
+            let original = Box::leak(minimal_dictionary(false).into_boxed_slice());
+            let layout = KanjiDictionary::new(original);
+            let entries = layout.entries.as_ptr() as usize - original.as_ptr() as usize;
+            let mut data = original.to_vec();
+            for at in [entries + 3, entries + 10] {
+                data[at..at + 2].copy_from_slice(&cost.to_le_bytes());
+            }
+            let dict = KanjiDictionary::new(Box::leak(data.into_boxed_slice()));
+            let full = dict.candidates(&kana, None);
+            let best = dict.candidates_from(&kana, None, 0, 1);
+            assert_eq!(best.first(), full.first());
+            if cost == 14_000 {
+                assert_eq!(best[0].text, kana); // legacy plain forms lead
+            } else {
+                // Equal-cost paths fill the N-best arena before any reaches EOS.
+                assert_eq!(best[0].text, "か".repeat(17));
             }
         }
     }

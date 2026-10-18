@@ -4,6 +4,24 @@ pub mod history;
 pub mod keys;
 pub mod policy;
 
+/// Serializes a read/modify/replace transaction across processes. Keep the returned file alive
+/// until the write finishes. The sidecar is never deleted: replacing it would split the lock.
+pub(crate) fn lock_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let mut name = path.as_os_str().to_owned();
+    name.push(".lock");
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(name)?;
+    file.lock()?;
+    Ok(file)
+}
+
 /// A user JSON object, accepting the UTF-8 BOM written by Windows editors.
 pub fn read_object(path: &std::path::Path) -> serde_json::Value {
     let bytes = std::fs::read(path).unwrap_or_default();

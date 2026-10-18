@@ -107,6 +107,62 @@ Top-5 77%, 반환 후보 내 정답 포함률 84%다. 오답 47건 중 31건은 
 의미하지 않는다. 후보 수 제한·탐색·분절도 별도로 조사해야 한다. 원시 결과는
 `temp/japanese-dp-evaluation.json`에 있다. 이 평가 자료로 비용을 조정하지 않았다.
 
+### 라이브 Top-1 경로와 동시 학습 저장
+
+라이브 미리보기는 전체 후보 목록을 만든 뒤 첫 후보만 사용했다. 같은 A* 탐색을
+첫 완성 경로에서 멈추고, 문절 후보용 순방향 계산은 생략하도록 바꿨다. 탐색의
+점수·동률 순서·사전·가지치기는 유지한다. N-best 상태 한도에 걸리면 기존 Viterbi
+대체 경로를 그대로 사용한다. 학습된 후보는 원래 목록에서 경로 정보를 유지하고,
+숫자가 포함된 읽기는 숫자 우선 정렬을 위해 기존 전체 목록을 사용한다.
+
+lab 0.2.2의 `compare_japanese_preview.py`로 같은 바이너리의 전체 목록 경로와
+Top-1 경로를 비교했다. 고정 외부 읽기 506건의 모든 고유 접두어 7,998개를
+동일한 순서로 입력하고, 두 경로를 한 번씩 실행한 뒤 순서를 번갈아 7회 측정했다.
+모든 실행에서 7,998개의 첫 출력이 일치했다. 실행별 평균·p95의 중앙값은 아래와
+같다. 완성 읽기 506건의 수치도 같은 접두어 실행 안에서 추출한 부분집합이며,
+기존의 독립적인 완성 읽기 평가와 절대 지연을 직접 비교하지 않는다.
+
+| 대상 | 지표 | 전체 목록 | Top-1 | 감소 |
+|---|---|---:|---:|---:|
+| 접두어 7,998개 | 평균 | 299.2µs | 126.9µs | 57.6% |
+| 접두어 7,998개 | p95 | 1033.3µs | 431.0µs | 58.3% |
+| 완성 읽기 506개 | 평균 | 293.5µs | 115.5µs | 60.6% |
+| 완성 읽기 506개 | p95 | 979.8µs | 415.2µs | 57.6% |
+
+측정 중 다른 빌드·테스트·에뮬레이터는 실행하지 않았다. 원시 7회 수치는
+`temp/japanese-preview-comparison.json`에 저장했으며 아래 명령으로 재생성할 수 있다.
+이는 학습이 없는 변환기 호출 시간이다. 숫자 우선 정렬, 학습된 경로, 로마자
+조합, 짧은 읽기 표시 억제 및 화면 반영을 포함한 실제 앱 지연의 개선율은 아니다.
+자체 64건의 모든 접두어에는 문절 문맥·학습 선택·후보 메타데이터 일치 테스트를
+추가했고, 숫자와 라이브 표시의 기존 세션 테스트도 유지한다.
+
+학습 저장은 고정된 `kanji_learning.json.lock` 파일의 배타 잠금 아래 최신 파일을
+읽고 병합한 뒤 원자적으로 교체한다. 데이터 파일 자체에 잠그면 교체 후 다른
+파일을 잠그게 되므로, 잠금 파일은 실행 중 삭제하지 않는다. 새 의존성 없이
+Rust 1.89부터 제공되는 표준 파일 잠금을 사용한다. 4개 별도 프로세스가 동시에
+24건씩 저장하는 테스트에서 96건 모두 유지됨을 검사한다. 잠금을 열 수 없으면
+기존 선택을 읽는 것만 허용하며 잠금 없이 저장하지 않는다. 구버전처럼 이 잠금에
+참여하지 않는 외부 작성자까지 직렬화하지는 않는다.
+
+```sh
+cargo build --release --manifest-path lab/Cargo.toml
+python lab/compare_japanese_preview.py --binary lab/target/release/tacit-lab.exe --out temp/preview.json
+cargo test -p tacit-core --test kanji
+```
+
+CI는 Windows·Linux·macOS에서 프로세스 간 저장 테스트를 실행하고, 별도 일본어
+작업에서 고정 외부 자료의 전체 목록 / Top-1 일치를 검사한다. 시간 비율은 CI의
+통과 조건으로 사용하지 않는다. Android 빌드와 각 OS의 테스트·패키징 결과는
+실제 사용자 앱에서의 입력 검증과 구분한다.
+
+로컬 Windows에서는 전체 워크스페이스·lab·외부 품질 하한·Clippy·포맷 검사와
+x64·x86 릴리스 빌드를 통과했다. Android는 arm64·x86_64 APK 빌드 후 API 35
+x86_64 에뮬레이터의 ART에서 실제 JNI 라이브러리로 생성·활성화·영/한 입력·
+일시 정지·재개·초기화·해제를 검사했다. 재실행은
+`./platforms/android/smoke.ps1 -Serial emulator-5554`다. 이 검사는 JNI 명령을
+적용하는 작은 편집기 모델을 사용하며, 앱별 InputConnection 및 실제 키보드 UI
+입력이나 실물 장치 검증을 대신하지 않는다.
+
 ## 재현
 
 ```powershell
@@ -117,7 +173,7 @@ python tools/build_mozc.py --source temp/mozc/src/data/dictionary_oss
 python tools/build_mozc.py --selftest
 
 # 자체 평가와 외부 평가; raw 데이터는 lab/data/japanese/에만 캐시
-cargo test --manifest-path lab/Cargo.toml japanese
+cargo test --manifest-path lab/Cargo.toml
 cargo run --release --manifest-path lab/Cargo.toml -- --japanese
 python lab/evaluate_japanese.py --selftest
 python lab/evaluate_japanese.py --check --out temp/japanese-evaluation.json

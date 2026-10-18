@@ -205,10 +205,17 @@ impl InputSession {
                 return cached.clone();
             }
         }
-        let mut candidate = self
-            .conversion_candidates(kana)
-            .into_iter()
-            .find(|c| c.kana_count == char_count(kana) && !c.is_prediction);
+        let mut candidate = if Self::digits_of(kana).is_empty() {
+            self.ja
+                .converter
+                .as_ref()
+                .and_then(|c| c.best_candidate(kana, self.word.previous_clause.as_ref()))
+        } else {
+            // Number-preserving reordering needs the complete candidate list.
+            self.conversion_candidates(kana)
+                .into_iter()
+                .find(|c| c.kana_count == char_count(kana) && !c.is_prediction)
+        };
         // A short reading only turns into kanji (私, 今日), not into katakana mid-word
         // (と → ト, こんに → コンに): those flicker while the phrase is still being typed.
         if char_count(kana) <= 3 {

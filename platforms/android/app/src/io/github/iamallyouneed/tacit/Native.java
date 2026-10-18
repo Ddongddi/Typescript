@@ -6,7 +6,7 @@ final class Native {
         System.loadLibrary("tacit_android");
     }
 
-    // Key kinds, as in ime.rs.
+    // Key kinds, as in crates/core/src/session/bridge.rs.
     static final int LETTER = 0;
     static final int PRINTABLE = 1;
     static final int DELETE = 2;

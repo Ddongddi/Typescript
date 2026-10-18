@@ -75,3 +75,4 @@ jobs:
       - run: sh lab/report.sh --profile enkoja --selftest
       - run: cargo build --release --manifest-path lab/Cargo.toml
       - run: python lab/evaluate_japanese.py --binary lab/target/release/tacit-lab --check
+      - run: python lab/compare_japanese_preview.py --binary lab/target/release/tacit-lab --runs 1 --out temp/japanese-preview.json

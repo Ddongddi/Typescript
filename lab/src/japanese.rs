@@ -126,7 +126,11 @@ pub fn standalone(args: &[String]) {
         for kana in text.lines().filter(|l| !l.is_empty()) {
             assert!(!kana.contains('\t'), "reading must not contain tabs");
             let t = Instant::now();
-            let candidates = converter.candidates(kana);
+            let candidates = if args.iter().any(|arg| arg == "--best") {
+                converter.best_candidate(kana, None).into_iter().collect()
+            } else {
+                converter.candidates(kana)
+            };
             let elapsed = t.elapsed().as_secs_f64() * 1e6;
             let whole = kana.chars().count();
             let texts: Vec<_> = candidates
@@ -163,6 +167,43 @@ mod tests {
             assert!(seen.insert(kana), "duplicate {kana}");
             if let Some(keys) = RomajiComposer::romaji(kana) {
                 assert_eq!(RomajiComposer::compose(&keys, false).text, kana);
+            }
+        }
+    }
+
+    #[test]
+    fn best_matches_the_list_on_every_prefix_context_and_learned_choice() {
+        let converter = DictionaryConverter::new(None);
+        for (_, kana, _) in rows(CASES) {
+            let previous = converter.candidates(kana).remove(0);
+            for end in kana.char_indices().map(|(at, _)| at).chain([kana.len()]) {
+                let prefix = &kana[..end];
+                for context in [None, Some(&previous)] {
+                    let candidates = context.map_or_else(
+                        || converter.candidates(prefix),
+                        |previous| converter.candidates_after(prefix, previous),
+                    );
+                    let expected = candidates
+                        .into_iter()
+                        .find(|c| c.kana_count == prefix.chars().count() && !c.is_prediction);
+                    assert_eq!(
+                        converter.best_candidate(prefix, context),
+                        expected,
+                        "{prefix}"
+                    );
+                }
+            }
+            let candidates = converter.candidates(kana);
+            if let Some(choice) = candidates
+                .iter()
+                .rev()
+                .find(|c| c.kana_count == kana.chars().count())
+            {
+                converter.learn(choice, kana);
+                assert_eq!(
+                    converter.best_candidate(kana, None).as_ref(),
+                    converter.candidates(kana).first()
+                );
             }
         }
     }
