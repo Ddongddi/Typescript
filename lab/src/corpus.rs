@@ -7,11 +7,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use tacit_core::{
-    make_engine, DecisionContext, DecisionEngine, Language, Languages, TextConverter,
-};
+use tacit_core::{DecisionContext, DecisionEngine, Language, Languages, TextConverter};
 
-use crate::{keys_of, keys_of_text};
+use crate::{keys_of, keys_of_text, make_engine};
 
 const TERMS: &str = include_str!("../cases/terms.txt");
 const SHORT_TERMS: &str = include_str!("../cases/short_terms.txt");
@@ -297,10 +295,7 @@ fn transfer(
             engine.learn(keys, language, None);
         }
     }
-    let fixed = unseen
-        .iter()
-        .filter(|i| right(engine.as_ref(), i))
-        .count();
+    let fixed = unseen.iter().filter(|i| right(engine.as_ref(), i)).count();
     let control_after = control_ok(engine.as_ref());
     let broken_controls = control_before
         .iter()

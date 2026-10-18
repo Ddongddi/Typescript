@@ -54,6 +54,7 @@ const LABELED: [&str; 14] = [
 /// One token and what it should become; `None` means it stays a single-language reading.
 struct Token {
     keys: String,
+    group: String,
     expected: Option<String>,
 }
 
@@ -67,8 +68,8 @@ struct Set {
 impl Set {
     fn new(name: &'static str, weight: f64, tokens: Vec<Token>) -> Self {
         let (mut train, mut held_out) = (Vec::new(), Vec::new());
-        for (i, token) in tokens.into_iter().enumerate() {
-            if i % 5 == 0 {
+        for token in tokens {
+            if group_fold(&token.group) == 0 {
                 held_out.push(token);
             } else {
                 train.push(token);
@@ -81,6 +82,17 @@ impl Set {
             held_out,
         }
     }
+}
+
+// Stable across processes and Rust versions; all forms of a source stem share one fold.
+pub(crate) fn group_fold(group: &str) -> u64 {
+    group
+        .bytes()
+        .map(|b| b.to_ascii_lowercase())
+        .fold(0xcbf29ce484222325u64, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
+        })
+        % 5
 }
 
 fn has_hangul(s: &str) -> bool {
@@ -116,6 +128,10 @@ fn hand_tokens() -> Vec<Token> {
             }
             let mixed = has_hangul(word) && has_latin(word);
             out.push(Token {
+                group: word
+                    .split(|c: char| !c.is_ascii_alphabetic())
+                    .find(|w| !w.is_empty())
+                    .map_or_else(|| keys.clone(), str::to_ascii_lowercase),
                 keys,
                 expected: mixed.then(|| word.to_string()),
             });
@@ -145,6 +161,7 @@ fn synthetic_tokens() -> Vec<Token> {
         };
         let text = format!("{english}{korean}");
         out.push(Token {
+            group: word.to_ascii_lowercase(),
             keys: keys_of_text(&text),
             expected: Some(text),
         });
@@ -158,6 +175,7 @@ fn synthetic_tokens() -> Vec<Token> {
             };
             let text = format!("{letter}{noun}");
             out.push(Token {
+                group: letter.to_ascii_lowercase().to_string(),
                 keys: keys_of_text(&text),
                 expected: Some(text),
             });
@@ -183,6 +201,7 @@ fn term_tokens() -> Vec<Token> {
         for ending in LEARN_ENDINGS {
             let text = format!("{term}{ending}");
             out.push(Token {
+                group: term.to_ascii_lowercase(),
                 keys: keys_of_text(&text),
                 expected: Some(text),
             });
@@ -199,6 +218,7 @@ fn term_word_tokens() -> Vec<Token> {
         for k in 0..3 {
             let text = format!("{term}{}", vocab[(i * 7 + k * 131) % vocab.len()]);
             out.push(Token {
+                group: term.to_ascii_lowercase(),
                 keys: keys_of_text(&text),
                 expected: Some(text),
             });
@@ -212,6 +232,7 @@ fn bare_terms() -> Vec<Token> {
     terms()
         .into_iter()
         .map(|t| Token {
+            group: t.to_ascii_lowercase(),
             keys: t.to_string(),
             expected: None,
         })
@@ -246,6 +267,11 @@ fn corpus_tokens(file: &str, hangul: bool, limit: usize) -> Vec<Token> {
         .step_by(step)
         .take(limit)
         .map(|w| Token {
+            group: if hangul {
+                keys_of_text(w).to_ascii_lowercase()
+            } else {
+                w.to_ascii_lowercase()
+            },
             keys: if hangul {
                 keys_of_text(w)
             } else {
@@ -268,6 +294,7 @@ fn web2_words(limit: usize) -> Vec<Token> {
         .step_by(step)
         .take(limit)
         .map(|w| Token {
+            group: w.to_ascii_lowercase(),
             keys: w.to_string(),
             expected: None,
         })
@@ -278,6 +305,7 @@ fn english_words() -> Vec<Token> {
     english_list()
         .into_iter()
         .map(|w| Token {
+            group: w.to_ascii_lowercase(),
             keys: w.to_string(),
             expected: None,
         })
@@ -290,6 +318,7 @@ fn korean_words() -> Vec<Token> {
     words
         .into_iter()
         .map(|w| Token {
+            group: keys_of_text(w).to_ascii_lowercase(),
             keys: keys_of_text(w),
             expected: None,
         })
@@ -346,24 +375,96 @@ fn objective(cs: &CodeSwitch, sets: &[Set]) -> f64 {
 type Field = (&'static str, fn(&mut Params) -> &mut f64, &'static [f64]);
 
 const FIELDS: [Field; 18] = [
-    ("switch_cost", |p| &mut p.switch_cost, &[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0]),
-    ("en_oov", |p| &mut p.en_oov, &[0.0, 2.0, 3.0, 5.0, 7.0, 9.0, 12.0]),
-    ("ko_oov", |p| &mut p.ko_oov, &[0.0, 1.0, 1.5, 2.5, 3.5, 5.0, 7.0]),
-    ("ending_logp", |p| &mut p.ending_logp, &[-5.0, -4.0, -3.0, -2.5, -2.0, -1.0, 0.0]),
-    ("en_join", |p| &mut p.en_join, &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0]),
-    ("ko_join", |p| &mut p.ko_join, &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0]),
-    ("ko_enter", |p| &mut p.ko_enter, &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0]),
-    ("en_enter", |p| &mut p.en_enter, &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0]),
-    ("lead_ko", |p| &mut p.lead_ko, &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0]),
-    ("label_logp", |p| &mut p.label_logp, &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0]),
-    ("label_noun", |p| &mut p.label_noun, &[0.0, 2.0, 3.0, 4.0, 6.0, 8.0]),
-    ("label_mid", |p| &mut p.label_mid, &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0]),
-    ("label_oov", |p| &mut p.label_oov, &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0]),
-    ("function_logp", |p| &mut p.function_logp, &[-9.0, -7.0, -6.0, -5.0, -4.0, -3.0, 0.0]),
-    ("cap_penalty", |p| &mut p.cap_penalty, &[0.0, 3.0, 6.0, 10.0]),
-    ("margin", |p| &mut p.margin, &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0]),
-    ("weak_margin", |p| &mut p.weak_margin, &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0]),
-    ("lead_en", |p| &mut p.lead_en, &[0.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]),
+    (
+        "switch_cost",
+        |p| &mut p.switch_cost,
+        &[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0],
+    ),
+    (
+        "en_oov",
+        |p| &mut p.en_oov,
+        &[0.0, 2.0, 3.0, 5.0, 7.0, 9.0, 12.0],
+    ),
+    (
+        "ko_oov",
+        |p| &mut p.ko_oov,
+        &[0.0, 1.0, 1.5, 2.5, 3.5, 5.0, 7.0],
+    ),
+    (
+        "ending_logp",
+        |p| &mut p.ending_logp,
+        &[-5.0, -4.0, -3.0, -2.5, -2.0, -1.0, 0.0],
+    ),
+    (
+        "en_join",
+        |p| &mut p.en_join,
+        &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0],
+    ),
+    (
+        "ko_join",
+        |p| &mut p.ko_join,
+        &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0],
+    ),
+    (
+        "ko_enter",
+        |p| &mut p.ko_enter,
+        &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0],
+    ),
+    (
+        "en_enter",
+        |p| &mut p.en_enter,
+        &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0],
+    ),
+    (
+        "lead_ko",
+        |p| &mut p.lead_ko,
+        &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0],
+    ),
+    (
+        "label_logp",
+        |p| &mut p.label_logp,
+        &[0.0, -2.0, -4.0, -6.0, -8.0, -10.0],
+    ),
+    (
+        "label_noun",
+        |p| &mut p.label_noun,
+        &[0.0, 2.0, 3.0, 4.0, 6.0, 8.0],
+    ),
+    (
+        "label_mid",
+        |p| &mut p.label_mid,
+        &[0.0, 2.0, 4.0, 6.0, 8.0, 12.0],
+    ),
+    (
+        "label_oov",
+        |p| &mut p.label_oov,
+        &[0.0, 1.0, 2.0, 3.0, 4.0, 6.0],
+    ),
+    (
+        "function_logp",
+        |p| &mut p.function_logp,
+        &[-9.0, -7.0, -6.0, -5.0, -4.0, -3.0, 0.0],
+    ),
+    (
+        "cap_penalty",
+        |p| &mut p.cap_penalty,
+        &[0.0, 3.0, 6.0, 10.0],
+    ),
+    (
+        "margin",
+        |p| &mut p.margin,
+        &[0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0],
+    ),
+    (
+        "weak_margin",
+        |p| &mut p.weak_margin,
+        &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0],
+    ),
+    (
+        "lead_en",
+        |p| &mut p.lead_en,
+        &[0.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+    ),
 ];
 
 fn report(cs: &CodeSwitch, sets: &[Set]) {
@@ -403,10 +504,9 @@ fn show_gaps(cs: &CodeSwitch, sets: &[Set]) {
             println!("    {line}");
         }
     }
-    for set in sets
-        .iter()
-        .filter(|s| s.name == "hand" || s.name == "synthetic" || s.name == "terms" || s.name == "term+word")
-    {
+    for set in sets.iter().filter(|s| {
+        s.name == "hand" || s.name == "synthetic" || s.name == "terms" || s.name == "term+word"
+    }) {
         let missed: Vec<String> = set
             .train
             .iter()
@@ -464,6 +564,48 @@ pub fn run() {
             corpus_tokens("en_sentences.txt", false, 12000),
         ),
     ];
+    if std::env::args().any(|a| a == "--audit-tune") {
+        let train: std::collections::HashSet<_> = sets
+            .iter()
+            .flat_map(|s| &s.train)
+            .map(|t| t.group.to_ascii_lowercase())
+            .collect();
+        let held: std::collections::HashSet<_> = sets
+            .iter()
+            .flat_map(|s| &s.held_out)
+            .map(|t| t.group.to_ascii_lowercase())
+            .collect();
+        assert!(train.is_disjoint(&held));
+        println!(
+            "groups: train={} held-out={} overlap=0",
+            train.len(),
+            held.len()
+        );
+        let train_keys: std::collections::HashSet<_> = sets
+            .iter()
+            .flat_map(|s| &s.train)
+            .map(|t| t.keys.as_str())
+            .collect();
+        let overlaps: std::collections::BTreeSet<_> = sets
+            .iter()
+            .flat_map(|s| &s.held_out)
+            .filter(|t| train_keys.contains(t.keys.as_str()))
+            .map(|t| t.keys.as_str())
+            .collect();
+        println!("identical keys across folds: {}", overlaps.len());
+        for keys in overlaps.iter().take(10) {
+            println!("  {keys}");
+        }
+        for set in &sets {
+            println!(
+                "{}: train={} held-out={}",
+                set.name,
+                set.train.len(),
+                set.held_out.len()
+            );
+        }
+        return;
+    }
     let english = EnglishModel::shared();
     let mut params = Params::default();
     let start = std::time::Instant::now();
@@ -507,4 +649,32 @@ pub fn run() {
     );
     report(&CodeSwitch::new(english, params), &sets);
     show_gaps(&CodeSwitch::new(english, params), &sets);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_forms_and_bare_stems_share_the_same_partition() {
+        let sets = [
+            Set::new("terms", 1.0, term_tokens()),
+            Set::new("words", 1.0, term_word_tokens()),
+            Set::new("bare", 1.0, bare_terms()),
+        ];
+        let train: std::collections::HashSet<_> = sets
+            .iter()
+            .flat_map(|s| &s.train)
+            .map(|t| &t.group)
+            .collect();
+        let held: std::collections::HashSet<_> = sets
+            .iter()
+            .flat_map(|s| &s.held_out)
+            .map(|t| &t.group)
+            .collect();
+        assert!(train.is_disjoint(&held));
+        assert!(!train.is_empty() && !held.is_empty());
+        assert_eq!(train.len() + held.len(), terms().len());
+        assert_eq!(group_fold("GitHub"), group_fold("github"));
+    }
 }

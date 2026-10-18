@@ -14,6 +14,7 @@
 
 mod corpus;
 mod japanese;
+mod learned;
 mod scenario;
 mod tune;
 
@@ -25,9 +26,46 @@ use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::time::{Duration, Instant};
 
 use tacit_core::lang::hangul::DubeolsikLayout;
-use tacit_core::{
-    make_engine, DecisionContext, DecisionEngine, Language, Languages, TextConverter,
-};
+use tacit_core::{DecisionContext, DecisionEngine, Language, Languages, TextConverter};
+
+// Experiments use the same entry point in word, corpus, scenario and learning evaluations.
+fn make_engine(
+    path: Option<PathBuf>,
+    languages: &Languages,
+) -> std::sync::Arc<tacit_core::LearningEngine> {
+    static MODEL: std::sync::OnceLock<Option<std::sync::Arc<learned::Model>>> =
+        std::sync::OnceLock::new();
+    let model = MODEL.get_or_init(|| {
+        std::env::var_os("LAB_ENKO_MODEL").map(|p| {
+            std::sync::Arc::new(
+                learned::Model::load(std::path::Path::new(&p))
+                    .unwrap_or_else(|e| panic!("enko model: {e}")),
+            )
+        })
+    });
+    match model {
+        None => tacit_core::make_engine(path, languages),
+        Some(model) => {
+            assert!(
+                !languages.contains(Language::Japanese),
+                "the experimental model supports enko only"
+            );
+            std::sync::Arc::new(
+                tacit_core::LearningEngine::new(
+                    Box::new(learned::Engine {
+                        model: model.clone(),
+                        on: [
+                            languages.contains(Language::English),
+                            languages.contains(Language::Korean),
+                        ],
+                    }),
+                    path,
+                )
+                .with_languages(languages.clone()),
+            )
+        }
+    }
+}
 
 const KOREAN_WORDS: &str = include_str!("../../crates/core/data/korean_words.txt");
 const KOREAN_VOCAB: &str = include_str!("../../crates/core/data/korean_vocabulary.txt");
@@ -353,9 +391,18 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(2);
     });
+    if let Some(i) = args.iter().position(|a| a == "--fit-enko") {
+        let path = args.get(i + 1).expect("--fit-enko needs an output path");
+        learned::fit(
+            std::path::Path::new(path),
+            args.iter().any(|a| a == "--augment-spans"),
+        )
+        .unwrap_or_else(|e| panic!("fit enko: {e}"));
+        return;
+    }
     let japanese_enabled = profile == "enkoja";
     let languages = Languages::legacy(japanese_enabled);
-    if args.iter().any(|a| a == "--tune") {
+    if args.iter().any(|a| a == "--tune" || a == "--audit-tune") {
         tune::run();
         return;
     }

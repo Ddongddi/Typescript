@@ -1,5 +1,36 @@
 # 성능 측정 lab
 
+## 한·영 학습 실험
+
+기본 엔진은 그대로 두고 lab에서만 학습 모델을 비교합니다. 모델 파일은 제품 빌드나
+설치 파일에 포함되지 않습니다. 실험 결과와 채택 여부는
+[한·영 실험 기록](../docs/report/enko-experiments.md)에 남깁니다.
+
+```powershell
+# 기존 튜너의 원형 단어 기준 분할 감사: 같은 단어의 변형은 같은 fold에 배정
+cargo run --release --manifest-path lab/Cargo.toml -- --audit-tune
+# 사전·조사 목록 없이 키 n-gram과 언어 전이를 학습하는 linear-chain CRF
+cargo run --release --manifest-path lab/Cargo.toml -- --fit-enko temp/model.bin
+# 모델·학습 횟수는 같게 두고, 합성 혼합어의 한국어 부분을 문자 경계에서 잘라 학습
+cargo run --release --manifest-path lab/Cargo.toml -- --fit-enko temp/model-spans.bin --augment-spans
+$env:LAB_ENKO_MODEL = (Resolve-Path temp/model.bin).Path
+lab/target/release/tacit-lab.exe --profile enko --fold 0/3 --corpus 3000 --misses 3 --steady
+Remove-Item Env:LAB_ENKO_MODEL
+```
+
+먼저 `python lab/fetch_data.py`로 학습용 문장 자료를 준비합니다. 학습은 영어·한국어
+문장과 한국어 댓글의 행 fold `1/3`을 사용합니다. 여기서 원형 단어의 안정적인 해시로
+내부 검증 집합을 분리하고, 합성 혼합어는 학습 쪽 단어에서만 만듭니다. 문장 행 분할은
+어휘·문서·출처의 완전한 독립성을 보장하지 않습니다. 개발 비교는 `0/3`, 최종 기본 엔진
+확인은 `2/3`으로 구분하며, 내부 단어 정확도만으로 모델을 채택하지 않습니다.
+
+`LAB_ENKO_MODEL`은 공통 단어·문장·시나리오·학습 평가에 모두 적용됩니다. `enkoja`와
+함께 사용하면 실패합니다. 이 모델의 confidence는 최적 태그 경로의 조건부 확률이며,
+보정된 정답 확률이 아닙니다. 기존 엔진과의 confidence 수치 직접 비교에는 쓰지 않습니다.
+
+`--tune`의 검증 분할은 이전 행 순서 기준에서 원형 단어 기준으로 바뀌었습니다.
+이전 튜너 점수와 직접 비교하지 않습니다. 일반 lab 평가 집합과 지표는 바뀌지 않았습니다.
+
 제품 빌드와 분리된 Rust 실행 파일입니다. 입력 판별·변환의 정확도, 지연,
 힙 사용량과 학습 효과를 측정합니다. 아래 명령은 저장소 루트에서 실행합니다.
 

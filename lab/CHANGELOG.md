@@ -6,6 +6,21 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.2.3]
+
+### Added
+
+- `--audit-tune` reports source-stem and identical-key overlap across tuning folds.
+- Opt-in, lab-only key n-gram CRF training (`--fit-enko`, `--augment-spans`) and
+  evaluation (`LAB_ENKO_MODEL`) across common word, corpus, scenario and learning sets.
+  Neither the model nor training code is included in product builds.
+
+### Fixed
+
+- Tuning partitions all forms of a source stem together, including bare terms,
+  instead of splitting by row. Tuner scores are not comparable with earlier splits;
+  regular lab evaluation sets and metrics are unchanged.
+
 ## [0.2.2]
 
 ### Added
