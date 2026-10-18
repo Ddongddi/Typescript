@@ -14,16 +14,16 @@ Tacit은 코어 엔진의 가벼움을 유지하고 프로세스 시작 속도�
 %LOCALAPPDATA%\tacit\packs\ (Windows)
 ~/.local/share/tacit/packs/ (Linux)
 ~/Library/Application Support/tacit/packs/ (macOS)
-├── en-0.10.1\              (~0.45 MB zip) - 영어 트라이그램과 사전
+├── en-0.10.2\              (~0.45 MB zip) - 영어 트라이그램과 사전
 │   ├── manifest.json      (id · 버전 · core 호환 범위 · 표 파일 해시)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.10.1\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
+├── ko-0.10.2\              (~0.45 MB zip) - 한국어 단어·음절 표와 단어 거름망
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.10.1\              (사전 약 38.1 MB) - 가나 트라이그램 + Mozc OSS 변환 데이터
+└── ja-0.10.2\              (사전 약 38.1 MB) - 가나 트라이그램 + Mozc OSS 변환 데이터
     ├── manifest.json
     ├── kana_trigrams.bin
     ├── ipadic_compact.bin  (TSIPDIC4; legacy filename)
@@ -52,7 +52,7 @@ Tacit은 코어 엔진의 가벼움을 유지하고 프로세스 시작 속도�
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "core": ">=0.10.0, <0.11.0",
   "requires": ["en"],
   "files": {

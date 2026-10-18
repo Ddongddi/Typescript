@@ -14,16 +14,16 @@ Targets 0.10.x. Update program and packs together. The Japanese dictionary uses 
 %LOCALAPPDATA%\tacit\packs\ (Windows)
 ~/.local/share/tacit/packs/ (Linux)
 ~/Library/Application Support/tacit/packs/ (macOS)
-├── en-0.10.1\              (~0.45 MB zip) - English trigrams and vocabulary
+├── en-0.10.2\              (~0.45 MB zip) - English trigrams and vocabulary
 │   ├── manifest.json      (id · version · core range · table file hashes)
 │   ├── english_levels.txt
 │   └── trigrams.bin
-├── ko-0.10.1\              (~0.45 MB zip) - Korean word/syllable tables and word filter
+├── ko-0.10.2\              (~0.45 MB zip) - Korean word/syllable tables and word filter
 │   ├── manifest.json
 │   ├── korean_words_sorted.txt · korean_vocab_sorted.txt
 │   ├── korean_syllables.txt · korean_syllable_counts.txt
 │   └── korean_word_filter.bin
-└── ja-0.10.1\              (~38.1 MB dictionary) - Kana trigrams + Mozc OSS IME data
+└── ja-0.10.2\              (~38.1 MB dictionary) - Kana trigrams + Mozc OSS IME data
     ├── manifest.json
     ├── kana_trigrams.bin
     ├── ipadic_compact.bin  (TSIPDIC4; legacy filename)
@@ -52,7 +52,7 @@ Specifies language identity, version, table definitions, and SHA-256 integrity h
 {
   "id": "ja",
   "name": "日本語",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "core": ">=0.10.0, <0.11.0",
   "requires": ["en"],
   "files": {

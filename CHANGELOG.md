@@ -9,6 +9,13 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-18
+
+### 변경
+
+- 프로젝트 이름을 **Typescript**에서 **Tacit**으로 바꿨습니다. 실행 파일·설치 패키지·설정 경로·환경변수와 GitHub 주소가 `tacit` 기준으로 바뀌며, 튜토리얼·설정 화면·입력기 목록·문서의 표시 이름도 통일했습니다.
+- 기존 설정과 학습 데이터는 자동 이전하지 않습니다. 이전 설치기로 제거한 뒤 새로 설치하고, 기존 `Typescript` 사용자 폴더의 내용을 같은 위치의 `tacit` 폴더로 복사하세요. Android는 패키지 ID가 바뀌어 별도 앱으로 설치되므로 입력기를 다시 선택해야 합니다. 언어 팩 형식은 그대로여서 0.10.x 팩과 호환됩니다.
+
 ## [0.10.1] - 2026-10-18
 
 ### 변경
@@ -345,7 +352,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/iamallyouneed/tacit/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/iamallyouneed/tacit/compare/v0.9.0...v0.9.1

@@ -9,6 +9,13 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-18
+
+### Changed
+
+- Renamed **Typescript** to **Tacit**. Executables, release packages, settings paths, environment variables and GitHub URLs now use `tacit`; the tutorial, dashboard, input method names and documentation use the same display name.
+- Settings and learned data are not migrated automatically. Uninstall with the original installer, install Tacit, then copy the contents of each old `Typescript` user folder into the sibling `tacit` folder. Android installs as a separate app because its package ID changed; select the new keyboard in system settings. The language pack format is unchanged and remains compatible with 0.10.x packs.
+
 ## [0.10.1] - 2026-10-18
 
 ### Changed
@@ -345,7 +352,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/iamallyouneed/tacit/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/iamallyouneed/tacit/compare/v0.9.0...v0.9.1
