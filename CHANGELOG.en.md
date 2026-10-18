@@ -121,7 +121,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 ## [0.8.2] - 2026-10-15
 
 ### Changed
-- Welcome guide (tutorial): the first two screens are one. Under "안녕하세요", in small grey text, it asks you to type `안녕 tacit`, and when you have, the same screen moves on to "Is the Han/Eng key really needed?".
+- Welcome guide (tutorial): the first two screens are one. Under "안녕하세요", in small grey text, it asks you to type `안녕 Tacit`, and when you have, the same screen moves on to "Is the Han/Eng key really needed?".
 - The welcome guide's Esc screen is now three rounds. Type `깨짐` (`Rowla` on an English layout), fix it with Esc, then "Could you do it once more?" and "One last time". The program learns a word the second time it is corrected the same way, so the last round comes out as `깨짐` without Esc, and then it tells you "words you fix twice like this are remembered". If it has not been learned yet it does not say so and simply moves on. A correction is recorded only once the word is confirmed (Space), so each round tells you to press Space.
 - The welcome guide's last screen wording was polished, and the progress bar segments are lit or off, never half.
 
@@ -141,7 +141,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [0.8.0] - 2026-10-15
 
-This version is **0.8.0**, not 0.7.1, because the pack file format changed. Packs and the program are only compatible within the same minor version (0.7.x packs are for 0.7.x programs), and the new Japanese pack is in a format the older program (0.7.x) cannot read, so the compatibility range is split here. A 0.7.x program sees this release's pack list as incompatible, does not download it, and says "update tacit first". Updating installs the program and the Japanese pack together.
+This version is **0.8.0**, not 0.7.1, because the pack file format changed. Packs and the program are only compatible within the same minor version (0.7.x packs are for 0.7.x programs), and the new Japanese pack is in a format the older program (0.7.x) cannot read, so the compatibility range is split here. A 0.7.x program sees this release's pack list as incompatible, does not download it, and says "update Tacit first". Updating installs the program and the Japanese pack together.
 
 ### Changed
 - The Japanese pack got smaller: 17.2 MB → 10.1 MB installed, and the download about 5.9 MB → 4.9 MB. The tables are stored again at their natural width, so detection and conversion results are the same as before. (This is the change that alters the pack format: `kana_trigrams.txt` became `kana_trigrams.bin` and the dictionary went from `TSIPDIC2` to `TSIPDIC3`.) Thanks to Ddongddi for the contribution.
@@ -156,7 +156,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 ## [0.7.0] - 2026-10-14
 
 ### Added
-- First-run tutorial (welcome page, `tacit-config welcome`): starts with "안녕하세요", shows the hassle of typing while hitting the Han/Eng key, then lets you try `dkssud tacit` without it. Picking languages downloads and enables them (per-language progress and completion are shown), and practices switching input methods, Korean, and Esc one screen at a time. The Esc screen shows an intentionally wrong example (typing `깨짐` on an English layout leaves `Rowla`) and explains that undecided text can be changed with Esc. A progress bar sits on top, practice fields are free-typing with only the result checked. It opens only on a fresh install (never on update) and can be reopened from the dashboard's "Tutorial" link.
+- First-run tutorial (welcome page, `tacit-config welcome`): starts with "안녕하세요", shows the hassle of typing while hitting the Han/Eng key, then lets you try `dkssud Tacit` without it. Picking languages downloads and enables them (per-language progress and completion are shown), and practices switching input methods, Korean, and Esc one screen at a time. The Esc screen shows an intentionally wrong example (typing `깨짐` on an English layout leaves `Rowla`) and explains that undecided text can be changed with Esc. A progress bar sits on top, practice fields are free-typing with only the result checked. It opens only on a fresh install (never on update) and can be reopened from the dashboard's "Tutorial" link.
 - `tacit-config setup --if-configured`: reinstalls the already-enabled languages (for updates). It fails on a fresh install so the install scripts can tell the two cases apart.
 - Dashboard update tab: the changelog for every version in one place (since 0.1.0). Expand/collapse all, and records for versions newer than the current one are fetched from GitHub and shown on top.
 - Dashboard: a "taught words" section on the language tab (delete one, clear all) and a "word history" section on the input-settings tab (remembered word count, clear). Both need two presses to clear.
@@ -203,7 +203,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 ## [0.6.3] - 2026-10-14
 
 ### Added
-- Dashboard: a banner when the currently selected input method is not tacit, naming it and telling you to switch with Win+Space. (Windows)
+- Dashboard: a banner when the currently selected input method is not Tacit, naming it and telling you to switch with Win+Space. (Windows)
 
 ### Changed
 - Dashboard: trimmed the "connected" indicator at the top down to a small dot and text.

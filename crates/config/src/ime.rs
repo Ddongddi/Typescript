@@ -21,7 +21,7 @@ fn parse_macos_input_source(output: &str) -> Option<(bool, String)> {
         return None;
     }
     if output.to_lowercase().contains("tacit") {
-        return Some((true, "tacit".to_string()));
+        return Some((true, "Tacit".to_string()));
     }
     let name = output
         .lines()
@@ -87,7 +87,7 @@ fn active() -> Option<(bool, String)> {
                 .GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut profile)
                 .ok()?;
             if profile.clsid == CLSID_TACIT {
-                return Some((true, "tacit".to_string()));
+                return Some((true, "Tacit".to_string()));
             }
             let name = if profile.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR {
                 let profiles: ITfInputProcessorProfiles = manager.cast().ok()?;
@@ -132,7 +132,7 @@ mod tests {
         let ours = "(\n {\n \"Bundle ID\" = \"io.github.iamallyouneed.inputmethod.tacit\";\n }\n)";
         assert_eq!(
             parse_macos_input_source(ours),
-            Some((true, "tacit".to_string()))
+            Some((true, "Tacit".to_string()))
         );
         assert_eq!(parse_macos_input_source("  "), None);
     }

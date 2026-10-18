@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/icon.png" alt="tacit" width="112">
+  <img src="assets/icon.png" alt="Tacit" width="112">
 </p>
 
-<h1 align="center">tacit</h1>
+<h1 align="center">Tacit</h1>
 
-> 기존 **Typescript**에서 옮길 때는 이전 설치기로 먼저 제거한 뒤 tacit을 설치하세요. 설정·학습 데이터는 자동 이전하지 않습니다. 실행 중인 앱을 닫고 기존 `Typescript` 사용자 폴더의 내용을 같은 위치의 `tacit` 폴더로 복사하면 유지할 수 있습니다 (Windows: `%APPDATA%`, 팩은 `%LOCALAPPDATA%`; macOS: `~/Library/Application Support`; Linux: `~/.config`, 팩은 `$XDG_DATA_HOME` 또는 `~/.local/share`). Android는 패키지 ID가 바뀌어 별도 앱으로 설치되므로 입력기를 다시 선택해야 합니다.
+> 기존 **Typescript**에서 옮길 때는 이전 설치기로 먼저 제거한 뒤 Tacit을 설치하세요. 설정·학습 데이터는 자동 이전하지 않습니다. 실행 중인 앱을 닫고 기존 `Typescript` 사용자 폴더의 내용을 같은 위치의 `tacit` 폴더로 복사하면 유지할 수 있습니다 (Windows: `%APPDATA%`, 팩은 `%LOCALAPPDATA%`; macOS: `~/Library/Application Support`; Linux: `~/.config`, 팩은 `$XDG_DATA_HOME` 또는 `~/.local/share`). Android는 패키지 ID가 바뀌어 별도 앱으로 설치되므로 입력기를 다시 선택해야 합니다.
 
 
 <h3 align="center">
@@ -59,10 +59,10 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
    irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
    ```
    끝나면 브라우저에 시작 안내 페이지가 열립니다. 쓸 언어를 고르고(영어·한국어가 기본) 시작을 누르세요.
-2. **입력기 고르기.** **Win+Space** 를 눌러 `tacit (자동완성)` 을 고릅니다. 이미 떠 있는 앱은 다시 열어야 합니다.
+2. **입력기 고르기.** **Win+Space** 를 눌러 `Tacit (자동완성)` 을 고릅니다. 이미 떠 있는 앱은 다시 열어야 합니다.
 3. **쳐 보기.** 메모장에서 `dkssud` 를 치면 밑줄과 함께 `안녕` 이 보입니다. Space나 Enter로 확정합니다.
 4. **틀렸을 때.** 영어로 쓰려던 단어가 한글로 나오면 **Esc** 를 누르세요. 영어 → 한국어 → … 순서로 바뀝니다.
-5. **더 만지고 싶으면.** 시작 메뉴에서 **tacit 설정** 을 엽니다 → [대시보드](#대시보드-설정-페이지). 오른쪽 채팅창에서 설정을 바꿔 가며 바로 쳐 볼 수 있습니다.
+5. **더 만지고 싶으면.** 시작 메뉴에서 **Tacit 설정** 을 엽니다 → [대시보드](#대시보드-설정-페이지). 오른쪽 채팅창에서 설정을 바꿔 가며 바로 쳐 볼 수 있습니다.
 
 끝입니다. 한/영 키를 누를 일이 없어야 정상입니다.
 
@@ -81,7 +81,7 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 | Backspace | 영어는 글자 단위, 한국어는 두벌식처럼 자모 → 음절 단위, 일본어는 가나 한 글자 |
 | Tab | (자동완성 입력기) 쓰는 중인 단어를 자주 쓴 단어로 완성하고, 기록에 없으면 내장 사전에서 완성한다. 완성할 단어는 단어 아래 작은 알약 창에 `안녕하세요  Tab` 으로 미리 보인다. 완성할 게 없으면 Tab은 앱으로 간다 |
 | ⌃K / F7, ⌃J / F6 | (일본어) 읽기를 가타카나 / 히라가나로 보여 준다. Space로 둘을 뒤집고 Enter로 확정한다 |
-| **한/영 키** | 기본은 단어의 언어를 돌려 바꿉니다. Alt+한/영 은 이 입력칸에서 tacit를 끄고 켭니다 (다른 칸으로 가면 다시 켜진다). 둘 다 [키 탭](#대시보드-설정-페이지)에서 바꿉니다 |
+| **한/영 키** | 기본은 단어의 언어를 돌려 바꿉니다. Alt+한/영 은 이 입력칸에서 Tacit을 끄고 켭니다 (다른 칸으로 가면 다시 켜진다). 둘 다 [키 탭](#대시보드-설정-페이지)에서 바꿉니다 |
 
 **섞어 쓰기.** 띄어쓰기 없이 영어와 한국어를 붙여 써도 알아서 나눕니다. `githubdp` → `github에`, `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `nwp` → `n제`.
 
@@ -118,7 +118,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/
 
 | 입력기 | 하는 일 |
 | --- | --- |
-| `tacit (자동완성)` | 자동 판별 + Tab 자동완성 + 쓴 단어 학습 |
+| `Tacit (자동완성)` | 자동 판별 + Tab 자동완성 + 쓴 단어 학습 |
 | `tacit` | 자동 판별만 (자동완성도, 단어 기록도 없다) |
 
 <details>
@@ -147,13 +147,13 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --uninstall
 ```
 
-- **macOS:** `~/Library/Input Methods/tacit.app` 로 설치됩니다. 로그아웃했다가 다시 들어온 뒤 시스템 설정 → 키보드 → 입력 소스 → 편집에서 **tacit** 를 추가합니다. 서명·공증을 하지 않아 처음에는 개인정보 보호 및 보안에서 허용해야 할 수 있습니다. 한/영 키가 없으니 **Option+Space** 가 일시정지입니다.
-- **Linux:** IBus 엔진이 `~/.local/share/tacit/` 에 설치됩니다. 설정 → 키보드 → 입력 소스(또는 `ibus-setup`)에서 **tacit** 를 추가합니다. 목록에 없으면 로그아웃했다가 다시 들어오세요. fcitx5는 아직 지원하지 않습니다.
+- **macOS:** `~/Library/Input Methods/tacit.app` 로 설치됩니다. 로그아웃했다가 다시 들어온 뒤 시스템 설정 → 키보드 → 입력 소스 → 편집에서 **Tacit** 를 추가합니다. 서명·공증을 하지 않아 처음에는 개인정보 보호 및 보안에서 허용해야 할 수 있습니다. 한/영 키가 없으니 **Option+Space** 가 일시정지입니다.
+- **Linux:** IBus 엔진이 `~/.local/share/tacit/` 에 설치됩니다. 설정 → 키보드 → 입력 소스(또는 `ibus-setup`)에서 **Tacit** 를 추가합니다. 목록에 없으면 로그아웃했다가 다시 들어오세요. fcitx5는 아직 지원하지 않습니다.
 - 설정은 macOS에서 `~/Library/Application Support/tacit/`, Linux에서 `~/.config/tacit/` 에 저장됩니다. 설정 페이지는 `tacit-config` 로 엽니다 (`~/.local/bin` 이 PATH에 있어야 합니다).
 
 ### Android
 
-릴리스의 **`tacit.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **tacit** 를 켜고, 입력창에서 키보드로 고릅니다.
+릴리스의 **`tacit.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Tacit** 를 켜고, 입력창에서 키보드로 고릅니다.
 
 - 화면 키보드는 두벌식 자모를 키마다 같이 표시합니다. 블루투스/USB 물리 키보드도 됩니다.
 - 화면 키보드의 `가/A` 키는 Esc와 같습니다. `한/영` 키는 일시정지이고 켜져 있으면 `OFF` 로 보입니다.
@@ -187,12 +187,12 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 
 ## 대시보드 (설정 페이지)
 
-설정은 파일을 고칠 필요 없이 대시보드에서 합니다. 시작 메뉴의 **tacit 설정** (또는 `C:\Program Files\tacit\tacit-config.exe`, macOS·Linux는 `tacit-config`)을 실행하면 브라우저에 설정 페이지가 열립니다.
+설정은 파일을 고칠 필요 없이 대시보드에서 합니다. 시작 메뉴의 **Tacit 설정** (또는 `C:\Program Files\tacit\tacit-config.exe`, macOS·Linux는 `tacit-config`)을 실행하면 브라우저에 설정 페이지가 열립니다.
 
 - 이 컴퓨터(127.0.0.1)에서만 열리고, 실행할 때마다 바뀌는 토큰이 주소에 들어 있어 다른 사이트는 접근할 수 없습니다.
 - 탭을 닫으면 잠시 뒤 스스로 끝납니다.
 - 바꾸면 **바로 저장**되고, 열려 있는 앱에는 곧 반영됩니다. 저장 버튼은 없습니다.
-- 상단의 점은 연결 상태입니다. 지금 선택된 입력기가 tacit가 아니면 위쪽에 알려 주고 Win+Space로 바꾸라고 안내합니다.
+- 상단의 점은 연결 상태입니다. 지금 선택된 입력기가 Tacit이 아니면 위쪽에 알려 주고 Win+Space로 바꾸라고 안내합니다.
 - **오른쪽의 채팅창**은 모든 탭에서 보입니다. 여기서 치는 키는 실제 입력기를 거치므로, 설정을 바꾸고 바로 어떻게 달라지는지 쳐 볼 수 있습니다. 입력창 밖 빈 곳에서 글자를 쳐도 채팅에 들어갑니다.
 - 단축키: 숫자 **1–5** 로 탭 이동, **/** 로 앱 찾기, 언어 탭에서 **Esc** 로 순환 미리 보기.
 
@@ -224,7 +224,7 @@ tacit-config setup --if-configured     # 이미 켜 둔 언어를 다시 설치 
 
 | 증상 | 해결 |
 | --- | --- |
-| Win+Space 목록에 tacit가 없다 | 설치를 다시 실행하세요. **영어(미국)** 아래에 있어야 합니다. 이미 떠 있던 앱은 다시 열어야 새 입력기를 읽습니다 |
+| Win+Space 목록에 Tacit이 없다 | 설치를 다시 실행하세요. **영어(미국)** 아래에 있어야 합니다. 이미 떠 있던 앱은 다시 열어야 새 입력기를 읽습니다 |
 | 어떤 앱에서만 안 된다 | 대시보드 **앱별 규칙**에서 그 앱을 찾아 "끄기"나 "시스템 IME" 프리셋을 적용해 보세요 |
 | 터미널에서 짧은 명령(`ls`, `git`)이 한글로 바뀐다 | 앱별 규칙에서 터미널에 *터미널 · 엄격* 프리셋을 적용하세요 (변환 기준을 올립니다) |
 | 에디터에서 Esc가 먹힌다 / 앱의 Esc가 안 간다 | 앱 규칙의 `escapeToApp` 을 켜면 Esc는 앱으로 가고, 읽기 순환은 **Shift+Esc** 입니다 |
@@ -269,7 +269,7 @@ kyouhagoogledekensaku ⏎ →  今日はgoogleで検索   (문구 안 영어 단
 | 키 | 뜻 |
 | --- | --- |
 | `returnConfirmsOnly` | `true`면 Enter는 밑줄 단어를 확정만 한다 |
-| `autocomplete` | `false`면 `tacit (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
+| `autocomplete` | `false`면 `Tacit (자동완성)` 에서도 Tab 자동완성과 단어 기록을 끈다 |
 | `hangulKey` | 한영키로 쓸 키 (기본 `"Hangul"`). 아래 목록의 `HangulKey`가 이 키를 가리킨다 |
 | `hangulAction` | 한/영 키만 눌렀을 때 하는 일: `"flip"`(단어 언어 전환, 기본) · `"none"` · 앱에 보낼 단축키(`"Ctrl+C"`, `"Win+L"` …) |
 | `flipKeys` | 단어의 언어를 바꾸는 키 목록 (기본 `["Esc", "HangulKey"]`). `"Ctrl+Space"` 같은 조합도 되고 `[]`이면 끈다 |

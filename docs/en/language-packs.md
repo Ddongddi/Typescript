@@ -1,6 +1,6 @@
-# tacit Language Pack System & Developer Guide
+# Tacit Language Pack System & Developer Guide
 
-To keep the core engine lightweight and ensure instantaneous application startup, tacit separates language-specific datasets (trigram frequency tables, vocabulary dictionaries, and Kanji conversion indices) into standalone **Language Packs**. Each pack is a single **folder** (`manifest.json` plus its table files); releases ship one zip per language.
+To keep the core engine lightweight and ensure instantaneous application startup, Tacit separates language-specific datasets (trigram frequency tables, vocabulary dictionaries, and Kanji conversion indices) into standalone **Language Packs**. Each pack is a single **folder** (`manifest.json` plus its table files); releases ship one zip per language.
 
 [한국어](../ko/language-packs.md) · [English Docs Index](README.md)
 
@@ -133,7 +133,7 @@ cargo test -p tacit-core --test golden
 
 ## 5. Dataset Licensing Compliance
 
-tacit maintains strict open-source licensing standards:
+Tacit maintains strict open-source licensing standards:
 
 1. **Permissive and Share-Alike Datasets Only**: Acceptable licenses include CC-BY, CC BY-SA, MIT, BSD, or Apache-2.0.
 2. **No Non-Commercial (NC) Data**: Datasets with CC-BY-NC or commercial restrictions are strictly prohibited.

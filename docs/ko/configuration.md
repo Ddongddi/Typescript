@@ -1,6 +1,6 @@
-# tacit 설정 및 관리 가이드
+# Tacit 설정 및 관리 가이드
 
-tacit는 브라우저 기반의 로컬 웹 대시보드, CLI 관리 도구(`tacit-config`), 그리고 직접 편집할 수 있는 JSON 설정 파일을 제공합니다.
+Tacit은 브라우저 기반의 로컬 웹 대시보드, CLI 관리 도구(`tacit-config`), 그리고 직접 편집할 수 있는 JSON 설정 파일을 제공합니다.
 
 [English](../en/configuration.md) · [한국어 문서 홈](README.md)
 
@@ -20,7 +20,7 @@ tacit는 브라우저 기반의 로컬 웹 대시보드, CLI 관리 도구(`taci
 
 ## 2. 웹 대시보드 (`tacit-config`)
 
-시작 메뉴에서 **tacit 설정**을 클릭하거나, 터미널에서 `tacit-config`를 입력하면 기본 웹 브라우저에 관리 인터페이스가 열립니다.
+시작 메뉴에서 **Tacit 설정**을 클릭하거나, 터미널에서 `tacit-config`를 입력하면 기본 웹 브라우저에 관리 인터페이스가 열립니다.
 
 ```powershell
 tacit-config
@@ -105,7 +105,7 @@ tacit-config setup --if-configured
 | `hangulAction` | `string` | `"flip"` | 한/영 키만 눌렀을 때 하는 일. `"flip"`(단어 언어 전환), `"none"`(아무것도 안 함), 또는 앱에 보낼 단축키(`"Ctrl+C"`, `"Win+L"`, `"Alt+Tab"` …). 단축키를 보내면 단어 언어 전환은 하지 않습니다. 대시보드의 "키" 탭에서도 정할 수 있습니다(Windows). |
 | `flipKeys` | `string[]` | `["Esc", "HangulKey"]` | 쓰는 중인(방금 친) 단어를 다음 언어로 바꾸는 키. `"Ctrl+Space"`처럼 조합할 수 있고, `"Ctrl"`·`"RCtrl"` 같은 수식어 키는 다른 키 없이 눌렀다 뗄 때 동작합니다. 최대 8개, `[]`이면 사용하지 않습니다. |
 | `pauseKeys` | `string[]` | `["Alt+HangulKey"]` | 입력기 일시정지/재개 키. 형식은 `flipKeys`와 같고, 두 목록에 같은 키를 쓸 수 없습니다. 예전 `pauseKey`는 읽어서 옮깁니다(`"off"`는 `[]`). |
-| `autocomplete` | `bool` | `true` | `tacit (자동완성)` 입력기에서 `Tab` 키 자동완성 및 빈도 학습 활성화 여부. |
+| `autocomplete` | `bool` | `true` | `Tacit (자동완성)` 입력기에서 `Tab` 키 자동완성 및 빈도 학습 활성화 여부. |
 | `checkUpdates` | `bool` | `true` | 하루 1회 GitHub 릴리스를 조회하여 새 버전 존재 여부를 확인합니다. |
 | `liveConversion` | `bool` | `false` | (일본어) 타이핑하는 도중 추천 한자 변환 결과를 실시간으로 미리보기로 표시합니다. |
 | `fullWidthDigits` | `bool` | `false` | (일본어) 일본어 단어 뒤에 입력되는 숫자를 전각(`０３-１２３４`)으로 입력합니다. |
@@ -145,8 +145,8 @@ tacit-config setup --if-configured
 | --- | --- | --- |
 | `enabled` | `bool` | `false` 지정 시 해당 앱에서는 입력기를 완전히 비활성화(순수 영문 입력으로 통과)합니다. 게임 등에서 유용합니다. |
 | `conversionThreshold` | `float` | 한글/일본어로 판별하기 위한 확신도 임계값 (`0.0` ~ `1.0`). 기본 `0.5`. 터미널에서는 `ls`, `cd`, `git` 등의 짧은 명령어가 한글로 바뀌는 것을 막기 위해 `0.97` 수준의 엄격한 값을 권장합니다. |
-| `escapeToApp` | `bool` | `true`로 설정하면 단일 `Esc` 키를 tacit가 가로채지 않고 앱(Vim, VSCode 등)으로 직접 전달합니다. 언어 순환은 `Shift + Esc`로 수행하게 됩니다. |
-| `useSystemIme` | `bool` | 해당 앱에 포커스가 갈 때 자동으로 Microsoft 기본 한국어 IME로 전환합니다. 포커스를 벗어나면 tacit로 복귀합니다. |
+| `escapeToApp` | `bool` | `true`로 설정하면 단일 `Esc` 키를 Tacit이 가로채지 않고 앱(Vim, VSCode 등)으로 직접 전달합니다. 언어 순환은 `Shift + Esc`로 수행하게 됩니다. |
+| `useSystemIme` | `bool` | 해당 앱에 포커스가 갈 때 자동으로 Microsoft 기본 한국어 IME로 전환합니다. 포커스를 벗어나면 Tacit으로 복귀합니다. |
 | `fullWidth` | `bool` | `false`로 두면 전역 일본어 전각 설정이 켜져 있더라도 이 앱(터미널 등)에서는 반각 숫자/공백을 유지합니다. |
 | `returnConfirmsOnly` | `bool` | 그 앱에서만 Enter 동작을 정합니다. `false`면 Enter 한 번에 확정과 전송이 같이 됩니다 (메신저). 슬랙·디스코드·카카오톡 등은 기본으로 `false`가 들어 있습니다. |
 
@@ -175,7 +175,7 @@ tacit-config setup --if-configured
 
 ### 4.4 `user_history.json` (자동완성 학습 기록)
 
-`tacit (자동완성)` 입력기에서 확정한 정상 단어들의 사용 빈도가 카운팅됩니다.
+`Tacit (자동완성)` 입력기에서 확정한 정상 단어들의 사용 빈도가 카운팅됩니다.
 
 - **2회 이상 입력된 단어만** 자동완성 제안 목록에 노출되므로, 오타나 1회성 비밀번호가 노출되지 않습니다.
 - 10단어 입력 시점마다, 그리고 입력 포커스를 이동할 때 디스크에 동기화되므로 다른 앱에서 입력한 단어도 즉시 제안됩니다.

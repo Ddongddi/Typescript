@@ -1,6 +1,6 @@
-# tacit 설치 및 빌드 가이드
+# Tacit 설치 및 빌드 가이드
 
-이 문서는 지원되는 모든 플랫폼(Windows, macOS, Linux, Android)에서 tacit를 설치, 빌드 및 관리하는 방법을 안내합니다.
+이 문서는 지원되는 모든 플랫폼(Windows, macOS, Linux, Android)에서 Tacit을 설치, 빌드 및 관리하는 방법을 안내합니다.
 
 [English](../en/installation.md) · [한국어 문서 홈](README.md)
 
@@ -50,7 +50,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/
 ```
 
 ### 2.2 설치 후 입력기 선택
-1. **Win + Space**를 누르고 키보드 레이아웃 목록에서 **tacit** 또는 **tacit (자동완성)**을 선택합니다.
+1. **Win + Space**를 누르고 키보드 레이아웃 목록에서 **Tacit** 또는 **Tacit (자동완성)**을 선택합니다.
 2. 언어 목록에서는 **영어(미국)** 아래에 위치합니다 (카카오톡 등 구형 IMM32 애플리케이션의 조합 잘림 문제를 회피하기 위해 의도적으로 영어 레이아웃에 등록됩니다).
 3. 이미 실행 중인 프로그램은 종료 후 다시 시작해야 새 입력기를 인식합니다.
 
@@ -88,7 +88,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 
 - 설치 위치: `~/Library/Input Methods/tacit.app` (관리자 권한 불필요)
 - 설치가 완료되면 **시스템 로그아웃 후 다시 로그인**합니다.
-- **시스템 설정** → **키보드** → **텍스트 입력 (입력 소스)** → **편집**에서 `+`를 누르고 **tacit**를 추가합니다.
+- **시스템 설정** → **키보드** → **텍스트 입력 (입력 소스)** → **편집**에서 `+`를 누르고 **Tacit**를 추가합니다.
 - *참고*: 공증(Notarization)을 거치지 않은 경우 처음 실행 시 macOS **개인정보 보호 및 보안**에서 "확인 없이 열기"를 눌러야 할 수 있습니다.
 
 ### 3.2 macOS 소스 빌드
@@ -112,7 +112,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 
 - 엔진 파일은 `~/.local/share/tacit/`, IBus 컴포넌트 XML은 `~/.local/share/ibus/component/`에 설치됩니다.
 - 설치 후 로그아웃했다가 로그인하거나 `ibus restart`를 실행합니다.
-- 데스크톱 환경 설정의 입력기 메뉴 또는 `ibus-setup`에서 **tacit**를 추가합니다.
+- 데스크톱 환경 설정의 입력기 메뉴 또는 `ibus-setup`에서 **Tacit**를 추가합니다.
 
 ### 4.2 Linux 소스 직접 빌드
 **필수 패키지 (Ubuntu/Debian 기준):**
@@ -136,8 +136,8 @@ ibus restart
 ### 5.1 APK 직접 설치
 1. [GitHub Releases](https://github.com/iamallyouneed/tacit/releases/latest) 페이지에서 **`tacit.apk`**를 다운로드합니다.
 2. 기기에서 APK를 실행하고 "출처를 알 수 없는 앱 설치"를 허용합니다.
-3. 안드로이드 **설정** → **시스템** → **언어 및 입력** → **화면 키보드** 목록에서 **tacit**를 활성화합니다.
-4. 입력창을 터치한 후 키보드 전환 아이콘을 눌러 tacit를 선택합니다.
+3. 안드로이드 **설정** → **시스템** → **언어 및 입력** → **화면 키보드** 목록에서 **Tacit**를 활성화합니다.
+4. 입력창을 터치한 후 키보드 전환 아이콘을 눌러 Tacit을 선택합니다.
 
 ### 5.2 Android 소스 빌드
 **필수 요구사항:**

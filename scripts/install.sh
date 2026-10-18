@@ -28,7 +28,7 @@ done
 case "$(uname -s)" in
   Linux) OS=linux ;;
   Darwin) OS=macos ;;
-  *) echo "tacit supports Linux and macOS here; on Windows use install.ps1." >&2; exit 1 ;;
+  *) echo "Tacit supports Linux and macOS here; on Windows use install.ps1." >&2; exit 1 ;;
 esac
 
 BIN="${HOME}/.local/bin"
@@ -48,7 +48,7 @@ if [ "$UNINSTALL" = 1 ]; then
   else
     rm -rf "$APP"
   fi
-  echo "tacit removed. Your settings are kept."
+  echo "Tacit removed. Your settings are kept."
   exit 0
 fi
 
@@ -64,7 +64,7 @@ else
   SRC=$(mktemp -d)
   trap 'rm -rf "$SRC"' EXIT
   NAME="tacit-$OS.zip"
-  echo "Downloading tacit ($VERSION)..."
+  echo "Downloading Tacit ($VERSION)..."
   curl -fsSL "$BASE/$NAME" -o "$SRC/$NAME"
   curl -fsSL "$BASE/$NAME.sha256" -o "$SRC/$NAME.sha256"
   EXPECTED=$(cut -d' ' -f1 "$SRC/$NAME.sha256")
@@ -120,10 +120,10 @@ fi
 
 echo
 if [ "$OS" = linux ]; then
-  echo "Installed. Add \"tacit\" under Settings > Keyboard > Input Sources (or run ibus-setup),"
+  echo "Installed. Add \"Tacit\" under Settings > Keyboard > Input Sources (or run ibus-setup),"
   echo "then log out and in once if it is not listed."
 else
-  echo "Installed. Log out and in, then add \"tacit\" under System Settings > Keyboard >"
+  echo "Installed. Log out and in, then add \"Tacit\" under System Settings > Keyboard >"
   echo "Input Sources > Edit. The first time, allow it under Privacy & Security."
 fi
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "Add $BIN to your PATH to use tacit-config." ;; esac

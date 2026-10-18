@@ -21,12 +21,12 @@ pub const GUID_DISPLAY_ATTRIBUTE: GUID = GUID::from_u128(0x268841E3_D0E9_45B7_80
 pub const LANGID_TACIT: u16 = 0x0409;
 /// ko-KR: Microsoft's Korean IME (see delegate.rs), and where tacit used to be registered.
 pub const LANGID_KO_KR: u16 = 0x0412;
-pub const DESCRIPTION: &str = "tacit";
+pub const DESCRIPTION: &str = "Tacit";
 
 /// The profiles the input picker offers: (GUID, name, with Tab completion).
 pub const PROFILES: [(GUID, &str, bool); 2] = [
-    (GUID_PROFILE, "tacit (자동완성)", true),
-    (GUID_PROFILE_PLAIN, "tacit", false),
+    (GUID_PROFILE, "Tacit (자동완성)", true),
+    (GUID_PROFILE_PLAIN, "Tacit", false),
 ];
 
 /// `{E231DAD4-326F-436F-B74C-D08F1D66D822}`, the registry spelling.

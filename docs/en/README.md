@@ -1,6 +1,6 @@
-# tacit Official Documentation (English)
+# Tacit Official Documentation (English)
 
-tacit is an intelligent, automatic multilingual Input Method Editor (IME) that lets you type without ever toggling a language key. As you type on a standard QWERTY keyboard, it analyzes keystrokes word-by-word to accurately distinguish and convert **English**, **Korean (2-set Hangul)**, and **Japanese (Romaji/Kana/Kanji)** on the fly.
+Tacit is an intelligent, automatic multilingual Input Method Editor (IME) that lets you type without ever toggling a language key. As you type on a standard QWERTY keyboard, it analyzes keystrokes word-by-word to accurately distinguish and convert **English**, **Korean (2-set Hangul)**, and **Japanese (Romaji/Kana/Kanji)** on the fly.
 
 [한국어 공식 문서](../ko/README.md) · [Main Documentation Index](../README.md)
 
@@ -45,15 +45,15 @@ tacit is an intelligent, automatic multilingual Input Method Editor (IME) that l
 
 ## ⚡ Quick Start (Windows)
 
-Run the following command in PowerShell with administrator privileges to download, install, and activate tacit:
+Run the following command in PowerShell with administrator privileges to download, install, and activate Tacit:
 
 ```powershell
 irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
 ```
 
-When a first install finishes, a **welcome page** opens in your browser to pick your languages (English, Korean, Japanese; the list order is the cycling order). After installation, press **Win + Space** and select **tacit** or **tacit (Autocomplete)**.
+When a first install finishes, a **welcome page** opens in your browser to pick your languages (English, Korean, Japanese; the list order is the cycling order). After installation, press **Win + Space** and select **Tacit** or **Tacit (Autocomplete)**.
 
-To open the graphical settings dashboard, click **tacit Settings** from the Start Menu or run:
+To open the graphical settings dashboard, click **Tacit Settings** from the Start Menu or run:
 
 ```powershell
 tacit-config

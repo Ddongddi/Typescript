@@ -136,10 +136,10 @@ int main(int argc, char **argv) {
     ibus_bus_request_name(bus, "io.github.iamallyouneed.tacit", 0);
   } else {
     IBusComponent *component = ibus_component_new(
-        "io.github.iamallyouneed.tacit", "tacit", "0", "AGPL-3.0-only", "Necessity",
+        "io.github.iamallyouneed.tacit", "Tacit", "0", "AGPL-3.0-only", "Necessity",
         "https://github.com/iamallyouneed/tacit", "", "ibus-tacit");
     ibus_component_add_engine(component,
-        ibus_engine_desc_new(ENGINE_NAME, "tacit", "English / Korean / Japanese by word",
+        ibus_engine_desc_new(ENGINE_NAME, "Tacit", "English / Korean / Japanese by word",
                              "en", "AGPL-3.0-only", "Necessity", "", "us"));
     ibus_bus_register_component(bus, component);
   }

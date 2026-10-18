@@ -1,14 +1,14 @@
-# tacit Documentation · 문서
+# Tacit Documentation · 문서
 
 [한국어](#한국어-문서) · [English](#english-documentation)
 
-Welcome to the official documentation for **tacit**, an automatic multilingual input method editor (IME) that intelligently distinguishes between English, Korean, and Japanese as you type—without needing to toggle a language key.
+Welcome to the official documentation for **Tacit**, an automatic multilingual input method editor (IME) that intelligently distinguishes between English, Korean, and Japanese as you type—without needing to toggle a language key.
 
 ---
 
 ## 한국어 문서
 
-tacit의 구조, 설치 방법, 상세 설정, 언어 팩 개발 및 문제 해결에 관한 상세 문서입니다.
+Tacit의 구조, 설치 방법, 상세 설정, 언어 팩 개발 및 문제 해결에 관한 상세 문서입니다.
 
 | 문서 | 설명 |
 | --- | --- |
@@ -24,7 +24,7 @@ tacit의 구조, 설치 방법, 상세 설정, 언어 팩 개발 및 문제 해�
 
 ## English Documentation
 
-Comprehensive guides on tacit's architecture, multi-platform installation, configuration, language pack creation, and troubleshooting.
+Comprehensive guides on Tacit's architecture, multi-platform installation, configuration, language pack creation, and troubleshooting.
 
 | Document | Description |
 | --- | --- |

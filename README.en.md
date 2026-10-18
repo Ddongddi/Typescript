@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/icon.png" alt="tacit" width="112">
+  <img src="assets/icon.png" alt="Tacit" width="112">
 </p>
 
-<h1 align="center">tacit</h1>
+<h1 align="center">Tacit</h1>
 
-> When moving from **Typescript**, uninstall it with its original installer before installing tacit. Settings and learned data are not migrated automatically. Close running apps, then copy the contents of each old `Typescript` user folder into the sibling `tacit` folder (Windows: `%APPDATA%` and `%LOCALAPPDATA%` for packs; macOS: `~/Library/Application Support`; Linux: `~/.config` and `$XDG_DATA_HOME` or `~/.local/share` for packs). Android uses a new package ID and installs as a separate app; select the new keyboard in system settings.
+> When moving from **Typescript**, uninstall it with its original installer before installing Tacit. Settings and learned data are not migrated automatically. Close running apps, then copy the contents of each old `Typescript` user folder into the sibling `tacit` folder (Windows: `%APPDATA%` and `%LOCALAPPDATA%` for packs; macOS: `~/Library/Application Support`; Linux: `~/.config` and `$XDG_DATA_HOME` or `~/.local/share` for packs). Android uses a new package ID and installs as a separate app; select the new keyboard in system settings.
 
 
 <h3 align="center">
@@ -46,7 +46,7 @@ fltpssm ghkdlxld                    →  리센느 화이팅
 kyouhaiitenkidesune                 →  きょうはいいてんきですね   (Japanese pack)
 ```
 
-Type on a plain English layout. tacit decides, **per word**, whether you meant English, Korean (2-set Hangul), or Japanese (romaji) and converts it as you go. Wrong guess? **Press Esc once** to cycle to the next reading. Make the same correction twice and it learns the word.
+Type on a plain English layout. Tacit decides, **per word**, whether you meant English, Korean (2-set Hangul), or Japanese (romaji) and converts it as you go. Wrong guess? **Press Esc once** to cycle to the next reading. Make the same correction twice and it learns the word.
 
 ## Quick start
 
@@ -57,10 +57,10 @@ Windows shown; other systems are under [Installation](#installation).
    irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 | iex
    ```
    A welcome page opens in your browser: tick your languages (English and Korean are on by default) and press Start.
-2. **Pick the input method.** Press **Win+Space** and choose `tacit (Autocomplete)`. Apps that were already open need a restart.
+2. **Pick the input method.** Press **Win+Space** and choose `Tacit (Autocomplete)`. Apps that were already open need a restart.
 3. **Try it.** In Notepad type `dkssud` — you see `안녕` with a dotted underline. Space or Enter commits it.
 4. **If it guessed wrong.** A word you meant in English came out as Hangul? Press **Esc**. It cycles English → Korean → …
-5. **Want to tweak things?** Open **tacit Settings** from the Start menu → [the dashboard](#the-dashboard). The chat on the right lets you change a setting and test it immediately.
+5. **Want to tweak things?** Open **Tacit Settings** from the Start menu → [the dashboard](#the-dashboard). The chat on the right lets you change a setting and test it immediately.
 
 That's it. You should never need the Han/Eng key again.
 
@@ -79,7 +79,7 @@ Just type. The dotted underline shows the current guess — the same result Spac
 | Backspace | English: one letter. Korean: jamo → syllable, like a 2-set keyboard. Japanese: one kana |
 | Tab | (Autocomplete profile) Completes the word from your frequent words, then the built-in dictionary. A small pill under the word previews it (`안녕하세요  Tab`). Nothing to complete → Tab goes to the app |
 | ⌃K / F7, ⌃J / F6 | (Japanese) Show the reading as katakana / hiragana; Space swaps, Enter commits |
-| **Han/Eng key** | By default it cycles the word's language. Alt+Han/Eng pauses/resumes tacit for the current text field. Both are changeable on the dashboard's **Keys** tab |
+| **Han/Eng key** | By default it cycles the word's language. Alt+Han/Eng pauses/resumes Tacit for the current text field. Both are changeable on the dashboard's **Keys** tab |
 
 **Mixed words.** English and Korean typed with no space are split for you: `githubdp` → `github에`, `reportwha` → `report좀`, `kakaotalkaptlswj` → `kakaotalk메신저`, `nwp` → `n제`.
 
@@ -116,7 +116,7 @@ After installing, press **Win+Space** and choose the input method. It lives unde
 
 | Profile | What it does |
 | --- | --- |
-| `tacit (Autocomplete)` | Auto-detection + Tab autocomplete + learns the words you type |
+| `Tacit (Autocomplete)` | Auto-detection + Tab autocomplete + learns the words you type |
 | `tacit` | Auto-detection only (no autocomplete, no word history) |
 
 <details>
@@ -143,13 +143,13 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/install.sh | sh -s -- --uninstall
 ```
 
-- **macOS:** installs `~/Library/Input Methods/tacit.app`. Log out and back in, then add **tacit** under System Settings → Keyboard → Input Sources. It isn't signed or notarized, so you may need to allow it in Privacy & Security the first time. There is no Han/Eng key, so **Option+Space** pauses.
-- **Linux:** installs the IBus engine under `~/.local/share/tacit/`. Add **tacit** in Settings → Keyboard → Input Sources (or `ibus-setup`); if it's missing, log out and back in. fcitx5 isn't supported yet.
+- **macOS:** installs `~/Library/Input Methods/tacit.app`. Log out and back in, then add **Tacit** under System Settings → Keyboard → Input Sources. It isn't signed or notarized, so you may need to allow it in Privacy & Security the first time. There is no Han/Eng key, so **Option+Space** pauses.
+- **Linux:** installs the IBus engine under `~/.local/share/tacit/`. Add **Tacit** in Settings → Keyboard → Input Sources (or `ibus-setup`); if it's missing, log out and back in. fcitx5 isn't supported yet.
 - Settings live in `~/Library/Application Support/tacit/` (macOS) or `~/.config/tacit/` (Linux). Open the dashboard with `tacit-config` (needs `~/.local/bin` on your PATH).
 
 ### Android
 
-Download **`tacit.apk`** from the [latest release](https://github.com/iamallyouneed/tacit/releases/latest) and install it (allow unknown sources). Enable **tacit** in Settings → keyboards, then pick it from the keyboard switcher in any text field.
+Download **`tacit.apk`** from the [latest release](https://github.com/iamallyouneed/tacit/releases/latest) and install it (allow unknown sources). Enable **Tacit** in Settings → keyboards, then pick it from the keyboard switcher in any text field.
 
 - The on-screen keyboard shows the 2-set jamo on each key. Bluetooth/USB keyboards work too.
 - The `가/A` key acts as Esc. The `한/영` key pauses and shows `OFF` while paused.
@@ -170,12 +170,12 @@ Download **`tacit.apk`** from the [latest release](https://github.com/iamallyoun
 
 ## The dashboard
 
-You don't need to edit files. Open **tacit Settings** from the Start menu (or run `tacit-config`; on Windows it's `C:\Program Files\tacit\tacit-config.exe`) and a settings page opens in your browser.
+You don't need to edit files. Open **Tacit Settings** from the Start menu (or run `tacit-config`; on Windows it's `C:\Program Files\tacit\tacit-config.exe`) and a settings page opens in your browser.
 
 - It listens on this machine only (127.0.0.1) and the address contains a per-launch token, so other websites can't reach it.
 - It exits by itself shortly after you close the tab.
 - Changes **save immediately** and reach open apps within moments. There is no Save button.
-- The dot at the top is the connection state. If the active input method isn't tacit, a banner tells you and points you to Win+Space.
+- The dot at the top is the connection state. If the active input method isn't Tacit, a banner tells you and points you to Win+Space.
 - The **chat panel on the right** is on every tab. Keys typed there go through the real input method with your saved settings, so you can change something and immediately see the effect. Typing on a blank part of the page also goes to the chat.
 - Shortcuts: **1–5** switch tabs, **/** searches apps, **Esc** on the Languages tab previews the cycle.
 

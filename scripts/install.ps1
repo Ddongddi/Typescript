@@ -19,7 +19,7 @@
   some other process of the user could swap in before the prompt is answered. A local folder is
   only ever used by -LocalSource (development), and it says so.
 
-  Afterwards pick "tacit" with Win+Space (or in Settings > Time & language > Language
+  Afterwards pick "Tacit" with Win+Space (or in Settings > Time & language > Language
   & region > English (United States) > Keyboards).
 #>
 
@@ -187,7 +187,7 @@ try {
             }
             [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
             $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" } else { "https://github.com/$GitHubRepo/releases/download/$Version" }
-            Write-Host "Downloading tacit ($Version)..."
+            Write-Host "Downloading Tacit ($Version)..."
             $web = New-Object Net.WebClient
             $zip = $web.DownloadData("$base/tacit-windows.zip")
             $expected = ($web.DownloadString("$base/tacit-windows.zip.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
@@ -331,7 +331,7 @@ function Install-Packs([string]$from) {
 
 # "tacit <settings>" in Korean, built from code points: Windows PowerShell 5.1 reads a script
 # file without a byte order mark as ANSI, so this file stays ASCII.
-$settingsLabel = 'tacit ' + [string][char]0xC124 + [char]0xC815
+$settingsLabel = 'Tacit ' + [string][char]0xC124 + [char]0xC815
 
 # The Start menu entry that opens the settings page (tacit-config is not on PATH).
 function Set-SettingsShortcut([bool]$Present) {
@@ -341,7 +341,7 @@ function Set-SettingsShortcut([bool]$Present) {
     $shortcut = $shell.CreateShortcut($link)
     $shortcut.TargetPath = Join-Path $dest 'tacit-config.exe'
     $shortcut.IconLocation = Join-Path $dest 'tacit.ico'
-    $shortcut.Description = 'tacit: languages, settings, updates'
+    $shortcut.Description = 'Tacit: languages, settings, updates'
     $shortcut.Save()
 }
 
@@ -454,7 +454,7 @@ try {
         Set-Keyboards $false
         Set-SettingsShortcut $false
         Set-KeyHook $false
-        Write-Host 'tacit removed. Settings stay in %APPDATA%\tacit, language packs in %LOCALAPPDATA%\tacit.'
+        Write-Host 'Tacit removed. Settings stay in %APPDATA%\tacit, language packs in %LOCALAPPDATA%\tacit.'
     } else {
         $packSource = if ($stage) { $stage } else { $Source }
         if ($LocalSource -or $inCheckout) { Install-Packs $packSource } else { Install-ReleasePacks }
@@ -463,8 +463,8 @@ try {
         Set-Keyboards $true
         Set-SettingsShortcut $true
         Set-KeyHook $true
-        Write-Host 'tacit installed.'
-        Write-Host '  Win+Space  -> "tacit (autocomplete)" or "tacit" (no autocomplete)'
+        Write-Host 'Tacit installed.'
+        Write-Host '  Win+Space  -> "Tacit (autocomplete)" or "Tacit" (no autocomplete)'
         Write-Host '  Switch word language -> Esc or Han/Eng; Pause -> Alt+Han/Eng, per text field. Keys: dashboard settings, or %APPDATA%\tacit\settings.json'
         Write-Host ('  Languages and settings: Start menu > ' + $settingsLabel + ' (opens a page in your browser), or ' + (Join-Path $dest 'tacit-config.exe'))
         Write-Host '  Apps already running pick the new text service up when you reopen them.'

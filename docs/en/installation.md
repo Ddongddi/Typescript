@@ -1,4 +1,4 @@
-# tacit Installation & Build Guide
+# Tacit Installation & Build Guide
 
 This document covers installation, building from source, and uninstallation across all supported operating systems: Windows, macOS, Linux, and Android.
 
@@ -50,9 +50,9 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/
 ```
 
 ### 2.2 Selecting the Input Method
-1. Press **Win + Space** and select **tacit** or **tacit (Autocomplete)**.
-2. In the Windows language list, tacit appears under **English (United States)**. *(This intentional design avoids interim composition clipping bugs found in legacy IMM32 apps such as KakaoTalk).*
-3. Applications that were already running when you installed tacit must be restarted to detect the new text service.
+1. Press **Win + Space** and select **Tacit** or **Tacit (Autocomplete)**.
+2. In the Windows language list, Tacit appears under **English (United States)**. *(This intentional design avoids interim composition clipping bugs found in legacy IMM32 apps such as KakaoTalk).*
+3. Applications that were already running when you installed Tacit must be restarted to detect the new text service.
 
 ### 2.3 Building from Source on Windows
 The Windows TSF service requires building both 64-bit and 32-bit DLLs to support native and legacy 32-bit processes.
@@ -87,7 +87,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 
 - Installed to `~/Library/Input Methods/tacit.app`.
 - After installation, **log out and log back in**.
-- Open **System Settings** → **Keyboard** → **Text Input (Input Sources)** → **Edit**, click `+`, and add **tacit**.
+- Open **System Settings** → **Keyboard** → **Text Input (Input Sources)** → **Edit**, click `+`, and add **Tacit**.
 - *Note:* Because releases are unsigned and un-notarized, macOS Gatekeeper may prompt you under **Privacy & Security** to "Open Anyway" on first run.
 
 ### 3.2 Building from Source on macOS
@@ -111,7 +111,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 
 - The engine installs to `~/.local/share/tacit/`, and the component XML to `~/.local/share/ibus/component/`.
 - Log out and log back in, or run `ibus restart`.
-- Add **tacit** via your desktop's keyboard settings or `ibus-setup`.
+- Add **Tacit** via your desktop's keyboard settings or `ibus-setup`.
 
 ### 4.2 Building from Source on Linux
 **Prerequisites (Ubuntu/Debian):**
@@ -135,8 +135,8 @@ ibus restart
 ### 5.1 Standalone APK Install
 1. Download **`tacit.apk`** from [GitHub Releases](https://github.com/iamallyouneed/tacit/releases/latest).
 2. Open the APK on your device and permit installation from unknown sources.
-3. Navigate to Android **Settings** → **System** → **Languages & input** → **On-screen keyboard**, and toggle **tacit** ON.
-4. Tap any text field, select the input switcher icon, and select tacit.
+3. Navigate to Android **Settings** → **System** → **Languages & input** → **On-screen keyboard**, and toggle **Tacit** ON.
+4. Tap any text field, select the input switcher icon, and select Tacit.
 
 ### 5.2 Building from Source on Android
 **Prerequisites:**

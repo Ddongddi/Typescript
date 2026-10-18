@@ -98,14 +98,14 @@ const SETUP_STEPS = {
   windows: [],
   macos: [
     "로그아웃했다가 다시 로그인합니다.",
-    "시스템 설정 → 키보드 → 입력 소스 → 편집에서 tacit를 추가합니다.",
+    "시스템 설정 → 키보드 → 입력 소스 → 편집에서 Tacit을 추가합니다.",
     "서명하지 않은 앱이라 처음에는 개인정보 보호 및 보안에서 허용해야 할 수 있습니다.",
-    "메뉴 막대의 입력 소스에서 tacit를 고릅니다.",
+    "메뉴 막대의 입력 소스에서 Tacit을 고릅니다.",
   ],
   linux: [
-    "설정 → 키보드 → 입력 소스(또는 ibus-setup)에서 tacit를 추가합니다.",
+    "설정 → 키보드 → 입력 소스(또는 ibus-setup)에서 Tacit을 추가합니다.",
     "목록에 없으면 로그아웃했다가 다시 로그인합니다.",
-    "상단 메뉴의 입력 소스에서 tacit를 고릅니다.",
+    "상단 메뉴의 입력 소스에서 Tacit을 고릅니다.",
   ],
 };
 
@@ -158,7 +158,7 @@ function showIme(ime) {
   banner.hidden = ime.tacit;
   if (banner.hidden) return;
   const name = ime.name ? `‘${ime.name}’` : "다른 입력기";
-  banner.textContent = `지금 선택된 입력기는 ${name}입니다. tacit가 아니라서 여기서 정한 대로 동작하지 않아요. ${SWITCH_KEY[os] || "입력기 전환 키"}로 tacit를 고르세요.`;
+  banner.textContent = `지금 선택된 입력기는 ${name}입니다. Tacit이 아니라서 여기서 정한 대로 동작하지 않아요. ${SWITCH_KEY[os] || "입력기 전환 키"}로 Tacit을 고르세요.`;
 }
 
 async function heartbeat() {

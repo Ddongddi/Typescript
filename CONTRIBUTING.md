@@ -6,7 +6,7 @@
 
 ## 한국어
 
-tacit는 **Necessity**의 프로젝트로 운영되는 오픈소스입니다. 라이선스는 [AGPL-3.0-only](LICENSE)입니다.
+Tacit은 **Necessity**의 프로젝트로 운영되는 오픈소스입니다. 라이선스는 [AGPL-3.0-only](LICENSE)입니다.
 버그 제보, 문서, 코드, 언어 데이터 모두 환영합니다. 큰 변경은 먼저 이슈로 이야기해 주세요.
 
 ### 기여 조건 (DCO)
@@ -87,7 +87,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 ### 버그와 보안 제보
 
 - **버그**는 [이슈](https://github.com/iamallyouneed/tacit/issues)로 알려 주세요. 입력기는 환경에 따라
-  달라서 이것들이 있으면 재현이 빨라집니다: 시스템과 버전(Windows·Android·macOS·Linux), 입력기 종류와 tacit
+  달라서 이것들이 있으면 재현이 빨라집니다: 시스템과 버전(Windows·Android·macOS·Linux), 입력기 종류와 Tacit
   버전, 입력하던 **앱 이름**, 친 **키 순서**, 기대한 결과와 실제 결과, 가능하면 대시보드 체험 탭의 결과.
 - **보안 취약점**은 공개 이슈에 올리지 말고 GitHub의
   [비공개 보안 권고](https://github.com/iamallyouneed/tacit/security/advisories/new)로 보내 주세요.
@@ -104,7 +104,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 ## English
 
-tacit is open source, run as a project of **Necessity**, under the
+Tacit is open source, run as a project of **Necessity**, under the
 [AGPL-3.0-only](LICENSE). Bug reports, docs, code and language data are all welcome. Please discuss big
 changes in an issue first.
 
@@ -190,7 +190,7 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 
 - Report **bugs** as [issues](https://github.com/iamallyouneed/tacit/issues). An input method depends on its
   environment, so please include: system and version (Windows, Android, macOS, Linux), which input method and
-  tacit version, the **app** you were typing in, the **keys** you pressed, what you expected and what you
+  Tacit version, the **app** you were typing in, the **keys** you pressed, what you expected and what you
   got, and the dashboard's 체험 (try) result if you can.
 - Report **security vulnerabilities** through GitHub's
   [private security advisory](https://github.com/iamallyouneed/tacit/security/advisories/new), not in a

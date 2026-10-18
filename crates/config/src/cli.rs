@@ -21,7 +21,7 @@ pub const USAGE: &str = "tacit-config [command]
   remove <id>       turn a language off and delete its pack
   order <a,b,c>     change the Esc order of the languages that are on
   check             is there a newer release?
-  update            update the packs (and tacit itself when it changed)
+  update            update the packs (and Tacit itself when it changed)
 Set TACIT_RELEASE to a folder or URL to use another release.";
 
 pub fn list(env: &Env, source: &Source) -> Result<String> {
@@ -120,7 +120,7 @@ Run: tacit-config update
         )
     } else {
         format!(
-            "tacit {} is the latest
+            "Tacit {} is the latest
 ",
             crate::catalog::CORE_VERSION
         )
@@ -133,7 +133,7 @@ pub fn notice(env: &Env, api: &dyn Fetch, url: &str) -> Option<String> {
     let info = update::check(env, api, url, update::now(), false).ok()?;
     info.available.then(|| {
         format!(
-            "tacit {} is out: tacit-config update
+            "Tacit {} is out: tacit-config update
 ",
             info.latest
         )

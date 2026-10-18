@@ -172,7 +172,7 @@ function renderUpdate() {
     h(
       "div",
       { class: "card pad" },
-      h("div", {}, h("b", {}, "tacit " + state.version)),
+      h("div", {}, h("b", {}, "Tacit " + state.version)),
       h(
         "p",
         { class: "note ver-link", style: "margin:6px 0 0" },

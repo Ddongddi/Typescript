@@ -89,7 +89,7 @@ impl Source {
         let catalog = Catalog::parse(&bytes)?;
         if !catalog.compatible() {
             return err(format!(
-                "the language packs of this release are for tacit {}, this tool is {}: update tacit first",
+                "the language packs of this release are for Tacit {}, this tool is {}: update Tacit first",
                 catalog.core,
                 crate::catalog::CORE_VERSION
             ));

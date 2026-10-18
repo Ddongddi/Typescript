@@ -1,6 +1,6 @@
-# tacit Troubleshooting & Application Compatibility
+# Tacit Troubleshooting & Application Compatibility
 
-This guide resolves common configuration issues, key conflicts, and application quirks when using tacit.
+This guide resolves common configuration issues, key conflicts, and application quirks when using Tacit.
 
 [한국어](../ko/troubleshooting.md) · [English Docs Index](README.md)
 
@@ -14,10 +14,10 @@ Legacy Windows applications—including KakaoTalk, older versions of Office, Not
 #### Technical Background:
 - Windows translates TSF composition events into IMM32 `WM_IME_COMPOSITION` messages.
 - For Korean IMEs, Windows enforces a hardcoded constraint: **"Korean composition must never exceed 1 syllable (Interim state)."**
-- Because tacit presents an entire composing word with dotted previews, registering as a Korean IME causes Windows to prematurely finalize each keystroke. Typing `테스트` degenerates into `ㅌpㅅmㅌm`.
+- Because Tacit presents an entire composing word with dotted previews, registering as a Korean IME causes Windows to prematurely finalize each keystroke. Typing `테스트` degenerates into `ㅌpㅅmㅌm`.
 
 #### The Solution:
-- tacit registers under the **English (United States)** keyboard layout.
+- Tacit registers under the **English (United States)** keyboard layout.
 - In English layouts, Windows does not enforce single-character interim constraints, preserving multi-syllable word previews across all IMM32 applications.
 - Seeing `ENG` in the Windows notification tray is intentional and expected.
 
@@ -31,7 +31,7 @@ If corporate security software or banking applications require the official Micr
   }
 }
 ```
-Windows will automatically switch to the Microsoft Korean IME whenever that window gains focus, restoring tacit when switching away.
+Windows will automatically switch to the Microsoft Korean IME whenever that window gains focus, restoring Tacit when switching away.
 
 ---
 
@@ -56,14 +56,14 @@ Terminals such as Windows Terminal, cmd, PowerShell, WezTerm and Alacritty alrea
   }
 }
 ```
-At `0.97`, tacit requires overwhelming statistical evidence before converting keystrokes to Korean.
+At `0.97`, Tacit requires overwhelming statistical evidence before converting keystrokes to Korean.
 
 ---
 
 ## 3. Editor (Vim, VSCode) and Gaming Configuration
 
 ### 3.1 Vim/VSCode: Esc Key Not Returning to Normal Mode
-By default, pressing `Esc` triggers tacit's language cycling. In modal editors like Vim, this intercepts your attempt to return to Normal Mode.
+By default, pressing `Esc` triggers Tacit's language cycling. In modal editors like Vim, this intercepts your attempt to return to Normal Mode.
 
 #### Solution:
 Enable `"escapeToApp": true` for your editor processes:
@@ -82,7 +82,7 @@ Enable `"escapeToApp": true` for your editor processes:
 - Language cycling remains accessible via **`Shift + Esc`**.
 
 ### 3.2 Full Pass-Through for Games
-To eliminate any input interference in games, disable tacit per executable:
+To eliminate any input interference in games, disable Tacit per executable:
 
 ```json
 {

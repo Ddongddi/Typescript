@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component>
   <name>io.github.iamallyouneed.tacit</name>
-  <description>tacit: English, Korean and Japanese by word</description>
+  <description>Tacit: English, Korean and Japanese by word</description>
   <exec>@EXEC@ --ibus</exec>
   <version>@VERSION@</version>
   <author>Necessity</author>
@@ -15,7 +15,7 @@
       <license>AGPL-3.0-only</license>
       <author>Necessity</author>
       <layout>us</layout>
-      <longname>tacit</longname>
+      <longname>Tacit</longname>
       <description>English, Korean and Japanese by word</description>
       <rank>0</rank>
     </engine>
