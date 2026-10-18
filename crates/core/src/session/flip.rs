@@ -2,6 +2,7 @@
 
 use super::{utf16_len, InputSession, Range, TextClient, NOT_FOUND};
 use crate::decide::engine::{DecisionEngine, Language};
+#[cfg(feature = "japanese")]
 use crate::decide::segmenter::JapaneseSegmenter;
 
 pub(super) struct Committed {
@@ -38,10 +39,12 @@ impl InputSession {
             return None;
         }
         let language = self.next_language(commit.language, &commit.keys);
-        let reading = if language == Language::Japanese {
-            JapaneseSegmenter::reading_of(&commit.keys, self.ja.segmenter.as_ref())
-        } else {
-            self.engine.render(&commit.keys, language)
+        let reading = match language {
+            #[cfg(feature = "japanese")]
+            Language::Japanese => {
+                JapaneseSegmenter::reading_of(&commit.keys, self.ja.segmenter.as_ref())
+            }
+            _ => self.engine.render(&commit.keys, language),
         };
         let text = format!("{reading}{}", commit.boundary);
         client.insert_text(&text, Some(range));

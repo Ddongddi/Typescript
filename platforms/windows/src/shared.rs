@@ -1,12 +1,13 @@
 //! Process-wide models: every text service in a process shares its engines, converter and word
 //! history. The Japanese chain is built only once some session asks for it.
 
+#[cfg(feature = "japanese")]
+use tacit_core::{DictionaryConverter, JapaneseConverter};
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
-use tacit_core::{
-    make_engine, DictionaryConverter, History, JapaneseConverter, Languages, LearningEngine,
-};
+use tacit_core::{make_engine, History, Languages, LearningEngine};
 
 static ENGINES: OnceLock<Mutex<HashMap<Languages, Arc<LearningEngine>>>> = OnceLock::new();
 
@@ -37,16 +38,16 @@ pub fn reload_engines() {
 
 /// Loads the installed packs this process doesn't have yet (on first use and whenever the
 /// settings change: a language may just have been installed).
-pub fn refresh_packs() {
-    for root in tacit_core::pack_dirs() {
-        tacit_core::pack::refresh(&root);
-    }
+pub fn refresh_packs(languages: &Languages) {
+    tacit_core::pack::refresh_for(tacit_core::pack_dirs(), languages);
 }
 
+#[cfg(feature = "japanese")]
 static CONVERTER: OnceLock<Arc<dyn JapaneseConverter>> = OnceLock::new();
 
 /// The kana→kanji engine for this process: the compact IPADIC dictionary (decide/kanji.rs),
 /// with the user's choices learned into `%APPDATA%\tacit\kanji_learning.json`.
+#[cfg(feature = "japanese")]
 pub fn converter() -> Arc<dyn JapaneseConverter> {
     CONVERTER
         .get_or_init(|| {

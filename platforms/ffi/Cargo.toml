@@ -10,5 +10,8 @@ description = "C interface of the input method for the macOS and Linux text serv
 name = "tacit_ffi"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+japanese = ["tacit-core/japanese"]
+
 [dependencies]
 tacit-core = { path = "../../crates/core", features = ["embedded-en", "embedded-ko"] }

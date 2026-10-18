@@ -25,6 +25,7 @@
 
 param(
     [switch]$Uninstall,
+    [ValidateSet('', 'enko', 'enkoja')][string]$Edition = '',
     # Release tag to install (default: the latest release).
     [string]$Version = 'latest',
     # Also install and turn on the Japanese language pack (romaji -> kana -> kanji, a 10 MB
@@ -83,7 +84,7 @@ function Set-Keyboards([bool]$Present) {
 # self-contained on purpose: as an encoded command it runs in a fresh PowerShell that knows
 # nothing else from this file.
 $elevatedScript = @'
-param([string]$Version, [switch]$Uninstall, [switch]$LocalSource, [string]$Source)
+param([string]$Version, [switch]$Uninstall, [switch]$LocalSource, [string]$Source, [ValidateSet('enko', 'enkoja')][string]$Edition = 'enko')
 $ErrorActionPreference = 'Stop'
 $GitHubRepo = 'iamallyouneed/tacit'
 $dest = Join-Path $env:ProgramFiles 'tacit'
@@ -175,7 +176,7 @@ try {
                 Move-Aside (Join-Path $dest $name)
                 Copy-Item (Join-Path $Source $name) (Join-Path $dest $name) -Force
             }
-            foreach ($name in 'tacit.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1') {
+            foreach ($name in 'tacit.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1', 'edition') {
                 Copy-Item (Join-Path $Source $name) $dest -Force -ErrorAction SilentlyContinue
             }
         } else {
@@ -189,8 +190,9 @@ try {
             $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" } else { "https://github.com/$GitHubRepo/releases/download/$Version" }
             Write-Host "Downloading Tacit ($Version)..."
             $web = New-Object Net.WebClient
-            $zip = $web.DownloadData("$base/tacit-windows.zip")
-            $expected = ($web.DownloadString("$base/tacit-windows.zip.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
+            $name = if ($Edition -eq 'enkoja') { 'tacit-windows-ja.zip' } else { 'tacit-windows.zip' }
+            $zip = $web.DownloadData("$base/$name")
+            $expected = ($web.DownloadString("$base/$name.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
             $sha = [Security.Cryptography.SHA256]::Create()
             $actual = (($sha.ComputeHash($zip) | ForEach-Object { $_.ToString('x2') }) -join '')
             if (-not $expected -or $actual -ne $expected) { throw "Checksum mismatch (expected '$expected', got '$actual')" }
@@ -236,14 +238,14 @@ exit 0
 function Get-EncodedElevation([string]$Version, [bool]$Uninstall) {
     $body = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($elevatedScript))
     $call = "& ([scriptblock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$body'))))" +
-        " -Version '$Version'" + $(if ($Uninstall) { ' -Uninstall' })
+        " -Version '$Version' -Edition '$Edition'" + $(if ($Uninstall) { ' -Uninstall' })
     [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($call))
 }
 
 if ($Elevated) {
     # The one place the body runs straight from this file (a -LocalSource folder install, or a
     # release that predates the encoded call passing -Elevated).
-    $direct = @{ Version = $Version; Uninstall = $Uninstall.IsPresent; LocalSource = $LocalSource.IsPresent; Source = $Source }
+    $direct = @{ Version = $Version; Uninstall = $Uninstall.IsPresent; LocalSource = $LocalSource.IsPresent; Source = $Source; Edition = $(if ($Edition) { $Edition } else { 'enko' }) }
     & ([scriptblock]::Create($elevatedScript)) @direct
     exit 0
 }
@@ -254,9 +256,11 @@ function New-SourceStage {
     Push-Location $repo
     try {
         # Not together with tacit-cli: its embedded packs would end up in these two (+2.5 MB each).
-        & cargo build --release -p tacit-tip -p tacit-config
+        $features = if ($Edition -eq 'enkoja') { @('--features', 'tacit-tip/japanese,tacit-config/japanese') } else { @() }
+        & cargo build --release -p tacit-tip -p tacit-config @features
         if ($LASTEXITCODE) { throw 'cargo build (x64) failed' }
-        & cargo build --release -p tacit-tip --target i686-pc-windows-msvc
+        $tipFeatures = if ($Edition -eq 'enkoja') { @('--features', 'japanese') } else { @() }
+        & cargo build --release -p tacit-tip --target i686-pc-windows-msvc @tipFeatures
         if ($LASTEXITCODE) { throw 'cargo build (x86) failed; run: rustup target add i686-pc-windows-msvc' }
         # Out-Host: what it prints must not become part of this function's result (the stage path).
         & cargo run --release -p tacit-packgen --bin build-packs -- crates\core\data target\packs | Out-Host
@@ -268,9 +272,15 @@ function New-SourceStage {
     Copy-Item (Join-Path $repo 'target\release\tacit_tip.dll') $stage
     Copy-Item (Join-Path $repo 'target\i686-pc-windows-msvc\release\tacit_tip.dll') (Join-Path $stage 'tacit_tip_x86.dll')
     Copy-Item (Join-Path $repo 'target\release\tacit-config.exe') $stage
-    Copy-Item (Join-Path $repo 'target\packs') (Join-Path $stage 'packs') -Recurse
+    $stagePacks = Join-Path $stage 'packs'
+    New-Item $stagePacks -ItemType Directory | Out-Null
+    $packIds = if ($Edition -eq 'enkoja') { @('en', 'ko', 'ja') } else { @('en', 'ko') }
+    foreach ($id in $packIds) {
+        Get-ChildItem (Join-Path $repo 'target\packs') -Directory -Filter "$id-*" | Copy-Item -Destination $stagePacks -Recurse
+    }
     Copy-Item (Join-Path $repo 'assets\tacit.ico') $stage
     foreach ($notice in 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt') { Copy-Item (Join-Path $repo $notice) $stage -ErrorAction SilentlyContinue }
+    Set-Content (Join-Path $stage 'edition') $Edition -Encoding ascii
     Copy-Item $PSCommandPath $stage
     return $stage
 }
@@ -300,6 +310,12 @@ function Install-Packs([string]$from) {
         $ids = @($settings.languages)
         if ($Japanese -and $ids -notcontains 'ja') { $ids += 'ja' }
     }
+    if ($Languages) { $ids = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    if ($Japanese -and $ids -notcontains 'ja') { $ids += 'ja' }
+    $supported = if ($Edition -eq 'enkoja') { @('en', 'ko', 'ja') } else { @('en', 'ko') }
+    if (-not $Languages -and -not $Japanese) { $ids = @($ids | Where-Object { $_ -in $supported }) }
+    if (-not $ids.Count) { $ids = @('en', 'ko') }
+    if (@($ids | Where-Object { $_ -notin $supported }).Count) { throw 'The language selection is not supported by this edition' }
     # Korean and Japanese need the English pack's word list, even with English turned off.
     $need = @($ids) + @('en') | Select-Object -Unique
     # A pack folder is never written in place: running apps keep its files mapped and Windows
@@ -393,7 +409,11 @@ function Install-ReleasePacks {
     $previousRelease = $env:TACIT_RELEASE
     if ($Version -ne 'latest') { $env:TACIT_RELEASE = "https://github.com/$GitHubRepo/releases/download/$Version/" }
     $wanted = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-    if (-not $wanted.Count) { $wanted = Get-ConfiguredLanguages }
+    if (-not $wanted.Count) {
+        $configured = @(Get-ConfiguredLanguages)
+        $wanted = @($configured | Where-Object { $Edition -eq 'enkoja' -or $_ -ne 'ja' })
+        if ($configured.Count -and -not $wanted.Count) { $wanted = @('en', 'ko') }
+    }
     if ($Japanese -and $wanted.Count -and $wanted -notcontains 'ja') { $wanted += 'ja' }
     try {
         if ($wanted.Count) { & $config setup --languages ($wanted -join ',') }
@@ -420,6 +440,21 @@ function Open-Welcome {
     }
 }
 
+# Explicit language selection determines the edition; otherwise preserve the installed one.
+if ($Uninstall) { $Edition = 'enko' }
+$wanted = @($Languages -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if (-not $Edition) {
+    $editionFile = Join-Path $dest 'edition'
+    if ($Japanese -or $wanted -contains 'ja') { $Edition = 'enkoja' }
+    elseif ($wanted.Count) { $Edition = 'enko' }
+    elseif (Test-Path $editionFile) { $Edition = (Get-Content $editionFile -Raw).Trim() }
+    elseif ((Get-ConfiguredLanguages) -contains 'ja') { $Edition = 'enkoja' }
+    else { $Edition = 'enko' }
+}
+if ($Edition -notin @('enko', 'enkoja')) { throw 'Invalid installed edition' }
+if ($Edition -eq 'enko' -and ($Japanese -or $wanted -contains 'ja')) { throw 'The selected languages require the enkoja edition' }
+$supported = if ($Edition -eq 'enkoja') { @('en', 'ko', 'ja') } else { @('en', 'ko') }
+if (@($wanted | Where-Object { $_ -notin $supported }).Count) { throw 'Unsupported language selection' }
 $stage = $null
 $inCheckout = $PSScriptRoot -and (Test-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Cargo.toml'))
 try {
@@ -433,7 +468,7 @@ try {
         }
         $script = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $Source 'install.ps1' }
         Write-Warning 'Installing from a local folder: these files are not checked against a GitHub release.'
-        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Elevated', '-LocalSource', '-Source', "`"$Source`"")
+        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Elevated', '-LocalSource', '-Source', "`"$Source`"", '-Edition', $Edition)
         if ($Uninstall) { $arguments += '-Uninstall' }
     } else {
         # A release install (or removal): the elevated half fetches and checks the release

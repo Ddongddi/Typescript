@@ -10,19 +10,26 @@ pub mod store;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[cfg(feature = "japanese")]
 pub use decide::convert::{ConversionCandidate, JapaneseConverter, KanaConverter};
 pub use decide::converter::TextConverter;
 pub use decide::engine::{Decision, DecisionContext, DecisionEngine, HeuristicEngine, Language};
+#[cfg(feature = "japanese")]
 pub use decide::kanji::{DictionaryConverter, KanjiDictionary};
 pub use decide::learning::LearningEngine;
 pub use decide::mixed::{MixedWord, SplittingEngine};
+#[cfg(feature = "japanese")]
 pub use decide::segmenter::{JapaneseSegmenter, Segment};
 pub use lang::english::EnglishModel;
+#[cfg(feature = "japanese")]
 pub use lang::japanese::JapaneseModel;
 pub use lang::pack;
+#[cfg(feature = "japanese")]
 pub use lang::romaji::RomajiComposer;
 pub use lang::set::Languages;
-pub use session::{CandidatePage, Conversion, InputSession, Key, Range, TextClient};
+#[cfg(feature = "japanese")]
+pub use session::Conversion;
+pub use session::{CandidatePage, InputSession, Key, Range, TextClient};
 pub use store::history::History;
 pub use store::policy::{AppPolicies, AppPolicy, Settings};
 
@@ -128,10 +135,12 @@ fn pack_dirs_from(
 /// learned corrections → mixed-word splitting → heuristic scores, over `languages`.
 pub fn make_engine(store_path: Option<PathBuf>, languages: &Languages) -> Arc<LearningEngine> {
     let heuristic = HeuristicEngine::for_languages(languages);
+    #[cfg(feature = "japanese")]
     let segmenter = heuristic.segmenter.clone();
     let engine: Box<dyn DecisionEngine> = if languages.contains(Language::English) {
         let mut splitting = SplittingEngine::new(Box::new(heuristic), EnglishModel::shared());
         splitting.korean_on = languages.contains(Language::Korean);
+        #[cfg(feature = "japanese")]
         if let Some(segmenter) = segmenter {
             splitting = splitting.with_japanese(segmenter);
         }

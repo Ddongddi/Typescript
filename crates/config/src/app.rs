@@ -1,6 +1,9 @@
 //! The dashboard's brain: a request in, a response out. No sockets here, so every rule (token,
 //! Host, JSON only, size, validation) is tested directly.
 
+#[cfg(feature = "japanese")]
+use tacit_core::{DictionaryConverter, JapaneseConverter};
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -10,9 +13,8 @@ use tacit_core::session::testing::FakeTextField;
 use tacit_core::session::{Range, TextClient, NOT_FOUND};
 use tacit_core::store::policy::Override;
 use tacit_core::{
-    make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine,
-    DictionaryConverter, History, InputSession, JapaneseConverter, Key, Language, Languages,
-    LearningEngine, Settings,
+    make_engine, pack, AppPolicies, AppPolicy, DecisionContext, DecisionEngine, History,
+    InputSession, Key, Language, Languages, LearningEngine, Settings,
 };
 
 use crate::env::Env;
@@ -214,6 +216,7 @@ pub struct App {
     /// The engine the "try typing" box reads with, for the languages that were on when it was built.
     engine: Mutex<Option<(Languages, Arc<LearningEngine>)>>,
     /// The kana-to-kanji dictionary of the chat box, loaded when Japanese first needs it.
+    #[cfg(feature = "japanese")]
     converter: Mutex<Option<Arc<dyn JapaneseConverter>>>,
 }
 
@@ -230,6 +233,7 @@ impl App {
             quit: AtomicBool::new(false),
             slow: Mutex::new(()),
             engine: Mutex::new(None),
+            #[cfg(feature = "japanese")]
             converter: Mutex::new(None),
         }
     }
@@ -426,8 +430,9 @@ impl App {
     /// read from this user's folder). A language without its pack is left out, as the input
     /// method does; with none left there is nothing to read with.
     fn engine(&self) -> Result<(Languages, Arc<LearningEngine>), String> {
-        pack::refresh(&self.env.packs);
-        let on = languages::enabled(&self.env)
+        let selected = languages::enabled(&self.env);
+        pack::refresh_for([&self.env.packs], &selected);
+        let on = selected
             .available()
             .ok_or("no language pack is installed: add a language in the 언어 tab")?;
         let mut slot = self.engine.lock().unwrap_or_else(|e| e.into_inner());
@@ -509,6 +514,7 @@ impl App {
         Ok(json!({ "segments": segments }))
     }
 
+    #[cfg(feature = "japanese")]
     fn converter(&self) -> Arc<dyn JapaneseConverter> {
         let mut slot = self.converter.lock().unwrap_or_else(|e| e.into_inner());
         slot.get_or_insert_with(|| Arc::new(DictionaryConverter::new(None)))
@@ -526,15 +532,18 @@ impl App {
         }
         let settings = Settings::load(Some(&self.env.settings));
         let policies = AppPolicies::load(Some(&self.env.apps));
-        let (on, engine) = self.engine()?;
+        let (_on, engine) = self.engine()?;
         let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
         if settings.autocomplete {
             session = session.with_history(Arc::new(History::new(None)));
         }
-        if on.contains(Language::Japanese) {
+        #[cfg(feature = "japanese")]
+        if _on.contains(Language::Japanese) {
             session = session.with_japanese(self.converter(), settings.live_conversion);
         }
+        #[cfg(feature = "japanese")]
         session.set_full_width_digits(settings.full_width_digits);
+        #[cfg(feature = "japanese")]
         session.set_full_width_space(settings.full_width_space);
 
         let mut field = FakeTextField::new();
@@ -691,6 +700,9 @@ impl App {
             let Some(language) = Language::from_id(&id) else {
                 continue;
             };
+            if !language.supported() {
+                continue;
+            }
             let have = installed.packs.iter().find(|f| f.manifest.id == id);
             let listed = catalog.as_ref().ok().and_then(|c| c.pack(&id));
             rows.push(json!({
@@ -785,6 +797,37 @@ mod tests {
             .unwrap_or_else(|_| panic!("not JSON: {}", String::from_utf8_lossy(&r.body)))
     }
 
+    #[cfg(not(feature = "japanese"))]
+    #[test]
+    fn uncompiled_languages_are_absent_and_cannot_be_installed_or_configured() {
+        let f = fixture("app-language-isolation");
+        let app = app(&f);
+        let state = json_of(&app.handle(&req("GET", "/api/state", None)));
+        assert!(state["languages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|l| l["id"] != "ja"));
+        for key in ["liveConversion", "fullWidthDigits", "fullWidthSpace"] {
+            assert!(state["settings"].get(key).is_none());
+        }
+        assert!(languages::add_language(
+            &f.env,
+            &f.source,
+            "https://example.test/packs.json",
+            &f.catalog,
+            "ja"
+        )
+        .is_err());
+        assert!(!f.env.pack_folder("ja", "0.4.0").exists());
+        let result = app.handle(&req(
+            "POST",
+            "/api/settings",
+            Some(json!({"liveConversion": true})),
+        ));
+        assert_eq!(result.status, 400);
+    }
+
     #[test]
     fn requests_without_the_token_are_refused() {
         let f = fixture("app-token");
@@ -874,6 +917,7 @@ mod tests {
         assert_eq!(app.handle(&post).status, 405);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn state_lists_languages_settings_and_apps() {
         let f = fixture("app-state");
@@ -893,6 +937,7 @@ mod tests {
         assert!(s["catalogError"].is_null());
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn languages_can_be_added_reordered_and_removed() {
         let f = fixture("app-langs");
@@ -925,6 +970,7 @@ mod tests {
         assert_eq!(post(json!({"action": "add", "id": "xx"})).status, 400);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn posts_must_be_json_and_not_huge() {
         let f = fixture("app-post");
@@ -942,6 +988,7 @@ mod tests {
         assert_eq!(app.handle(&req("GET", "/api/nothing", None)).status, 404);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn settings_are_validated_and_keep_unknown_keys() {
         let f = fixture("app-settings");
@@ -1099,6 +1146,7 @@ mod tests {
         assert_eq!(json_of(&r)["historyWords"], 0);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_second_download_is_turned_away_but_settings_still_save() {
         let f = fixture("app-slow");

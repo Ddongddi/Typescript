@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "japanese")]
 use crate::decide::engine::Language;
 use crate::lang::set::Languages;
 use crate::support_dir;
@@ -269,11 +270,14 @@ pub struct Settings {
     pub languages: Languages,
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like macOS
     /// Live Conversion. Space opens the other candidates, Esc shows the kana.
+    #[cfg(feature = "japanese")]
     pub live_conversion: bool,
     /// With Japanese on: digits after Japanese text are part of it, full-width (１２３);
     /// Space offers 123.
+    #[cfg(feature = "japanese")]
     pub full_width_digits: bool,
     /// With Japanese on: a space after Japanese text is full-width (⇧Space types the other width).
+    #[cfg(feature = "japanese")]
     pub full_width_space: bool,
 }
 
@@ -287,8 +291,11 @@ impl Default for Settings {
             pause_keys: keys::default_pause(),
             autocomplete: true,
             languages: Languages::legacy(false),
+            #[cfg(feature = "japanese")]
             live_conversion: false,
+            #[cfg(feature = "japanese")]
             full_width_digits: false,
+            #[cfg(feature = "japanese")]
             full_width_space: false,
         }
     }
@@ -378,14 +385,17 @@ impl Settings {
                             .unwrap_or(false),
                     )
                 }),
+            #[cfg(feature = "japanese")]
             live_conversion: value
                 .get("liveConversion")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.live_conversion),
+            #[cfg(feature = "japanese")]
             full_width_digits: value
                 .get("fullWidthDigits")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(defaults.full_width_digits),
+            #[cfg(feature = "japanese")]
             full_width_space: value
                 .get("fullWidthSpace")
                 .and_then(|v| v.as_bool())
@@ -396,7 +406,8 @@ impl Settings {
     /// The canonical input settings, including the legacy Japanese switch.
     pub fn to_value(&self) -> serde_json::Value {
         let names = |keys: &[Chord]| keys.iter().map(ToString::to_string).collect::<Vec<_>>();
-        serde_json::json!({
+        #[allow(unused_mut)]
+        let mut value = serde_json::json!({
             "returnConfirmsOnly": self.return_confirms_only,
             "hangulKey": self.hangul_key.to_string(),
             "hangulAction": self.hangul_action.to_string(),
@@ -404,11 +415,20 @@ impl Settings {
             "pauseKeys": names(&self.pause_keys),
             "autocomplete": self.autocomplete,
             "languages": self.languages.ids(),
-            "japanese": self.languages.contains(Language::Japanese),
-            "liveConversion": self.live_conversion,
-            "fullWidthDigits": self.full_width_digits,
-            "fullWidthSpace": self.full_width_space,
-        })
+        });
+        #[cfg(feature = "japanese")]
+        value.as_object_mut().unwrap().extend(
+            serde_json::json!({
+                "japanese": self.languages.contains(Language::Japanese),
+                "liveConversion": self.live_conversion,
+                "fullWidthDigits": self.full_width_digits,
+                "fullWidthSpace": self.full_width_space,
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        );
+        value
     }
 
     /// Writes these values over the file's, keeping any keys this version doesn't know.
@@ -659,12 +679,14 @@ mod tests {
         s
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn languages_come_from_the_list_in_order() {
         let s = load_json("langs-list", r#"{ "languages": ["ko", "ja"] }"#);
         assert_eq!(s.languages.ids(), vec!["ko", "ja"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn languages_fall_back_to_the_japanese_key() {
         let s = load_json("langs-legacy-ja", r#"{ "japanese": true }"#);
@@ -673,6 +695,7 @@ mod tests {
         assert_eq!(s.languages.ids(), vec!["en", "ko"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn broken_languages_fall_back_too() {
         for json in [
@@ -687,6 +710,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn save_writes_languages_and_the_old_japanese_key() {
         let path = temp("langs-save");

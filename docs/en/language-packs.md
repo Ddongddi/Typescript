@@ -8,6 +8,25 @@ To keep the core engine lightweight and ensure instantaneous application startup
 
 ## 1. Language Pack Architecture
 
+### Supported, installed and active languages
+
+Desktop builds support English/Korean by default. The `japanese` Cargo feature includes Japanese scoring, composition, segmentation, conversion, session handling and dedicated settings assets. `embedded-ja` enables that implementation and embeds its data; `japanese` alone reads an installed pack. Windows distribution binaries do not embed dictionaries.
+
+The module registry defines **supported** languages (`tacit-config supported`). **Installed** languages have validated packs on disk; unsupported packs are not registered, mapped or updated. **Active** languages are the supported languages selected in settings. Input methods map only their packs and declared data dependencies. Old settings or leftover Japanese packs cannot enable Japanese in an English/Korean build.
+
+```powershell
+# English/Korean; do not build together with the CLI (Cargo unifies its embedded data features).
+cargo build --release -p tacit-tip -p tacit-config
+# Japanese-enabled desktop binaries; forward the feature to both packages.
+cargo build --release -p tacit-tip -p tacit-config --features tacit-tip/japanese,tacit-config/japanese
+```
+
+Packages are `tacit-<os>.zip` and `tacit-<os>-ja.zip`. Their `edition` marker and the updater's compiled configuration preserve the edition across updates. Windows `-Languages en,ko,ja` / `-Japanese` and Unix `--languages en,ko,ja` select the Japanese-enabled edition. Adding an unsupported language through the dashboard is rejected before downloading; switch editions through the installer.
+
+For another optional language, gate its core implementation and registry entry with one feature and forward it through adapters and config. Add its UI feature mapping in `crates/config/build.rs`; wrap dedicated assets in `/*language:<id>*/…/*language:/<id>*/` (HTML uses equivalent HTML comments). These blocks are removed before compilation. Add only the combination rules that are actually needed through `ComboRule`.
+
+Run `cargo test --workspace` and `cargo test --workspace --all-features`. Each existing configuration must retain its golden results and exclude the new language's implementation, data and dedicated UI. Ship only configurations that are actually offered; do not generate every possible language combination. Register a new configuration in installer validation/package selection and update identity together. Stable language identifiers, old-settings compatibility, shared change logs and license notices remain common metadata. Already mapped data stays alive until process exit so existing model references remain valid.
+
 Targets 0.10.x. Update program and packs together. The Japanese dictionary uses Mozc OSS word/connection costs in the native Rust converter; no Mozc executable is needed.
 
 ```

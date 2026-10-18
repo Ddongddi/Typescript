@@ -4,41 +4,44 @@
 
 use std::sync::OnceLock;
 
-const INDEX: &str = include_str!("web/index.html");
+const INDEX: &str = include_str!(concat!(env!("OUT_DIR"), "/web/index.html"));
 
 /// Stylesheets, in cascade order.
 const STYLES: [&str; 5] = [
-    include_str!("web/base.css"),
-    include_str!("web/controls.css"),
-    include_str!("web/panels.css"),
-    include_str!("web/chat.css"),
-    include_str!("web/keys.css"),
+    include_str!(concat!(env!("OUT_DIR"), "/web/base.css")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/controls.css")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/panels.css")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/chat.css")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/keys.css")),
 ];
 
 /// Scripts, in load order. They share one scope (a classic script), so a later file may use
 /// anything an earlier one declares.
 const SCRIPTS: [&str; 11] = [
-    include_str!("web/core.js"),
-    include_str!("web/dropdown.js"),
-    include_str!("web/languages.js"),
-    include_str!("web/learning.js"),
-    include_str!("web/uninstall.js"),
-    include_str!("web/chat.js"),
-    include_str!("web/settings.js"),
-    include_str!("web/keys.js"),
-    include_str!("web/apps.js"),
-    include_str!("web/update.js"),
-    include_str!("web/main.js"),
+    include_str!(concat!(env!("OUT_DIR"), "/web/core.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/dropdown.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/languages.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/learning.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/uninstall.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/chat.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/settings.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/keys.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/apps.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/update.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/main.js")),
 ];
 
 /// The first-run page (`/welcome`): a greeting and a short guided practice, one thing per screen.
 /// It shares the base styles and the first script (token, `h`, `api`) with the dashboard.
-const WELCOME: &str = include_str!("web/welcome.html");
+const WELCOME: &str = include_str!(concat!(env!("OUT_DIR"), "/web/welcome.html"));
 const WELCOME_STYLES: [&str; 2] = [
-    include_str!("web/base.css"),
-    include_str!("web/welcome.css"),
+    include_str!(concat!(env!("OUT_DIR"), "/web/base.css")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/welcome.css")),
 ];
-const WELCOME_SCRIPTS: [&str; 2] = [include_str!("web/core.js"), include_str!("web/welcome.js")];
+const WELCOME_SCRIPTS: [&str; 2] = [
+    include_str!(concat!(env!("OUT_DIR"), "/web/core.js")),
+    include_str!(concat!(env!("OUT_DIR"), "/web/welcome.js")),
+];
 
 const STYLE_MARK: &str = "<!--styles-->";
 const SCRIPT_MARK: &str = "<!--scripts-->";
@@ -66,6 +69,28 @@ pub fn welcome_page() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn optional_language_assets_follow_the_build() {
+        for (page, sample) in [(page(), "일본어"), (welcome_page(), "にほんご")] {
+            assert_eq!(page.contains(sample), cfg!(feature = "japanese"));
+            assert!(!page.contains("language:ja") && !page.contains("language:/ja"));
+        }
+        #[cfg(not(feature = "japanese"))]
+        for token in [
+            "liveConversion",
+            "fullWidthDigits",
+            "fullWidthSpace",
+            "あ",
+            ".l-ja",
+            ".g-ja",
+        ] {
+            assert!(
+                !page().contains(token),
+                "unexpected language asset: {token}"
+            );
+        }
+    }
 
     #[test]
     fn the_page_is_one_document_with_everything_in_it() {

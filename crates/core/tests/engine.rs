@@ -445,6 +445,7 @@ fn esc_cycles_through_readings() {
         Language::Korean
     );
     // With Japanese on it joins the cycle where the keys read cleanly.
+    #[cfg(feature = "japanese")]
     assert_eq!(
         Language::Korean.next("sushi", &Languages::legacy(true)),
         Language::Japanese
@@ -458,6 +459,7 @@ fn esc_cycles_through_readings() {
         Language::English
     );
     // No Korean reading for "ra-men".
+    #[cfg(feature = "japanese")]
     assert_eq!(
         Language::English.next("ra-men", &Languages::legacy(true)),
         Language::Japanese

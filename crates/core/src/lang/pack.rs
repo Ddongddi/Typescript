@@ -85,6 +85,12 @@ fn read_manifest(dir: &Path) -> Result<Manifest, Rejected> {
     let manifest: Manifest =
         serde_json::from_slice(&data).map_err(|e| format!("manifest.json: {e}"))?;
     let pack = Some((manifest.id.clone(), manifest.version.clone()));
+    if !Language::from_id(&manifest.id).is_some_and(Language::supported) {
+        return Err(Rejected {
+            reason: "unsupported language".into(),
+            pack,
+        });
+    }
     if !version_matches(&manifest.core, env!("CARGO_PKG_VERSION")) {
         return Err(Rejected {
             reason: format!(
@@ -104,7 +110,7 @@ fn read_manifest(dir: &Path) -> Result<Manifest, Rejected> {
     Ok(manifest)
 }
 
-/// Every usable pack under `root`: per id, the newest version this core accepts. A folder that
+/// Every supported, usable pack under `root`: per id, the newest version this core accepts. A folder that
 /// can't be used is a problem unless a newer version of the same pack works (an old version
 /// left behind after an update is not news).
 pub fn scan(root: &Path) -> Scan {
@@ -128,6 +134,13 @@ pub fn scan(root: &Path) -> Scan {
         }
     }
     for (dir, why) in rejected {
+        if why
+            .pack
+            .as_ref()
+            .is_some_and(|(id, _)| !Language::from_id(id).is_some_and(Language::supported))
+        {
+            continue;
+        }
         let superseded = why.pack.as_ref().is_some_and(|(id, version)| {
             best.get(id)
                 .is_some_and(|f| parse_version(&f.manifest.version) > parse_version(version))
@@ -170,7 +183,9 @@ impl Registry {
             let Some(language) = Language::from_id(&found.manifest.id) else {
                 continue;
             };
-            if self.requires.contains_key(&language) {
+            if crate::lang::registry::module(language).is_none()
+                || self.requires.contains_key(&language)
+            {
                 continue;
             }
             let files: Option<Vec<(String, &'static [u8])>> = found
@@ -209,28 +224,37 @@ impl Registry {
 /// checked, walking them as the readers will, because a damaged file would otherwise panic
 /// the first conversion).
 fn usable(language: Language, dir: &Path, files: &[(String, &'static [u8])]) -> bool {
-    language != Language::Japanese
-        || ["ipadic_compact.bin", "kana_trigrams.bin"]
-            .iter()
-            .all(|name| {
-                files
-                    .iter()
-                    .find(|(n, _)| n == name)
-                    .is_some_and(|(_, bytes)| {
-                        checked_once(dir, name, || match *name {
-                            "ipadic_compact.bin" => {
-                                crate::decide::kanji::KanjiDictionary::valid(bytes)
-                            }
-                            _ => crate::lang::japanese::JapaneseModel::valid(bytes),
+    #[cfg(not(feature = "japanese"))]
+    {
+        let _ = (language, dir, files);
+        true
+    }
+    #[cfg(feature = "japanese")]
+    {
+        language != Language::Japanese
+            || ["ipadic_compact.bin", "kana_trigrams.bin"]
+                .iter()
+                .all(|name| {
+                    files
+                        .iter()
+                        .find(|(n, _)| n == name)
+                        .is_some_and(|(_, bytes)| {
+                            checked_once(dir, name, || match *name {
+                                "ipadic_compact.bin" => {
+                                    crate::decide::kanji::KanjiDictionary::valid(bytes)
+                                }
+                                _ => crate::lang::japanese::JapaneseModel::valid(bytes),
+                            })
                         })
-                    })
-            })
+                })
+    }
 }
 
 /// Runs `check` on a pack file unless an earlier process already passed this very file (same
 /// size and modification time, noted in a marker next to it): every app loads the registry, and
 /// a full walk of the 10 MB dictionary would page all of it in, in each of them. A marker that
 /// cannot be written (a read-only pack folder) only means the next process checks again.
+#[cfg(feature = "japanese")]
 fn checked_once(dir: &Path, name: &str, check: impl FnOnce() -> bool) -> bool {
     let stamp = fs::metadata(dir.join(name)).ok().map(|m| {
         let secs = m
@@ -366,6 +390,47 @@ pub fn init_from_dir(root: &Path) {
         .add_scan(found);
 }
 
+/// Loads only active languages and their supported data dependencies.
+fn selected(
+    roots: impl IntoIterator<Item = impl AsRef<Path>>,
+    languages: &crate::Languages,
+) -> Scan {
+    let mut found = Scan::default();
+    for root in roots {
+        found.packs.extend(scan(root.as_ref()).packs);
+    }
+    let mut needed: Vec<Language> = languages.iter().collect();
+    let mut i = 0;
+    while i < needed.len() {
+        if let Some(pack) = found.packs.iter().find(|p| p.manifest.id == needed[i].id()) {
+            for id in &pack.manifest.requires {
+                if let Some(language) = Language::from_id(id).filter(|l| l.supported()) {
+                    if !needed.contains(&language) {
+                        needed.push(language);
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    found
+        .packs
+        .retain(|p| Language::from_id(&p.manifest.id).is_some_and(|l| needed.contains(&l)));
+    found
+}
+
+/// Resolve dependencies across all roots before opening any data files.
+pub fn refresh_for(
+    roots: impl IntoIterator<Item = impl AsRef<Path>>,
+    languages: &crate::Languages,
+) {
+    let found = selected(roots, languages);
+    global()
+        .write()
+        .unwrap_or_else(|e| e.into_inner())
+        .add_scan(found);
+}
+
 /// Picks up packs installed since the last call (the settings changed: a language may be new).
 pub fn refresh(root: &Path) {
     init_from_dir(root);
@@ -415,6 +480,56 @@ mod tests {
 
     fn any_core() -> String {
         format!(">={}, <99.0.0", env!("CARGO_PKG_VERSION"))
+    }
+
+    #[test]
+    fn selection_excludes_inactive_data_and_keeps_declared_dependencies() {
+        let dir = temp("selected");
+        for id in ["en", "ko", "ja"] {
+            write(&dir, id, "1.0.0", &any_core());
+        }
+        let path = dir.join("ko-1.0.0/manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        manifest["requires"] = serde_json::json!(["en"]);
+        fs::write(&path, manifest.to_string()).unwrap();
+        let found = selected([&dir], &crate::Languages::from_ids(&["ko"]).unwrap());
+        assert_eq!(
+            found
+                .packs
+                .iter()
+                .map(|p| p.manifest.id.as_str())
+                .collect::<Vec<_>>(),
+            ["en", "ko"]
+        );
+        let mut registry = Registry::default();
+        registry.add_scan(found);
+        assert!(registry.has(Language::Korean));
+        assert!(!registry.has(Language::Japanese));
+        assert!(!registry.files.keys().any(|(l, _)| *l == Language::Japanese));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn active_language_dependencies_are_found_across_roots() {
+        let first = temp("split-first");
+        let second = temp("split-second");
+        write(&first, "ko", "1.0.0", &any_core());
+        write(&second, "en", "1.0.0", &any_core());
+        let path = first.join("ko-1.0.0/manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        manifest["requires"] = serde_json::json!(["en"]);
+        fs::write(path, manifest.to_string()).unwrap();
+        let mut registry = Registry::default();
+        registry.add_scan(selected(
+            [&first, &second],
+            &crate::Languages::from_ids(&["ko"]).unwrap(),
+        ));
+        assert!(registry.has(Language::Korean) && registry.has(Language::English));
+        assert_eq!(registry.bytes(Language::English, "a.txt"), b"hello\n");
+        let _ = fs::remove_dir_all(first);
+        let _ = fs::remove_dir_all(second);
     }
 
     #[test]
@@ -515,6 +630,7 @@ mod tests {
         assert!(registry.has(Language::Korean));
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_japanese_pack_with_a_damaged_dictionary_is_not_registered() {
         let dir = temp("badja");
@@ -544,6 +660,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_japanese_pack_with_an_unreadable_trigram_table_is_not_registered() {
         let dir = temp("badtrigram");
@@ -572,6 +689,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_passed_check_is_not_repeated_until_the_file_changes() {
         let dir = temp("checked-once");

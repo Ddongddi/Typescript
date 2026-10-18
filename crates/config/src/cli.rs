@@ -17,7 +17,8 @@ pub const USAGE: &str = "tacit-config [command]
   setup --languages ko,en   install those languages without asking (for scripts)
   setup --if-configured     reinstall the languages already on; fails on a first install
   list              the languages: installed, turned on, available
-  add <id>          install a language and turn it on (en, ko, ja)
+  supported         the language IDs compiled into this program
+  add <id>          install a supported language and turn it on
   remove <id>       turn a language off and delete its pack
   order <a,b,c>     change the Esc order of the languages that are on
   check             is there a newer release?
@@ -43,6 +44,9 @@ pub fn list(env: &Env, source: &Source) -> Result<String> {
     ids.sort();
     let mut out = String::new();
     for id in ids {
+        if !Language::from_id(&id).is_some_and(Language::supported) {
+            continue;
+        }
         let have = installed.packs.iter().find(|f| f.manifest.id == id);
         let listed = catalog.as_ref().and_then(|c| c.pack(&id));
         let name = have
@@ -143,10 +147,16 @@ pub fn notice(env: &Env, api: &dyn Fetch, url: &str) -> Option<String> {
 /// Runs one non-interactive command.
 pub fn run(args: &[String], env: &Env, source: &Source) -> Result<String> {
     match args.first().map(String::as_str) {
+        Some("supported") => Ok(tacit_core::lang::registry::MODULES
+            .iter()
+            .map(|m| m.language().id())
+            .collect::<Vec<_>>()
+            .join(",")
+            + "\n"),
         Some("list") => list(env, source),
         Some("add") => match args.get(1) {
             Some(id) => add(env, source, id),
-            None => err("add: which language? (en, ko, ja)"),
+            None => err("add: which language? (see: tacit-config supported)"),
         },
         Some("remove") => match args.get(1) {
             Some(id) => remove(env, id),
@@ -180,6 +190,7 @@ mod tests {
         line.split_whitespace().map(String::from).collect()
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn list_shows_installed_available_and_the_order() {
         let f = fixture("cli-list");
@@ -200,6 +211,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "japanese")]
     fn add_remove_and_order_round_trip() {
         let f = fixture("cli-flow");
         let source = publish(&f);

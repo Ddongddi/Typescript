@@ -7,6 +7,7 @@ use crate::lang::english::EnglishModel;
 use crate::lang::hangul::HangulComposer;
 use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::pack::PackLazy;
+#[cfg(feature = "japanese")]
 use crate::lang::romaji::RomajiComposer;
 use crate::store::policy::AppPolicy;
 
@@ -14,7 +15,9 @@ use crate::store::policy::AppPolicy;
 const PREVIEW_FLIP_CONFIDENCE: f64 = 0.7;
 /// Romaji is shown as kana while typing only when the engine is this sure, and the word is at
 /// least this many keys long.
+#[cfg(feature = "japanese")]
 const LIVE_KANA_CONFIDENCE: f64 = 0.9;
+#[cfg(feature = "japanese")]
 const LIVE_KANA_MIN_KEYS: usize = 4;
 
 pub(super) static KOREAN: PackLazy<KoreanModel> =
@@ -95,6 +98,7 @@ impl InputSession {
         } else if let Some(forced) = self.word.override_language() {
             self.word.show(forced);
             let text = match forced {
+                #[cfg(feature = "japanese")]
                 Language::Japanese => self.japanese_display(),
                 Language::Korean => self.word.hangul().unwrap_or_else(|| self.word.keys.clone()),
                 other => self.engine.render(&self.word.keys, other),
@@ -102,6 +106,7 @@ impl InputSession {
             client.set_marked_text(&text);
         } else {
             self.split_off_korean_before_other(client);
+            #[cfg(feature = "japanese")]
             self.split_off_japanese_before_korean(client);
             let decision = self.decide(true);
             let mut language = decision.language;
@@ -116,11 +121,12 @@ impl InputSession {
                 }
             }
             self.word.show_engine(language);
-            let text = if language == Language::Japanese {
-                self.japanese_display()
-            } else {
-                self.preview(language)
-                    .unwrap_or_else(|| self.word.keys.clone())
+            let text = match language {
+                #[cfg(feature = "japanese")]
+                Language::Japanese => self.japanese_display(),
+                _ => self
+                    .preview(language)
+                    .unwrap_or_else(|| self.word.keys.clone()),
             };
             client.set_marked_text(&text);
         }
@@ -189,6 +195,7 @@ impl InputSession {
                 char_count(keys) >= 3 && EnglishModel::shared().is_known_word(keys)
             }
             Language::Mixed => true,
+            #[cfg(feature = "japanese")]
             Language::Japanese => {
                 if !self.japanese_enabled()
                     || decision.confidence < LIVE_KANA_CONFIDENCE
@@ -205,18 +212,23 @@ impl InputSession {
                         .is_some_and(|c| c != 'っ' && c != 'ん')
             }
             Language::Korean => false,
+            #[cfg(not(feature = "japanese"))]
+            Language::Japanese => false,
         }
     }
 
     /// The word so far rendered in `language`, or None when it has no such reading.
     pub(super) fn preview(&self, language: Language) -> Option<String> {
         match language {
+            #[cfg(not(feature = "japanese"))]
+            Language::Japanese => None,
             Language::English => Some(self.word.keys.clone()),
             Language::Korean => self.word.hangul(),
             Language::Mixed => {
                 let text = self.engine.render(&self.word.keys, Language::Mixed);
                 (text != self.word.keys).then_some(text)
             }
+            #[cfg(feature = "japanese")]
             Language::Japanese => self.japanese_enabled().then(|| self.japanese_reading(true)),
         }
     }

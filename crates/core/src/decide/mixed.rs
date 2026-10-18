@@ -5,11 +5,13 @@
 
 use crate::decide::codeswitch::{CodeSwitch, Params};
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+#[cfg(feature = "japanese")]
 use crate::decide::segmenter::JapaneseSegmenter;
 use crate::lang::english::EnglishModel;
 use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
 use crate::lang::korean::KoreanModel;
 use crate::lang::particles::is_ending;
+#[cfg(feature = "japanese")]
 use crate::lang::romaji::RomajiComposer;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -69,6 +71,7 @@ pub struct SplittingEngine {
     pub base: Box<dyn DecisionEngine>,
     pub korean: KoreanModel,
     /// With Japanese on: English word + Japanese particle (githubで).
+    #[cfg(feature = "japanese")]
     pub japanese: Option<JapaneseSegmenter>,
     /// English + Korean splits (github에, hello월드) only happen with Korean on.
     pub korean_on: bool,
@@ -84,6 +87,7 @@ impl SplittingEngine {
         Self {
             base,
             korean: KoreanModel::default(),
+            #[cfg(feature = "japanese")]
             japanese: None,
             korean_on: true,
             codeswitch: CodeSwitch::new(english, Params::default()),
@@ -91,12 +95,14 @@ impl SplittingEngine {
     }
 
     /// With the segmenter from the heuristic: English word + Japanese particle (githubで).
+    #[cfg(feature = "japanese")]
     pub fn with_japanese(mut self, segmenter: JapaneseSegmenter) -> Self {
         self.japanese = Some(segmenter);
         self
     }
 
     /// Whether the keys spell a word people actually say in Korean (한국, guswo is 현재).
+    #[cfg(feature = "japanese")]
     fn is_korean_word(&self, keys: &str) -> bool {
         match HangulComposer::compose(keys) {
             Some(composed) if composed.stray_jamo().is_empty() => {
@@ -110,7 +116,10 @@ impl SplittingEngine {
 impl DecisionEngine for SplittingEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
         // Clean romaji with Japanese on (hasansowo) is Japanese, not English + Hangul.
+        #[cfg(feature = "japanese")]
         let romaji = self.japanese.is_some() && RomajiComposer::compose(keys, false).is_clean();
+        #[cfg(not(feature = "japanese"))]
+        let romaji = false;
         if self.korean_on && !romaji {
             if let Some(decision) = self.codeswitch.decide(keys, context) {
                 return decision;
@@ -118,6 +127,7 @@ impl DecisionEngine for SplittingEngine {
         }
         // Not when the keys spell a Korean word: guswo is 현재, not gus + を (but slackwo,
         // 님차재, is no word, so slackを).
+        #[cfg(feature = "japanese")]
         if let Some((word, particle)) = self
             .japanese
             .as_ref()

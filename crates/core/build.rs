@@ -11,6 +11,9 @@ fn main() {
     let data = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("data");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap()).join("packs");
     for pack in tacit_packgen::PACKS {
+        if env::var_os(format!("CARGO_FEATURE_EMBEDDED_{}", pack.id.to_uppercase())).is_none() {
+            continue;
+        }
         tacit_packgen::write_pack(pack.id, &data, &out.join(pack.id))
             .unwrap_or_else(|e| panic!("pack {}: {e}", pack.id));
     }

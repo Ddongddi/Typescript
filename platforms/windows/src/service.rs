@@ -13,7 +13,7 @@ use tacit_core::session::NoopClient;
 use tacit_core::store::keys::{ChordKey, HangulAction, KeyAction, Mods};
 use tacit_core::store::policy::Override;
 use tacit_core::{
-    make_engine, AppPolicies, InputSession, Key, Language, Languages, LearningEngine, Settings,
+    make_engine, AppPolicies, InputSession, Key, Languages, LearningEngine, Settings,
 };
 use windows::core::{implement, Error, IUnknownImpl, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
@@ -29,7 +29,9 @@ use crate::display;
 use crate::ghost::Ghost;
 use crate::guids::{CLSID_TACIT, GUID_DISPLAY_ATTRIBUTE, PROFILES};
 use crate::keymap::{chord_key, held_mods, key_for, send_shortcut, sent_by_us};
-use crate::shared::{converter, engine, history, refresh_packs, reload_engines};
+#[cfg(feature = "japanese")]
+use crate::shared::converter;
+use crate::shared::{engine, history, refresh_packs, reload_engines};
 
 /// Whether the active keyboard profile is the one with Tab completion (None: it isn't ours, or
 /// TSF won't say).
@@ -140,14 +142,14 @@ impl Inner {
     pub fn session(&self) -> RefMut<'_, InputSession> {
         let mut slot = self.session.borrow_mut();
         if slot.is_none() {
-            refresh_packs();
             let settings = self.settings.borrow();
+            refresh_packs(&settings.languages);
             let mut policies = AppPolicies::load(AppPolicies::store_path().as_deref());
             // Languages whose packs aren't installed are left out. With none left, every key
             // goes to the app as typed, and the engine behind this session is a throwaway one:
             // the shared engines are only ever built over real models, so a pack installed
             // later is picked up on the next rebuild.
-            let (languages, engine) = match settings.languages.available() {
+            let (_languages, engine) = match settings.languages.available() {
                 Some(languages) => {
                     if languages != settings.languages {
                         self.trace("language packs missing: some languages are left out");
@@ -170,12 +172,18 @@ impl Inner {
                 }
             };
             let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
-            if languages.contains(Language::Japanese)
-                && tacit_core::pack::available(Language::Japanese)
+            #[cfg(feature = "japanese")]
+            #[cfg(feature = "japanese")]
+            if _languages.contains(tacit_core::Language::Japanese)
+                && tacit_core::pack::available(tacit_core::Language::Japanese)
             {
                 session = session.with_japanese(converter(), settings.live_conversion);
             }
+            #[cfg(feature = "japanese")]
+            #[cfg(feature = "japanese")]
             session.set_full_width_digits(settings.full_width_digits);
+            #[cfg(feature = "japanese")]
+            #[cfg(feature = "japanese")]
             session.set_full_width_space(settings.full_width_space);
             if settings.autocomplete && self.completion_profile.get() {
                 session = session.with_history(history());

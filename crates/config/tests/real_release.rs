@@ -1,3 +1,5 @@
+#![cfg(feature = "japanese")]
+
 //! The tool against a release built from the real data: what packgen publishes is what
 //! tacit-config installs, and what the text service then loads.
 use std::path::PathBuf;

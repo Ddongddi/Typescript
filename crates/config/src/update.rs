@@ -19,14 +19,20 @@ pub const LATEST_API: &str = "https://api.github.com/repos/iamallyouneed/tacit/r
 const DAY: u64 = 24 * 60 * 60;
 const API_MAX: usize = 2 * 1024 * 1024;
 /// The program package of this system's release and the script in it that installs it.
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "japanese")))]
 pub const INSTALLER_ZIP: &str = "tacit-windows.zip";
+#[cfg(all(windows, feature = "japanese"))]
+pub const INSTALLER_ZIP: &str = "tacit-windows-ja.zip";
 #[cfg(windows)]
 pub const INSTALLER_SCRIPT: &str = "install.ps1";
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "japanese")))]
 pub const INSTALLER_ZIP: &str = "tacit-macos.zip";
-#[cfg(all(not(windows), not(target_os = "macos")))]
+#[cfg(all(target_os = "macos", feature = "japanese"))]
+pub const INSTALLER_ZIP: &str = "tacit-macos-ja.zip";
+#[cfg(all(all(not(windows), not(target_os = "macos")), not(feature = "japanese")))]
 pub const INSTALLER_ZIP: &str = "tacit-linux.zip";
+#[cfg(all(all(not(windows), not(target_os = "macos")), feature = "japanese"))]
+pub const INSTALLER_ZIP: &str = "tacit-linux-ja.zip";
 #[cfg(not(windows))]
 pub const INSTALLER_SCRIPT: &str = "install.sh";
 const INSTALLER_MAX: usize = 200 * 1024 * 1024;
@@ -354,8 +360,12 @@ pub fn launch_installer(what: &Installer) -> Result<()> {
     let mut command = match what {
         Installer::Official(tag) => {
             let url = format!("{RELEASES}{tag}/install.ps1");
-            let call =
-                format!("& ([scriptblock]::Create((Invoke-RestMethod '{url}'))) -Version '{tag}'");
+            let edition = if cfg!(feature = "japanese") {
+                "enkoja"
+            } else {
+                "enko"
+            };
+            let call = format!("& ([scriptblock]::Create((Invoke-RestMethod '{url}'))) -Version '{tag}' -Edition '{edition}'");
             let mut c = std::process::Command::new("powershell");
             c.args([
                 "-NoProfile",
@@ -370,12 +380,24 @@ pub fn launch_installer(what: &Installer) -> Result<()> {
             let mut c = std::process::Command::new("powershell");
             c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
                 .arg(script)
-                .arg("-LocalSource");
+                .arg("-LocalSource")
+                .arg("-Edition")
+                .arg(if cfg!(feature = "japanese") {
+                    "enkoja"
+                } else {
+                    "enko"
+                });
             c
         }
         Installer::Script(script) => {
             let mut c = std::process::Command::new("sh");
-            c.arg(script);
+            c.arg(script)
+                .arg("--edition")
+                .arg(if cfg!(feature = "japanese") {
+                    "enkoja"
+                } else {
+                    "enko"
+                });
             c
         }
     };
@@ -464,7 +486,9 @@ pub fn apply(
 mod tests {
     use super::*;
     use crate::fetch::Fetch;
-    use crate::testutil::{fixture, pack_zip};
+    use crate::testutil::fixture;
+    #[cfg(feature = "japanese")]
+    use crate::testutil::pack_zip;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// Serves files from a folder and counts the requests.
@@ -598,6 +622,7 @@ mod tests {
         assert!(check(&f.env, &nowhere, URL, 1000, true).is_err());
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn installed_packs_move_to_the_newer_version_and_the_old_one_goes() {
         let f = fixture("upd-packs");

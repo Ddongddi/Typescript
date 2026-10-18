@@ -6,11 +6,11 @@ use crate::decide::engine::Language;
 pub struct Languages(Vec<Language>);
 
 impl Languages {
-    /// Duplicates and `Mixed` are dropped; None when nothing is left.
+    /// Unsupported languages, duplicates and `Mixed` are dropped; None when nothing is left.
     pub fn new(list: impl IntoIterator<Item = Language>) -> Option<Languages> {
         let mut out: Vec<Language> = Vec::new();
         for l in list {
-            if l != Language::Mixed && !out.contains(&l) {
+            if crate::lang::registry::module(l).is_some() && !out.contains(&l) {
                 out.push(l);
             }
         }
@@ -28,7 +28,7 @@ impl Languages {
         if japanese {
             list.push(Language::Japanese);
         }
-        Languages(list)
+        Self::new(list).expect("the build supports at least one language")
     }
 
     pub fn contains(&self, language: Language) -> bool {
@@ -87,6 +87,7 @@ mod tests {
         assert_eq!(l.len(), 2);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn rejects_empty_and_mixed() {
         assert!(Languages::new([]).is_none());
@@ -94,6 +95,7 @@ mod tests {
         assert_eq!(Languages::new([Mixed, Japanese]).unwrap().ids(), vec!["ja"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn parses_ids() {
         assert_eq!(
@@ -108,12 +110,14 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn legacy_matches_the_old_editions() {
         assert_eq!(Languages::legacy(false).ids(), vec!["en", "ko"]);
         assert_eq!(Languages::legacy(true).ids(), vec!["en", "ko", "ja"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn mixed_needs_english_and_korean() {
         assert!(Languages::legacy(false).allows(Mixed));

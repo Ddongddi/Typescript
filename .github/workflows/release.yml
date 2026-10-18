@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   release:
+    strategy:
+      matrix:
+        edition: [enko, enkoja]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,13 +20,22 @@ jobs:
         with:
           targets: i686-pc-windows-msvc, aarch64-linux-android
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace
+      - run: cargo test --workspace --all-features
       # Not together with tacit-cli (a development tool, not packaged): its embedded packs
       # would end up in these two as well (+2.5 MB each, unused: they read the installed packs).
-      - run: cargo build --release -p tacit-tip -p tacit-config
-      - run: cargo build --release -p tacit-tip --target i686-pc-windows-msvc
+      - name: Build desktop binaries for the selected languages
+        run: |
+          $features = if ('${{ matrix.edition }}' -eq 'enkoja') { @('--features', 'tacit-tip/japanese,tacit-config/japanese') } else { @() }
+          cargo build --release -p tacit-tip -p tacit-config @features
+          if ($LASTEXITCODE) { throw 'desktop build failed' }
+      - name: Build x86 text service
+        run: |
+          $features = if ('${{ matrix.edition }}' -eq 'enkoja') { @('--features', 'japanese') } else { @() }
+          cargo build --release -p tacit-tip --target i686-pc-windows-msvc @features
+          if ($LASTEXITCODE) { throw 'x86 build failed' }
       - run: cargo install cargo-ndk --locked
       - name: Build the APK (signed with the release key)
+        if: matrix.edition == 'enko'
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           TS_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -32,11 +44,12 @@ jobs:
           $env:TS_KEYSTORE = Join-Path $env:RUNNER_TEMP 'release.keystore'
           [IO.File]::WriteAllBytes($env:TS_KEYSTORE, [Convert]::FromBase64String($env:KEYSTORE_BASE64))
           ./platforms/android/build.ps1 -Abi arm64-v8a
-      - run: ./scripts/package.ps1
+      - run: ./scripts/package.ps1 -Edition ${{ matrix.edition }}
       - run: Copy-Item platforms/android/build/tacit.apk dist/
+        if: matrix.edition == 'enko'
       - uses: actions/upload-artifact@v4
         with:
-          name: dist-windows
+          name: dist-windows-${{ matrix.edition }}
           path: dist/*
 
   unix:
@@ -44,6 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        edition: [enko, enkoja]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -54,12 +68,11 @@ jobs:
       - name: IBus headers
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev pkg-config zip
-      - run: cargo test --workspace --exclude tacit-tip
-      - run: cargo build --release -p tacit-cli -p tacit-config -p tacit-ffi
-      - run: sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
+      - run: cargo test --workspace --all-features --exclude tacit-tip
+      - run: sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }} ${{ matrix.edition }}
       - uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ runner.os }}
+          name: dist-${{ runner.os }}-${{ matrix.edition }}
           path: dist/*
 
   publish:

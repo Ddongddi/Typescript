@@ -12,9 +12,9 @@ use std::sync::Mutex;
 
 use tacit_core::session::bridge::Ime;
 use tacit_core::store::policy::Override;
-use tacit_core::{
-    make_engine, AppPolicies, DictionaryConverter, InputSession, Language, LearningEngine, Settings,
-};
+use tacit_core::{make_engine, AppPolicies, InputSession, LearningEngine, Settings};
+#[cfg(feature = "japanese")]
+use tacit_core::{DictionaryConverter, Language};
 
 /// The instance behind a handle from `ts_new`.
 pub struct Handle(Mutex<State>);
@@ -73,13 +73,11 @@ fn reply(s: String) -> *mut c_char {
 /// settings.json whose packs are installed, the app rules, the kana→kanji converter. With no
 /// language available every key goes through as typed.
 fn session_in(dir: &std::path::Path) -> InputSession {
-    for root in tacit_core::pack_dirs() {
-        tacit_core::pack::refresh(&root);
-    }
     let settings = Settings::load(Some(&dir.join("settings.json")));
+    tacit_core::pack::refresh_for(tacit_core::pack_dirs(), &settings.languages);
     let mut policies = AppPolicies::load(Some(&dir.join("apps.json")));
     let lexicon = Some(dir.join("lexicon.json"));
-    let (languages, engine) = match settings.languages.available() {
+    let (_languages, engine) = match settings.languages.available() {
         Some(languages) => {
             let engine: std::sync::Arc<LearningEngine> = make_engine(lexicon, &languages);
             (languages, engine)
@@ -96,15 +94,19 @@ fn session_in(dir: &std::path::Path) -> InputSession {
             (languages.clone(), make_engine(None, &languages))
         }
     };
+    #[allow(unused_mut)]
     let mut session = InputSession::new(engine, policies, settings.return_confirms_only);
-    if languages.contains(Language::Japanese) && tacit_core::pack::available(Language::Japanese) {
+    #[cfg(feature = "japanese")]
+    if _languages.contains(Language::Japanese) && tacit_core::pack::available(Language::Japanese) {
         let learning = Some(dir.join("kanji_learning.json"));
         session = session.with_japanese(
             std::sync::Arc::new(DictionaryConverter::new(learning)),
             settings.live_conversion,
         );
     }
+    #[cfg(feature = "japanese")]
     session.set_full_width_digits(settings.full_width_digits);
+    #[cfg(feature = "japanese")]
     session.set_full_width_space(settings.full_width_space);
     session
 }

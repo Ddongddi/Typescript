@@ -12,6 +12,9 @@ name = "tacit_config"
 name = "tacit-config"
 path = "src/main.rs"
 
+[features]
+japanese = ["tacit-core/japanese"]
+
 [dependencies]
 tacit-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }

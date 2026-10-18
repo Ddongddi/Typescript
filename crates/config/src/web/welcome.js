@@ -23,7 +23,9 @@ const PRACTICE = {
     keys: "hello dkssud",
     expect: "hello 안녕",
   },
+  /*language:ja*/
   ja: { title: () => [hl("nihongo"), " 를 쳐 보세요"], keys: "nihongo", expect: "にほんご" },
+  /*language:/ja*/
 };
 const SWITCH_KEYS = {
   windows: ["Win", "Space"],
@@ -56,7 +58,7 @@ const COMBOS = {
   ],
 };
 const SLOT_EVERY = 1600; // ms between flips of the slot machine: steady and slow
-const LIST_ORDER = ["en", "ko", "ja"]; // the order they are offered in, and the Esc order they get
+const LIST_ORDER = ["en", "ko" /*language:ja*/, "ja" /*language:/ja*/]; // the order they are offered in, and the Esc order they get
 const DEFAULT_ON = ["en", "ko"];
 const INTRO_SEGMENTS = 5; // hello/type, "needed?", trial, shortcut, languages
 
@@ -605,7 +607,9 @@ function steps(state) {
   if (has("ko")) screens.push((n) => typingScreen(PRACTICE.ko, n));
   if (has("ko") && has("en")) screens.push((n) => typingScreen(PRACTICE.mixed, n));
   if (has("ko")) screens.push(escScreen);
+  /*language:ja*/
   if (has("ja")) screens.push((n) => typingScreen(PRACTICE.ja, n));
+  /*language:/ja*/
   progress.total = INTRO_SEGMENTS + screens.length;
   skipAction = leave;
   view.later.hidden = false;

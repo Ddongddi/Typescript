@@ -20,6 +20,7 @@ const SETTINGS = [
       ],
     ],
   ],
+  /*language:ja*/
   [
     "일본어",
     [
@@ -46,6 +47,7 @@ const SETTINGS = [
       ],
     ],
   ],
+  /*language:/ja*/
   [
     "업데이트",
     [

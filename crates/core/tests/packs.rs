@@ -22,7 +22,12 @@ fn every_released_pack_scans_clean() {
     let found = pack::scan(&root);
     assert!(found.problems.is_empty(), "{:?}", found.problems);
     let ids: Vec<&str> = found.packs.iter().map(|f| f.manifest.id.as_str()).collect();
-    assert_eq!(ids, vec!["en", "ja", "ko"]);
+    let mut expected: Vec<_> = tacit_core::lang::registry::MODULES
+        .iter()
+        .map(|m| m.language().id())
+        .collect();
+    expected.sort();
+    assert_eq!(ids, expected);
     for f in &found.packs {
         for (name, hash) in &f.manifest.files {
             let bytes = std::fs::read(f.dir.join(name)).unwrap();
@@ -50,6 +55,7 @@ fn a_flipped_byte_no_longer_matches_its_hash() {
 }
 
 #[test]
+#[cfg(feature = "japanese")]
 fn the_released_dictionary_passes_its_own_validity_check() {
     let root = built_packs("kanji");
     let found = pack::scan(&root);

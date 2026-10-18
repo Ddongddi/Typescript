@@ -9,6 +9,9 @@ repository = "https://github.com/iamallyouneed/tacit"
 name = "tacit_tip"
 crate-type = ["cdylib"]
 
+[features]
+japanese = ["tacit-core/japanese"]
+
 [dependencies]
 tacit-core = { path = "../../crates/core" }
 windows-core = "0.62"

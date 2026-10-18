@@ -14,12 +14,14 @@ set -eu
 REPO=iamallyouneed/tacit
 VERSION=latest
 LANGS=
+EDITION=
 UNINSTALL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --uninstall) UNINSTALL=1 ;;
     --version) VERSION=$2; shift ;;
     --languages) LANGS=$2; shift ;;
+    --edition) EDITION=$2; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -52,7 +54,30 @@ if [ "$UNINSTALL" = 1 ]; then
   exit 0
 fi
 
+LANGS=$(printf '%s' "$LANGS" | tr -d '[:space:]')
 HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo .)
+EDITION_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/tacit/edition"
+[ "$OS" = macos ] && EDITION_FILE="$HOME/Library/Application Support/tacit/edition"
+if [ -z "$EDITION" ]; then
+  if [ -n "$LANGS" ]; then
+    case ",$LANGS," in *,ja,*) EDITION=enkoja ;; *) EDITION=enko ;; esac
+  elif [ -f "$HERE/edition" ]; then
+    EDITION=$(cat "$HERE/edition")
+  elif [ -f "$EDITION_FILE" ]; then
+    EDITION=$(cat "$EDITION_FILE")
+  else
+    if [ -x "$BIN/tacit-config" ] && TACIT_RELEASE="$HERE" "$BIN/tacit-config" list 2>/dev/null | awk '$1 == "ja" && /on \(#[0-9]+\)/ { found=1 } END { exit !found }'; then
+      EDITION=enkoja
+    else
+      EDITION=enko
+    fi
+  fi
+fi
+case "$EDITION" in enko) SUFFIX= ;; enkoja) SUFFIX=-ja ;; *) echo "unknown edition: $EDITION" >&2; exit 2 ;; esac
+case ",$LANGS," in *,ja,*) [ "$EDITION" = enkoja ] || { echo "Japanese requires enkoja" >&2; exit 2; } ;; esac
+for id in $(printf '%s' "$LANGS" | tr ',' ' '); do
+  case "$id" in en|ko|ja) ;; *) echo "unsupported language: $id" >&2; exit 2 ;; esac
+done
 if [ -f "$HERE/tacit-config" ]; then
   SRC=$HERE
 else
@@ -63,7 +88,7 @@ else
   fi
   SRC=$(mktemp -d)
   trap 'rm -rf "$SRC"' EXIT
-  NAME="tacit-$OS.zip"
+  NAME="tacit-$OS$SUFFIX.zip"
   echo "Downloading Tacit ($VERSION)..."
   curl -fsSL "$BASE/$NAME" -o "$SRC/$NAME"
   curl -fsSL "$BASE/$NAME.sha256" -o "$SRC/$NAME.sha256"
@@ -82,6 +107,9 @@ else
   unzip -q -o "$SRC/$NAME" -d "$SRC"
 fi
 
+if [ -f "$SRC/edition" ]; then
+  [ "$(cat "$SRC/edition")" = "$EDITION" ] || { echo "Package edition does not match" >&2; exit 1; }
+fi
 mkdir -p "$BIN"
 cp "$SRC/tacit" "$SRC/tacit-config" "$BIN/"
 chmod +x "$BIN/tacit" "$BIN/tacit-config"
@@ -111,6 +139,9 @@ if [ "$VERSION" != latest ]; then
   export TACIT_RELEASE="https://github.com/$REPO/releases/download/$VERSION/"
 fi
 FRESH=0
+mkdir -p "$(dirname "$EDITION_FILE")"
+printf '%s\n' "$EDITION" > "$EDITION_FILE"
+
 if [ -n "$LANGS" ]; then
   "$BIN/tacit-config" setup --languages "$LANGS"
 elif ! "$BIN/tacit-config" setup --if-configured 2>/dev/null; then

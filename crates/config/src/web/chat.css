@@ -184,9 +184,11 @@
 .w.l-ko {
   --ul: var(--acc);
 }
+/*language:ja*/
 .w.l-ja {
   --ul: var(--info);
 }
+/*language:/ja*/
 .w.l-en {
   --ul: #ffffff99;
 }

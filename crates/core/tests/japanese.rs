@@ -1,3 +1,5 @@
+#![cfg(feature = "embedded-ja")]
+
 //! Port of JapaneseSessionTests + JapaneseDetectionTests + the Japanese cases of
 //! EndToEndTests and LiveConversionTests, driven through a fake text field and a deterministic
 //! converter. Where the original relied on AzooKey's candidate order, the same invariants are

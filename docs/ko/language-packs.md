@@ -8,6 +8,35 @@ Tacit은 코어 엔진의 가벼움을 유지하고 프로세스 시작 속도�
 
 ## 1. 언어 팩 아키텍처
 
+### 빌드 지원·설치·활성 언어
+
+기본 데스크톱 빌드는 영어·한국어를 지원합니다. 일본어 구현(판별·로마자 조합·분할·한자 변환·세션 처리)과 전용 설정 UI는 `japanese` feature로만 포함합니다. `embedded-ja`는 이 feature를 켜고 사전까지 내장하며, `japanese`만 켠 입력기는 설치된 사전을 읽습니다. 일반 Windows 배포에는 사전을 내장하지 않습니다.
+
+- **지원 언어:** 빌드의 `lang/registry.rs` 모듈 목록. `tacit-config supported`로 확인합니다.
+- **설치 언어:** 지원 언어 중 검증된 팩이 디스크에 있는 언어입니다. 미지원 언어 팩은 등록·매핑·업데이트 대상에서 제외합니다.
+- **활성 언어:** 설정에서 고른 지원 언어입니다. 입력기는 활성 언어와 manifest가 선언한 데이터 의존성만 매핑합니다. 한·영판은 과거 설정이나 일본어 팩이 남아 있어도 일본어를 활성화하지 않습니다.
+
+```powershell
+# 한·영판: CLI와 묶어 빌드하지 않습니다 (Cargo feature 통합으로 사전이 섞일 수 있음).
+cargo build --release -p tacit-tip -p tacit-config
+# 일본어 포함판: 두 배포 바이너리의 feature를 함께 켭니다.
+cargo build --release -p tacit-tip -p tacit-config --features tacit-tip/japanese,tacit-config/japanese
+```
+
+배포 파일은 기본 `tacit-<os>.zip`과 일본어 포함 `tacit-<os>-ja.zip`으로 구분합니다. 패키지의 `edition` 파일 및 업데이트 프로그램의 빌드 구성이 다음 설치에서도 구성을 보존합니다. Windows `-Languages en,ko,ja` / `-Japanese`, Unix `--languages en,ko,ja`는 일본어 포함판을 선택합니다. 미지원 언어를 대시보드에서 추가하면 다운로드 전에 거절하므로, 다른 언어 구성을 쓰려면 설치 프로그램으로 구성을 전환해야 합니다.
+
+새 선택 언어는 코어 feature와 레지스트리 항목을 같은 조건으로 묶고, 어댑터·설정 프로그램 feature를 전달합니다. 전용 UI는 `crates/config/build.rs`의 언어 목록과 `/*language:<id>*/…/*language:/<id>*/`(HTML은 같은 형태의 HTML 주석) 블록을 사용합니다. 자산은 컴파일 전에 제거하므로 숨겨진 일본어 컨트롤을 한·영판에 실어 보내지 않습니다. 필요한 언어 조합 규칙만 `ComboRule`에 추가합니다.
+
+두 구성 모두 검사합니다. 새 언어의 구현·데이터·UI는 기존 구성에 들어가지 않아야 하며 기존 골든 결과도 유지해야 합니다.
+배포 구성은 실제로 제공할 조합만 추가하며, 모든 언어 조합을 미리 생성하지 않습니다. 새 구성은 설치 프로그램의 지원 언어·패키지 선택과 업데이트 식별에도 함께 등록합니다.
+
+```powershell
+cargo test --workspace
+cargo test --workspace --all-features
+```
+
+언어 ID와 이전 설정을 읽는 호환 정보, 공통 변경 이력·라이선스 고지는 공유합니다. 언어를 끈 뒤 이미 매핑된 데이터는 기존 모델 참조의 유효성을 위해 해당 프로세스가 종료될 때 해제됩니다.
+
 0.10.x용입니다. 프로그램과 팩을 함께 갱신해야 합니다. 일본어 사전은 Mozc OSS의 단어·접속 비용을 Rust 변환기에서 사용하며, Mozc 실행 파일은 필요하지 않습니다.
 
 ```

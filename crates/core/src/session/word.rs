@@ -7,6 +7,7 @@ use crate::lang::hangul::{HangulComposer, Unit};
 pub(super) struct WordState {
     pub keys: String,
     /// Clause context retained while a remaining Japanese reading is edited.
+    #[cfg(feature = "japanese")]
     pub previous_clause: Option<crate::decide::convert::ConversionCandidate>,
     // The reading's steering is private: it changes only through the transitions below, so
     // `forced_by_user` can never outlive `forced`.
@@ -74,6 +75,7 @@ impl WordState {
         self.engine_preview = None;
     }
     /// The word became a Japanese phrase being converted: no steering is left over.
+    #[cfg(feature = "japanese")]
     pub fn release(&mut self) {
         self.forced = None;
         self.forced_by_user = false;

@@ -1,3 +1,5 @@
+#![cfg(feature = "embedded-ja")]
+
 //! The real dictionary through the typing session: Space opens the conversion, the paths and
 //! clause candidates come from IPADIC (decide/kanji.rs), and committing a candidate is learned.
 

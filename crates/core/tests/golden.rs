@@ -197,6 +197,7 @@ fn decisions_en_ko() {
 }
 
 #[test]
+#[cfg(feature = "embedded-ja")]
 fn decisions_en_ko_ja() {
     check("decide_enkoja.tsv", &decide_snapshot(true));
 }
@@ -235,6 +236,7 @@ fn session_for(config: &str) -> Option<InputSession> {
     if config == "enko-tab" {
         session = session.with_history(Arc::new(History::new(None)));
     }
+    #[cfg(feature = "japanese")]
     if japanese {
         {
             let converter: Arc<dyn tacit_core::JapaneseConverter> =
@@ -341,6 +343,7 @@ fn session_edits_en_ko() {
 }
 
 #[test]
+#[cfg(feature = "embedded-ja")]
 fn session_edits_en_ko_ja() {
     check("session_enkoja.tsv", &session_snapshot(|_| true));
 }

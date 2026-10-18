@@ -35,6 +35,7 @@ pub mod bridge;
 mod candidates;
 mod client;
 mod flip;
+#[cfg(feature = "japanese")]
 mod japanese;
 mod key;
 mod preview;
@@ -44,6 +45,7 @@ mod word;
 pub use candidates::CandidatePage;
 pub use client::{NoopClient, Range, TextClient, NOT_FOUND};
 use flip::Committed;
+#[cfg(feature = "japanese")]
 pub use japanese::Conversion;
 pub use key::Key;
 pub use preview::Trace;
@@ -51,12 +53,17 @@ use word::WordState;
 
 use std::sync::Arc;
 
+#[cfg(feature = "japanese")]
 use crate::decide::convert::{JapaneseConverter, KanaConverter};
 use crate::decide::engine::{DecisionEngine, Language};
 use crate::decide::learning::LearningEngine;
+#[cfg(feature = "japanese")]
 use crate::decide::segmenter::JapaneseSegmenter;
+#[cfg(feature = "japanese")]
 use crate::lang::english::EnglishModel;
+#[cfg(feature = "japanese")]
 use crate::lang::japanese::JapaneseModel;
+#[cfg(feature = "japanese")]
 use crate::lang::romaji::RomajiComposer;
 use crate::lang::set::Languages;
 use crate::store::history::{self, History};
@@ -70,6 +77,7 @@ struct Word {
 }
 
 /// Japanese: the conversion in progress and what feeds it.
+#[cfg(feature = "japanese")]
 struct JapaneseState {
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like
     /// macOS Live Conversion.
@@ -97,13 +105,16 @@ struct JapaneseState {
 struct WidthState {
     /// Full-width openers not closed yet in this sentence, so ) ] } close them full-width
     /// after an English word too.
+    #[cfg(feature = "japanese")]
     open_brackets: Vec<char>,
     /// The last key passed to the app was a digit (so "." there is a decimal point).
     after_digit: bool,
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width
     /// (`Settings.full_width_digits`), as addresses in Japan often need.
+    #[cfg(feature = "japanese")]
     full_width_digits: bool,
     /// A space after Japanese text is full-width (`Settings.full_width_space`).
+    #[cfg(feature = "japanese")]
     full_width_space: bool,
 }
 
@@ -112,6 +123,7 @@ pub struct InputSession {
     policies: AppPolicies,
     return_confirms_only: bool,
     word: WordState,
+    #[cfg(feature = "japanese")]
     ja: JapaneseState,
     width: WidthState,
     app: Option<String>,
@@ -150,6 +162,7 @@ impl InputSession {
         return_confirms_only: bool,
     ) -> Self {
         let languages = engine.languages().clone();
+        #[cfg(feature = "japanese")]
         let japanese = languages.contains(Language::Japanese);
         Self {
             engine,
@@ -163,6 +176,7 @@ impl InputSession {
             last_commit: None,
             paused: false,
             languages,
+            #[cfg(feature = "japanese")]
             ja: JapaneseState {
                 live_conversion: false,
                 converter: japanese.then(|| Arc::new(KanaConverter) as Arc<dyn JapaneseConverter>),
@@ -175,9 +189,12 @@ impl InputSession {
                 added_n_marker: false,
             },
             width: WidthState {
+                #[cfg(feature = "japanese")]
                 open_brackets: Vec::new(),
                 after_digit: false,
+                #[cfg(feature = "japanese")]
                 full_width_digits: false,
+                #[cfg(feature = "japanese")]
                 full_width_space: false,
             },
             last_recorded: None,
@@ -196,6 +213,7 @@ impl InputSession {
 
     /// The kana→kanji engine for Space and, with `live_conversion`, the top candidate while
     /// typing. Japanese itself is on when the engine's languages include it.
+    #[cfg(feature = "japanese")]
     pub fn with_japanese(
         mut self,
         converter: Arc<dyn JapaneseConverter>,
@@ -207,21 +225,25 @@ impl InputSession {
     }
 
     /// Romaji is detected and converted (Japanese is among the languages).
+    #[cfg(feature = "japanese")]
     fn japanese_enabled(&self) -> bool {
         self.languages.contains(Language::Japanese)
     }
 
     /// Digits after Japanese text, and inside a Japanese phrase, are part of it and full-width.
+    #[cfg(feature = "japanese")]
     pub fn set_full_width_digits(&mut self, on: bool) {
         self.width.full_width_digits = on;
     }
 
     /// A space after Japanese text is full-width.
+    #[cfg(feature = "japanese")]
     pub fn set_full_width_space(&mut self, on: bool) {
         self.width.full_width_space = on;
     }
 
     /// The kana→kanji conversion in progress, if any.
+    #[cfg(feature = "japanese")]
     pub fn conversion(&self) -> Option<&Conversion> {
         self.ja.conversion.as_ref()
     }
@@ -250,6 +272,7 @@ impl InputSession {
     }
     /// A Japanese conversion (the candidate list) is open: Space, the arrows and the
     /// digits act on it, not on the app.
+    #[cfg(feature = "japanese")]
     pub fn is_converting(&self) -> bool {
         self.ja.conversion.is_some()
     }
@@ -260,10 +283,14 @@ impl InputSession {
 
     /// A new text field became active: pick its app's policy and forget the sentence context.
     pub fn activate(&mut self, exe: Option<&str>) {
+        #[cfg(feature = "japanese")]
         if let Some(converter) = &self.ja.converter {
             converter.reload();
         }
-        self.ja.live_cache = None;
+        #[cfg(feature = "japanese")]
+        {
+            self.ja.live_cache = None;
+        }
         self.close_flip_window();
         self.app = exe.map(str::to_lowercase);
         self.policy = self.policies.policy(exe);
@@ -290,6 +317,7 @@ impl InputSession {
     /// Whether the session would consume `key` right now without a word being composed:
     /// full-width symbols, digits and spaces after Japanese text. The TIP asks before letting
     /// such a key go to the app.
+    #[cfg(feature = "japanese")]
     pub fn claims_key(&self, key: Key) -> bool {
         if !self.policy.enabled
             || self.paused
@@ -328,6 +356,7 @@ impl InputSession {
         if !self.policy.enabled || self.paused {
             return false;
         }
+        #[cfg(feature = "japanese")]
         if key == Key::ShiftSpace {
             // With nothing being typed, the other width: full-width unless Space already types that.
             let eligible = self.word.keys.is_empty()
@@ -344,8 +373,13 @@ impl InputSession {
             client.insert_text("　", None);
             return true;
         }
+        #[cfg(feature = "japanese")]
         if self.ja.conversion.is_some() {
             return self.handle_converting(key, client);
+        }
+        #[cfg(not(feature = "japanese"))]
+        if key == Key::ShiftSpace {
+            return self.handle(Key::Printable(' '), client);
         }
         if !(matches!(key, Key::Printable(_)) && self.word.keys.is_empty()) {
             self.width.after_digit = false;
@@ -372,25 +406,36 @@ impl InputSession {
             Key::Printable(ch) => self.on_printable(ch, client),
             Key::Enter => self.on_enter(client),
             Key::Tab => self.on_tab(client),
+            #[cfg(feature = "japanese")]
             Key::Katakana => self.on_kana_form(true, client),
+            #[cfg(feature = "japanese")]
             Key::Hiragana => self.on_kana_form(false, client),
             // Handled at the top of `handle`, before a word exists.
             Key::ShiftSpace => false,
+            #[cfg(not(feature = "japanese"))]
+            Key::Katakana | Key::Hiragana => self.on_other(client),
             Key::Up | Key::Down | Key::Left | Key::Right | Key::Other => self.on_other(client),
         }
     }
 
     fn on_letter(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
         // A symbol on its own is confirmed by the next word, which is judged by itself.
+        #[cfg(feature = "japanese")]
         if !self.word.keys.is_empty() && self.word.keys.chars().all(RomajiComposer::is_symbol_key) {
             self.commit(client);
         }
         if self.word.keys.is_empty() {
             self.last_recorded = None; // a new word
             self.word_after_digit = self.width.after_digit;
-            self.ja.live_suppressed = false;
+            #[cfg(feature = "japanese")]
+            {
+                self.ja.live_suppressed = false;
+            }
         }
-        self.ja.added_n_marker = false;
+        #[cfg(feature = "japanese")]
+        {
+            self.ja.added_n_marker = false;
+        }
         self.word.unpin();
         self.word.keys.push(ch);
         self.update_preview(client);
@@ -406,13 +451,17 @@ impl InputSession {
             self.word.pin(shown);
         }
         match shown {
+            #[cfg(feature = "japanese")]
             Some(Language::Japanese) => self.delete_kana(),
             Some(Language::Korean) => self.word.delete_jamo_or_syllable(),
             _ => {
                 self.word.keys.pop();
             }
         }
-        self.ja.added_n_marker = false;
+        #[cfg(feature = "japanese")]
+        {
+            self.ja.added_n_marker = false;
+        }
         if self.word.is_empty() {
             self.word.reset();
         }
@@ -431,6 +480,7 @@ impl InputSession {
             return false;
         }
         // A live-converted phrase goes back to its kana first.
+        #[cfg(feature = "japanese")]
         if self.is_live()
             && self.word.forced().or(self.word.preview_language()) == Some(Language::Japanese)
         {
@@ -446,6 +496,7 @@ impl InputSession {
         self.word
             .force(self.next_language(shown, &self.word.keys), true);
         self.word.unpin();
+        #[cfg(feature = "japanese")]
         if self.word.forced() != Some(Language::Japanese) {
             self.drop_n_marker();
         }
@@ -457,10 +508,14 @@ impl InputSession {
     /// Japanese: symbols and digits inside a phrase join it, Space opens the conversion.
     fn on_printable(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
         if self.word.keys.is_empty() {
+            #[cfg(feature = "japanese")]
             let handled = self.on_printable_empty(ch, client);
+            #[cfg(not(feature = "japanese"))]
+            let handled = false;
             self.width.after_digit = ch.is_numeric();
             return handled;
         }
+        #[cfg(feature = "japanese")]
         if self.japanese_enabled() && self.belongs_to_japanese_phrase(ch) {
             self.word.keys.push(ch);
             // Digits don't read as anything: the phrase stays Japanese, as it was shown.
@@ -470,6 +525,7 @@ impl InputSession {
             self.update_preview(client);
             return true;
         }
+        #[cfg(feature = "japanese")]
         if ch == ' '
             && self.current_language() == Some(Language::Japanese)
             && self.ja.converter.is_some()
@@ -477,6 +533,7 @@ impl InputSession {
             self.start_conversion(client);
             return true;
         }
+        #[cfg(feature = "japanese")]
         if self.closes_full_width(ch) {
             // 日本語（English）
             self.commit(client);
@@ -511,8 +568,10 @@ impl InputSession {
     /// (`full_width_space`), a digit starts a Japanese number word (`full_width_digits`), and
     /// a symbol becomes a Japanese symbol word of its own, underlined until Return or the next
     /// word confirms it, as in a Japanese IME; Space shows its other forms.
+    #[cfg(feature = "japanese")]
     fn on_printable_empty(&mut self, ch: char, client: &mut dyn TextClient) -> bool {
         if self.previous_language == Some(Language::Japanese) {
+            #[cfg(feature = "japanese")]
             if ch == ' '
                 && self.width.full_width_space
                 && self.japanese_enabled()
@@ -545,7 +604,10 @@ impl InputSession {
         // Like a Japanese IME, Return on an underlined word only confirms it; the next
         // Return is the app's. With the setting off the app gets this one too — except after
         // a Japanese phrase, which is only confirmed either way.
+        #[cfg(feature = "japanese")]
         let japanese = self.current_language() == Some(Language::Japanese);
+        #[cfg(not(feature = "japanese"))]
+        let japanese = false;
         self.commit(client);
         self.policy
             .return_confirms_only
@@ -569,6 +631,7 @@ impl InputSession {
 
     /// ⌃K/⌃J and F7/F6: the Japanese reading as katakana / hiragana. Only for a Japanese
     /// phrase; otherwise the keys stay the app's shortcuts.
+    #[cfg(feature = "japanese")]
     fn on_kana_form(&mut self, katakana: bool, client: &mut dyn TextClient) -> bool {
         if self.word.keys.is_empty()
             || !self.japanese_enabled()
@@ -592,10 +655,12 @@ impl InputSession {
     /// Commits whatever is in progress as-is (focus change, shortcut, deactivation).
     pub fn commit(&mut self, client: &mut dyn TextClient) {
         self.close_flip_window();
+        #[cfg(feature = "japanese")]
         if let Some(conversion) = self.ja.conversion.take() {
             let display = conversion.display();
             client.insert_text(&display, None);
             self.note_brackets(&display);
+            #[cfg(feature = "japanese")]
             if let Some(converter) = &self.ja.converter {
                 converter.learn(conversion.current(), &conversion.kana);
             }
@@ -633,6 +698,7 @@ impl InputSession {
     }
 
     /// The language the current word will be committed in.
+    #[cfg(feature = "japanese")]
     fn current_language(&mut self) -> Option<Language> {
         self.word
             .override_language()
@@ -643,6 +709,7 @@ impl InputSession {
     fn finish_word(&mut self) -> Word {
         let engine_choice = self.committed_language();
         let language = self.word.override_language().unwrap_or(engine_choice);
+        #[cfg(feature = "japanese")]
         if language != Language::Japanese {
             self.drop_n_marker();
         }
@@ -659,6 +726,7 @@ impl InputSession {
             self.record(&self.word.keys.clone(), language, decided);
         }
         let text = match language {
+            #[cfg(feature = "japanese")]
             Language::Japanese => self.committed_japanese(),
             Language::Korean => self
                 .word
@@ -666,8 +734,14 @@ impl InputSession {
                 .unwrap_or_else(|| self.engine.render(&self.word.keys, language)),
             other => self.engine.render(&self.word.keys, other),
         };
-        self.ja.live_suppressed = false;
-        self.note_brackets(&text);
+        #[cfg(feature = "japanese")]
+        {
+            self.ja.live_suppressed = false;
+        }
+        #[cfg(feature = "japanese")]
+        {
+            self.note_brackets(&text);
+        }
         if let Some(h) = &self.history {
             h.record(&text);
         }
@@ -679,7 +753,20 @@ impl InputSession {
         };
         self.previous_language = Some(language.sentence_language());
         self.word.reset();
-        self.ja.added_n_marker = false;
+        #[cfg(feature = "japanese")]
+        {
+            self.ja.added_n_marker = false;
+        }
         word
+    }
+}
+
+#[cfg(not(feature = "japanese"))]
+impl InputSession {
+    pub fn is_converting(&self) -> bool {
+        false
+    }
+    pub fn claims_key(&self, _key: Key) -> bool {
+        false
     }
 }

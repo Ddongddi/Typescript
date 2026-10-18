@@ -35,8 +35,11 @@ pub fn apply(
     let mut wanted: Vec<Language> = Vec::new();
     for id in chosen {
         let Some(language) = Language::from_id(id) else {
-            return err(format!("'{id}' is not a language (en, ko, ja)"));
+            return err(format!("'{id}' is not a language"));
         };
+        if !language.supported() {
+            return err(format!("this build does not support '{id}'"));
+        }
         if catalog.pack(id).is_none() {
             return err(format!("this release has no '{id}' pack"));
         }
@@ -114,6 +117,7 @@ mod tests {
         ids.iter().map(|s| s.to_string()).collect()
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn the_chosen_languages_are_installed_and_turned_on_in_order() {
         let f = fixture("setup");
@@ -165,6 +169,7 @@ mod tests {
         assert!(!f.env.packs.exists(), "a bad request installs nothing");
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_failed_download_keeps_the_previous_languages() {
         let f = fixture("setup-fail");
@@ -196,6 +201,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn if_configured_refuses_a_first_install() {
         let f = fixture("setup-first");
@@ -207,6 +213,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_list_of_ids_parses() {
         assert_eq!(parse_list("ko, en ,ja"), vec!["ko", "en", "ja"]);

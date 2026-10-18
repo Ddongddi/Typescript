@@ -8,6 +8,7 @@
 use super::InputSession;
 
 /// How many candidates a page holds: what the number keys pick from.
+#[cfg(feature = "japanese")]
 pub const PAGE_SIZE: usize = 9;
 
 /// One page of the open conversion, for the platform's candidate window.
@@ -23,6 +24,7 @@ pub struct CandidatePage {
 }
 
 /// The page `selected` falls on, where it sits there, and how many pages `total` fills.
+#[cfg(feature = "japanese")]
 pub(super) fn page_of(selected: usize, total: usize) -> (usize, usize, usize) {
     let selected = selected.min(total.saturating_sub(1));
     let pages = total.div_ceil(PAGE_SIZE).max(1);
@@ -33,6 +35,7 @@ pub(super) fn page_of(selected: usize, total: usize) -> (usize, usize, usize) {
 impl InputSession {
     /// What the candidate window shows: the open conversion's current page, or None when
     /// there is no list worth showing (no conversion open, or a single candidate).
+    #[cfg(feature = "japanese")]
     pub fn candidate_page(&self) -> Option<CandidatePage> {
         let conversion = self.conversion()?;
         let total = conversion.candidates.len();
@@ -56,7 +59,7 @@ impl InputSession {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "japanese"))]
 mod tests {
     use super::*;
 
@@ -70,5 +73,12 @@ mod tests {
         assert_eq!(page_of(17, 18), (1, 8, 2));
         // A selection past the end (clamped) still lands on the last page.
         assert_eq!(page_of(9, 9), (0, 8, 1));
+    }
+}
+
+#[cfg(not(feature = "japanese"))]
+impl InputSession {
+    pub fn candidate_page(&self) -> Option<CandidatePage> {
+        None
     }
 }

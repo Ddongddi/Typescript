@@ -2,9 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "japanese")]
 use crate::decide::segmenter::{JapaneseSegmenter, Segment};
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
 use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
+#[cfg(feature = "japanese")]
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::korean::{KoreanModel, KoreanScore};
 use crate::lang::registry;
@@ -29,6 +31,10 @@ impl Language {
             Language::Mixed => "mixed",
             Language::Japanese => "japanese",
         }
+    }
+
+    pub fn supported(self) -> bool {
+        registry::module(self).is_some()
     }
 
     /// The short id used in settings.json and pack names.
@@ -175,6 +181,7 @@ pub struct HeuristicEngine {
     pub english: &'static EnglishModel,
     pub korean: KoreanModel,
     /// None when Japanese is off or its model isn't available.
+    #[cfg(feature = "japanese")]
     pub japanese: Option<&'static JapaneseModel>,
     /// Added to the previous word's language score: people mostly stay in one language.
     pub context_bias: f64,
@@ -185,10 +192,12 @@ pub struct HeuristicEngine {
     pub context_bias_keys: f64,
     /// Bias after Japanese text. Raising it to 1.2 recovered 1 of 2,590 held-out phrases
     /// but tripled common English words turning into kana right after Japanese (0.5% → 1.6%).
+    #[cfg(feature = "japanese")]
     pub japanese_context_bias: f64,
     /// Shifts Japanese scores to the English/Korean scale (kana trigrams over ~80 symbols
     /// per ~2 keys read differently from letter trigrams). Tuned on held-out data so that
     /// English words almost never turn into kana.
+    #[cfg(feature = "japanese")]
     pub japanese_offset: f64,
     /// Shifts Korean scores (used when the syllable model changes scale).
     pub korean_offset: f64,
@@ -203,9 +212,11 @@ pub struct HeuristicEngine {
     pub korean_known_floor_short: f64,
     /// How far Japanese must lead before a known English word is turned into kana
     /// outside Japanese text.
+    #[cfg(feature = "japanese")]
     pub english_word_protection: f64,
     /// With Japanese on: English words inside a phrase (`googlede…`) score as segmented
     /// Japanese, not as kana with stray letters.
+    #[cfg(feature = "japanese")]
     pub segmenter: Option<JapaneseSegmenter>,
     /// English competes (off: the keys stay as typed only when no language reads them).
     pub english_on: bool,
@@ -222,17 +233,22 @@ impl HeuristicEngine {
         Self {
             english,
             korean,
+            #[cfg(feature = "japanese")]
             japanese: None,
             context_bias: 0.8,
             context_bias_keys: 3.0,
+            #[cfg(feature = "japanese")]
             japanese_context_bias: 0.8,
+            #[cfg(feature = "japanese")]
             japanese_offset: 0.5,
             korean_offset: 0.0,
             rare_word_floor_penalty: 0.3,
             switch_bias_factor: 0.25,
             korean_known_floor_long: -1.4,
             korean_known_floor_short: -2.0,
+            #[cfg(feature = "japanese")]
             english_word_protection: 1.0,
+            #[cfg(feature = "japanese")]
             segmenter: None,
             english_on: true,
             korean_on: true,
@@ -241,17 +257,18 @@ impl HeuristicEngine {
 
     /// The heuristic over the languages that are on (Japanese only in builds that carry it).
     pub fn for_languages(languages: &Languages) -> Self {
-        let mut engine = if languages.contains(Language::Japanese) {
-            Self::with_japanese(EnglishModel::shared(), JapaneseModel::shared())
-        } else {
-            Self::new()
-        };
+        let mut engine = Self::new();
+        #[cfg(feature = "japanese")]
+        if languages.contains(Language::Japanese) {
+            engine = Self::with_japanese(EnglishModel::shared(), JapaneseModel::shared());
+        }
         engine.english_on = languages.contains(Language::English);
         engine.korean_on = languages.contains(Language::Korean);
         engine
     }
 
     /// The heuristic with Japanese scoring and segmentation on (the app's `makeEngine`).
+    #[cfg(feature = "japanese")]
     pub fn with_japanese(english: &'static EnglishModel, japanese: &'static JapaneseModel) -> Self {
         let mut engine = Self::with(english, KoreanModel::default());
         engine.japanese = Some(japanese);
@@ -388,14 +405,18 @@ impl DecisionEngine for HeuristicEngine {
             (None, false)
         };
 
+        let count = keys.chars().count() as f64;
         // A dictionary English word may already be complete: score its Japanese reading as
         // finished too, so the preview shows what Space will commit ("to" stays to, not と).
+        #[cfg(feature = "japanese")]
         let j = self
             .japanese
             .and_then(|model| model.score(keys, context.partial && !known));
         // English words inside a Japanese phrase (googlede…) score as segmented Japanese,
         // not as kana with stray letters.
+        #[cfg(feature = "japanese")]
         let mut segmented: Option<(Vec<Segment>, f64)> = None;
+        #[cfg(feature = "japanese")]
         if let Some(score) = &j {
             if score.composition.stray_letters > 0 {
                 segmented = self
@@ -404,7 +425,7 @@ impl DecisionEngine for HeuristicEngine {
                     .and_then(|s| s.scored_segments(keys));
             }
         }
-        let count = keys.chars().count() as f64;
+        #[cfg(feature = "japanese")]
         let japanese_score = j.as_ref().map(|score| {
             score.average_log_probability.max(
                 segmented
@@ -423,21 +444,23 @@ impl DecisionEngine for HeuristicEngine {
                 k.average_log_probability + self.korean_offset,
             ));
         }
+        #[cfg(feature = "japanese")]
         if let Some(japanese_score) = japanese_score {
             scores.push((Language::Japanese, japanese_score + self.japanese_offset));
         }
         if let Some(previous) = context.previous_language.map(Language::sentence_language) {
             if let Some(i) = scores.iter().position(|s| s.0 == previous) {
-                let mut bias = if previous == Language::Japanese {
-                    self.japanese_context_bias
-                } else {
-                    // At least two keys, so that the first key of a word is not lifted wildly.
-                    let share = if self.context_bias_keys > 0.0 {
-                        self.context_bias_keys / count.max(2.0)
-                    } else {
-                        1.0
-                    };
-                    self.context_bias * share
+                let mut bias = match previous {
+                    #[cfg(feature = "japanese")]
+                    Language::Japanese => self.japanese_context_bias,
+                    _ => {
+                        let share = if self.context_bias_keys > 0.0 {
+                            self.context_bias_keys / count.max(2.0)
+                        } else {
+                            1.0
+                        };
+                        self.context_bias * share
+                    }
                 };
                 let known_in = |l: Language| match l {
                     Language::English => known,
@@ -458,8 +481,10 @@ impl DecisionEngine for HeuristicEngine {
             // No language that is on reads these keys (Korean only, and the keys aren't Hangul).
             let language = if self.korean_on {
                 Language::Korean
-            } else {
+            } else if cfg!(feature = "japanese") {
                 Language::Japanese
+            } else {
+                Language::English
             };
             return Decision {
                 language,
@@ -473,6 +498,7 @@ impl DecisionEngine for HeuristicEngine {
 
         // A dictionary English word only becomes kana on a clear win, unless we're already
         // in Japanese text (where "same", "sake", "kite" are Japanese words).
+        #[cfg(feature = "japanese")]
         if known
             && scores[0].0 == Language::Japanese
             && context.previous_language.map(Language::sentence_language)
@@ -494,6 +520,7 @@ impl DecisionEngine for HeuristicEngine {
                 .as_ref()
                 .map(|k| k.composition.text())
                 .unwrap_or_else(|| keys.to_string()),
+            #[cfg(feature = "japanese")]
             Language::Japanese => segmented
                 .map(|(segments, _)| JapaneseSegmenter::text(&segments))
                 .or_else(|| j.as_ref().map(|score| score.composition.text.clone()))

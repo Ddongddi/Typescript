@@ -100,6 +100,9 @@ pub fn install_pack(
     base: &str,
     pack: &CatalogPack,
 ) -> Result<Installed> {
+    if !tacit_core::Language::from_id(&pack.id).is_some_and(tacit_core::Language::supported) {
+        return err(format!("this build does not support '{}'", pack.id));
+    }
     let done = install_new(env, fetch, base, pack)?;
     crate::update::prune_old(env, &pack.id, &pack.version);
     Ok(done)
@@ -223,8 +226,14 @@ pub fn install_with_requirements(
     catalog: &Catalog,
     id: &str,
 ) -> Result<Vec<(String, Installed)>> {
+    let packs = catalog.with_requirements(id)?;
+    if let Some(pack) = packs.iter().find(|p| {
+        !tacit_core::Language::from_id(&p.id).is_some_and(tacit_core::Language::supported)
+    }) {
+        return err(format!("this build does not support '{}'", pack.id));
+    }
     let mut done = Vec::new();
-    for pack in catalog.with_requirements(id)? {
+    for pack in packs {
         done.push((pack.id.clone(), install_pack(env, fetch, base, pack)?));
     }
     Ok(done)
@@ -297,6 +306,16 @@ pub fn required_by(env: &Env, id: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(feature = "japanese"))]
+    #[test]
+    fn unsupported_requirements_are_rejected_before_any_pack_is_installed() {
+        let f = crate::testutil::fixture("unsupported-requirements");
+        let error =
+            install_with_requirements(&f.env, &f.source, base(), &f.catalog, "ja").unwrap_err();
+        assert!(error.0.contains("does not support"), "{error}");
+        assert!(!f.env.packs.exists());
+    }
     use crate::fetch::Dir;
     use crate::testutil::{fixture, pack_zip, zip_of};
 
@@ -386,7 +405,7 @@ mod tests {
         let zip = zip_of(&[("manifest.json", b"{}"), ("../evil.txt", b"x")]);
         std::fs::write(f.root.join("release").join("evil.zip"), &zip).unwrap();
         let pack = crate::catalog::CatalogPack {
-            id: "evil".into(),
+            id: "en".into(),
             name: "evil".into(),
             version: "1".into(),
             requires: vec![],
@@ -394,17 +413,18 @@ mod tests {
             sha256: crate::hash::sha256_hex(&zip),
             url: "evil.zip".into(),
         };
-        assert!(install_pack(&f.env, &f.source, base(), &pack).is_err());
+        let error = install_pack(&f.env, &f.source, base(), &pack).unwrap_err();
+        assert!(error.0.contains("unsafe path"), "{error}");
         assert!(!f.root.join("local").join("tacit").join("evil.txt").exists());
         assert!(!f.root.join("evil.txt").exists());
-        assert!(!f.env.pack_folder("evil", "1").exists());
+        assert!(!f.env.pack_folder("en", "1").exists());
     }
 
     #[test]
     fn a_table_that_does_not_match_the_manifest_is_refused() {
         let f = fixture("badtable");
         // The manifest promises one table content; the zip carries another.
-        let good = pack_zip("zz", "1", &[], &[("table.txt", b"right")]);
+        let good = pack_zip("en", "1", &[], &[("table.txt", b"right")]);
         let mut archive = zip::ZipArchive::new(std::io::Cursor::new(good)).unwrap();
         let mut manifest = String::new();
         std::io::Read::read_to_string(
@@ -418,8 +438,8 @@ mod tests {
         ]);
         std::fs::write(f.root.join("release").join("zz.zip"), &zip).unwrap();
         let pack = crate::catalog::CatalogPack {
-            id: "zz".into(),
-            name: "zz".into(),
+            id: "en".into(),
+            name: "en".into(),
             version: "1".into(),
             requires: vec![],
             size: zip.len() as u64,
@@ -428,7 +448,7 @@ mod tests {
         };
         let e = install_pack(&f.env, &f.source, base(), &pack).unwrap_err();
         assert!(e.0.contains("table.txt"), "{e}");
-        assert!(!f.env.pack_folder("zz", "1").exists());
+        assert!(!f.env.pack_folder("en", "1").exists());
     }
 
     #[test]
@@ -553,7 +573,7 @@ mod tests {
             let zip = zip_of(&[("manifest.json", b"{}"), (name, b"x")]);
             std::fs::write(f.root.join("release").join("n.zip"), &zip).unwrap();
             let pack = crate::catalog::CatalogPack {
-                id: "nn".into(),
+                id: "en".into(),
                 name: "nn".into(),
                 version: "1".into(),
                 requires: vec![],
@@ -561,10 +581,8 @@ mod tests {
                 sha256: crate::hash::sha256_hex(&zip),
                 url: "n.zip".into(),
             };
-            assert!(
-                install_pack(&f.env, &f.source, base(), &pack).is_err(),
-                "{name}"
-            );
+            let error = install_pack(&f.env, &f.source, base(), &pack).unwrap_err();
+            assert!(error.0.contains("unsafe path"), "{name}: {error}");
         }
     }
 

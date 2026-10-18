@@ -35,7 +35,9 @@ function summary(rule) {
   if (rule.escapeToApp !== undefined)
     out.push(rule.escapeToApp ? "Esc는 앱에게" : "Esc는 변환 전환");
   if (rule.useSystemIme !== undefined) out.push(rule.useSystemIme ? "시스템 IME" : "자체 입력기");
+  /*language:ja*/
   if (rule.fullWidth !== undefined) out.push(rule.fullWidth ? "일본어 전각" : "전각 안 씀");
+  /*language:/ja*/
   return out;
 }
 
@@ -173,7 +175,9 @@ function appCard(exe, rule) {
       choice("enabled", "사용"),
       choice("escapeToApp", "Esc는 앱에게"),
       choice("useSystemIme", "시스템 IME"),
+      /*language:ja*/
       choice("fullWidth", "일본어 전각"),
+      /*language:/ja*/
       thresholdField(exe, rule, edit),
     ),
   );

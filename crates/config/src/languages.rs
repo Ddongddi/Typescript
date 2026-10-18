@@ -39,8 +39,9 @@ pub fn save(env: &Env, languages: &Languages) -> Result<()> {
 
 fn language(id: &str) -> Result<Language> {
     match Language::from_id(id) {
-        Some(l) => Ok(l),
-        None => err(format!("'{id}' is not a language (en, ko, ja)")),
+        Some(l) if l.supported() => Ok(l),
+        Some(_) => err(format!("this build does not support '{id}'")),
+        None => err(format!("'{id}' is not a language")),
     }
 }
 
@@ -115,6 +116,7 @@ pub fn reorder(env: &Env, ids: &[&str]) -> Result<Languages> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "japanese")]
     use crate::install::install_with_requirements;
     use crate::testutil::fixture;
     use tacit_core::Languages;
@@ -136,6 +138,7 @@ mod tests {
         assert_eq!(ids(&enabled(&f.env)), vec!["en", "ko"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn adding_ko_to_nothing_installs_english_data_without_turning_english_on() {
         let f = fixture("noten");
@@ -173,6 +176,7 @@ mod tests {
         assert_eq!(ids(&enabled(&f.env)), vec!["ko"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn removing_a_language_turns_it_off_and_deletes_its_pack() {
         let f = fixture("remove");
@@ -193,6 +197,7 @@ mod tests {
         assert!(f.env.pack_folder("en", "0.4.0").is_dir());
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn the_order_can_change_but_not_the_set() {
         let f = fixture("order");
@@ -205,6 +210,7 @@ mod tests {
         assert_eq!(ids(&enabled(&f.env)), vec!["ko", "en"]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn settings_keep_their_other_keys_and_get_no_byte_order_mark() {
         let f = fixture("keep");
@@ -224,6 +230,7 @@ mod tests {
         assert_eq!(v["languages"], serde_json::json!(["en", "ko", "ja"]));
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_failed_install_leaves_the_languages_alone() {
         let f = fixture("fail");

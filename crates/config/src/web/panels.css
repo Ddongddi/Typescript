@@ -3,9 +3,11 @@
 .g-ko {
   color: var(--acc);
 }
+/*language:ja*/
 .g-ja {
   color: var(--info);
 }
+/*language:/ja*/
 .g-en {
   color: var(--fg);
 }
@@ -239,9 +241,11 @@
 .preview .is-ko {
   color: var(--acc);
 }
+/*language:ja*/
 .preview .is-ja {
   color: var(--info);
 }
+/*language:/ja*/
 
 .add {
   margin-top: 22px;

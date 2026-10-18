@@ -14,9 +14,10 @@ use std::io::{self, BufRead};
 use tacit_core::lang::hangul::HangulComposer;
 use tacit_core::store::history::suggest;
 use tacit_core::{
-    make_engine, DecisionContext, DecisionEngine, DictionaryConverter, JapaneseConverter, Language,
-    Languages, TextConverter,
+    make_engine, DecisionContext, DecisionEngine, Language, Languages, TextConverter,
 };
+#[cfg(feature = "japanese")]
+use tacit_core::{DictionaryConverter, JapaneseConverter};
 
 fn lines() -> impl Iterator<Item = String> {
     io::stdin().lock().lines().map_while(Result::ok)
@@ -27,10 +28,18 @@ fn main() {
     // No lexicon: evaluation must not depend on (or change) what this user has learned.
     // English and Korean are built in; Japanese comes from the installed pack (or a build with
     // `--features japanese`).
-    for root in tacit_core::pack_dirs() {
-        tacit_core::pack::refresh(&root);
-    }
     let japanese = args.iter().any(|a| a == "--japanese");
+    let needs_conversion = args.first().is_some_and(|a| a == "--convert");
+    if (japanese || needs_conversion) && !Language::Japanese.supported() {
+        eprintln!(
+            "this build does not support the requested language; rebuild with --features japanese"
+        );
+        std::process::exit(1);
+    }
+    tacit_core::pack::refresh_for(
+        tacit_core::pack_dirs(),
+        &Languages::legacy(japanese || needs_conversion),
+    );
     if (japanese || args.first().is_some_and(|a| a == "--convert"))
         && !tacit_core::pack::available(Language::Japanese)
     {
@@ -63,6 +72,7 @@ fn main() {
                 println!("{keys}\t{}\t{}\t{suggestion}", d.language.name(), d.output);
             }
         }
+        #[cfg(feature = "japanese")]
         Some("--convert") => {
             // Kana → kanji candidates, for tuning and evaluation (no learning file).
             let converter = DictionaryConverter::new(None);

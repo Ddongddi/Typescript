@@ -6,9 +6,10 @@ use crate::decide::engine::Language;
 use crate::lang::module::{ComboRule, LanguageModule};
 use crate::lang::set::Languages;
 
-static MODULES: [&dyn LanguageModule; 3] = [
+pub static MODULES: &[&dyn LanguageModule] = &[
     &crate::lang::en::English,
     &crate::lang::ko::Korean,
+    #[cfg(feature = "japanese")]
     &crate::lang::ja::Japanese,
 ];
 
@@ -60,6 +61,7 @@ mod tests {
         Languages::from_ids(ids).unwrap()
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn cycle_order_puts_mixed_after_english() {
         assert_eq!(
@@ -74,6 +76,7 @@ mod tests {
         assert_eq!(cycle_order(&langs(&["en"])), vec![English]);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn readings_come_from_the_modules() {
         assert_eq!(reading(English, "dkssud").as_deref(), Some("dkssud"));
@@ -99,6 +102,7 @@ mod tests {
         assert_eq!(English.next("dkssud", &langs(&["en"])), English);
     }
 
+    #[cfg(feature = "japanese")]
     #[test]
     fn a_lone_consonant_stays_in_the_cycle() {
         let all = langs(&["en", "ko", "ja"]);
