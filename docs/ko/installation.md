@@ -43,7 +43,7 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/
 & $i -Japanese
 
 # 특정 버전 설치
-& $i -Version v0.10.2
+& $i -Version v0.10.3
 
 # 삭제/제거 (설정 및 언어 팩은 보존)
 & $i -Uninstall

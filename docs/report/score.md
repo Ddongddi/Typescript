@@ -1,6 +1,6 @@
 # 릴리즈 점수 규격 v2
 
-[`performance.md`](performance.md)의 측정값으로 릴리즈 하나의 총점을 계산하는 규격입니다. 계산기는 [`lab/score.py`](../../lab/score.py)이고, 결과 그래프는 `performance.md` 맨 위에 있습니다. 기준일 2026-10-16.
+[`performance.md`](performance.md)의 측정값으로 릴리즈 하나의 총점을 계산하는 규격입니다. 계산기는 [`lab/score.py`](../../lab/score.py)이고, 결과 그래프는 `performance.md` 맨 위에 있습니다. 기준일 2026-10-19.
 
 ## 1. 한눈에
 

@@ -9,8 +9,12 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-19
+
 ### 변경
 
+- 배포를 영·한판과 일본어 포함판으로 나눴습니다. 기본 `tacit-<os>.zip`은 영어·한국어만 지원하고, 일본어 구현·전용 설정 화면은 `tacit-<os>-ja.zip`에만 들어갑니다. 영·한판은 과거 설정이나 일본어 팩이 남아 있어도 일본어를 켜지 않습니다. 같은 컴퓨터의 로컬 빌드 비교로 x64 DLL이 약 21%, 설치 zip이 약 10% 작아졌습니다. 언어 팩 형식과 호환 범위는 그대로여서 0.10.x 팩을 계속 씁니다. 설정에 일본어가 켜져 있던 설치는 설치 스크립트가 일본어 포함판으로 유지하며, 처음부터 고르려면 Windows `-Japanese`/`-Languages en,ko,ja`, Unix `--languages en,ko,ja`를 씁니다.
+- 영어 트라이그램 점수 계산에서 메모리 할당을 없앴습니다. 판별 결과는 같습니다.
 - 일본어 문절을 나눠 확정할 때 선택한 경로의 품사 접속 문맥을 다음 변환에 유지합니다. 문절 길이 조정과 Esc 후 재편집에도 적용하며, 단어별 예외나 새 가중치 없이 기존 사전 비용을 사용합니다.
 - 일본어 탐색에서 같은 품사 접속의 중복 계산을 줄였습니다. 외부 읽기 506건의 문장 후보와 순서는 유지했으며, 같은 PC의 7회 교차 측정에서 평균 지연은 약 5%, p95는 약 12% 줄었습니다.
 - 일본어 라이브 변환은 첫 A* 완성 경로에서 멈추고 불필요한 문절 계산을 생략합니다. 외부 읽기의 접두어 7,998개를 7회 교차 측정해 Top-1 출력을 유지하면서 평균·p95 탐색 지연을 약 58% 줄였습니다. 학습 선택의 경로 정보와 숫자 우선 정렬은 유지합니다.
@@ -365,7 +369,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/iamallyouneed/tacit/compare/v0.9.1...v0.10.0

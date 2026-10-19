@@ -9,8 +9,12 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-19
+
 ### Changed
 
+- Releases are split into an English/Korean edition and an edition with Japanese. The default `tacit-<os>.zip` supports English and Korean only; the Japanese implementation and its settings UI ship only in `tacit-<os>-ja.zip`. The English/Korean edition never enables Japanese, even if an old setting or a Japanese pack is left behind. Local builds on the same PC show the x64 DLL about 21% and the installer zip about 10% smaller. The language pack format and compatibility range are unchanged, so 0.10.x packs keep working. An installation that already had Japanese enabled stays on the Japanese edition through the install script; to choose it up front use `-Japanese` / `-Languages en,ko,ja` on Windows or `--languages en,ko,ja` on Unix.
+- English trigram scoring no longer allocates. Decisions are identical.
 - Japanese clause commits preserve the chosen dictionary path's right context for the remaining conversion, including clause resizing and editing after Esc. This reuses dictionary connection costs without word-specific exceptions or new weights.
 - Japanese search reuses equivalent part-of-speech connection calculations. Whole-reading candidates and their order remain identical on 506 external readings; seven interleaved runs on the same PC reduce mean latency by about 5% and p95 by about 12%.
 - Live Japanese conversion stops after the first complete A* path and skips unused clause calculations. Across 7,998 external reading prefixes, seven alternating full-list/preview runs retain identical top-1 output and reduce mean and p95 search latency by about 58%. Learned choices retain their path metadata; numeric reordering still uses the full list.
@@ -365,7 +369,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/iamallyouneed/tacit/compare/v0.9.1...v0.10.0

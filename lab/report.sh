@@ -326,7 +326,7 @@ metric() {
 }
 
 SIZE_FILES="target/release/tacit_tip.dll target/i686-pc-windows-msvc/release/tacit_tip.dll target/release/tacit-config.exe dist/tacit-windows.zip dist/tacit-pack-en-$version.zip dist/tacit-pack-ko-$version.zip"
-if [ "$PROFILE" = enkoja ]; then SIZE_FILES="$SIZE_FILES dist/tacit-pack-ja-$version.zip"; fi
+if [ "$PROFILE" = enkoja ]; then SIZE_FILES="$(printf %s "$SIZE_FILES" | sed "s,dist/tacit-windows.zip,dist/tacit-windows-ja.zip,") dist/tacit-pack-ja-$version.zip"; fi
 
 {
 echo "## $version"
@@ -339,7 +339,7 @@ echo "프로필: \`$PROFILE\` ($LABEL), lab $(sed -n 's/^version = "\(.*\)"/\1/p
 echo
 echo '공통 정확도·시나리오는 해당 언어가 켜진 판별기로 측정합니다. acc.ALL은 영·한 공통 세트이며 일본어 정답률과 합산하지 않습니다.'
 echo
-echo 'load.ms·heap.*는 판별기 시작/단어 평가 기준입니다. enkoja의 ja.load.ms·ja.heap.loaded_kb는 별도 가나→한자 변환기 초기화/힙 증가입니다. 설치 zip은 공통이며 팩 목록만 활성 언어에 따라 다릅니다.'
+echo 'load.ms·heap.*는 판별기 시작/단어 평가 기준입니다. enkoja의 ja.load.ms·ja.heap.loaded_kb는 별도 가나→한자 변환기 초기화/힙 증가입니다. 영·한판(tacit-windows.zip)과 일본어 포함판(tacit-windows-ja.zip)은 프로그램과 설치 zip이 다르고, 팩 목록도 활성 언어에 따라 다릅니다.'
 echo
 echo "### 크기 (KiB)"
 echo

@@ -4,7 +4,7 @@
 
 <h1 align="center">Tacit</h1>
 
-> When moving from **Typescript**, uninstall it with its original installer before installing Tacit. Settings and learned data are not migrated automatically. Close running apps, then copy the contents of each old `Typescript` user folder into the sibling `tacit` folder (Windows: `%APPDATA%` and `%LOCALAPPDATA%` for packs; macOS: `~/Library/Application Support`; Linux: `~/.config` and `$XDG_DATA_HOME` or `~/.local/share` for packs). Android uses a new package ID and installs as a separate app; select the new keyboard in system settings.
+> When moving from **Typescript(Previous project name)**, uninstall it with its original installer before installing Tacit. Settings and learned data are not migrated automatically. Close running apps, then copy the contents of each old `Typescript` user folder into the sibling `tacit` folder (Windows: `%APPDATA%` and `%LOCALAPPDATA%` for packs; macOS: `~/Library/Application Support`; Linux: `~/.config` and `$XDG_DATA_HOME` or `~/.local/share` for packs). Android uses a new package ID and installs as a separate app; select the new keyboard in system settings.
 
 
 <h3 align="center">
@@ -60,7 +60,11 @@ Windows shown; other systems are under [Installation](#installation).
 2. **Pick the input method.** Press **Win+Space** and choose `Tacit (Autocomplete)`. Apps that were already open need a restart.
 3. **Try it.** In Notepad type `dkssud` — you see `안녕` with a dotted underline. Space or Enter commits it.
 4. **If it guessed wrong.** A word you meant in English came out as Hangul? Press **Esc**. It cycles English → Korean → …
-5. **Want to tweak things?** Open **Tacit Settings** from the Start menu → [the dashboard](#the-dashboard). The chat on the right lets you change a setting and test it immediately.
+5. **Want to tweak things?** Open the **Tacit 설정** shortcut in the Start menu → [the dashboard](#the-dashboard).
+
+> [!TIP]
+> **Settings live in the `Tacit 설정` (Tacit Settings) shortcut in the Start menu.** The installer adds it automatically; there is nothing to create.
+> It opens the settings page in your browser, where you change languages, keys and per-app rules without editing files. The chat on the right lets you try a changed setting immediately.
 
 That's it. You should never need the Han/Eng key again.
 
@@ -106,7 +110,7 @@ Re-running the command on an existing install is fine (enabled languages are kep
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # remove (settings and language packs are kept)
-& $i -Version v0.10.2       # pinned release
+& $i -Version v0.10.3       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 
@@ -170,7 +174,7 @@ Download **`tacit.apk`** from the [latest release](https://github.com/iamallyoun
 
 ## The dashboard
 
-You don't need to edit files. Open **Tacit Settings** from the Start menu (or run `tacit-config`; on Windows it's `C:\Program Files\tacit\tacit-config.exe`) and a settings page opens in your browser.
+You don't need to edit files. Open the **Tacit 설정** shortcut from the Start menu (the installer adds it automatically; or run `tacit-config`; on Windows it's `C:\Program Files\tacit\tacit-config.exe`) and a settings page opens in your browser.
 
 - It listens on this machine only (127.0.0.1) and the address contains a per-launch token, so other websites can't reach it.
 - It exits by itself shortly after you close the tab.

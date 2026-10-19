@@ -4,7 +4,7 @@
 
 <h1 align="center">Tacit</h1>
 
-> 기존 **Typescript**에서 옮길 때는 이전 설치기로 먼저 제거한 뒤 Tacit을 설치하세요. 설정·학습 데이터는 자동 이전하지 않습니다. 실행 중인 앱을 닫고 기존 `Typescript` 사용자 폴더의 내용을 같은 위치의 `tacit` 폴더로 복사하면 유지할 수 있습니다 (Windows: `%APPDATA%`, 팩은 `%LOCALAPPDATA%`; macOS: `~/Library/Application Support`; Linux: `~/.config`, 팩은 `$XDG_DATA_HOME` 또는 `~/.local/share`). Android는 패키지 ID가 바뀌어 별도 앱으로 설치되므로 입력기를 다시 선택해야 합니다.
+> 기존 **Typescript(이전 프로젝트명)**에서 옮길 때는 이전 설치기로 먼저 제거한 뒤 Tacit을 설치하세요. 설정·학습 데이터는 자동 이전하지 않습니다. 실행 중인 앱을 닫고 기존 `Typescript` 사용자 폴더의 내용을 같은 위치의 `tacit` 폴더로 복사하면 유지할 수 있습니다 (Windows: `%APPDATA%`, 팩은 `%LOCALAPPDATA%`; macOS: `~/Library/Application Support`; Linux: `~/.config`, 팩은 `$XDG_DATA_HOME` 또는 `~/.local/share`). Android는 패키지 ID가 바뀌어 별도 앱으로 설치되므로 입력기를 다시 선택해야 합니다.
 
 
 <h3 align="center">
@@ -62,7 +62,11 @@ Windows 기준입니다. 다른 OS는 [설치](#설치)를 보세요.
 2. **입력기 고르기.** **Win+Space** 를 눌러 `Tacit (자동완성)` 을 고릅니다. 이미 떠 있는 앱은 다시 열어야 합니다.
 3. **쳐 보기.** 메모장에서 `dkssud` 를 치면 밑줄과 함께 `안녕` 이 보입니다. Space나 Enter로 확정합니다.
 4. **틀렸을 때.** 영어로 쓰려던 단어가 한글로 나오면 **Esc** 를 누르세요. 영어 → 한국어 → … 순서로 바뀝니다.
-5. **더 만지고 싶으면.** 시작 메뉴에서 **Tacit 설정** 을 엽니다 → [대시보드](#대시보드-설정-페이지). 오른쪽 채팅창에서 설정을 바꿔 가며 바로 쳐 볼 수 있습니다.
+5. **더 만지고 싶으면.** 시작 메뉴에서 **Tacit 설정** 을 엽니다 → [대시보드](#대시보드-설정-페이지).
+
+> [!TIP]
+> **설정은 시작 메뉴의 `Tacit 설정` 바로가기에서 합니다.** 설치하면 자동으로 추가되니 따로 만들 필요가 없습니다.
+> 열면 브라우저에 설정 페이지가 뜨고, 언어·키·앱별 규칙을 파일 없이 바꿀 수 있습니다. 오른쪽 채팅창에서 바꾼 설정을 바로 쳐 볼 수 있습니다.
 
 끝입니다. 한/영 키를 누를 일이 없어야 정상입니다.
 
@@ -108,7 +112,7 @@ irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
-& $i -Version v0.10.2       # 특정 버전
+& $i -Version v0.10.3       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
@@ -187,7 +191,7 @@ Android SDK(build-tools, platform 34), NDK, JDK 17, `rustup target add aarch64-l
 
 ## 대시보드 (설정 페이지)
 
-설정은 파일을 고칠 필요 없이 대시보드에서 합니다. 시작 메뉴의 **Tacit 설정** (또는 `C:\Program Files\tacit\tacit-config.exe`, macOS·Linux는 `tacit-config`)을 실행하면 브라우저에 설정 페이지가 열립니다.
+설정은 파일을 고칠 필요 없이 대시보드에서 합니다. 시작 메뉴의 **Tacit 설정** 바로가기(설치할 때 자동으로 추가됩니다. 또는 `C:\Program Files\tacit\tacit-config.exe`, macOS·Linux는 `tacit-config`)을 실행하면 브라우저에 설정 페이지가 열립니다.
 
 - 이 컴퓨터(127.0.0.1)에서만 열리고, 실행할 때마다 바뀌는 토큰이 주소에 들어 있어 다른 사이트는 접근할 수 없습니다.
 - 탭을 닫으면 잠시 뒤 스스로 끝납니다.
