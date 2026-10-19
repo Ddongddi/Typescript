@@ -292,6 +292,9 @@ pub enum Installer {
     /// release's script and package itself, like a hand install, instead of trusting files a
     /// non-elevated process could have written in the meantime.
     Official(String),
+    /// Like `Official`, but installs the edition with Japanese (an English/Korean build offers
+    /// Japanese this way, since its code and settings page are not in this build).
+    Japanese(String),
 }
 
 /// The tag, when the release's own files come from the official GitHub pages: on Windows the
@@ -358,14 +361,20 @@ pub fn run_installer(
 /// package in the elevated process.
 pub fn launch_installer(what: &Installer) -> Result<()> {
     let mut command = match what {
-        Installer::Official(tag) => {
+        Installer::Japanese(_) if !cfg!(windows) => {
+            return err("the Japanese edition: install tacit-<os>-ja.zip from the release page");
+        }
+        Installer::Official(tag) | Installer::Japanese(tag) => {
             let url = format!("{RELEASES}{tag}/install.ps1");
-            let edition = if cfg!(feature = "japanese") {
-                "enkoja"
+            let japanese = cfg!(feature = "japanese") || matches!(what, Installer::Japanese(_));
+            let edition = if japanese { "enkoja" } else { "enko" };
+            // -Japanese also installs the Japanese pack, which an edition switch alone would not.
+            let extra = if matches!(what, Installer::Japanese(_)) {
+                " -Japanese"
             } else {
-                "enko"
+                ""
             };
-            let call = format!("& ([scriptblock]::Create((Invoke-RestMethod '{url}'))) -Version '{tag}' -Edition '{edition}'");
+            let call = format!("& ([scriptblock]::Create((Invoke-RestMethod '{url}'))) -Version '{tag}' -Edition '{edition}'{extra}");
             let mut c = std::process::Command::new("powershell");
             c.args([
                 "-NoProfile",

@@ -9,6 +9,10 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Changed
+
+- The English/Korean edition now lists Japanese in the first-run page and the dashboard Languages tab. Choosing it opens the release's Japanese-edition installer (Windows, one elevation prompt), which installs English, Korean and Japanese together.
+
 ## [0.10.3] - 2026-10-19
 
 ### Changed

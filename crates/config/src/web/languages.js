@@ -69,7 +69,34 @@ window.addEventListener("blur", () => {
   if (cap) cap.classList.remove("down");
 });
 
+// An English/Korean build has no Japanese: the other edition's installer is started for it.
+async function switchEdition() {
+  if (busy) return;
+  busy = true;
+  render();
+  try {
+    toast((await api("/api/edition", {})).message, false);
+  } catch (e) {
+    toast(e.message, true);
+  }
+  busy = false;
+  render();
+}
+
 function langActions(l, position) {
+  if (l.needsEdition)
+    return [
+      h(
+        "button",
+        {
+          class: "btn primary",
+          "data-f": "lang-" + l.id,
+          disabled: busy,
+          onclick: switchEdition,
+        },
+        "일본어 포함판 설치" + (l.size ? " · " + mb(l.size) : ""),
+      ),
+    ];
   const on = position != null,
     working = pending === "lang-" + l.id;
   const toggle = (label, body, text, cls) =>
@@ -152,13 +179,15 @@ const undoOf = (body) => ({
 function langRow(l, position) {
   const on = position != null,
     working = pending === "lang-" + l.id;
-  const status = on
-    ? l.installed
-      ? "켜짐 · " + l.version
-      : "팩이 없습니다"
-    : l.installed
-      ? "받아 둠 · " + l.version
-      : "받을 수 있음";
+  const status = l.needsEdition
+    ? "일본어 포함판으로 바꿔 설치합니다 (설치 창이 열리고, 관리자 확인이 한 번 뜹니다)"
+    : on
+      ? l.installed
+        ? "켜짐 · " + l.version
+        : "팩이 없습니다"
+      : l.installed
+        ? "받아 둠 · " + l.version
+        : "받을 수 있음";
   const needs = l.requiredBy.length
     ? " · " + l.requiredBy.join(", ") + " 언어가 이 데이터를 함께 씁니다"
     : "";

@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn optional_language_assets_follow_the_build() {
-        for (page, sample) in [(page(), "일본어"), (welcome_page(), "にほんご")] {
+        for (page, sample) in [(page(), "liveConversion"), (welcome_page(), "にほんご")] {
             assert_eq!(page.contains(sample), cfg!(feature = "japanese"));
             assert!(!page.contains("language:ja") && !page.contains("language:/ja"));
         }
@@ -81,9 +81,7 @@ mod tests {
             "liveConversion",
             "fullWidthDigits",
             "fullWidthSpace",
-            "あ",
             ".l-ja",
-            ".g-ja",
         ] {
             assert!(
                 !page().contains(token),

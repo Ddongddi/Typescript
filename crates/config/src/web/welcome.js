@@ -58,7 +58,7 @@ const COMBOS = {
   ],
 };
 const SLOT_EVERY = 1600; // ms between flips of the slot machine: steady and slow
-const LIST_ORDER = ["en", "ko" /*language:ja*/, "ja" /*language:/ja*/]; // the order they are offered in, and the Esc order they get
+const LIST_ORDER = ["en", "ko", "ja"]; // the order they are offered in, and the Esc order they get
 const DEFAULT_ON = ["en", "ko"];
 const INTRO_SEGMENTS = 5; // hello/type, "needed?", trial, shortcut, languages
 
@@ -369,19 +369,19 @@ async function chooseLanguages() {
         box,
         h("span", { class: "tick", "aria-hidden": "true" }),
         h("span", { class: "name" }, l.name),
-        h("small", {}, l.installed ? "받아 둠" : mb(l.size)),
+        h(
+          "small",
+          {},
+          l.needsEdition ? "일본어 포함판 설치" : l.installed ? "받아 둠" : mb(l.size),
+        ),
       ),
     );
   });
-  start.addEventListener("click", () =>
-    install(
-      LIST_ORDER.filter((id) => picked.has(id)),
-      langs,
-      [start],
-      hint,
-      steps,
-    ),
-  );
+  start.addEventListener("click", () => {
+    const ids = LIST_ORDER.filter((id) => picked.has(id));
+    if (ids.some((id) => langs.find((l) => l.id === id).needsEdition)) switchEdition(start, hint);
+    else install(ids, langs, [start], hint, steps);
+  });
   show(
     "Tacit",
     h("p", { class: "caption" }, "쓸 언어를 고르세요"),
@@ -391,6 +391,22 @@ async function chooseLanguages() {
   );
   sync();
   start.focus();
+}
+
+// This build has no Japanese: it comes with the other edition, whose installer sets up English,
+// Korean and Japanese together (elevated, in its own window).
+async function switchEdition(start, hint) {
+  start.disabled = true;
+  hint.textContent = "";
+  try {
+    const r = await api("/api/edition", {});
+    start.textContent = "설치 창을 확인하세요";
+    hint.textContent = r.message + " 끝나면 시작 메뉴의 Tacit 설정으로 다시 여세요.";
+  } catch (e) {
+    hint.textContent = e.message;
+    start.textContent = "다시 시도";
+    start.disabled = false;
+  }
 }
 
 // Gets the languages one after the other and turns them on in `ids` order; then `after` (steps

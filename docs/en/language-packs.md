@@ -21,7 +21,7 @@ cargo build --release -p tacit-tip -p tacit-config
 cargo build --release -p tacit-tip -p tacit-config --features tacit-tip/japanese,tacit-config/japanese
 ```
 
-Packages are `tacit-<os>.zip` and `tacit-<os>-ja.zip`. Their `edition` marker and the updater's compiled configuration preserve the edition across updates. Windows `-Languages en,ko,ja` / `-Japanese` and Unix `--languages en,ko,ja` select the Japanese-enabled edition. Adding an unsupported language through the dashboard is rejected before downloading; switch editions through the installer.
+Packages are `tacit-<os>.zip` and `tacit-<os>-ja.zip`. Their `edition` marker and the updater's compiled configuration preserve the edition across updates. Windows `-Languages en,ko,ja` / `-Japanese` and Unix `--languages en,ko,ja` select the Japanese-enabled edition. The English/Korean edition still lists Japanese in the first-run page and the dashboard Languages tab; choosing it starts the release's Japanese-edition installer (Windows, one elevation prompt). There is no way for that edition to fetch only the Japanese pack (`/api/languages` rejects an unsupported language before downloading). On macOS and Linux install `tacit-<os>-ja.zip` directly.
 
 For another optional language, gate its core implementation and registry entry with one feature and forward it through adapters and config. Add its UI feature mapping in `crates/config/build.rs`; wrap dedicated assets in `/*language:<id>*/…/*language:/<id>*/` (HTML uses equivalent HTML comments). These blocks are removed before compilation. Add only the combination rules that are actually needed through `ComboRule`.
 

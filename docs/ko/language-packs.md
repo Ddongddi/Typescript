@@ -23,7 +23,7 @@ cargo build --release -p tacit-tip -p tacit-config
 cargo build --release -p tacit-tip -p tacit-config --features tacit-tip/japanese,tacit-config/japanese
 ```
 
-배포 파일은 기본 `tacit-<os>.zip`과 일본어 포함 `tacit-<os>-ja.zip`으로 구분합니다. 패키지의 `edition` 파일 및 업데이트 프로그램의 빌드 구성이 다음 설치에서도 구성을 보존합니다. Windows `-Languages en,ko,ja` / `-Japanese`, Unix `--languages en,ko,ja`는 일본어 포함판을 선택합니다. 미지원 언어를 대시보드에서 추가하면 다운로드 전에 거절하므로, 다른 언어 구성을 쓰려면 설치 프로그램으로 구성을 전환해야 합니다.
+배포 파일은 기본 `tacit-<os>.zip`과 일본어 포함 `tacit-<os>-ja.zip`으로 구분합니다. 패키지의 `edition` 파일 및 업데이트 프로그램의 빌드 구성이 다음 설치에서도 구성을 보존합니다. Windows `-Languages en,ko,ja` / `-Japanese`, Unix `--languages en,ko,ja`는 일본어 포함판을 선택합니다. 영·한판의 첫 안내와 대시보드 언어 탭에도 일본어가 나오며, 누르면 해당 릴리스의 일본어 포함판 설치 프로그램을 실행합니다(Windows; 관리자 확인 1회). 영·한판이 직접 일본어 팩만 받는 길은 없습니다(`/api/languages`는 미지원 언어를 다운로드 전에 거절). macOS·Linux는 `tacit-<os>-ja.zip`을 직접 설치합니다.
 
 새 선택 언어는 코어 feature와 레지스트리 항목을 같은 조건으로 묶고, 어댑터·설정 프로그램 feature를 전달합니다. 전용 UI는 `crates/config/build.rs`의 언어 목록과 `/*language:<id>*/…/*language:/<id>*/`(HTML은 같은 형태의 HTML 주석) 블록을 사용합니다. 자산은 컴파일 전에 제거하므로 숨겨진 일본어 컨트롤을 한·영판에 실어 보내지 않습니다. 필요한 언어 조합 규칙만 `ComboRule`에 추가합니다.
 

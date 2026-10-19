@@ -326,7 +326,7 @@ impl App {
             (
                 "POST",
                 "/api/languages" | "/api/settings" | "/api/apps" | "/api/update" | "/api/try"
-                | "/api/play" | "/api/learning" | "/api/uninstall",
+                | "/api/play" | "/api/learning" | "/api/uninstall" | "/api/edition",
             ) => self.post(path, req),
             (
                 _,
@@ -336,7 +336,7 @@ impl App {
             | (
                 _,
                 "/api/languages" | "/api/settings" | "/api/update" | "/api/try" | "/api/play"
-                | "/api/learning" | "/api/uninstall",
+                | "/api/learning" | "/api/uninstall" | "/api/edition",
             ) => fail(405, "method not allowed"),
             _ => fail(404, "not found"),
         };
@@ -380,6 +380,12 @@ impl App {
         }
         if path == "/api/uninstall" {
             return self.uninstall(&body);
+        }
+        if path == "/api/edition" {
+            return match self.install_japanese_edition() {
+                Ok(message) => json_response(200, &json!({ "message": message })),
+                Err(message) => fail(502, &message),
+            };
         }
         let slow_job = path == "/api/update" || path == "/api/languages";
         let _slow = if slow_job {
@@ -637,6 +643,18 @@ impl App {
         .map_err(|e| e.to_string())
     }
 
+    /// An English/Korean build has no Japanese code, so Japanese comes with the other edition:
+    /// the release's installer is started for it (elevated, in its own window).
+    fn install_japanese_edition(&self) -> Result<String, String> {
+        if cfg!(feature = "japanese") {
+            return Err("this build already includes Japanese".into());
+        }
+        let tag = format!("v{}", crate::catalog::CORE_VERSION);
+        let launch = self.updates.launch.as_ref();
+        launch(&update::Installer::Japanese(tag)).map_err(|e| e.to_string())?;
+        Ok("일본어 포함판 설치 창을 열었습니다. 창의 안내를 따라 주세요.".into())
+    }
+
     fn change_languages(&self, body: &Value) -> Result<(), String> {
         let id = body["id"].as_str().unwrap_or("");
         match body["action"].as_str() {
@@ -693,6 +711,9 @@ impl App {
         if let Ok(c) = &catalog {
             ids.extend(c.packs.iter().map(|p| p.id.clone()));
         }
+        if !cfg!(feature = "japanese") {
+            ids.push("ja".into()); // offered even without a catalog: it comes with the other edition
+        }
         ids.sort();
         ids.dedup();
         let mut rows = Vec::new();
@@ -700,7 +721,9 @@ impl App {
             let Some(language) = Language::from_id(&id) else {
                 continue;
             };
-            if !language.supported() {
+            // Japanese is offered by an English/Korean build too: it comes with the other edition.
+            let needs_edition = !language.supported();
+            if needs_edition && id != "ja" {
                 continue;
             }
             let have = installed.packs.iter().find(|f| f.manifest.id == id);
@@ -708,12 +731,14 @@ impl App {
             rows.push(json!({
                 "id": id,
                 "name": have.map(|f| f.manifest.name.clone())
-                    .or_else(|| listed.map(|p| p.name.clone())).unwrap_or_default(),
+                    .or_else(|| listed.map(|p| p.name.clone()))
+                    .unwrap_or_else(|| if id == "ja" { "일본어".into() } else { String::new() }),
                 "installed": have.is_some(),
                 "version": have.map(|f| f.manifest.version.clone())
                     .or_else(|| listed.map(|p| p.version.clone())),
                 "size": listed.map_or(0, |p| p.size),
                 "on": on.contains(language),
+                "needsEdition": needs_edition,
                 "requiredBy": crate::install::required_by(&self.env, &id),
             }));
         }
@@ -799,15 +824,44 @@ mod tests {
 
     #[cfg(not(feature = "japanese"))]
     #[test]
-    fn uncompiled_languages_are_absent_and_cannot_be_installed_or_configured() {
+    fn the_japanese_edition_is_installed_through_the_releases_installer() {
+        use std::sync::{Arc, Mutex};
+        let f = fixture("app-japanese-edition");
+        let started = Arc::new(Mutex::new(None));
+        let seen = started.clone();
+        let updates = Updates {
+            api: Box::new(crate::fetch::Dir(f.root.join("nowhere"))),
+            url: "https://api.test/latest".into(),
+            launch: Box::new(move |what| {
+                *seen.lock().unwrap() = Some(what.clone());
+                Ok(())
+            }),
+        };
+        let app = app(&f).with_updates(updates);
+        let r = app.handle(&req("POST", "/api/edition", Some(json!({}))));
+        assert_eq!(r.status, 200);
+        let tag = format!("v{}", crate::catalog::CORE_VERSION);
+        assert_eq!(
+            *started.lock().unwrap(),
+            Some(crate::update::Installer::Japanese(tag))
+        );
+        assert_eq!(app.handle(&req("GET", "/api/edition", None)).status, 405);
+    }
+
+    #[cfg(not(feature = "japanese"))]
+    #[test]
+    fn uncompiled_languages_are_offered_through_their_edition_not_installed_or_configured() {
         let f = fixture("app-language-isolation");
         let app = app(&f);
         let state = json_of(&app.handle(&req("GET", "/api/state", None)));
-        assert!(state["languages"]
+        let ja = state["languages"]
             .as_array()
             .unwrap()
             .iter()
-            .all(|l| l["id"] != "ja"));
+            .find(|l| l["id"] == "ja")
+            .expect("Japanese is listed");
+        assert_eq!(ja["needsEdition"], true);
+        assert_eq!(ja["on"], false);
         for key in ["liveConversion", "fullWidthDigits", "fullWidthSpace"] {
             assert!(state["settings"].get(key).is_none());
         }
