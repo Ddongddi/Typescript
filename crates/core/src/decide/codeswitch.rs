@@ -718,6 +718,13 @@ impl CodeSwitch {
         self.params.margin
     }
 
+    /// Lab candidate generation without the production search skip gate.
+    #[cfg(feature = "tuning")]
+    pub fn without_skip(mut self) -> Self {
+        self.full_search = true;
+        self
+    }
+
     /// A Mixed decision when the best path has both languages and beats every single-language
     /// reading by `margin`; None leaves the token to the engine behind.
     pub fn decide(&self, keys: &str, context: &DecisionContext) -> Option<Decision> {

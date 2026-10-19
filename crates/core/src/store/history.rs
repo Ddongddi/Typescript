@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::decide::engine::Language;
 use crate::lang::english::EnglishModel;
-use crate::lang::korean::{continues, KoreanModel};
+use crate::lang::korean::KoreanModel;
 use crate::support_dir;
 
 /// A word has to be typed this often before it is suggested: a one-off (a password typed
@@ -164,14 +164,36 @@ impl History {
     /// and more often than `prefix` itself).
     pub fn suggest(&self, prefix: &str) -> Option<String> {
         let s = self.lock();
+        if s.store.words.is_empty() {
+            return None;
+        }
         let own = s.store.words.get(prefix).copied().unwrap_or(0);
-        let head = &prefix[..prefix.len() - prefix.chars().next_back()?.len_utf8()];
-        let (word, count) = s
+        let last = prefix.chars().next_back()?;
+        let head = &prefix[..prefix.len() - last.len_utf8()];
+        // Exact letters first, then the syllables an unfinished Hangul character can become.
+        let syllables = crate::lang::hangul::cho_index(last)
+            .map(|initial| ('가' as u32 + initial as u32 * 588, 588))
+            .or_else(|| {
+                (('가'..='힣').contains(&last) && (last as u32 - '가' as u32) % 28 == 0)
+                    .then_some((last as u32 + 1, 27))
+            })
+            .map(|(start, count)| {
+                let start_char = char::from_u32(start).unwrap();
+                let end_char = char::from_u32(start + count).unwrap();
+                (format!("{head}{start_char}"), format!("{head}{end_char}"))
+            });
+        let exact = s
             .store
             .words
-            .range(head.to_string()..)
-            .take_while(|(w, _)| w.starts_with(head))
-            .filter(|(w, _)| w.as_str() != prefix && continues(prefix, w))
+            .range(prefix.to_string()..)
+            .take_while(|(w, _)| w.starts_with(prefix));
+        let (word, count) = exact
+            .chain(
+                syllables
+                    .into_iter()
+                    .flat_map(|(lo, hi)| s.store.words.range(lo..hi)),
+            )
+            .filter(|(w, _)| w.as_str() != prefix)
             .max_by_key(|(w, n)| (**n, std::cmp::Reverse(w.len())))?;
         (*count >= MIN_COUNT && *count > own).then(|| word.clone())
     }
@@ -194,6 +216,59 @@ pub fn suggest(history: Option<&History>, language: Language, prefix: &str) -> O
 
 #[cfg(test)]
 mod tests {
+    use crate::lang::korean::continues;
+
+    #[test]
+    fn bounded_completion_matches_the_full_scan_including_ties_and_partial_hangul() {
+        let history = History::new(None);
+        {
+            let mut state = history.lock();
+            for c in '가'..='힣' {
+                state.store.words.insert(format!("{c}가"), 2 + c as u32 % 7);
+            }
+            for word in [
+                "program",
+                "project",
+                "pro",
+                "ㄱ가",
+                "안녕하세요",
+                "안녕하셔요",
+                "힣힣",
+            ] {
+                state.store.words.insert(word.to_string(), 4);
+            }
+        }
+        let prefixes = ["p", "pro", "", "각", "힣", "안녀", "안녕ㅎ", "z"]
+            .into_iter()
+            .map(String::from)
+            .chain(
+                "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
+                    .chars()
+                    .map(|c| c.to_string()),
+            )
+            .chain(('가'..='힣').step_by(28).map(|c| c.to_string()));
+        for prefix in prefixes {
+            let expected = {
+                let state = history.lock();
+                let own = state.store.words.get(&prefix).copied().unwrap_or(0);
+                state
+                    .store
+                    .words
+                    .iter()
+                    .filter(|(word, _)| word.as_str() != prefix && continues(&prefix, word))
+                    .max_by_key(|(word, count)| (**count, std::cmp::Reverse(word.len())))
+                    .filter(|(_, count)| **count >= MIN_COUNT && **count > own)
+                    .map(|(word, _)| word.clone())
+            };
+            // Empty input has always meant no suggestion in History::suggest.
+            assert_eq!(
+                history.suggest(&prefix),
+                if prefix.is_empty() { None } else { expected },
+                "{prefix}"
+            );
+        }
+    }
+
     use std::fs;
 
     #[test]

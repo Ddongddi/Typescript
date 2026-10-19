@@ -13,11 +13,11 @@ pub struct Model {
     weights: Vec<f64>,
 }
 
-struct Sample {
-    keys: String,
-    expected: String,
-    labels: Vec<usize>,
-    previous: Option<Language>,
+pub(super) struct Sample {
+    pub keys: String,
+    pub expected: String,
+    pub labels: Vec<usize>,
+    pub previous: Option<Language>,
     features: Vec<Vec<usize>>,
 }
 
@@ -75,7 +75,7 @@ fn features(keys: &[u8], previous: Option<Language>) -> Vec<Vec<usize>> {
         .collect()
 }
 
-fn render(keys: &str, tags: &[usize]) -> String {
+pub(super) fn render(keys: &str, tags: &[usize]) -> String {
     let mut out = String::new();
     let mut start = 0;
     while start < keys.len() {
@@ -291,7 +291,7 @@ impl DecisionEngine for Engine {
     }
 }
 
-fn sample(text: &str, previous: Option<Language>) -> Option<Sample> {
+pub(super) fn sample(text: &str, previous: Option<Language>) -> Option<Sample> {
     let mut keys = String::new();
     let mut labels = Vec::new();
     for c in text.chars() {
@@ -300,7 +300,7 @@ fn sample(text: &str, previous: Option<Language>) -> Option<Sample> {
         } else if ('가'..='힣').contains(&c) {
             (crate::keys_of(&c.to_string()), 1)
         } else if ('ㄱ'..='ㅣ').contains(&c) {
-            let k = ('A'..='z').find(|k| DubeolsikLayout::jamo(*k) == Some(c))?;
+            let k = crate::key_of_jamo(c)?;
             (k.to_string(), 1)
         } else {
             return None;
@@ -321,7 +321,7 @@ fn sample(text: &str, previous: Option<Language>) -> Option<Sample> {
     })
 }
 
-fn mixed_text(a: &Sample, b: &Sample, index: usize, augment: bool) -> String {
+pub(super) fn mixed_text(a: &Sample, b: &Sample, index: usize, augment: bool) -> String {
     if !augment {
         return a.expected.clone() + &b.expected;
     }
@@ -498,6 +498,19 @@ pub fn fit(path: &Path, augment: bool) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn standalone_jamo_uses_the_same_physical_keys_as_the_regular_lab() {
+        for text in [
+            "ㅋㅋ", "ㅇㅇ", "ㅠㅠ", "ㄴㄴ", "ㅎㅎ", "ㅁㅊ", "ㄲ", "ㅒ", "ㅖ",
+        ] {
+            let sample = sample(text, None).unwrap();
+            assert_eq!(sample.keys, crate::keys_of_text(text));
+            assert_eq!(render(&sample.keys, &sample.labels), text);
+        }
+        assert_eq!(sample("ㅋㅋ", None).unwrap().keys, "zz");
+        assert_eq!(sample("ㄲ", None).unwrap().keys, "R");
+        assert!(sample("ㄳ", None).is_none());
+    }
     #[test]
     fn span_augmentation_uses_unicode_boundaries_and_remains_typeable() {
         let en = sample("hello", None).unwrap();

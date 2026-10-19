@@ -16,7 +16,10 @@ mod audit;
 mod corpus;
 mod japanese;
 mod learned;
+mod ranker;
 mod scenario;
+mod session_perf;
+mod switching;
 mod tune;
 
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -34,6 +37,38 @@ fn make_engine(
     path: Option<PathBuf>,
     languages: &Languages,
 ) -> std::sync::Arc<tacit_core::LearningEngine> {
+    let preview_only = std::env::var_os("LAB_ENKO_RANKER_PREVIEW_ONLY").is_some();
+    assert!(
+        !preview_only || std::env::var_os("LAB_ENKO_RANKER").is_some(),
+        "preview-only mode needs LAB_ENKO_RANKER"
+    );
+    static RANKER: std::sync::OnceLock<Option<std::sync::Arc<ranker::Model>>> =
+        std::sync::OnceLock::new();
+    let ranker = RANKER.get_or_init(|| {
+        std::env::var_os("LAB_ENKO_RANKER").map(|p| {
+            std::sync::Arc::new(
+                ranker::Model::load(std::path::Path::new(&p))
+                    .unwrap_or_else(|e| panic!("enko ranker: {e}")),
+            )
+        })
+    });
+    if let Some(model) = ranker {
+        assert!(
+            languages == &Languages::legacy(false),
+            "the experimental ranker requires enko"
+        );
+        assert!(
+            std::env::var_os("LAB_ENKO_MODEL").is_none(),
+            "choose either ranker or CRF"
+        );
+        return std::sync::Arc::new(
+            tacit_core::LearningEngine::new(
+                Box::new(ranker::Engine::new(model.clone(), preview_only)),
+                path,
+            )
+            .with_languages(languages.clone()),
+        );
+    }
     static MODEL: std::sync::OnceLock<Option<std::sync::Arc<learned::Model>>> =
         std::sync::OnceLock::new();
     let model = MODEL.get_or_init(|| {
@@ -88,12 +123,16 @@ const LAB_VERSION: &str = env!("CARGO_PKG_VERSION");
 struct Counting;
 static HEAP: AtomicUsize = AtomicUsize::new(0);
 static PEAK: AtomicUsize = AtomicUsize::new(0);
+static ALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
+static ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
 
 // SAFETY: forwards every call to the system allocator unchanged and only counts sizes.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let p = System.alloc(layout);
         if !p.is_null() {
+            ALLOCATIONS.fetch_add(1, Relaxed);
+            ALLOCATED_BYTES.fetch_add(layout.size(), Relaxed);
             let now = HEAP.fetch_add(layout.size(), Relaxed) + layout.size();
             PEAK.fetch_max(now, Relaxed);
         }
@@ -142,11 +181,13 @@ const JONG: [&str; 28] = [
 ];
 
 fn key_of(jamo: char) -> char {
-    ('A'..='z')
-        .find(|k| {
-            DubeolsikLayout::jamo(*k) == Some(jamo) && (k.is_lowercase() || "QWERTOP".contains(*k))
-        })
-        .expect("every jamo has a key")
+    key_of_jamo(jamo).expect("every jamo has a key")
+}
+
+fn key_of_jamo(jamo: char) -> Option<char> {
+    ('A'..='z').find(|k| {
+        DubeolsikLayout::jamo(*k) == Some(jamo) && (k.is_lowercase() || "QWERTOP".contains(*k))
+    })
 }
 
 /// The keys that type `hangul` (syllables only) on a 2-set layout; same as core's tests/common.
@@ -394,9 +435,32 @@ fn main() {
     });
     if std::env::var_os("LAB_ENKO_FULL_SEARCH").is_some() {
         assert!(
-            profile == "enko" && std::env::var_os("LAB_ENKO_MODEL").is_none(),
+            profile == "enko"
+                && std::env::var_os("LAB_ENKO_MODEL").is_none()
+                && std::env::var_os("LAB_ENKO_RANKER").is_none(),
             "full-search ablation requires the default enko engine"
         );
+    }
+    if let Some(i) = args.iter().position(|a| a == "--fit-ranker") {
+        assert!(
+            profile == "enko"
+                && std::env::var_os("LAB_ENKO_RANKER").is_none()
+                && std::env::var_os("LAB_ENKO_MODEL").is_none()
+                && std::env::var_os("LAB_ENKO_FULL_SEARCH").is_none(),
+            "training requires the default enko engine"
+        );
+        let path = args.get(i + 1).expect("--fit-ranker needs an output path");
+        ranker::fit(
+            std::path::Path::new(path),
+            args.iter().any(|a| a == "--prefix-training"),
+            args.iter().any(|a| a == "--context-augmentation"),
+            args.iter().any(|a| a == "--separate-heads"),
+            args.iter().position(|a| a == "--mixed-training").map(|i| {
+                std::path::Path::new(args.get(i + 1).expect("--mixed-training needs a text file"))
+            }),
+        )
+        .unwrap_or_else(|e| panic!("fit ranker: {e}"));
+        return;
     }
     if let Some(i) = args.iter().position(|a| a == "--fit-enko") {
         let path = args.get(i + 1).expect("--fit-enko needs an output path");
@@ -409,6 +473,10 @@ fn main() {
     }
     let japanese_enabled = profile == "enkoja";
     let languages = Languages::legacy(japanese_enabled);
+    if args.iter().any(|a| a == "--session") {
+        session_perf::run(&languages);
+        return;
+    }
     if args.iter().any(|a| a == "--tune" || a == "--audit-tune") {
         tune::run();
         return;
@@ -575,6 +643,10 @@ fn main() {
         return;
     }
     let save = args.iter().any(|a| a == "--save");
+    assert!(
+        !save || std::env::var_os("LAB_ENKO_RANKER").is_none(),
+        "experimental rankers cannot overwrite production baselines"
+    );
     // `--fold K/N`: the big sets keep only the lines whose number is K modulo N, so what a choice
     // is made on (one fold) and what it is checked on (another) share no sentence.
     let fold: Option<(usize, usize)> = args
@@ -589,9 +661,28 @@ fn main() {
         .and_then(|i| args.get(i + 1)?.parse().ok())
         .unwrap_or(DEFAULT_MISSES);
 
+    if args.iter().any(|a| a == "--switching") {
+        assert!(profile == "enko", "switch replay currently requires enko");
+        let sample = args
+            .iter()
+            .position(|a| a == "--corpus")
+            .and_then(|i| args.get(i + 1)?.parse().ok())
+            .unwrap_or(300);
+        let input = args.iter().position(|a| a == "--switching-input").map(|i| {
+            PathBuf::from(
+                args.get(i + 1)
+                    .expect("--switching-input needs a text file"),
+            )
+        });
+        switching::run(make_engine(None, &languages), sample, fold, shown, input);
+        return;
+    }
+
     if args.iter().any(|a| a == "--audit-enko") {
         assert!(
-            profile == "enko" && std::env::var_os("LAB_ENKO_MODEL").is_none(),
+            profile == "enko"
+                && std::env::var_os("LAB_ENKO_MODEL").is_none()
+                && std::env::var_os("LAB_ENKO_RANKER").is_none(),
             "candidate audit requires the default enko engine"
         );
         let sample = args
@@ -645,6 +736,7 @@ fn main() {
         }
     }
     let (mut commit, mut keystroke) = (Vec::new(), Vec::new());
+    let (mut commit_alloc, mut key_alloc) = ((0usize, 0usize), (0usize, 0usize));
     let mut slowest: Vec<(Duration, String)> = Vec::new();
     let track_slowest = args.iter().any(|a| a == "--slow");
     let mut by_len: std::collections::BTreeMap<usize, Vec<Duration>> = Default::default();
@@ -657,9 +749,12 @@ fn main() {
         // Every prefix, as the live preview sees it while typing.
         let mut flipped = false;
         for (end, _) in c.keys.char_indices().skip(1) {
+            let before = (ALLOCATIONS.load(Relaxed), ALLOCATED_BYTES.load(Relaxed));
             let t = Instant::now();
             let preview = engine.decide(&c.keys[..end], &context(c.previous, true));
             let spent = t.elapsed();
+            key_alloc.0 += ALLOCATIONS.load(Relaxed) - before.0;
+            key_alloc.1 += ALLOCATED_BYTES.load(Relaxed) - before.1;
             // The first key is a jamo by design (ㅈ for w); count flips from the second on.
             flipped |= end >= 2 && preview.language != Language::English;
             keystroke.push(spent);
@@ -668,9 +763,13 @@ fn main() {
                 slowest.push((spent, c.keys[..end].to_string()));
             }
         }
+        let before = (ALLOCATIONS.load(Relaxed), ALLOCATED_BYTES.load(Relaxed));
         let t = Instant::now();
         let d = engine.decide(&c.keys, &context(c.previous, false));
-        commit.push(t.elapsed());
+        let spent = t.elapsed();
+        commit_alloc.0 += ALLOCATIONS.load(Relaxed) - before.0;
+        commit_alloc.1 += ALLOCATED_BYTES.load(Relaxed) - before.1;
+        commit.push(spent);
         if c.bucket.starts_with("en.") || c.bucket.starts_with("ko.") {
             let last = engine.decide(&c.keys, &context(c.previous, true));
             let tally = mismatch.entry(&c.bucket).or_default();
@@ -713,6 +812,19 @@ fn main() {
                 micros(spent[spent.len() * 99 / 100])
             );
         }
+    }
+    for (name, (calls, bytes), count) in [
+        ("commit", commit_alloc, commit.len()),
+        ("keystroke", key_alloc, keystroke.len()),
+    ] {
+        metrics.insert(
+            format!("alloc.{name}.calls"),
+            calls as f64 / count.max(1) as f64,
+        );
+        metrics.insert(
+            format!("alloc.{name}.bytes"),
+            bytes as f64 / count.max(1) as f64,
+        );
     }
     latency(&mut metrics, "commit", commit);
     latency(&mut metrics, "keystroke", keystroke);

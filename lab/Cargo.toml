@@ -3,7 +3,7 @@
 #   cargo run --release --manifest-path lab/Cargo.toml
 [package]
 name = "tacit-lab"
-version = "0.2.4"
+version = "0.2.11"
 edition = "2021"
 license = "AGPL-3.0-only"
 publish = false

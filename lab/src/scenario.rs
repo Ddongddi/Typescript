@@ -12,7 +12,7 @@ use tacit_core::{DecisionEngine, TextConverter};
 use crate::corpus::{token_hits, Report};
 use crate::keys_of_text;
 
-const TYPES: [(&str, &str); 3] = [
+pub(super) const TYPES: [(&str, &str); 3] = [
     ("chat", include_str!("../scenarios/chat.tsv")),
     ("dev", include_str!("../scenarios/dev.tsv")),
     ("writing", include_str!("../scenarios/writing.tsv")),
@@ -54,7 +54,7 @@ impl Tally {
     }
 }
 
-fn items(text: &str) -> Vec<(&str, &str)> {
+pub(super) fn items(text: &str) -> Vec<(&str, &str)> {
     text.lines()
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .map(|l| {

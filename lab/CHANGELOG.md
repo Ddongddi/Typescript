@@ -6,6 +6,75 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.2.11]
+
+### Added
+
+- Allocator requests and requested bytes per commit/prefix decision, measured outside
+  the reporting code. Requested bytes include temporary allocations, not resident memory.
+  Compare timing with the same instrumented lab build.
+
+## [0.2.10]
+
+### Changed
+
+- Prefix ranker training visits all key prefixes, matching key-weighted replay,
+  instead of sampling one shortened prefix. Key-group separation is preserved.
+
+## [0.2.9]
+
+### Fixed
+
+- Prefix ranker training now includes fully spelled tokens with `partial=true`,
+  matching the session state before a delimiter. Older frozen models are unchanged.
+
+## [0.2.8]
+
+### Added
+
+- Frozen mixed-script documentation corpus with source URLs, raw HTML hashes,
+  document-separated train/dev and a separate provider reserved for final evaluation.
+- `--mixed-training PATH` adds a training-only text source; `--switching-input PATH`
+  replays a specified corpus without altering the existing lab evaluation sets.
+
+## [0.2.7]
+
+### Fixed
+
+- Standalone jamo in learned samples and switching replay now use the regular
+  lab's canonical physical keys (`ㅋㅋ` → `zz`, not `ZZ`). Earlier replay
+  metrics on inputs containing standalone jamo are superseded.
+
+### Added
+
+- Switching replay separates decision errors from presentation mismatches and
+  split/stale traces, with bounded diagnostics controlled by `--misses`.
+- `--separate-heads` trains independent open/closed token ranker weights; the
+  second model header distinguishes the 144-weight model from the 72-weight one.
+
+## [0.2.6]
+
+### Added
+
+- Lab-only common candidate ranker (`--fit-ranker`, `LAB_ENKO_RANKER`), with
+  optional prefix and counterfactual-context training. Candidate coverage is
+  reported separately; gold candidates are never injected into inference.
+- `LAB_ENKO_RANKER_PREVIEW_ONLY` compares the same learned model for open
+  tokens with the original engine for closed tokens; it is also lab-only.
+- `--switching` replays real InputSession key events without completion or
+  look-ahead, reporting preview errors, language changes, committed sentence
+  accuracy and handle latency. This is FakeTextField replay, not OS UI latency.
+- Existing production selection and existing evaluation sets are unchanged.
+
+## [0.2.5]
+
+### Added
+
+- `--session` measures history lookup and session preview plus completion with
+  0, 1,000 and 20,000 synthetic history entries. It does not commit words or write
+  learning data, and uses NoopClient rather than measuring OS rendering.
+- Existing decision, corpus, scenario and Japanese evaluation metrics are unchanged.
+
 ## [0.2.4]
 
 ### Added

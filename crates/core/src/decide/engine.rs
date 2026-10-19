@@ -1,11 +1,12 @@
 //! Language decision (DecisionEngine.swift, with the Japanese model this port adds).
 
 use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 
 #[cfg(feature = "japanese")]
 use crate::decide::segmenter::{JapaneseSegmenter, Segment};
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
-use crate::lang::hangul::{DubeolsikLayout, HangulComposer};
+use crate::lang::hangul::{DubeolsikLayout, HangulComposer, Unit};
 #[cfg(feature = "japanese")]
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::korean::{KoreanModel, KoreanScore};
@@ -322,27 +323,37 @@ impl HeuristicEngine {
         after_korean: bool,
     ) -> (Option<KoreanScore>, bool) {
         let mut k = self.korean.score(keys, partial);
+        let syllables = k.as_ref().map_or(0, |s| {
+            s.composition
+                .units
+                .iter()
+                .filter(|unit| matches!(unit, Unit::Syllable(_)))
+                .count()
+        });
         let known = k.as_ref().is_some_and(|s| {
-            s.composition.stray_jamo().is_empty()
-                && (self
-                    .korean
-                    .is_known_word_or_inflected(&s.composition.text())
-                    // Wider vocabulary counts too, unless the keys are everyday English
-                    // (a rare word like ahem may well be 모드).
-                    || (s.composition.syllables().len() >= 2
-                        && self.english.level(keys).is_none_or(|l| l > EXTRA_LEVEL)
-                        && self.korean.is_vocabulary_word(&s.composition.text())))
+            if s.composition
+                .units
+                .iter()
+                .any(|u| matches!(u, Unit::Jamo(_)))
+            {
+                return false;
+            }
+            let word = s.composition.text();
+            self.korean.is_known_word_or_inflected(&word)
+                // Wider vocabulary counts too, unless the keys are everyday English
+                // (a rare word like ahem may well be 모드).
+                || (syllables >= 2
+                    && self.english.level(keys).is_none_or(|l| l > EXTRA_LEVEL)
+                    && self.korean.is_vocabulary_word(&word))
         });
         // While it is still being typed, one syllable out of English or nowhere is the start of
         // anything (wo of world, as 재 and 잭 are words): it is no word yet, and lifts neither
         // its score nor the Korean side of the context. After Korean it is a word more often
         // than not (해, 내, 새), so it keeps both.
-        let lone = k
-            .as_ref()
-            .is_some_and(|s| s.composition.syllables().len() < 2);
+        let lone = k.is_some() && syllables < 2;
         let known = known && !(partial && lone && !after_korean);
         if let (Some(score), true) = (k.as_mut(), known) {
-            let floor = if score.composition.syllables().len() >= 2 {
+            let floor = if syllables >= 2 {
                 self.korean_known_floor_long
             } else {
                 self.korean_known_floor_short
@@ -438,20 +449,21 @@ impl DecisionEngine for HeuristicEngine {
             )
         });
 
-        let mut scores: Vec<(Language, f64)> = Vec::new();
-        if self.english_on {
-            scores.push((Language::English, e));
-        }
+        let mut score_storage = [(Language::English, e); 3];
+        let mut score_len = usize::from(self.english_on);
         if let Some(k) = &k {
-            scores.push((
+            score_storage[score_len] = (
                 Language::Korean,
                 k.average_log_probability + self.korean_offset,
-            ));
+            );
+            score_len += 1;
         }
         #[cfg(feature = "japanese")]
         if let Some(japanese_score) = japanese_score {
-            scores.push((Language::Japanese, japanese_score + self.japanese_offset));
+            score_storage[score_len] = (Language::Japanese, japanese_score + self.japanese_offset);
+            score_len += 1;
         }
+        let scores = &mut score_storage[..score_len];
         if let Some(previous) = context.previous_language.map(Language::sentence_language) {
             if let Some(i) = scores.iter().position(|s| s.0 == previous) {
                 let mut bias = match previous {
@@ -531,21 +543,63 @@ impl DecisionEngine for HeuristicEngine {
                 .unwrap_or_else(|| keys.to_string()),
             _ => keys.to_string(),
         };
-        let detail: Vec<String> = scores
-            .iter()
-            .map(|(l, s)| format!("{}={:.2}", &l.name()[..2], s))
-            .collect();
+        let mut explanation = String::new();
+        for (i, (language, score)) in scores.iter().enumerate() {
+            if i != 0 {
+                explanation.push(' ');
+            }
+            write!(explanation, "{}={:.2}", &language.name()[..2], score).unwrap();
+        }
+        write!(
+            explanation,
+            "{} margin={:+.2}",
+            if known { " (dict)" } else { "" },
+            margin
+        )
+        .unwrap();
         Decision {
             language,
             confidence,
             output,
-            explanation: format!(
-                "{}{} margin={:+.2}",
-                detail.join(" "),
-                if known { " (dict)" } else { "" },
-                margin
-            ),
+            explanation,
             runner_up: runner_up.map(|r| r.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn equal_scores_keep_language_order_confidence_and_diagnostics() {
+        let mut engine = HeuristicEngine::new();
+        #[cfg(feature = "japanese")]
+        {
+            engine.japanese = None;
+        }
+        let keys = "dkssud";
+        engine.korean_known_floor_long = 0.0;
+        let english = engine.english_score(keys, false);
+        let (korean, _) = engine.korean_score(keys, false, false);
+        assert_eq!(korean.unwrap().average_log_probability, 0.0);
+        engine.korean_offset = english;
+        let decision = engine.decide(keys, &DecisionContext::default());
+        assert_eq!(decision.language, Language::English);
+        assert_eq!(decision.runner_up, Some(Language::Korean));
+        assert_eq!(decision.confidence, 0.5);
+        assert_eq!(decision.output, keys);
+        assert_eq!(
+            decision.explanation,
+            format!("en={english:.2} ko={english:.2} margin=+0.00")
+        );
+
+        engine.korean_on = false;
+        let decision = engine.decide(keys, &DecisionContext::default());
+        assert_eq!(decision.runner_up, None);
+        assert_eq!(
+            decision.explanation,
+            format!("en={english:.2} margin=+5.00")
+        );
     }
 }

@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "tacit-lab"
-version = "0.2.4"
+version = "0.2.11"
 dependencies = [
  "tacit-core",
 ]

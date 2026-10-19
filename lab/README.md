@@ -1,5 +1,80 @@
 # 성능 측정 lab
 
+## 공통 후보 선택기·실제 세션 전환 실험
+
+```powershell
+New-Item -ItemType Directory -Force temp/ranker | Out-Null
+cargo run --release --manifest-path lab/Cargo.toml -- --fit-ranker temp/ranker/complete.bin
+lab/target/release/tacit-lab.exe --fit-ranker temp/ranker/prefix.bin --prefix-training
+lab/target/release/tacit-lab.exe --fit-ranker temp/ranker/context.bin --prefix-training --context-augmentation
+lab/target/release/tacit-lab.exe --fit-ranker temp/ranker/dual.bin --prefix-training --separate-heads
+# 기존 엔진의 실제 세션 기준선: 자동완성 없음, 오른쪽 문맥 보정 없음
+lab/target/release/tacit-lab.exe --profile enko --switching --fold 0/3 --corpus 300
+$env:LAB_ENKO_RANKER = (Resolve-Path temp/ranker/prefix.bin).Path
+try {
+    lab/target/release/tacit-lab.exe --profile enko --fold 0/3 --corpus 3000 --steady
+    lab/target/release/tacit-lab.exe --profile enko --switching --fold 0/3 --corpus 300
+    # 같은 모델을 입력 중에만 쓰는 구조 비교; 확정 판별은 기존 엔진
+    $env:LAB_ENKO_RANKER_PREVIEW_ONLY = '1'
+    lab/target/release/tacit-lab.exe --profile enko --switching --fold 0/3 --corpus 300
+} finally {
+    Remove-Item Env:LAB_ENKO_RANKER -ErrorAction SilentlyContinue
+    Remove-Item Env:LAB_ENKO_RANKER_PREVIEW_ONLY -ErrorAction SilentlyContinue
+}
+```
+
+선택기는 영어·한글·기존 혼합어 최상위 해석·기존 엔진의 결과를 같은 softmax로 비교한다.
+72개 가중치를 학습하며 단어 식별자나 평가 정답을 특징으로 사용하지 않는다.
+`--separate-heads`는 입력 중·완성 단어에 독립적인 144개 가중치를 학습한다.
+기존 사전·혼합어 전이 제약·기존 엔진의 판단은 후보와 특징에 남아 있다.
+혼합어는 N-best 전체가 아니므로 후보 도달률을 따로 보고한다.
+모델 confidence는 후보 집합 안의 조건부 확률이며 정답 확률로 보정되지 않았다.
+모델과 실행 경로는 lab 전용이고 제품에는 포함하지 않는다. `enko`만 허용하며,
+CRF·전체 탐색 생략 해제 실험과 함께 쓰거나 제품 baseline을 `--save`할 수 없다.
+
+학습은 기존 자료의 행 fold 1/3만 사용하고, 다른 fold와 정규화 후 같은 문장은 제외한다.
+키열의 대소문자를 정규화한 해시로 내부 검증을 분리하며, 합성 혼합어와 접두어도
+전체 키열·각 언어 구간이 같은 분할에 속할 때만 사용한다.
+이는 문서·출처·형태소 원형의 완전한 독립성을 보장하지 않는다.
+`--context-augmentation`은 모든 학습 사례에 이전 언어 없음·영어·한국어를 동일하게
+적용하는 개발 실험이며, 실제 혼합 문맥 자료를 대체하지 않는다.
+
+`--prefix-training`은 모든 키 접두어와 완성 철자의 미확정 상태도 학습한다(lab 0.2.10부터).
+실제 세션에서 공백 전까지는 완성 철자에도 `partial=true`가 전달되기 때문이다.
+
+혼합 문서 실험은 `python lab/fetch_mixed_docs.py`로 고정 자료와 출처/hash manifest를 만든다.
+`--mixed-training lab/data/mixed-docs/train.txt`를 학습 명령에 추가하고,
+`--switching --switching-input lab/data/mixed-docs/dev.txt --corpus 300`으로 별도 문서를 재생한다.
+`final.txt`는 다른 출처의 최종 평가용이며 개발 중 사용하지 않는다. 원문·모델은 git에서 제외한다.
+수집기는 `python lab/fetch_mixed_docs.py --selftest`로 검사할 수 있다.
+
+`--switching`은 실제 InputSession에 키·구두점·확정 이벤트를 재생한다.
+세 코퍼스와 기존 chat/dev/writing 시나리오를 사용하며 기존 정확도 지표는 바꾸지 않는다.
+`switch.wrong_preview_pct`는 의도한 현재 단어의 조합과 표시가 다른 키 비율이다.
+`switch.changes_per_1000_keys`에는 정상적인 혼합어 전환도 포함된다.
+확정 문장 정확도와 함께 해석해야 하며, 낮은 전환 횟수만으로 개선을 주장하지 않는다.
+FakeTextField 기반의 추가 입력 재생이므로 TSF 화면 반영·삭제·커서 이동은 측정하지 않는다.
+`switch.errors.*`는 마지막 Trace와 정답·실제 표시를 비교한 원인별 키 수다.
+`presentation`은 Trace 출력은 맞는데 표시가 다른 경우이며, 정책·재해석을 더 구분하지 않는다.
+`split_or_stale_trace`는 Trace의 키열이 현재 평가 토큰과 다른 경우라 판별 오류로 단정하지 않는다.
+`--misses N`으로 미리보기와 확정 오류 상세를 제한한다.
+
+## 세션 미리보기·자동완성 지연
+
+```powershell
+cargo run --release --manifest-path lab/Cargo.toml -- --profile enko --session
+lab/target/release/tacit-lab.exe --profile enkoja --session
+```
+
+`history.N.*`는 합성 사용자 기록 N개에서 접두어별 탐색 지연이고,
+`session.N.*`는 키 입력의 `InputSession.handle()`과 `suggestion()`을 합친 지연입니다.
+각각 워밍업 후 평균·p50·p95·p99를 µs로 출력합니다. 기록은 영어·한글을 섞어 생성하며
+언어 판별 학습에는 사용하지 않습니다. 임시 파일은 초기 로드 후 삭제합니다.
+단어 확정·디스크 저장·OS 화면 반영·일본어 실시간 한자 변환은 측정하지 않습니다.
+기존 `keystroke.*`는 계속 판별 함수만 측정하므로 두 지표를 혼용하지 않습니다.
+개선 전후 실행 파일을 번갈아 최소 3회 실행하고 각 지표의 중앙값을 비교합니다.
+정확도는 별도로 기존 단어·문장·시나리오·일본어 평가와 코퍼스 fold를 확인합니다.
+
 ## 한·영 후보 누락 진단
 
 ```powershell
@@ -178,3 +253,8 @@ Linux/macOS에서는 `--binary lab/target/release/tacit-lab`을 사용합니다.
 
 lab 자체 버전 변경 규칙과 이력은 [CHANGELOG.md](CHANGELOG.md)에 있습니다.
 `score.py`의 종합 점수 규격은 [기존 영·한 평가](../docs/report/score.md)용입니다.
+
+lab 0.2.11부터 `alloc.commit.*`, `alloc.keystroke.*`는 판별 한 번당 성공한 할당 요청 수와
+요청 바이트의 평균이다. 판별 결과를 담는 보고서 배열의 할당은 제외하며, `bytes`는 해제된 임시
+버퍼도 포함하는 누적 요청량으로 상주 메모리가 아니다. `heap.loaded_kb`와 `heap.peak_kb`도 함께 본다.
+할당 계수의 atomic 비용이 있으므로 같은 lab 버전의 전후 실행 순서를 번갈아 반복 비교한다.
