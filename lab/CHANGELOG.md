@@ -6,6 +6,18 @@ a **minor** version when an existing metric stops being comparable with an older
 is sampled or built another way, a case file changes what it expects); a **patch** for anything
 else (a new metric, a flag, a fix). A baseline records the lab version it was made with.
 
+## [0.2.4]
+
+### Added
+
+- `--audit-enko` separates single-language selection errors from mixed-lattice edge
+  gaps, blocked transitions, skipped searches and selection errors. It uses actual
+  left-to-right converter contexts and reports look-ahead sentence accuracy separately.
+- `LAB_ENKO_FULL_SEARCH` disables existing search skip gates for an enko-only lab
+  ablation. Product builds do not include this switch; defaults remain unchanged.
+- Gold-constrained candidate diagnostics reuse the production edges and search,
+  retain lower-ranked paths, and leave the live lattice cache untouched.
+
 ## [0.2.3]
 
 ### Added

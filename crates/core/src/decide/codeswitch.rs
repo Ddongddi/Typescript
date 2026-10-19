@@ -414,6 +414,31 @@ struct Cache {
     floor: usize,
 }
 
+impl Cache {
+    fn new(params: Params, context: &DecisionContext) -> Self {
+        Self {
+            params,
+            after_digit: context.after_digit,
+            previous: previous(context),
+            keys: String::new(),
+            edges: Vec::new(),
+            table: Table::new(),
+            walks: Walks::new(),
+            fresh: Vec::new(),
+            floor: 0,
+        }
+    }
+}
+
+/// Lab-only gold-path reachability, before any one-best path is discarded.
+#[cfg(feature = "tuning")]
+pub struct CandidateAudit {
+    pub skipped: bool,
+    pub edges_reach_gold: bool,
+    pub transitions_reach_gold: bool,
+    pub selected: Option<String>,
+}
+
 /// The English word list and letter model walked along the letters from each start key: the
 /// first key's walk (the whole token is asked about it) and one per start of the last
 /// `EN_MAX` keys, in slots by start.
@@ -672,6 +697,8 @@ pub struct CodeSwitch {
     english: &'static EnglishModel,
     korean: KoreanModel,
     pub params: Params,
+    #[cfg(feature = "tuning")]
+    full_search: bool,
 }
 
 impl CodeSwitch {
@@ -682,6 +709,8 @@ impl CodeSwitch {
             english,
             korean: KoreanModel::default(),
             params,
+            #[cfg(feature = "tuning")]
+            full_search: std::env::var_os("LAB_ENKO_FULL_SEARCH").is_some(),
         }
     }
 
@@ -831,19 +860,85 @@ impl CodeSwitch {
         // A token that is already a listed English word or a clean Korean word is not worth a
         // search (it would only win by a bonus it already has). After a digit it may still be a
         // counter or a unit.
-        let skip = |head: &Walk| {
-            !context.after_digit
-                && !context.before_digit
-                && (self.is_english_word(keys, head)
-                    || self.typing_english(keys, context, head)
-                    || (self.reads_as_korean(keys, context.partial)
-                        && !self.starts_with_word(head)))
-        };
+        let skip = |head: &Walk| self.skip_search(keys, context, head);
         let weak_margin = self.params.weak_margin;
         let lead_en = self.lead_en_after(previous(context));
         self.with_lattice(keys, context, skip, true, |_, table| {
             Self::read_path(keys, table, (weak_margin, lead_en), min_gap)
         })?
+    }
+
+    fn skip_search(&self, keys: &str, context: &DecisionContext, head: &Walk) -> bool {
+        #[cfg(feature = "tuning")]
+        if self.full_search {
+            return false;
+        }
+        !context.after_digit
+            && !context.before_digit
+            && (self.is_english_word(keys, head)
+                || self.typing_english(keys, context, head)
+                || (self.reads_as_korean(keys, context.partial) && !self.starts_with_word(head)))
+    }
+
+    /// Search only edges whose rendered output agrees with the gold span. Reuses production
+    /// edges and transitions, but keeps a separate table so lower-ranked gold paths survive.
+    #[cfg(feature = "tuning")]
+    pub fn audit_candidates(
+        &self,
+        keys: &str,
+        context: &DecisionContext,
+        permits: impl Fn(usize, usize, Kind) -> bool,
+    ) -> Option<CandidateAudit> {
+        let n = keys.len();
+        if !(MIN_KEYS..=MAX_KEYS).contains(&n) || !keys.bytes().all(|b| b.is_ascii_alphabetic()) {
+            return None;
+        }
+        // A private, untrimmed lattice avoids changing the live incremental cache.
+        let mut cache = Cache::new(self.params, context);
+        self.english
+            .walk_to(&mut cache.walks.head, &keys.as_bytes()[..n.min(EN_MAX)]);
+        let skipped = self.skip_search(keys, context, &cache.walks.head);
+        for end in (CHUNK..n).step_by(CHUNK) {
+            self.extend(&mut cache, &keys[..end], context, false)?;
+        }
+        self.extend(&mut cache, keys, context, false)?;
+        let selected = Self::read_path(
+            keys,
+            &cache.table,
+            (
+                self.params.weak_margin,
+                self.lead_en_after(previous(context)),
+            ),
+            self.params.margin,
+        )
+        .map(|s| s.text());
+        for (from, edges) in cache.edges.iter_mut().enumerate() {
+            edges.retain(|e| permits(from, e.end(), e.class.kind()));
+        }
+        let mut reached = vec![false; n + 1];
+        reached[0] = true;
+        for (from, edges) in cache.edges.iter().enumerate() {
+            if reached[from] {
+                for edge in edges {
+                    reached[edge.end()] = true;
+                }
+            }
+        }
+        let mut gold = Table::new();
+        gold.resize(n + 1);
+        self.search(
+            n,
+            &cache.edges,
+            &mut gold,
+            &mut Vec::new(),
+            (0, self.lead_en_after(previous(context))),
+        );
+        Some(CandidateAudit {
+            skipped,
+            edges_reach_gold: reached[n],
+            transitions_reach_gold: gold.used(n) != 0,
+            selected,
+        })
     }
 
     /// The best path into the end of `keys`, read back from the table.
@@ -1032,17 +1127,7 @@ impl CodeSwitch {
                 {
                     c
                 }
-                _ => Cache {
-                    params: self.params,
-                    after_digit: context.after_digit,
-                    previous: previous(context),
-                    keys: String::new(),
-                    edges: Vec::new(),
-                    table: Table::new(),
-                    walks: Walks::new(),
-                    fresh: Vec::new(),
-                    floor: 0,
-                },
+                _ => Cache::new(self.params, context),
             };
             let head = &keys.as_bytes()[..keys.len().min(EN_MAX)];
             self.english.walk_to(&mut cache.walks.head, head);
@@ -1590,6 +1675,53 @@ pub(crate) fn is_counter_word(word: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "tuning")]
+    #[test]
+    fn candidate_audit_distinguishes_edges_from_transitions_and_preserves_cache() {
+        let search = CodeSwitch::new(EnglishModel::shared(), Params::default());
+        let ctx = DecisionContext::default();
+        let before = search.analyze("githubdp", &ctx);
+        let audit = search
+            .audit_candidates("githubdp", &ctx, |from, to, kind| match kind {
+                Kind::English => to <= 6,
+                Kind::Korean => from >= 6,
+            })
+            .unwrap();
+        assert!(audit.edges_reach_gold && audit.transitions_reach_gold);
+        assert_eq!(audit.selected.as_deref(), Some("github에"));
+        assert_eq!(search.analyze("githubdp", &ctx), before);
+        // The constrained table must retain gold even when the unfiltered winner is different.
+        let losing = search
+            .audit_candidates(
+                "istiork",
+                &DecisionContext {
+                    previous_language: Some(Language::Korean),
+                    ..Default::default()
+                },
+                |from, to, kind| match kind {
+                    Kind::English => to <= 5,
+                    Kind::Korean => from >= 5,
+                },
+            )
+            .unwrap();
+        assert!(losing.transitions_reach_gold);
+        assert_ne!(losing.selected.as_deref(), Some("istio가"));
+        let empty = search
+            .audit_candidates("githubdp", &ctx, |_, _, _| false)
+            .unwrap();
+        assert!(!empty.edges_reach_gold && !empty.transitions_reach_gold);
+        // x is offered only as a leading label here; that label cannot join English ab.
+        let blocked = search
+            .audit_candidates("xab", &ctx, |from, to, kind| {
+                kind == Kind::English && matches!((from, to), (0, 1) | (1, 3))
+            })
+            .unwrap();
+        assert!(blocked.edges_reach_gold && !blocked.transitions_reach_gold);
+        assert!(search
+            .audit_candidates("a-!", &ctx, |_, _, _| true)
+            .is_none());
+    }
 
     fn cut(keys: &str, context: &DecisionContext) -> Option<String> {
         let lattice = CodeSwitch::new(EnglishModel::shared(), Params::default());

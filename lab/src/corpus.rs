@@ -325,6 +325,49 @@ fn part(items: Vec<String>, fold: Option<(usize, usize)>) -> Vec<String> {
     items.into_iter().skip(k).step_by(n).collect()
 }
 
+/// Separate diagnostic run: regular accuracy/latency measurements stay unchanged.
+pub fn audit(
+    engine: &dyn DecisionEngine,
+    sample: usize,
+    shown: usize,
+    fold: Option<(usize, usize)>,
+) {
+    let ko = part(
+        read_lines("ko_sentences.txt").expect("run python lab/fetch_data.py first"),
+        fold,
+    );
+    let ko = spread(&ko, sample);
+    crate::audit::sentences(
+        engine,
+        "ko.sent",
+        &ko.iter().map(|s| (*s).clone()).collect::<Vec<_>>(),
+        shown,
+    );
+    let en = part(
+        read_lines("en_sentences.txt").expect("English corpus required"),
+        fold,
+    );
+    crate::audit::sentences(
+        engine,
+        "en.sent",
+        &spread(&en, sample).into_iter().cloned().collect::<Vec<_>>(),
+        shown,
+    );
+    for (name, source, seed) in [("cs", TERMS, 7), ("cs_short", SHORT_TERMS, 11)] {
+        let terms: Vec<_> = source
+            .lines()
+            .filter(|s| !s.is_empty() && !s.starts_with('#'))
+            .collect();
+        let mut sets: std::collections::BTreeMap<&str, Vec<String>> = Default::default();
+        for (kind, text) in code_switch(&ko, &terms, &mut Rng(seed)) {
+            sets.entry(kind).or_default().push(text);
+        }
+        for (kind, texts) in sets {
+            crate::audit::sentences(engine, &format!("{name}.{kind}"), &texts, shown);
+        }
+    }
+}
+
 pub fn run(
     engine: &dyn DecisionEngine,
     languages: &Languages,

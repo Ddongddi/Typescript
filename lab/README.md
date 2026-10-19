@@ -1,5 +1,27 @@
 # 성능 측정 lab
 
+## 한·영 후보 누락 진단
+
+```powershell
+cargo run --release --manifest-path lab/Cargo.toml -- --profile enko --audit-enko --fold 0/3 --corpus 3000 --misses 12
+# 기존 탐색 생략 조건만 해제하는 실험: 기본 제품 동작에는 영향 없음
+$env:LAB_ENKO_FULL_SEARCH = '1'
+lab/target/release/tacit-lab.exe --profile enko --audit-enko --fold 0/3 --corpus 3000 --misses 12
+lab/target/release/tacit-lab.exe --profile enko --fold 0/3 --corpus 3000 --misses 3 --steady
+Remove-Item Env:LAB_ENKO_FULL_SEARCH
+```
+
+학습 모델을 지정하지 않은 `enko`에서 실행합니다. `python lab/fetch_data.py`로 준비한
+영어·한국어 문장과 기존 합성 혼합 세트를 사용합니다. 일반 lab 측정에 진단 비용을
+섞지 않도록 별도 실행합니다. [결과와 분류 정의](../docs/report/enko-candidate-audit.md).
+
+`offline-exact`는 기존 오른쪽 문맥 보정을 포함한 정답 문장 수입니다.
+`left-to-right-exact`는 그 보정 없이 실제 앞선 판별 결과의 언어를 전달한 정답 문장 수이며,
+아래 원인별 수치는 이 경로의 **토큰 개수**입니다. 실시간 미리보기나 OS 세션 이벤트를
+재생하는 검사는 아닙니다. `pure-selection`에는 점수와 정책에 의한 언어 선택 오류가
+포함됩니다. 혼합 경로는 기존 간선·전이로 정답 출력을 구성할 수 있는지 검사하고,
+`skip-gate`(생략만 없애면 선택)와 `skip-and-selection`(선택 점수도 바뀌어야 함)을 구분합니다.
+
 ## 한·영 학습 실험
 
 기본 엔진은 그대로 두고 lab에서만 학습 모델을 비교합니다. 모델 파일은 제품 빌드나

@@ -119,6 +119,9 @@ macOS·Linux·Android의 네이티브 실행과 실제 IME 화면 반영 시간�
 
 ## 재현과 다음 실험
 
+후속 [후보 누락 진단과 탐색 생략 해제 실험](enko-candidate-audit.md)에서
+단일 언어 선택과 혼합 경로의 병목을 따로 측정했다.
+
 실험 명령은 [lab README](../../lab/README.md)의 한·영 학습 실험 항목에 있다.
 원시 로그·동결 실행 파일·모델은 로컬 `temp/enko-experiments/`에 보관한다.
 학습 파일 SHA-256:

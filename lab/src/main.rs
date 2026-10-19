@@ -12,6 +12,7 @@
 //! Cases: generated from crates/core/data (sampled across each whole list, not just the top),
 //! plus cases/words.tsv and cases/sentences.tsv, which hold what *should* happen.
 
+mod audit;
 mod corpus;
 mod japanese;
 mod learned;
@@ -391,6 +392,12 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(2);
     });
+    if std::env::var_os("LAB_ENKO_FULL_SEARCH").is_some() {
+        assert!(
+            profile == "enko" && std::env::var_os("LAB_ENKO_MODEL").is_none(),
+            "full-search ablation requires the default enko engine"
+        );
+    }
     if let Some(i) = args.iter().position(|a| a == "--fit-enko") {
         let path = args.get(i + 1).expect("--fit-enko needs an output path");
         learned::fit(
@@ -581,6 +588,21 @@ fn main() {
         .position(|a| a == "--misses")
         .and_then(|i| args.get(i + 1)?.parse().ok())
         .unwrap_or(DEFAULT_MISSES);
+
+    if args.iter().any(|a| a == "--audit-enko") {
+        assert!(
+            profile == "enko" && std::env::var_os("LAB_ENKO_MODEL").is_none(),
+            "candidate audit requires the default enko engine"
+        );
+        let sample = args
+            .iter()
+            .position(|a| a == "--corpus")
+            .and_then(|i| args.get(i + 1)?.parse().ok())
+            .unwrap_or(DEFAULT_CORPUS);
+        let engine = tacit_core::make_engine(None, &languages);
+        corpus::audit(engine.as_ref(), sample, shown, fold);
+        return;
+    }
 
     let mut metrics: BTreeMap<String, f64> = BTreeMap::new();
 
