@@ -174,7 +174,7 @@ impl History {
         let syllables = crate::lang::hangul::cho_index(last)
             .map(|initial| ('가' as u32 + initial as u32 * 588, 588))
             .or_else(|| {
-                (('가'..='힣').contains(&last) && (last as u32 - '가' as u32) % 28 == 0)
+                (('가'..='힣').contains(&last) && (last as u32 - '가' as u32).is_multiple_of(28))
                     .then_some((last as u32 + 1, 27))
             })
             .map(|(start, count)| {
