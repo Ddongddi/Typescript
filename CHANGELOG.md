@@ -9,6 +9,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-10-19
+
 ### 변경
 
 - 영·한판의 첫 안내와 대시보드 언어 탭에서도 일본어를 고를 수 있습니다. 고르면 해당 릴리스의 일본어 포함판 설치 프로그램이 열리고(Windows, 관리자 확인 1회) 영어·한국어·일본어를 함께 설치합니다.
@@ -373,7 +375,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1

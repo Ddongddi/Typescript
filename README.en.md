@@ -110,7 +110,7 @@ Re-running the command on an existing install is fine (enabled languages are kep
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # remove (settings and language packs are kept)
-& $i -Version v0.10.3       # pinned release
+& $i -Version v0.10.4       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 

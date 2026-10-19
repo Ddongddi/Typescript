@@ -9,6 +9,8 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-10-19
+
 ### Changed
 
 - The English/Korean edition now lists Japanese in the first-run page and the dashboard Languages tab. Choosing it opens the release's Japanese-edition installer (Windows, one elevation prompt), which installs English, Korean and Japanese together.
@@ -373,7 +375,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/iamallyouneed/tacit/compare/v0.10.0...v0.10.1
