@@ -84,6 +84,10 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      # Installs from before 0.10 only know the old asset names and stop at "the release has no
+      # typescript-windows.zip". Keep a copy under those names until they have all moved on.
+      - name: Keep the pre-rename asset names for older installs
+        run: python3 scripts/legacy-assets.py dist "$GITHUB_REF_NAME"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
