@@ -3,6 +3,7 @@ target/
 __pycache__/
 dist/
 platforms/android/build/
+platforms/macos/build/
 target-*/
 docs/superpowers/
 .superpowers/

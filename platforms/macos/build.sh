@@ -20,7 +20,7 @@ for arch in aarch64 x86_64; do
   cargo build --release -p tacit-ffi --target "$arch-apple-darwin" $FEATURES
   swiftc -O -target "$swift_arch-apple-macos11.0" \
     -import-objc-header platforms/ffi/tacit.h \
-    platforms/macos/main.swift platforms/macos/Controller.swift \
+    platforms/macos/main.swift platforms/macos/Controller.swift platforms/macos/InputTextContext.swift \
     "target/$arch-apple-darwin/release/libtacit_ffi.a" \
     -framework Cocoa -framework InputMethodKit -framework Security -framework CoreFoundation \
     -lresolv -liconv -o "$OUT/tacit-$arch"
