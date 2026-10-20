@@ -49,7 +49,8 @@ impl Editor {
     }
 
     fn press(&mut self, kind: i32, ch: char) {
-        let reply = self.ime.key(kind, ch, &self.before());
+        let before = self.before();
+        let reply = self.ime.key(kind, ch, Some(&before), Some(0));
         if !self.apply(&reply) {
             match kind {
                 PRINTABLE => self.text.push(ch),

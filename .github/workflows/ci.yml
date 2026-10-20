@@ -49,6 +49,9 @@ jobs:
       - run: cargo test --workspace --exclude tacit-tip --all-features
       - run: sh scripts/test-language-isolation.sh
       - run: cargo clippy --workspace --exclude tacit-tip --all-targets --all-features -- -D warnings
+      - name: Test macOS composition context
+        if: runner.os == 'macOS'
+        run: sh platforms/macos/test.sh
       - name: Package (builds the IBus engine / the macOS input method too)
         run: |
           sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
