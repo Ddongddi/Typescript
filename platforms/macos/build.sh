@@ -28,6 +28,7 @@ done
 lipo -create "$OUT/tacit-aarch64" "$OUT/tacit-x86_64" -output "$APP/Contents/MacOS/tacit"
 rm "$OUT/tacit-aarch64" "$OUT/tacit-x86_64"
 sed "s/@VERSION@/$VERSION/g" platforms/macos/Info.plist > "$APP/Contents/Info.plist"
+cp -R platforms/macos/resources/. "$APP/Contents/Resources/"
 # Ad-hoc signature: required to run on Apple silicon, needs no developer account.
 codesign --force --deep -s - "$APP"
 echo "$APP"

@@ -11,6 +11,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- macOS input-source lists and switching UI display `Tacit` instead of the internal identifier. Input-source identifiers remain unchanged.
 - Fix macOS composition being reset by unavailable or inconsistent editor context, finalize marked text on session termination, and retain validated Esc correction after context recovery without changing surrounding text.
 
 ## [0.10.4] - 2026-10-19

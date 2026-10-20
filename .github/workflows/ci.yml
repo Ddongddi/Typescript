@@ -55,6 +55,12 @@ jobs:
       - name: Package (builds the IBus engine / the macOS input method too)
         run: |
           sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }}
+      - name: macOS input-source display name
+        if: runner.os == 'macOS'
+        run: |
+          for language in en ko; do
+            swift platforms/macos/tests/InputSourceNameTests.swift platforms/macos/build/tacit.app -AppleLanguages "($language)"
+          done
 
   android:
     runs-on: windows-latest
