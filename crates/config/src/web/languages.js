@@ -147,14 +147,14 @@ function langActions(l, position) {
           title: state.order.length < 2 ? "하나는 켜 두어야 합니다" : "",
           onclick: () =>
             act(
-              l.name + "을(를) 껐습니다",
+              l.name + "을(를) 끄고 팩 삭제를 요청했습니다",
               LANGUAGES,
               { action: "remove", id: l.id },
               "lang-" + l.id,
               undoOf({ action: "remove", id: l.id }),
             ),
         },
-        "끄기",
+        l.requiredBy.length ? "끄기 · 공유 팩 유지" : "끄고 팩 삭제",
       ),
     ];
   }

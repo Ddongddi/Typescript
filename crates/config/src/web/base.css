@@ -24,10 +24,6 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  scrollbar-width: none;
-}
-::-webkit-scrollbar {
-  display: none;
 }
 
 html {
@@ -56,7 +52,23 @@ main {
   position: sticky;
   top: 28px;
 }
+.test-jump {
+  display: none;
+}
+#save-status {
+  min-height: 1.6em;
+  color: var(--mute);
+  font-size: 13px;
+}
 @media (max-width: 1040px) {
+  .test-jump {
+    display: block;
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 10;
+    background: var(--panel);
+  }
   .shell {
     grid-template-columns: minmax(0, 1fr);
   }

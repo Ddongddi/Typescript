@@ -186,6 +186,17 @@
   margin: 0;
   font: 500 16px var(--mono);
 }
+.app > summary {
+  cursor: pointer;
+  padding: 8px 0;
+  overflow-wrap: anywhere;
+}
+.app > summary b {
+  font: 500 16px var(--mono);
+}
+.app > summary .sum {
+  margin-bottom: 0;
+}
 .app h3 .grow {
   flex: 1;
 }

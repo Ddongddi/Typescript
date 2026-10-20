@@ -77,6 +77,7 @@ function setting(key, title, desc, example) {
       type: "checkbox",
       "data-f": key,
       checked: value,
+      disabled: busy,
       "aria-label": title,
       onchange: (e) => save(e.target.checked, "저장했습니다"),
     }),

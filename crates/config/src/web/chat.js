@@ -8,7 +8,10 @@ const chat = {
   draft: { text: "", marked: null },
   hint: "",
   queue: Promise.resolve(), // keys are played one after the other
+  generation: 0,
 };
+const CHAT_KEY_LIMIT = 400;
+const CHAT_RECOVERY_LIMIT = CHAT_KEY_LIMIT * 2 + 2;
 
 const PREVIEW_TEXT = "dkssudgktpdy hello rkskek git"; // what an app card's slider reads
 
@@ -40,19 +43,37 @@ function typedText(keys) {
 // The key as the server knows it, or null for keys the chat leaves alone.
 function chatKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  if (e.key === "Tab" && e.shiftKey) return null;
   if (e.key === "Escape") return e.shiftKey ? "Cycle" : "Escape";
   if (["Enter", "Tab", "Backspace"].includes(e.key)) return e.key;
   return e.key.length === 1 ? e.key : null;
 }
 
-async function playKey(key) {
+function queueKey(key) {
+  const generation = chat.generation;
+  chat.queue = chat.queue.then(() => playKey(key, generation)).catch((e) => toast(e.message, true));
+}
+
+async function playKey(key, generation) {
+  if (generation !== chat.generation) return;
+  if (
+    chat.keys.length >= CHAT_RECOVERY_LIMIT ||
+    (chat.keys.length >= CHAT_KEY_LIMIT && !["Backspace", "Enter"].includes(key))
+  ) {
+    return toast(
+      "입력 한도입니다. Backspace로 지우거나 Enter로 보내세요. ‘지우기’로 새로 시작할 수 있습니다.",
+      true,
+    );
+  }
   const keys = [...chat.keys, key];
   let played;
   try {
     played = await api("/api/play", { keys });
   } catch (e) {
-    return toast(e.message, true);
+    if (generation === chat.generation) toast(e.message, true);
+    return;
   }
+  if (generation !== chat.generation) return;
   const enters = keys.filter((k) => k === "Enter").length;
   if (played.submitted) {
     if (played.text.trim())
@@ -92,6 +113,10 @@ function drawChat() {
   input.replaceChildren(...shown); // (never null: it would be written as the word "null")
   input.classList.toggle("empty", !text);
   const hint = $("chat-hint");
+  $("chat-count").textContent =
+    chat.keys.length >= CHAT_KEY_LIMIT
+      ? "입력 한도에 도달했습니다. Backspace로 삭제 · Enter로 전송 · 지우기로 초기화"
+      : `입력 ${CHAT_KEY_LIMIT - chat.keys.length}키 남음 · Tab 자동완성 · Shift+Tab으로 입력창 나가기`;
   if (chat.hint === "confirmed") {
     if (!hint.firstChild || !hint.dataset.confirmed) {
       hint.replaceChildren(
@@ -196,7 +221,7 @@ function typeIntoChat(e) {
     return false;
   e.preventDefault();
   $("chat-in").focus();
-  chat.queue = chat.queue.then(() => playKey(key));
+  queueKey(key);
   return true;
 }
 
@@ -214,6 +239,8 @@ function showEnterSetting() {
 }
 
 function clearChat() {
+  chat.generation++;
+  chat.queue = Promise.resolve();
   chat.messages = [];
   chat.keys = [];
   chat.draft = { text: "", marked: null };
@@ -225,7 +252,7 @@ function clearChat() {
 
 function chatBox() {
   const send = (key) => {
-    chat.queue = chat.queue.then(() => playKey(key));
+    queueKey(key);
     const box = $("chat-in");
     if (box) box.focus();
   };
@@ -255,11 +282,12 @@ function chatBox() {
         tabindex: "0",
         "data-f": "chat-in",
         "aria-label": "메시지 입력 (영문 자판)",
+        "aria-describedby": "chat-count",
         onkeydown: (e) => {
           const key = chatKey(e);
           if (!key) return;
           e.preventDefault();
-          chat.queue = chat.queue.then(() => playKey(key));
+          queueKey(key);
         },
       }),
       h(
@@ -269,6 +297,7 @@ function chatBox() {
       ),
     ),
     h("p", { id: "chat-hint", class: "chat-hint", "aria-live": "polite" }),
+    h("p", { id: "chat-count", class: "note" }),
   );
   queueMicrotask(drawChat);
   return box;

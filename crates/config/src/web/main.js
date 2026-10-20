@@ -4,23 +4,33 @@ const TABS = ["lang", "set", "keys", "apps", "upd"];
 const tabOf = (name) => $("t-" + name),
   panelOf = (name) => $("p-" + name);
 
-// Draws every panel again. `focusKey` (or the focused control's data-f) gets the focus back.
+// Draws the visible panel; hidden panels use the latest state when opened.
 function render(focusKey) {
   if (!state) return;
-  openDd = null;
+  closeDd(false);
   $("ver").textContent = "v" + state.version;
+  $("save-status").textContent = busy
+    ? "처리 중… 완료될 때까지 기다려 주세요."
+    : "변경사항은 바로 저장됩니다.";
   const active =
     focusKey ||
     (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.f);
-  renderLang();
-  renderSettings();
-  renderKeys();
-  renderApps();
-  renderUpdate();
-  renderChat();
+  const selection = document.activeElement && document.activeElement.selectionStart;
+  const name = TABS.find((tab) => !panelOf(tab).hidden);
+  ({
+    lang: renderLang,
+    set: renderSettings,
+    keys: renderKeys,
+    apps: renderApps,
+    upd: renderUpdate,
+  })[name]();
+  if (!$("chat-in")) renderChat();
   if (active) {
     const el = document.querySelector('[data-f="' + CSS.escape(active) + '"]');
-    if (el && !el.disabled) el.focus({ preventScroll: true });
+    if (el && !el.disabled) {
+      el.focus({ preventScroll: true });
+      if (selection != null && el.type === "text") el.setSelectionRange(selection, selection);
+    }
   }
 }
 
@@ -52,6 +62,7 @@ function selectTab(index, focus) {
   });
   if (focus) tabOf(TABS[index]).focus();
   history.replaceState(null, "", "/#" + TABS[index]);
+  render();
   if (TABS[index] === "apps" && running.list === null) loadRunning();
 }
 
@@ -190,21 +201,33 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) heartbeat();
 });
 
-(async () => {
-  const start = TABS.indexOf(location.hash.slice(1));
-  if (start > 0) selectTab(start, false);
+$("test-jump").addEventListener("click", () => {
+  const box = $("chat-in");
+  if (box) {
+    box.scrollIntoView({ block: "center" });
+    box.focus({ preventScroll: true });
+  }
+});
+
+async function loadState() {
+  const error = $("load-error");
+  error.hidden = true;
   try {
     state = await api("/api/state");
     render();
     loadLearning();
     if (!panelOf("apps").hidden) loadRunning();
   } catch (e) {
-    $("p-lang").replaceChildren(
-      h(
-        "div",
-        { class: "banner bad", role: "alert" },
-        e.message + " 터미널에서 tacit-config 를 다시 실행해 주세요.",
-      ),
+    error.replaceChildren(
+      h("p", {}, "설정을 불러오지 못했습니다. " + e.message),
+      h("button", { class: "btn", type: "button", onclick: loadState }, "다시 시도"),
     );
+    error.hidden = false;
   }
+}
+
+(() => {
+  const start = TABS.indexOf(location.hash.slice(1));
+  if (start > 0) selectTab(start, false);
+  loadState();
 })();

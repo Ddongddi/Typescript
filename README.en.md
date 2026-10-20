@@ -182,6 +182,9 @@ You don't need to edit files. Open the **Tacit 설정** shortcut from the Start 
 - The dot at the top is the connection state. If the active input method isn't Tacit, a banner tells you and points you to Win+Space.
 - The **chat panel on the right** is on every tab. Keys typed there go through the real input method with your saved settings, so you can change something and immediately see the effect. Typing on a blank part of the page also goes to the chat.
 - Shortcuts: **1–5** switch tabs, **/** searches apps, **Esc** on the Languages tab previews the cycle.
+- Settings pause while a change is being saved, with a progress message. Failed loads offer a retry button.
+- In the test box, **Tab** completes a word and **Shift+Tab** moves focus out. At the 400-key limit you can still delete or send; **Clear** starts fresh. On narrow screens, **Open test** jumps to the test box.
+- Search saved **App rules** and expand one to edit it. The default conversion threshold shows its inherited value. Search the entire **Taught words** list by input keys and browse 200-word pages to delete individual entries.
 
 | Tab | What you do there |
 | --- | --- |

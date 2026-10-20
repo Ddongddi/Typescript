@@ -373,8 +373,23 @@ impl App {
             };
         }
         if path == "/api/learning" {
+            let query = match body.get("query") {
+                None => "",
+                Some(Value::String(query)) if query.chars().count() <= 200 => query.as_str(),
+                _ => return fail(400, "query must be a string of at most 200 characters"),
+            };
+            let page = match body.get("page") {
+                None => 0,
+                Some(value) => match value.as_u64() {
+                    Some(page) if page <= 1_000_000 => page as usize,
+                    _ => return fail(400, "page must be an integer between 0 and 1000000"),
+                },
+            };
+            if body["action"] == "list" {
+                return json_response(200, &self.learning_page(query, page));
+            }
             return match crate::learning::change(&self.env, &body) {
-                Ok(()) => json_response(200, &self.learning_summary()),
+                Ok(()) => json_response(200, &self.learning_page(query, page)),
                 Err(e) => fail(400, &e.to_string()),
             };
         }
@@ -462,6 +477,16 @@ impl App {
         })
     }
 
+    fn learning_page(&self, query: &str, page: usize) -> Value {
+        let engine = self.engine().ok().map(|(_, engine)| engine);
+        crate::learning::page(
+            &self.env,
+            |keys, language| engine.as_ref().map(|e| e.render(keys, language)),
+            query,
+            page,
+        )
+    }
+
     /// Reads `text` as typed on a QWERTY keyboard, word by word, as the input method would:
     /// the languages that are on, the word before as context, and `threshold` (an app's
     /// "convert only when sure" setting) deciding whether a doubtful word stays as typed.
@@ -533,7 +558,13 @@ impl App {
     /// typed as it is, or, for Enter, the message is sent (`submitted`).
     fn play(&self, body: &Value) -> Result<Value, String> {
         let keys = body["keys"].as_array().ok_or("keys has to be a list")?;
-        if keys.len() > MAX_PLAY_KEYS {
+        // Reserve bounded recovery keys so a full draft can still be deleted or submitted.
+        if keys.len() > MAX_PLAY_KEYS * 2 + 2
+            || keys
+                .iter()
+                .skip(MAX_PLAY_KEYS)
+                .any(|key| !matches!(key.as_str(), Some("Backspace" | "Enter")))
+        {
             return Err(format!("try at most {MAX_PLAY_KEYS} keys at a time"));
         }
         let settings = Settings::load(Some(&self.env.settings));
@@ -820,6 +851,32 @@ mod tests {
     fn json_of(r: &Response) -> Value {
         serde_json::from_slice(&r.body)
             .unwrap_or_else(|_| panic!("not JSON: {}", String::from_utf8_lossy(&r.body)))
+    }
+
+    #[test]
+    fn learning_search_validates_pagination_before_any_change() {
+        let f = fixture("app-learning-pages");
+        let app = app(&f);
+        for body in [
+            json!({"action": "list", "query": 42}),
+            json!({"action": "list", "query": "a".repeat(201)}),
+            json!({"action": "list", "page": -1}),
+            json!({"action": "forgetAll", "page": 1.5}),
+            json!({"action": "list", "page": 1_000_001}),
+        ] {
+            assert_eq!(
+                app.handle(&req("POST", "/api/learning", Some(body))).status,
+                400
+            );
+        }
+        let r = app.handle(&req(
+            "POST",
+            "/api/learning",
+            Some(json!({"action": "list", "query": "hello", "page": 1})),
+        ));
+        assert_eq!(r.status, 200);
+        assert_eq!(json_of(&r)["page"], 0);
+        assert_eq!(json_of(&r)["filteredCount"], 0);
     }
 
     #[cfg(not(feature = "japanese"))]

@@ -21,6 +21,8 @@
     <p class="link" role="status"><span class="dot" id="dot"></span><span id="linktext">연결됨</span></p>
   </header>
   <p class="banner bad" id="expired" role="alert" hidden></p>
+  <div class="banner bad" id="load-error" role="alert" hidden></div>
+  <p id="save-status" role="status" aria-live="polite"></p>
   <p class="banner" id="ime" role="status" hidden></p>
   <div class="banner" id="setup" hidden></div>
 
@@ -53,6 +55,7 @@
   <aside class="pane" id="chat-pane" aria-label="테스트"></aside>
   </div>
 </main>
+<button class="btn test-jump" id="test-jump" type="button">테스트 열기 ↓</button>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

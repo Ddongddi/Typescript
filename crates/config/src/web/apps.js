@@ -18,6 +18,7 @@ const BLANK = "blank";
 const DEFAULT_THRESHOLD = 0.5;
 
 const running = { list: null, loading: false, filter: "", page: 0 };
+const appDraft = { name: "", preset: "", filter: "", open: new Set(["*"]) };
 
 const saveApps = (apps, key) =>
   act("저장했습니다", "/api/apps", apps, key, { path: "/api/apps", body: copy(state.apps) });
@@ -51,7 +52,8 @@ function previewNodes(segments) {
 // Moving the slider shows how a sample reads at that threshold before anything is saved.
 function thresholdField(exe, rule, edit) {
   const th = rule.conversionThreshold;
-  const out = h("output", {}, th === undefined ? "기본" : th.toFixed(2));
+  const effective = th ?? appThreshold("*") ?? DEFAULT_THRESHOLD;
+  const out = h("output", {}, (th === undefined ? "기본 · " : "") + effective.toFixed(2));
   const preview = h("p", { class: "preview", "aria-live": "polite" }, " ");
   let latest = 0;
   const show = async (value) => {
@@ -68,7 +70,7 @@ function thresholdField(exe, rule, edit) {
     min: "0.5",
     max: "0.99",
     step: "0.01",
-    value: String(th === undefined ? DEFAULT_THRESHOLD : th),
+    value: String(effective),
     "data-f": "app-" + exe + "-th",
     "aria-label": exe + " 변환 기준",
     disabled: busy,
@@ -78,7 +80,7 @@ function thresholdField(exe, rule, edit) {
     },
     onchange: (e) => edit({ conversionThreshold: Number(e.target.value) }, "app-" + exe + "-th"),
   });
-  show(th === undefined ? appThreshold("*") : th);
+  show(effective);
   return h(
     "div",
     { class: "field wide" },
@@ -154,39 +156,63 @@ function appCard(exe, rule) {
         "삭제",
       );
   const sum = summary(rule);
-  return h(
-    "article",
-    { class: "app", "aria-label": star ? "모든 앱" : exe },
-    h("h3", {}, star ? "모든 앱 (*)" : exe, h("span", { class: "grow" }), presets, remove),
+  const fields = h("div", {});
+  const fill = () => {
+    if (fields.childNodes.length) return;
+    fields.append(
+      h("div", { class: "bar" }, presets, remove),
+      h(
+        "div",
+        { class: "fields" },
+        choice("enabled", "사용"),
+        choice("escapeToApp", "Esc는 앱에게"),
+        choice("useSystemIme", "시스템 IME"),
+        /*language:ja*/
+        choice("fullWidth", "일본어 전각"),
+        /*language:/ja*/
+        thresholdField(exe, rule, edit),
+      ),
+    );
+  };
+  const card = h(
+    "details",
+    {
+      class: "app",
+      open: appDraft.open.has(exe),
+      "aria-label": star ? "모든 앱" : exe,
+      ontoggle: (e) => {
+        if (e.target.open) {
+          appDraft.open.add(exe);
+          fill();
+        } else appDraft.open.delete(exe);
+      },
+    },
     h(
-      "div",
-      { class: "sum" },
-      sum.length
-        ? sum.map((t) => h("span", {}, t))
-        : h(
-            "span",
-            { class: "none" },
-            star ? "특별한 규칙 없음 — 기본 동작" : "모두 ‘기본’ — 모든 앱 규칙을 따릅니다",
-          ),
+      "summary",
+      {},
+      h("b", {}, star ? "모든 앱 (*)" : exe),
+      h(
+        "div",
+        { class: "sum" },
+        sum.length
+          ? sum.map((t) => h("span", {}, t))
+          : h(
+              "span",
+              { class: "none" },
+              star ? "특별한 규칙 없음 — 기본 동작" : "모두 ‘기본’ — 모든 앱 규칙을 따릅니다",
+            ),
+      ),
     ),
-    h(
-      "div",
-      { class: "fields" },
-      choice("enabled", "사용"),
-      choice("escapeToApp", "Esc는 앱에게"),
-      choice("useSystemIme", "시스템 IME"),
-      /*language:ja*/
-      choice("fullWidth", "일본어 전각"),
-      /*language:/ja*/
-      thresholdField(exe, rule, edit),
-    ),
+    fields,
   );
+  if (card.open) fill();
+  return card;
 }
 
 async function loadRunning() {
   if (running.loading) return;
   running.loading = true;
-  if (state) renderApps();
+  if (state && !$("p-apps").hidden) render();
   try {
     running.list = (await api("/api/processes")).apps;
   } catch (e) {
@@ -194,7 +220,7 @@ async function loadRunning() {
     toast(e.message, true);
   }
   running.loading = false;
-  if (state) renderApps();
+  if (state && !$("p-apps").hidden) render();
 }
 
 function addApp(name, rule, quiet) {
@@ -202,6 +228,7 @@ function addApp(name, rule, quiet) {
   if (!n) return;
   if (!/^[^\\/:*?"<>|]+$/.test(n)) return void toast("파일 이름만 적어 주세요 (경로 없이)", true);
   if (state.apps[n]) return void (quiet || toast("이미 있는 앱입니다", true));
+  appDraft.open.add(n);
   saveApps({ ...state.apps, [n]: rule }, "app-" + n + "-th");
 }
 
@@ -287,7 +314,27 @@ function procList() {
 function renderApps() {
   const p = $("p-apps");
   p.replaceChildren();
+  const cards = h("div", { class: "apps" });
+  const drawCards = () => {
+    const names = exes.filter(
+      (exe) => exe === "*" || exe.includes(appDraft.filter.trim().toLowerCase()),
+    );
+    cards.replaceChildren(...names.map((exe) => appCard(exe, state.apps[exe] || {})));
+    if (names.length === 1 && appDraft.filter)
+      cards.append(h("p", { class: "note" }, "검색에 맞는 등록된 앱 규칙이 없습니다."));
+  };
   p.append(
+    h("input", {
+      type: "text",
+      "data-f": "rule-filter",
+      value: appDraft.filter,
+      placeholder: "등록된 앱 규칙 찾기",
+      "aria-label": "등록된 앱 규칙 찾기",
+      oninput: (e) => {
+        appDraft.filter = e.target.value;
+        drawCards();
+      },
+    }),
     h(
       "p",
       { class: "note" },
@@ -300,13 +347,8 @@ function renderApps() {
       .filter((k) => k !== "*")
       .sort(),
   ];
-  p.append(
-    h(
-      "div",
-      { class: "apps" },
-      exes.map((e) => appCard(e, state.apps[e] || {})),
-    ),
-  );
+  p.append(cards);
+  drawCards();
 
   p.append(h("h2", {}, "실행 중인 앱"));
   const list = h("div", {});
@@ -344,10 +386,19 @@ function renderApps() {
     placeholder: "예: windowsterminal.exe",
     "aria-label": "앱 실행 파일 이름",
     autocomplete: "off",
+    "data-f": "app-name",
+    value: appDraft.name,
+    oninput: (e) => {
+      appDraft.name = e.target.value;
+    },
   });
   const preset = dd({
     label: "처음 적용할 프리셋",
-    value: "",
+    value: appDraft.preset,
+    key: "app-preset",
+    onchange: (value) => {
+      appDraft.preset = value;
+    },
     options: [["", "프리셋 없음"], ...PRESETS.map((x, i) => [String(i), x[0]])],
   });
   const add = () => addApp(input.value, preset.value === "" ? {} : { ...PRESETS[preset.value][1] });

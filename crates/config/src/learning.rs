@@ -16,7 +16,7 @@ use crate::error::{err, Result};
 const SUGGEST_AFTER: u32 = 2;
 /// Corrected readings kept per reading by the kanji conversion.
 const KANJI_PER_READING: u32 = 5;
-/// The list stops here; the rest is counted.
+/// Maximum words rendered per page.
 const SHOWN: usize = 200;
 
 fn lexicon_path(env: &Env) -> PathBuf {
@@ -30,13 +30,32 @@ fn history_path(env: &Env) -> PathBuf {
 /// The learned words (up to `SHOWN`), how many are waiting for a second correction, and how many
 /// words Tab completion remembers.
 pub fn summary(env: &Env, render: impl Fn(&str, Language) -> Option<String>) -> Value {
+    page(env, render, "", 0)
+}
+
+/// Search the complete lexicon, returning one bounded page with global history counts.
+pub fn page(
+    env: &Env,
+    render: impl Fn(&str, Language) -> Option<String>,
+    query: &str,
+    page: usize,
+) -> Value {
     let store: Store = load_or_quarantine(Some(&lexicon_path(env)));
     let history = History::new(Some(history_path(env)));
     // a–z whatever the case; `out` is what the word turns into (none when its pack is not here)
     let mut words: Vec<_> = store.learned.iter().collect();
     words.sort_by_cached_key(|(keys, _)| (keys.to_lowercase(), keys.to_string()));
+    let query = query.trim().to_lowercase();
+    let words: Vec<_> = words
+        .into_iter()
+        .filter(|(keys, _)| keys.to_lowercase().contains(&query))
+        .collect();
+    let filtered_count = words.len();
+    let pages = filtered_count.div_ceil(SHOWN).max(1);
+    let page = page.min(pages - 1);
     let learned: Vec<Value> = words
         .into_iter()
+        .skip(page * SHOWN)
         .take(SHOWN)
         .map(|(keys, language)| {
             json!({ "keys": keys, "language": language.id(), "out": render(keys, *language) })
@@ -45,6 +64,9 @@ pub fn summary(env: &Env, render: impl Fn(&str, Language) -> Option<String>) -> 
     json!({
         "learned": learned,
         "learnedCount": store.learned.len(),
+        "filteredCount": filtered_count,
+        "page": page,
+        "pages": pages,
         "pendingCount": store.once.len(),
         "historyWords": history.word_count(),
         "historySuggestible": history.suggestible_count(),
@@ -86,6 +108,33 @@ mod tests {
     use crate::testutil::fixture;
     fn plain(keys: &str, _: Language) -> Option<String> {
         Some(format!("<{keys}>"))
+    }
+
+    #[test]
+    fn search_and_pages_reach_words_after_the_first_two_hundred() {
+        let f = fixture("learning-pages");
+        let mut store = Store::default();
+        for n in 0..205 {
+            store
+                .learned
+                .insert(format!("word{n:03}"), Language::Korean);
+        }
+        persist(&lexicon_path(&f.env), &store).unwrap();
+        let first = summary(&f.env, plain);
+        assert_eq!(first["learned"].as_array().unwrap().len(), 200);
+        assert_eq!(first["pages"], 2);
+        let last = page(&f.env, plain, "", usize::MAX);
+        assert_eq!(last["page"], 1);
+        assert_eq!(last["learned"][0]["keys"], "word200");
+        assert_eq!(last["learned"].as_array().unwrap().len(), 5);
+        let found = page(&f.env, plain, " WORD204 ", 0);
+        assert_eq!(found["filteredCount"], 1);
+        assert_eq!(found["learned"][0]["keys"], "word204");
+        change(&f.env, &json!({ "action": "forget", "keys": "word204" })).unwrap();
+        let empty = page(&f.env, plain, "word204", 1);
+        assert_eq!(empty["page"], 0);
+        assert_eq!(empty["pages"], 1);
+        assert_eq!(empty["filteredCount"], 0);
     }
 
     #[test]

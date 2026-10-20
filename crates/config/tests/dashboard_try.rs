@@ -133,6 +133,13 @@ fn the_chat_runs_the_real_session_with_the_saved_settings() {
 
     let long = send(&app, "/api/play", json!({ "keys": vec!["a"; 500] }));
     assert_eq!(long.status, 400, "a draft is a sentence, not a document");
+    let mut full = vec!["1"; 400];
+    full.push("Backspace");
+    assert_eq!(play(&full)["text"].as_str().unwrap().len(), 399);
+    full.extend(["Enter", "Enter"]);
+    assert_eq!(play(&full)["submitted"], true);
+    full.extend(std::iter::repeat_n("Backspace", 400));
+    assert_eq!(send(&app, "/api/play", json!({ "keys": full })).status, 400);
     let bad = send(&app, "/api/play", json!({ "keys": ["F13"] }));
     assert_eq!(bad.status, 400);
     let _ = std::fs::remove_dir_all(&root);
