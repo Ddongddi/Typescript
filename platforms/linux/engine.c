@@ -15,7 +15,7 @@ enum { LETTER, PRINTABLE, DELETE, ESCAPE, CYCLE, ENTER, TAB, OTHER };
 typedef struct { IBusEngine parent; } TsEngine;
 typedef struct { IBusEngineClass parent; } TsEngineClass;
 
-static Handle *ime;
+static TacitHandle *ime;
 static GString *composing; /* the preedit shown now */
 static gboolean secure;    /* the focused field is a password / PIN field: keys go to the app */
 
@@ -79,7 +79,7 @@ static gboolean process_key(IBusEngine *e, guint keyval, guint keycode, guint st
   if (state & IBUS_RELEASE_MASK || secure) return FALSE;
   /* The pause key (한/영) turns tacit off and on in this text field. */
   if (keyval == IBUS_KEY_Hangul || keyval == IBUS_KEY_Pause)
-    return apply(e, ts_toggle_pause(ime, composing->str));
+    return apply(e, ts_toggle_pause(ime, composing->str, 0));
   /* Shift+Esc cycles the reading of the word, like on Android. */
   guint32 ch;
   int kind = kind_of(keyval, &ch);
@@ -88,7 +88,7 @@ static gboolean process_key(IBusEngine *e, guint keyval, guint keycode, guint st
     kind = OTHER; /* shortcuts end the word and go to the app */
     ch = 0;
   }
-  return apply(e, ts_key(ime, kind, ch, composing->str));
+  return apply(e, ts_key(ime, kind, ch, composing->str, 0));
 }
 
 static void forget(IBusEngine *e) {
