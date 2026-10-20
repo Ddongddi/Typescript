@@ -11,6 +11,7 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- Updates from pre-rename versions find the new release assets and install both the program and language packs on Windows through the pinned release installer. Official update URLs also use the canonical repository case.
 - macOS input-source lists and switching UI display `Tacit` instead of the internal identifier. Input-source identifiers remain unchanged.
 - Fix macOS composition being reset by unavailable or inconsistent editor context, finalize marked text on session termination, and retain validated Esc correction after context recovery without changing surrounding text.
 

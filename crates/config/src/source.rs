@@ -8,7 +8,7 @@ use crate::catalog::Catalog;
 use crate::error::{err, Result};
 use crate::fetch::{Dir, Fetch, Http};
 
-pub const GITHUB_LATEST: &str = "https://github.com/iamallyouneed/tacit/releases/latest/download/";
+pub const GITHUB_LATEST: &str = "https://github.com/iamallyouneed/Tacit/releases/latest/download/";
 const CATALOG_NAME: &str = "packs.json";
 const CATALOG_MAX: usize = 1024 * 1024;
 

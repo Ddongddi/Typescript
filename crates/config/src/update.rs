@@ -15,7 +15,7 @@ use crate::install::{install_pack, unpack};
 use crate::source::Source;
 use tacit_core::{pack, store::read_object};
 
-pub const LATEST_API: &str = "https://api.github.com/repos/iamallyouneed/tacit/releases/latest";
+pub const LATEST_API: &str = "https://api.github.com/repos/iamallyouneed/Tacit/releases/latest";
 const DAY: u64 = 24 * 60 * 60;
 const API_MAX: usize = 2 * 1024 * 1024;
 /// The program package of this system's release and the script in it that installs it.
@@ -280,7 +280,7 @@ fn asset<'a>(release: &'a Release, name: &str) -> Result<&'a str> {
 }
 
 /// Where the official release pages live (the Windows installer fetches from here itself).
-const RELEASES: &str = "https://github.com/iamallyouneed/tacit/releases/download/";
+const RELEASES: &str = "https://github.com/iamallyouneed/Tacit/releases/download/";
 
 /// What a program update hands to `launch`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -759,6 +759,13 @@ mod tests {
         assert!(!trusted_download("https://evil.test/tacit-windows.zip"));
         assert!(!trusted_download("https://github.com.evil.test/x"));
         assert!(!trusted_download("http://github.com/x"));
+    }
+
+    #[test]
+    fn an_asset_url_from_the_github_api_matches_the_repository_case() {
+        let url =
+            "https://github.com/iamallyouneed/Tacit/releases/download/v9.0.0/tacit-windows.zip";
+        assert_eq!(official_tag(url, "v9.0.0"), Some("v9.0.0"));
     }
 
     #[test]
