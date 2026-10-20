@@ -100,6 +100,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
 
 - [<img src="https://github.com/noth3dev.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="noth3dev"> **@noth3dev**](https://github.com/noth3dev) (Necessity) — 프로젝트 운영과 핵심 개발
 - [<img src="https://github.com/Ddongddi.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Ddongddi"> **@Ddongddi**](https://github.com/Ddongddi) — 일본어 지원 추가
+- [<img src="https://github.com/snowykr.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="snowykr"> **@snowykr**](https://github.com/snowykr) — macOS 조합 상태와 입력 소스 이름 수정, 회귀 테스트 추가
 - [<img src="https://github.com/Seungchan0325.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Seungchan0325"> **@Seungchan0325**](https://github.com/Seungchan0325) — GeekNews에 소개
 
 이 프로젝트는 [@aimdevlee](https://github.com/aimdevlee)의 [Seamtype](https://github.com/aimdevlee/seamtype) (MIT) Rust 포트로 시작되었으며, Seamtype의 모델은 [@yksr-melt](https://github.com/yksr-melt)의 [Meltype](https://github.com/yksr-melt/Meltype)에서 영감을 받았습니다. 자세한 고지는 [NOTICE](NOTICE)에 있습니다.
@@ -209,6 +210,7 @@ change under `추가` (Added), `변경` (Changed), `수정` (Fixed), and `제거
 
 - [<img src="https://github.com/noth3dev.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="noth3dev"> **@noth3dev**](https://github.com/noth3dev) (Necessity) — project lead and core development
 - [<img src="https://github.com/Ddongddi.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Ddongddi"> **@Ddongddi**](https://github.com/Ddongddi) — added Japanese support
+- [<img src="https://github.com/snowykr.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="snowykr"> **@snowykr**](https://github.com/snowykr) — fixed macOS composition state and input-source naming, added regression tests
 - [<img src="https://github.com/Seungchan0325.png?size=40" width="20" height="20" style="border-radius: 50%; vertical-align: -3px;" alt="Seungchan0325"> **@Seungchan0325**](https://github.com/Seungchan0325) — shared the project on GeekNews
 
 The project began as a Rust port of [Seamtype](https://github.com/aimdevlee/seamtype) by [@aimdevlee](https://github.com/aimdevlee) (MIT), which was inspired by [Meltype](https://github.com/yksr-melt/Meltype) by [@yksr-melt](https://github.com/yksr-melt); see [NOTICE](NOTICE) for the notices.
