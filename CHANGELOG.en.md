@@ -9,6 +9,10 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- macOS input-source lists and switching UI display `Tacit` instead of the internal identifier. Input-source identifiers remain unchanged.
+
 ## [0.10.4] - 2026-10-19
 
 ### Changed
