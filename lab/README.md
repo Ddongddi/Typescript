@@ -258,3 +258,9 @@ lab 0.2.11부터 `alloc.commit.*`, `alloc.keystroke.*`는 판별 한 번당 성�
 요청 바이트의 평균이다. 판별 결과를 담는 보고서 배열의 할당은 제외하며, `bytes`는 해제된 임시
 버퍼도 포함하는 누적 요청량으로 상주 메모리가 아니다. `heap.loaded_kb`와 `heap.peak_kb`도 함께 본다.
 할당 계수의 atomic 비용이 있으므로 같은 lab 버전의 전후 실행 순서를 번갈아 반복 비교한다.
+
+lab 0.2.12의 `--switching`은 `switch.alloc.calls_per_key`, `switch.alloc.bytes_per_key`로
+`InputSession::handle`의 문자 키 처리 내부 할당을 센다. 정답 조합·자료 준비·보고서는 제외한다.
+`--switching`은 현재 영·한 전용이며 일본어 기능은 일반 enkoja 평가와 세션 테스트로 검증한다.
+짧은 시나리오의 지연은 표본이 작으므로 기존 문장 전체를 동일 횟수 반복한 파일을
+`--switching-input PATH --corpus N`으로 재생할 수 있다. 반복 문장을 독립 정확도 표본으로 세지 않는다.
