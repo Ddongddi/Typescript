@@ -9,6 +9,17 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-10-21
+
+### 추가
+
+- Android 키보드의 한/영 키가 `tacit` → `한` → `영` 순서로 바뀝니다. `한`은 모든 단어를 한글로, `영`은 입력기가 비켜서고 일반 영문으로 입력하며, 키 글자도 모드에 맞게 자모·영문으로 바뀝니다. `한`에서 Shift를 누르면 쌍자음이 나옵니다. 모드는 입력창마다 `tacit`으로 시작합니다.
+- Android 키보드 위에 해석 후보 띠가 생겼습니다. 입력 중인 단어의 해석(예: `hello` / `ㅗ디ㅣㅐ`)을 눌러 바꿀 수 있고, Esc와 같이 학습됩니다. 이 띠가 `가/A` 키를 대신해 그 키는 없앴습니다.
+
+### 변경
+
+- Android 키보드를 새로 꾸몄습니다. 둥근 키, 라이트·다크 팔레트, 56dp 키 높이를 적용하고 자모 힌트를 키 모서리 안에 맞춰 그립니다. 힌트 위치 계산은 HeliBoard(Apache-2.0 AND GPL-3.0-only)에서 가져왔고, 출처와 라이선스를 `platforms/android/THIRD_PARTY_NOTICES.md`에 적었습니다.
+
 ### 수정
 
 - 이름 변경 전 버전의 업데이트가 새 배포 파일을 찾고 Windows에서 해당 릴리스의 프로그램과 언어 팩을 함께 설치하도록 고쳤습니다. 공식 업데이트 URL의 저장소 이름 대소문자도 맞췄습니다.
@@ -381,7 +392,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...HEAD
+[0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2

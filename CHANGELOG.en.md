@@ -9,6 +9,17 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-10-21
+
+### Added
+
+- The Android keyboard's mode key now cycles `tacit` → `한` → `영`. `한` reads every word as Korean; `영` steps the input method aside and types plain English. The key faces follow the mode (jamo or letters), and Shift in `한` gives the double consonants. The mode starts as `tacit` in each text field.
+- A readings strip above the Android keyboard shows how the word being typed can be read (for example `hello` / `ㅗ디ㅣㅐ`); tap one to switch. It is learned the same way as Esc. The strip replaces the `가/A` key, which is gone.
+
+### Changed
+
+- The Android keyboard has a new look: rounded keys, light and dark palettes, 56dp key height, and the jamo hints drawn inside the key corner. The hint positioning is adapted from HeliBoard (Apache-2.0 AND GPL-3.0-only); the source and licenses are in `platforms/android/THIRD_PARTY_NOTICES.md`.
+
 ### Fixed
 
 - Updates from pre-rename versions find the new release assets and install both the program and language packs on Windows through the pinned release installer. Official update URLs also use the canonical repository case.
@@ -381,7 +392,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...HEAD
+[0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/iamallyouneed/tacit/compare/v0.10.1...v0.10.2

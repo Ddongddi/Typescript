@@ -110,7 +110,7 @@ Re-running the command on an existing install is fine (enabled languages are kep
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # remove (settings and language packs are kept)
-& $i -Version v0.10.4       # pinned release
+& $i -Version v0.10.5       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 
@@ -156,7 +156,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 Download **`tacit.apk`** from the [latest release](https://github.com/iamallyouneed/tacit/releases/latest) and install it (allow unknown sources). Enable **Tacit** in Settings → keyboards, then pick it from the keyboard switcher in any text field.
 
 - The on-screen keyboard shows the 2-set jamo on each key. Bluetooth/USB keyboards work too.
-- The `가/A` key acts as Esc. The `한/영` key pauses and shows `OFF` while paused.
+- The strip above the on-screen keyboard shows how the word being typed can be read (`hello` / `ㅗ디ㅣㅐ`); tap one to switch, as with Esc. The mode key cycles `tacit` → `한` → `영`: `한` types every word as Korean, `영` types plain English, and the key faces follow.
 - Password and non-text fields get plain letters, no detection.
 - Release APKs share a fixed signing key, so new versions install over old ones.
 

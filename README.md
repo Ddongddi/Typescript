@@ -112,7 +112,7 @@ irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
-& $i -Version v0.10.4       # 특정 버전
+& $i -Version v0.10.5       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
@@ -160,7 +160,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 릴리스의 **`tacit.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Tacit** 를 켜고, 입력창에서 키보드로 고릅니다.
 
 - 화면 키보드는 두벌식 자모를 키마다 같이 표시합니다. 블루투스/USB 물리 키보드도 됩니다.
-- 화면 키보드의 `가/A` 키는 Esc와 같습니다. `한/영` 키는 일시정지이고 켜져 있으면 `OFF` 로 보입니다.
+- 화면 키보드 위의 후보 띠에서 입력 중인 단어의 해석(`hello` / `ㅗ디ㅣㅐ`)을 눌러 바꿉니다(Esc와 같습니다). `한/영` 키는 `tacit` → `한` → `영` 순으로 바뀝니다. `한`은 모든 단어를 한글로, `영`은 일반 영문으로 입력하고 키 글자도 그에 맞게 바뀝니다.
 - 비밀번호 칸과 텍스트가 아닌 칸에서는 판별 없이 글자만 넣습니다.
 - 릴리스 APK는 고정된 키로 서명돼서 새 버전을 덮어 설치할 수 있습니다.
 
