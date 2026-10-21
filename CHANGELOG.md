@@ -9,6 +9,13 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-10-21
+
+### 수정
+
+- 조합 중 백스페이스로 지운 한글을 고쳐 칠 때 라틴 글자로 뒤집히던 것을 고쳤습니다(`사랑`을 지우고 `ㅏ`). 확정된 글자를 지우고 이어 칠 때는 커서 앞 글자의 언어를 문맥으로 씁니다.
+- Android 키보드가 키마다 전체 키를 다시 그리고 후보 띠를 새로 만들던 것을, 바뀐 게 없으면 건너뛰게 했습니다.
+
 ## [0.10.5] - 2026-10-21
 
 ### 추가
@@ -392,7 +399,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3

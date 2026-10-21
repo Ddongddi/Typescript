@@ -9,6 +9,13 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-10-21
+
+### Fixed
+
+- Mending Hangul after Backspace no longer flips it to Latin while typing (`사랑`, delete, `ㅏ`). After the app deletes committed text, the character left before the caret sets the next word's language context.
+- The Android keyboard no longer redraws every key and rebuilds the readings strip on each keystroke when nothing changed.
+
 ## [0.10.5] - 2026-10-21
 
 ### Added
@@ -392,7 +399,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/iamallyouneed/tacit/compare/v0.10.2...v0.10.3
