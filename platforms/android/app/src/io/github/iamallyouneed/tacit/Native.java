@@ -16,6 +16,11 @@ final class Native {
     static final int TAB = 6;
     static final int OTHER = 7;
 
+    // Modes, as nativeMode reports them (same file).
+    static final int MODE_AUTO = 0;
+    static final int MODE_KOREAN = 1;
+    static final int MODE_ENGLISH = 2;
+
     static native long nativeCreate(String dir);
 
     static native void nativeDestroy(long handle);
@@ -27,7 +32,14 @@ final class Native {
 
     static native void nativeReset(long handle);
 
-    static native String nativeTogglePause(long handle, String before);
+    /** Next mode: tacit, Korean, English. Same reply as nativeKey. */
+    static native String nativeCycleMode(long handle, String before);
 
-    static native boolean nativePaused(long handle);
+    static native int nativeMode(long handle);
+
+    /** Each reading of the word being typed preceded by U+0001 and "1" if shown, else "0". */
+    static native String nativeReadings(long handle);
+
+    /** Reads the word as the index-th reading. Same reply as nativeKey. */
+    static native String nativeChooseReading(long handle, int index, String before);
 }

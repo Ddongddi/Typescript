@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Keyboard xmlns:android="http://schemas.android.com/apk/res/android"
-    android:keyWidth="10%p" android:keyHeight="52dp"
+    android:keyWidth="10%p" android:keyHeight="56dp"
     android:horizontalGap="0px" android:verticalGap="0px">
     <Row>
         <Key android:codes="113" android:keyLabel="q" />
@@ -38,9 +38,8 @@
     </Row>
     <Row>
         <Key android:codes="-102" android:keyLabel="\?123" android:keyWidth="12%p" />
-        <Key android:codes="-100" android:keyLabel="가/A" android:keyWidth="12%p" />
         <Key android:codes="44" android:keyLabel="," />
-        <Key android:codes="32" android:keyLabel=" " android:keyWidth="32%p" />
+        <Key android:codes="32" android:keyLabel=" " android:keyWidth="44%p" />
         <Key android:codes="46" android:keyLabel="." />
         <Key android:codes="-101" android:keyLabel="한/영" android:keyWidth="12%p" />
         <Key android:codes="10" android:keyLabel="⏎" android:keyWidth="12%p" />

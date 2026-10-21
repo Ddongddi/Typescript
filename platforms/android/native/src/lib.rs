@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use jni::objects::{JClass, JString};
-use jni::sys::{jboolean, jint, jlong, jstring};
+use jni::sys::{jint, jlong, jstring};
 use jni::JNIEnv;
 
 use ime::Ime;
@@ -109,7 +109,7 @@ pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeReset(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeTogglePause(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeCycleMode(
     mut env: JNIEnv,
     _: JClass,
     handle: jlong,
@@ -117,16 +117,41 @@ pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeTogglePau
 ) -> jstring {
     let before = text(&mut env, &before);
     let out = with(handle, "0".to_string(), |ime| {
-        ime.toggle_pause(Some(&before), Some(0))
+        ime.cycle_mode(Some(&before), Some(0))
     });
     reply(&env, &out)
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativePaused(
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeMode(
     _: JNIEnv,
     _: JClass,
     handle: jlong,
-) -> jboolean {
-    with(handle, false, |ime| ime.paused()) as jboolean
+) -> jint {
+    with(handle, ime::MODE_AUTO, |ime| ime.mode())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeReadings(
+    env: JNIEnv,
+    _: JClass,
+    handle: jlong,
+) -> jstring {
+    let out = with(handle, String::new(), |ime| ime.readings());
+    reply(&env, &out)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_io_github_iamallyouneed_tacit_Native_nativeChooseReading(
+    mut env: JNIEnv,
+    _: JClass,
+    handle: jlong,
+    index: jint,
+    before: JString,
+) -> jstring {
+    let before = text(&mut env, &before);
+    let out = with(handle, "0".to_string(), |ime| {
+        ime.choose_reading(index.max(0) as usize, Some(&before), Some(0))
+    });
+    reply(&env, &out)
 }

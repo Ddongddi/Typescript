@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tacit_core::session::testing::FakeTextField;
-use tacit_core::session::NOT_FOUND;
+use tacit_core::session::{InputMode, NOT_FOUND};
 use tacit_core::store::policy::Override;
 use tacit_core::History;
 use tacit_core::{
@@ -642,4 +642,76 @@ fn file_names_with_an_extension_stay_english() {
     let mut r = Rig::new("file-ext");
     r.type_("main.rs tnwjdgoTdj ");
     assert_eq!(r.text(), "main.rs 수정했어 ");
+}
+
+#[test]
+fn mode_cycles_auto_korean_english() {
+    let mut r = Rig::new("mode-cycle");
+    assert_eq!(r.session.mode(), InputMode::Auto);
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.session.mode(), InputMode::Korean);
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.session.mode(), InputMode::English);
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.session.mode(), InputMode::Auto);
+}
+
+/// 한: every word is Korean, also one the engine would keep English.
+#[test]
+fn korean_mode_types_hangul_for_every_word() {
+    let mut r = Rig::new("mode-korean");
+    r.session.cycle_mode(&mut r.field);
+    r.type_("hello dkssud ");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ 안녕 ");
+}
+
+/// 영: the session steps aside and the keys reach the app as typed.
+#[test]
+fn english_mode_leaves_keys_to_the_app() {
+    let mut r = Rig::new("mode-english");
+    r.session.cycle_mode(&mut r.field);
+    r.session.cycle_mode(&mut r.field);
+    r.type_("dkssud ");
+    assert_eq!(r.text(), "dkssud ");
+}
+
+#[test]
+fn switching_mode_commits_the_word_in_progress() {
+    let mut r = Rig::new("mode-commit");
+    r.type_("dkssud");
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.text(), "안녕");
+    assert!(!r.composing());
+}
+
+#[test]
+fn readings_list_each_distinct_reading_and_mark_the_shown_one() {
+    let mut r = Rig::new("readings");
+    assert!(r.session.readings().is_empty());
+    r.type_("hello");
+    let readings = r.session.readings();
+    let texts: Vec<&str> = readings.iter().map(|x| x.text.as_str()).collect();
+    assert_eq!(texts, ["hello", "ㅗ디ㅣㅐ"]);
+    assert_eq!(
+        readings.iter().map(|x| x.shown).collect::<Vec<_>>(),
+        [true, false]
+    );
+}
+
+#[test]
+fn choosing_a_reading_changes_the_word_like_esc() {
+    let mut r = Rig::new("choose");
+    r.type_("hello");
+    assert!(r.session.choose_reading(1, &mut r.field));
+    assert!(r.session.readings()[1].shown);
+    r.type_(" ");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ ");
+}
+
+#[test]
+fn choosing_a_missing_reading_does_nothing() {
+    let mut r = Rig::new("choose-none");
+    assert!(!r.session.choose_reading(0, &mut r.field));
+    r.type_("hello");
+    assert!(!r.session.choose_reading(9, &mut r.field));
 }

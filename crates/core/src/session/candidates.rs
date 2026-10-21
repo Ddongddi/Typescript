@@ -5,7 +5,9 @@
 //! The number keys pick from the current page (1-9); committing, wrap-around and clause
 //! resizing stay in the conversion itself.
 
-use super::InputSession;
+use super::{InputSession, TextClient};
+use crate::decide::engine::Language;
+use crate::lang::registry;
 
 /// How many candidates a page holds: what the number keys pick from.
 #[cfg(feature = "japanese")]
@@ -21,6 +23,56 @@ pub struct CandidatePage {
     /// This page (0-based) and how many there are.
     pub page: usize,
     pub pages: usize,
+}
+
+/// One way the word being typed can be read (hello / ㅗ디ㅣㅐ), for the platform's suggestion strip.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reading {
+    pub text: String,
+    pub language: Language,
+    /// This is what the underlined preview shows now.
+    pub shown: bool,
+}
+
+impl InputSession {
+    /// The distinct readings of the word being typed, in Esc order; empty when there is nothing
+    /// to choose between (no word, one reading, or a Japanese conversion with its own list).
+    pub fn readings(&self) -> Vec<Reading> {
+        #[cfg(feature = "japanese")]
+        if self.ja.conversion.is_some() {
+            return Vec::new();
+        }
+        if self.word.is_empty() {
+            return Vec::new();
+        }
+        let shown = self.word.shown_language();
+        let mut readings: Vec<Reading> = Vec::new();
+        for language in registry::cycle_order(&self.languages) {
+            let Some(text) = self.preview(language) else {
+                continue;
+            };
+            if readings.iter().all(|r| r.text != text) {
+                readings.push(Reading {
+                    text,
+                    language,
+                    shown: Some(language) == shown,
+                });
+            }
+        }
+        if readings.len() < 2 {
+            readings.clear();
+        }
+        readings
+    }
+
+    /// Reads the word as the `index`th of `readings()`, as Esc would. False when there is none.
+    pub fn choose_reading(&mut self, index: usize, client: &mut dyn TextClient) -> bool {
+        let Some(reading) = self.readings().into_iter().nth(index) else {
+            return false;
+        };
+        self.read_as(reading.language, client);
+        true
+    }
 }
 
 /// The page `selected` falls on, where it sits there, and how many pages `total` fills.
