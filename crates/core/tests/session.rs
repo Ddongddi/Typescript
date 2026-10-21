@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tacit_core::session::testing::FakeTextField;
-use tacit_core::session::{InputMode, NOT_FOUND};
+use tacit_core::session::{InputMode, Range, NOT_FOUND};
 use tacit_core::store::policy::Override;
 use tacit_core::History;
 use tacit_core::{
@@ -79,6 +79,23 @@ impl Rig {
                         self.field.insert_text(&c.to_string(), None);
                     }
                 }
+            }
+        }
+    }
+
+    /// Delete as the app sees it: the session takes it while a word is being typed, otherwise
+    /// the app erases the character before the caret.
+    fn erase(&mut self, times: usize) {
+        for _ in 0..times {
+            if !self.key(Key::Delete) && self.field.cursor > 0 {
+                let at = self.field.cursor;
+                self.field.insert_text(
+                    "",
+                    Some(Range {
+                        location: at - 1,
+                        length: 1,
+                    }),
+                );
             }
         }
     }
@@ -714,4 +731,22 @@ fn choosing_a_missing_reading_does_nothing() {
     assert!(!r.session.choose_reading(0, &mut r.field));
     r.type_("hello");
     assert!(!r.session.choose_reading(9, &mut r.field));
+}
+
+#[test]
+fn mending_hangul_after_delete_stays_hangul() {
+    let mut r = Rig::new("mend");
+    r.type_("tkfkd");
+    r.erase(3);
+    r.type_("k");
+    assert_eq!(r.text(), "사ㅏ");
+}
+
+#[test]
+fn text_left_before_the_caret_is_the_context_of_the_next_word() {
+    let mut r = Rig::new("caret-context");
+    r.type_("dkssud hello ");
+    r.erase(7);
+    r.type_("en ");
+    assert_eq!(r.text(), "안녕두 ");
 }

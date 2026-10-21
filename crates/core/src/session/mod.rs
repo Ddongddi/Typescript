@@ -141,6 +141,9 @@ pub struct InputSession {
     /// because the app is set to Strict.
     kept_english_by_strict: bool,
     previous_language: Option<Language>,
+    /// The app deleted text before the caret since the last word: the next word's context is
+    /// what is left there (`language_before_caret`).
+    edited_back: bool,
     last_commit: Option<Committed>,
     paused: bool,
     /// Every word starts out read as Korean (`InputMode::Korean`).
@@ -184,6 +187,7 @@ impl InputSession {
             policy: AppPolicy::STANDARD,
             kept_english_by_strict: false,
             previous_language: None,
+            edited_back: false,
             last_commit: None,
             paused: false,
             korean_only: false,
@@ -463,6 +467,11 @@ impl InputSession {
         }
         if self.word.keys.is_empty() {
             self.last_recorded = None; // a new word
+            if std::mem::take(&mut self.edited_back) {
+                self.previous_language = self
+                    .language_before_caret(client)
+                    .or(self.previous_language);
+            }
             if self.korean_only {
                 self.word.force(Language::Korean, false);
             }
@@ -476,14 +485,41 @@ impl InputSession {
         {
             self.ja.added_n_marker = false;
         }
-        self.word.unpin();
         self.word.keys.push(ch);
+        // Mending the Hangul just typed (한국 → 한ㄱ, then `r`) stays Korean; the engine judging
+        // the whole key string would flip it to Latin. Once the edited part no longer reads as
+        // Hangul, the engine decides again (한 + hello).
+        if !(self.word.pinned() == Some(Language::Korean) && self.word.edit_reads_as_hangul()) {
+            self.word.unpin();
+        }
         self.update_preview(client);
         true
     }
 
+    /// The app is about to delete committed text: what the next word follows is whatever is left
+    /// before the caret, not the sentence the session remembers.
+    fn language_before_caret(&self, client: &dyn TextClient) -> Option<Language> {
+        let caret = client.selected_range().location;
+        if caret == NOT_FOUND || caret == 0 {
+            return None;
+        }
+        let ch = client
+            .text_in(Range {
+                location: caret - 1,
+                length: 1,
+            })?
+            .chars()
+            .next()?;
+        match ch {
+            '\u{AC00}'..='\u{D7A3}' | '\u{3131}'..='\u{318E}' => Some(Language::Korean),
+            c if c.is_ascii_alphabetic() => Some(Language::English),
+            _ => None,
+        }
+    }
+
     fn on_delete(&mut self, client: &mut dyn TextClient) -> bool {
         if self.word.is_empty() {
+            self.edited_back = true;
             return false;
         }
         let shown = self.word.shown_language();

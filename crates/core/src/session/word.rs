@@ -131,6 +131,18 @@ impl WordState {
             .unwrap_or(chars.len().saturating_sub(1))
     }
 
+    /// After a Delete: the keys typed since (the syllable being mended) still make Hangul, apart
+    /// from the jamo being typed now.
+    pub(super) fn edit_reads_as_hangul(&self) -> bool {
+        let start = self.syllable_start.unwrap_or(0);
+        let back: String = self.keys.chars().skip(start).collect();
+        HangulComposer::compose(&back).is_some_and(|c| {
+            c.units
+                .split_last()
+                .is_some_and(|(_, front)| front.iter().all(|u| matches!(u, Unit::Syllable(_))))
+        })
+    }
+
     /// The word as Hangul, with the syllable being typed kept apart from those before it
     /// after a Delete (`syllable_start`).
     pub(super) fn hangul(&self) -> Option<String> {
