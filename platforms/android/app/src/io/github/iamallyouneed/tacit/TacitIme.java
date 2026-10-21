@@ -36,6 +36,8 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
 
     private DualKeyboardView keyboardView;
     private LinearLayout readingsView;
+    /** What the chips were built from, so refresh() rebuilds them only when it changes. */
+    private String shownReadings;
     private Keyboard letters;
     private Keyboard symbols;
 
@@ -285,9 +287,12 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
     }
 
     private void showReadings() {
+        String readings = active ? Native.nativeReadings(ime) : "";
+        if (readings.equals(shownReadings)) return; // same chips: no rebuild per key
+        shownReadings = readings;
         readingsView.removeAllViews();
         if (!active) return;
-        String[] parts = Native.nativeReadings(ime).split("\u0001");
+        String[] parts = readings.split("\u0001");
         float density = getResources().getDisplayMetrics().density;
         for (int i = 1; i < parts.length; i++) {
             final int index = i - 1;

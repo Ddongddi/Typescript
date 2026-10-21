@@ -36,6 +36,7 @@ public class DualKeyboardView extends KeyboardView {
 
     /** One of Native.MODE_*. */
     public void setMode(int mode) {
+        if (this.mode == mode) return; // refresh() runs on every key: redraw only on a change
         this.mode = mode;
         invalidateAllKeys();
     }
