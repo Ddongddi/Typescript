@@ -9,6 +9,12 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-10-21
+
+### Fixed
+
+- Fixed Android input continuing at the old composing position after tapping to move the cursor or selecting text. Existing text is preserved and typing starts at the new cursor position.
+
 ## [0.10.6] - 2026-10-21
 
 ### Fixed
@@ -399,7 +405,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.7...HEAD
+[0.10.7]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4

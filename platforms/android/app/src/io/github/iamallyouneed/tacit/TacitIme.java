@@ -31,6 +31,7 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
 
     private long ime;
     private boolean active;
+    private boolean composing;
     /** Keys whose down event was consumed: their up event is too. */
     private final Set<Integer> swallowed = new HashSet<>();
 
@@ -72,6 +73,7 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
     public void onStartInput(EditorInfo info, boolean restarting) {
         super.onStartInput(info, restarting);
         active = ime != 0 && isTextField(info);
+        composing = false;
         swallowed.clear();
         if (active) Native.nativeActivate(ime, info.packageName);
     }
@@ -88,10 +90,26 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
 
     @Override
     public void onFinishInput() {
+        composing = false;
         InputConnection ic = getCurrentInputConnection();
         if (ic != null) ic.finishComposingText();
         if (ime != 0) Native.nativeReset(ime);
         super.onFinishInput();
+    }
+
+    @Override
+    public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
+            int candidatesStart, int candidatesEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                candidatesStart, candidatesEnd);
+        if (!active || !composing) return;
+        if (newSelStart == candidatesEnd && newSelEnd == candidatesEnd) return;
+        // A moved caret must detach both the editor's composing span and Rust's old word.
+        composing = false;
+        Native.nativeReset(ime);
+        InputConnection ic = getCurrentInputConnection();
+        if (ic != null) ic.finishComposingText();
+        refresh();
     }
 
     /** Passwords and fields that are not text are left to the system. */
@@ -371,7 +389,7 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
     }
 
     /** Applies Rust's edit commands; true if the key was consumed. */
-    private static boolean apply(InputConnection ic, String reply) {
+    private boolean apply(InputConnection ic, String reply) {
         String[] parts = reply.split("\u0001", -1);
         if (parts.length > 1) {
             ic.beginBatchEdit();
@@ -379,9 +397,11 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
                 String rest = parts[i].substring(1);
                 switch (parts[i].charAt(0)) {
                     case 'M':
+                        composing = !rest.isEmpty();
                         ic.setComposingText(rest, 1);
                         break;
                     case 'I':
+                        composing = false;
                         ic.commitText(rest, 1);
                         break;
                     case 'B':

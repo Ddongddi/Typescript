@@ -9,6 +9,12 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-10-21
+
+### ??
+
+- Android?? ?? ? ??? ??? ???? ???? ??? ??? ?? ??? ?? ???? ??? ?????. ?? ??? ???? ? ?? ???? ?????.
+
 ## [0.10.6] - 2026-10-21
 
 ### 수정
@@ -399,7 +405,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.7...HEAD
+[0.10.7]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/iamallyouneed/tacit/compare/v0.10.3...v0.10.4
