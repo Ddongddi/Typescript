@@ -9,6 +9,12 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.8] - 2026-10-22
+
+### 수정
+
+- Windows 설치 시 Tacit을 기본 입력기로 지정해, 새 앱을 열거나 다시 로그인했을 때 시스템 입력기로 돌아가지 않게 했습니다. 업데이트할 때는 기존 Tacit 기본 프로필(자동완성 여부)을 유지하고, 제거할 때는 Tacit을 가리키는 기본값만 해제합니다. 기본 입력기는 Windows의 고급 키보드 설정에서 바꿀 수 있습니다.
+
 ## [0.10.7] - 2026-10-21
 
 ### 수정
@@ -405,7 +411,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.7...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.8...HEAD
+[0.10.8]: https://github.com/iamallyouneed/tacit/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/iamallyouneed/tacit/compare/v0.10.4...v0.10.5

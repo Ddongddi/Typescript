@@ -112,13 +112,13 @@ irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
-& $i -Version v0.10.7       # 특정 버전
+& $i -Version v0.10.8       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
 받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다. 언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어·한국어 약 0.45MB, 일본어 약 4.7MB).
 
-설치 후 **Win+Space** 로 입력기를 고릅니다. 언어 목록에서는 **영어(미국)** 아래에 있습니다 (없으면 설치가 영어(미국)을 추가합니다. 이유는 [앱 호환](#앱-호환)). 입력기는 둘입니다.
+설치하면 **Tacit (자동완성)**을 Windows 기본 입력기로 지정합니다. 업데이트할 때는 기존 Tacit 기본 프로필을 유지합니다. **Win+Space**로 다른 입력기를 고를 수 있고, 기본값은 Windows **고급 키보드 설정**에서 바꿀 수 있습니다. 언어 목록에서는 **영어(미국)** 아래에 있습니다 (없으면 설치가 영어(미국)을 추가합니다. 이유는 [앱 호환](#앱-호환)). 입력기는 둘입니다.
 
 | 입력기 | 하는 일 |
 | --- | --- |

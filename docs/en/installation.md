@@ -50,6 +50,10 @@ $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/
 ```
 
 ### 2.2 Selecting the Input Method
+Installation sets **Tacit (Autocomplete)** as the Windows default input method. Updates preserve an existing Tacit default profile. Change the default in Windows **Settings → Time & language → Typing → Advanced keyboard settings → Override for default input method**.
+
+For an existing installation that returns to the system input method after switching apps or signing in, select Tacit as the default there. If **Let me use a different input method for each app window** is enabled, Windows remembers a separate input method per window; turn it off to share one input method across windows.
+
 1. Press **Win + Space** and select **Tacit** or **Tacit (Autocomplete)**.
 2. In the Windows language list, Tacit appears under **English (United States)**. *(This intentional design avoids interim composition clipping bugs found in legacy IMM32 apps such as KakaoTalk).*
 3. Applications that were already running when you installed Tacit must be restarted to detect the new text service.

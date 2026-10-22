@@ -22,6 +22,7 @@ jobs:
       - run: cargo test --workspace --all-features
       - run: powershell -NoProfile -File scripts/test-language-isolation.ps1
       - run: powershell -NoProfile -File scripts/test-legacy-update.ps1
+      - run: powershell -NoProfile -File scripts/test-default-input.ps1
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       # The 32-bit text service loads into 32-bit apps, so it has to keep building.
       - run: cargo build --release -p tacit-tip --target i686-pc-windows-msvc

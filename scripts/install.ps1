@@ -19,8 +19,8 @@
   some other process of the user could swap in before the prompt is answered. A local folder is
   only ever used by -LocalSource (development), and it says so.
 
-  Afterwards pick "Tacit" with Win+Space (or in Settings > Time & language > Language
-  & region > English (United States) > Keyboards).
+  Sets Tacit as the Windows default input method (keeps an existing Tacit default profile).
+  Use Win+Space to switch, or Advanced keyboard settings to change the default.
 #>
 
 param(
@@ -59,7 +59,8 @@ function Test-Version([string]$Value) {
     $Value -eq 'latest' -or ($Value.Length -le 64 -and $Value -match '^v?[0-9][0-9A-Za-z.+-]*$' -and $Value -notmatch '\.\.')
 }
 
-function Set-Keyboards([bool]$Present) {
+function Set-Keyboards([bool]$Present, [string]$DefaultTip) {
+    $tips = @($profiles | ForEach-Object { "0409:$_" })
     $list = Get-WinUserLanguageList
     foreach ($ko in @($list | Where-Object { $_.LanguageTag -eq 'ko' })) {
         foreach ($p in $profiles) { [void]$ko.InputMethodTips.Remove("0412:$p") }
@@ -77,6 +78,13 @@ function Set-Keyboards([bool]$Present) {
         }
     }
     Set-WinUserLanguageList $list -Force -WarningAction SilentlyContinue
+    # Registration alone leaves Windows starting new apps and sessions with the system IME.
+    if ($Present) {
+        if ($defaultTip -notin $tips) { $defaultTip = $tips[0] }
+        Set-WinDefaultInputMethodOverride -InputTip $defaultTip
+    } elseif ($defaultTip -in $tips) {
+        Set-WinDefaultInputMethodOverride
+    }
 }
 
 # The elevated half: one block of this script's own text, run either directly (an -Elevated
@@ -459,6 +467,8 @@ $stage = $null
 $inCheckout = $PSScriptRoot -and (Test-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Cargo.toml'))
 try {
     if (-not (Test-Version $Version)) { throw "'$Version' is not a release version" }
+    # Unregistering the old DLL can clear its default; remember the user's profile first.
+    $defaultInputTip = (Get-WinDefaultInputMethodOverride).InputMethodTip
     if ($LocalSource -or $inCheckout) {
         if ($inCheckout) {
             $stage = New-SourceStage
@@ -486,7 +496,7 @@ try {
     }
 
     if ($Uninstall) {
-        Set-Keyboards $false
+        Set-Keyboards $false $defaultInputTip
         Set-SettingsShortcut $false
         Set-KeyHook $false
         Write-Host 'Tacit removed. Settings stay in %APPDATA%\tacit, language packs in %LOCALAPPDATA%\tacit.'
@@ -495,7 +505,7 @@ try {
         if ($LocalSource -or $inCheckout) { Install-Packs $packSource } else { Install-ReleasePacks }
         # Per user: switch the registered profile on.
         & rundll32.exe $dll64, EnableForUser
-        Set-Keyboards $true
+        Set-Keyboards $true $defaultInputTip
         Set-SettingsShortcut $true
         Set-KeyHook $true
         Write-Host 'Tacit installed.'

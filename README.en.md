@@ -110,13 +110,13 @@ Re-running the command on an existing install is fine (enabled languages are kep
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # remove (settings and language packs are kept)
-& $i -Version v0.10.7       # pinned release
+& $i -Version v0.10.8       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 
 The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English and Korean about 0.45 MB, Japanese about 4.7 MB).
 
-After installing, press **Win+Space** and choose the input method. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
+Installation sets **Tacit (Autocomplete)** as the Windows default input method. Updates preserve an existing Tacit default profile. Use **Win+Space** to switch input methods, or Windows **Advanced keyboard settings** to change the default. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
 
 | Profile | What it does |
 | --- | --- |
