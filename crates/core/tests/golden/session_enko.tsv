@@ -15,7 +15,7 @@ enko	rkskek▸dkssud	Mㄱ|M가|M간|M가나|M가낟|M가나다|I가나다@-|P▸
 enko	to so go do dkssud to so go do	Mㅅ|Mto|Ito@-|P |Mㄴ|Mso|Iso@-|P |Mㅎ|Mgo|Igo@-|P |Mㅇ|Mdo|Ido@-|P |Mㅇ|M아|M안|M안ㄴ|M안녀|M안녕|I안녕@-|P |Mㅅ|M새|I새@-|P |Mㄴ|M내|I내@-|P |Mㅎ|M해|I해@-|P |Mㅇ|Mdo|Ido@-	"to so go do 안녕 새 내 해 do"
 enko	123 dkssud, rkskek. hello?	P1|P2|P3|P |Mㅇ|M아|M안|M안ㄴ|M안녀|M안녕|I안녕@-|P,|P |Mㄱ|M가|M간|M가나|M가낟|M가나다|I가나다@-|P.|P |Mh|Mhe|Mhel|Mhell|Mhello|Ihello@-|P?	"123 안녕, 가나다. hello?"
 enko-tab	dkssudgktpdy dkssudgktpdy dkssud⇥	Mㅇ|M아|M안|M안ㄴ|M안녀|M안녕|M안녕ㅎ|M안녕하|M안녕핫|M안녕하세|M안녕하셍|M안녕하세요|I안녕하세요@-|P |Mㅇ|M아|M안|M안ㄴ|M안녀|M안녕|M안녕ㅎ|M안녕하|M안녕핫|M안녕하세|M안녕하셍|M안녕하세요|I안녕하세요@-|P |Mㅇ|M아|M안|M안ㄴ|M안녀|M안녕|I안녕하세요@-	"안녕하세요 안녕하세요 안녕하세요"
-enko-tab	hello hello hel⇥ wo⇥	Mh|Mhe|Mhel|Mhell|Mhello|Ihello@-|P |Mh|Mhe|Mhel|Mhell|Mhello|Ihello@-|P |Mh|Mhe|Mhel|Ihello@-|P |Mㅈ|Mwo|I재@-|P⇥	"hello hello hello 재\t"
+enko-tab	hello hello hel⇥ wo⇥	Mh|Mhe|Mhel|Mhell|Mhello|Ihello@-|P |Mh|Mhe|Mhel|Mhell|Mhello|Ihello@-|P |Mh|Mhe|Mhel|Ihello@-|P |Mㅈ|Mwo|Iwo@-|P⇥	"hello hello hello wo\t"
 enko-tab	qkqh⇥	Mㅂ|M바|M밥|M바보|I바보같은@-	"바보같은"
 enko	you 	My|Myo|Myou|Iyou@-|P 	"you "
 enko	you⎋ 	My|Myo|Myou|Mㅛㅐㅕ|Iㅛㅐㅕ@-|P 	"ㅛㅐㅕ "

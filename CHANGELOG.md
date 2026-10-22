@@ -9,9 +9,13 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-10-23
+
 ### 수정
 
 - 일반 선호 학습은 실제 2순위 언어에만 적용합니다. 일본어가 켜져 있을 때 한국어 선호 때문에 영어가 일본어나 깨진 한글로 바뀌는 문제를 고쳤으며, 명시적으로 학습한 단어는 유지합니다.
+- Space·Enter로 확정할 때 완성된 조합의 언어를 유지합니다. `연습햇`이 `연습got`으로, 일본어 미리보기가 영어나 한국어로 바뀌던 문제를 고쳤으며, 명시적인 언어 전환과 일본어 후보 변환은 유지합니다.
+- 한국어 된소리를 입력한 뒤 모음까지 Shift가 겹쳐도 자동으로 영문으로 단정하지 않습니다. `말할까`가 `akfgkfRK`로 바뀌던 문제를 고쳤으며, 원래 키 입력과 영문 대소문자는 보존합니다.
 
 ## [0.10.8] - 2026-10-22
 
@@ -426,7 +430,8 @@ GitHub 릴리스 노트가 되고 대시보드의 업데이트 탭에도 그대�
 
 - 첫 공개: Windows용 영어·한국어 자동 판별 입력기(TSF), Tab 자동완성, 앱별 규칙, 카카오톡 호환.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.8...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.9...HEAD
+[0.10.9]: https://github.com/iamallyouneed/tacit/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/iamallyouneed/tacit/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6

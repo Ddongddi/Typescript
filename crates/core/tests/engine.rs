@@ -83,6 +83,32 @@ fn korean_keystrokes_become_hangul() {
 }
 
 #[test]
+fn shift_overlap_uses_korean_scores_without_losing_english_case() {
+    let e = heuristic();
+    for partial in [true, false] {
+        let context = DecisionContext { partial, ..ctx() };
+        for keys in ["akfgkfRk", "akfgkfRK", "gkfRK", "dlfRK"] {
+            let d = e.decide(keys, &context);
+            assert_eq!(d.language, Language::Korean, "{keys}: {d:?}");
+            assert_eq!(
+                d.output,
+                tacit_core::lang::hangul::HangulComposer::compose(keys)
+                    .unwrap()
+                    .text()
+            );
+            assert_eq!(e.render(keys, Language::English), keys);
+        }
+        for keys in [
+            "Hello", "API", "WORK", "TYPE", "Park", "fooBar", "getURL", "aRK", "RK", "TY",
+        ] {
+            let d = e.decide(keys, &context);
+            assert_eq!(d.language, Language::English, "{keys}: {d:?}");
+            assert_eq!(d.output, keys);
+        }
+    }
+}
+
+#[test]
 fn mixed_sentence() {
     let e = heuristic();
     let c = TextConverter::new(&e);
