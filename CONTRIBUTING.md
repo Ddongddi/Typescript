@@ -77,7 +77,7 @@ Linux와 macOS에서는 Windows 전용 텍스트 서비스를 빼고 돌립니�
    패키징한 뒤(`scripts/package.ps1`) `sh lab/report.sh --profile enko`와 `sh lab/report.sh --profile enkoja`로 각각 측정합니다.
    출력을 [영·한](docs/report/performance.md)과 [영·한·일](docs/report/performance-enkoja.md) 문서 맨 위에 따로 붙입니다. 출력은 같은 프로필의 `## 한눈에`(직전 → 이번 비교, 이전 블록을 갈아끼움)와 새 버전 절이며, 각 명령에 `--selftest`를 붙여 숫자를 확인합니다.
 3. `v` 태그(`git tag vX.Y.Z && git push origin vX.Y.Z`)를 푸시하면 릴리스 워크플로가 해당 버전의 항목을
-   릴리스 노트로 올립니다. 항목이 없으면 GitHub가 만든 노트가 올라가니 꼭 채워 두세요.
+   릴리스 노트로 올립니다. `python scripts/validate-changelog.py --selftest --tag vX.Y.Z`로 영·한 버전·날짜·문자·항목을 검사합니다. 검사 실패나 빈 노트는 공개를 중단합니다.
    (`sh scripts/release-notes.sh vX.Y.Z`로 미리 볼 수 있습니다.)
 
 ### 언어와 사전 데이터 기여

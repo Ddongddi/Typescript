@@ -3,7 +3,9 @@
 param([Parameter(Mandatory = $true)][string] $Serial)
 $ErrorActionPreference = 'Stop'
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { Join-Path $env:LOCALAPPDATA 'Android/Sdk' }
-$adb = Join-Path $sdk 'platform-tools/adb.exe'
+$exe = if ($env:OS -eq 'Windows_NT') { '.exe' } else { '' }
+$bat = if ($env:OS -eq 'Windows_NT') { '.bat' } else { '' }
+$adb = Join-Path $sdk "platform-tools/adb$exe"
 $tools = Get-ChildItem (Join-Path $sdk 'build-tools') | Sort-Object { [version] $_.Name } | Select-Object -Last 1
 $device = @('-s', $Serial)
 $build = Join-Path $PSScriptRoot 'build/smoke'
@@ -25,7 +27,7 @@ $sources = @(Join-Path $PSScriptRoot 'app/src'; Join-Path $PSScriptRoot 'build/g
 Run 'javac' { javac --release 8 -encoding UTF-8 -classpath $androidJar -d $classes @sources }
 $classFiles = Get-ChildItem $classes -Recurse -Filter *.class | ForEach-Object FullName
 Run 'd8' {
-    & "$($tools.FullName)/d8.bat" --min-api 26 --lib $androidJar --output $dex @classFiles
+    & "$($tools.FullName)/d8$bat" --min-api 26 --lib $androidJar --output $dex @classFiles
 }
 $jar = Join-Path $build 'smoke.jar'
 Run 'jar' { jar cf $jar -C $dex classes.dex }

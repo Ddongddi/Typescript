@@ -12,6 +12,65 @@ pub fn status() -> Value {
     }
 }
 
+/// On-demand local diagnostics. Missing OS information is null rather than guessed.
+pub fn diagnostics() -> Value {
+    #[allow(unused_mut)]
+    let mut value = status();
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let output = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command",
+                "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); @{defaultInputMethod=(Get-WinDefaultInputMethodOverride).InputMethodTip; perAppInputMethod=(Get-WinLanguageBarOption).IsLegacySwitchingMode} | ConvertTo-Json -Compress"])
+            .creation_flags(0x0800_0000)
+            .output();
+        if let Ok(output) = output {
+            if output.status.success() {
+                if let Ok(extra) = serde_json::from_slice::<Value>(&output.stdout) {
+                    value["defaultInputMethod"] = extra["defaultInputMethod"].clone();
+                    value["perAppInputMethod"] = extra["perAppInputMethod"].clone();
+                }
+            }
+        }
+        value["activeApp"] = foreground_app().into();
+    }
+    value
+}
+
+#[cfg(windows)]
+fn foreground_app() -> Option<String> {
+    use windows::core::PWSTR;
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    // SAFETY: query-only handle, bounded buffer, and the handle is closed before returning.
+    unsafe {
+        let mut pid = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut pid));
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buffer = [0u16; 32768];
+        let mut size = buffer.len() as u32;
+        let result = QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            PWSTR(buffer.as_mut_ptr()),
+            &mut size,
+        );
+        let _ = CloseHandle(process);
+        result.ok()?;
+        let path = String::from_utf16_lossy(&buffer[..size as usize]);
+        Some(
+            std::path::Path::new(&path)
+                .file_name()?
+                .to_string_lossy()
+                .to_lowercase(),
+        )
+    }
+}
+
 /// macOS: the selected input source from `defaults read com.apple.HIToolbox
 /// AppleSelectedInputSources`. tacit is selected when its name is in it; otherwise the
 /// keyboard layout (or input mode) it names is the name.

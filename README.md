@@ -239,7 +239,7 @@ tacit-config setup --if-configured     # 이미 켜 둔 언어를 다시 설치 
 | 한/영 키가 반응이 없다 | **키** 탭에서 "한/영 키 지정"으로 실제 키를 알려 주세요 (오른쪽 Alt인 노트북이 많습니다) |
 | 카카오톡에서 글자가 끊긴다 | 입력기가 영어(미국) 아래에 등록돼 있어야 합니다. 한국어 아래에 두면 안 됩니다 ([앱 호환](#앱-호환)) |
 | 완전히 끄고 싶다 | 입력칸에서 Alt+한/영 (일시정지), 또는 Win+Space로 다른 입력기를 고르세요 |
-| 원인을 모르겠다 | `%APPDATA%\tacit\debug.on` 파일을 만들면 `debug.log` 에 이벤트 이름만 남습니다 (친 글자는 기록하지 않습니다). 끝나면 파일을 지우세요 |
+| 원인을 모르겠다 | 대시보드 위쪽의 **진단 정보 복사**를 눌러 문의에 첨부하세요 (입력한 글자·학습 단어는 제외). 추가 이벤트 로그가 필요하면 `%APPDATA%\tacit\debug.on`을 만들고, 확인 후 지우세요 |
 
 그래도 안 되면 [이슈](https://github.com/iamallyouneed/tacit/issues)로 알려 주세요. 자세한 내용은 [docs/ko/troubleshooting.md](docs/ko/troubleshooting.md) 에 있습니다.
 

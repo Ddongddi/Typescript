@@ -17,6 +17,7 @@
     <h1>Tacit</h1>
     <span class="ver" id="ver"></span>
     <a class="linkbtn" href="/welcome">튜토리얼</a>
+    <button class="btn quiet" type="button" id="copy-diagnostics">진단 정보 복사</button>
     <p class="tagline">영문 자판 그대로 치면, 단어마다 영어·한국어<!--language:ja-->·일본어<!--language:/ja-->를 알아서 골라 줍니다.</p>
     <p class="link" role="status"><span class="dot" id="dot"></span><span id="linktext">연결됨</span></p>
   </header>
@@ -25,6 +26,10 @@
   <p id="save-status" role="status" aria-live="polite"></p>
   <p class="banner" id="ime" role="status" hidden></p>
   <div class="banner" id="setup" hidden></div>
+  <details id="diagnostics" hidden>
+    <summary>진단 정보 — 입력한 글자와 학습 기록은 포함하지 않습니다.</summary>
+    <textarea id="diagnostics-text" readonly rows="12" aria-label="진단 정보"></textarea>
+  </details>
 
   <div class="shell">
   <div class="left">

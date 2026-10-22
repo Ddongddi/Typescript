@@ -222,7 +222,7 @@ A pack is installed only if its size and SHA-256 match the release's `packs.json
 | Han/Eng key does nothing | **Keys** tab → "set Han/Eng key" and press the actual key (often Right Alt on laptops) |
 | Text is chopped up in KakaoTalk | The input method must be registered under English (US), not Korean — see [App compatibility](#app-compatibility) |
 | Want it off entirely | Alt+Han/Eng in the field (pause), or pick another input method with Win+Space |
-| Not sure what's wrong | Create `%APPDATA%\tacit\debug.on`; event names (never typed text) go to `debug.log`. Delete the file when done |
+| Not sure what's wrong | Use **진단 정보 복사** (Copy diagnostic information) at the top of the dashboard and attach it to your report; typed text and learned words are excluded. For extra event logs, create `%APPDATA%\tacit\debug.on` and delete it when done |
 
 Still stuck? Open an [issue](https://github.com/iamallyouneed/tacit/issues). More in [docs/en/troubleshooting.md](docs/en/troubleshooting.md).
 

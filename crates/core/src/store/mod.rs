@@ -6,8 +6,7 @@ pub mod policy;
 
 /// Serializes a read/modify/replace transaction across processes. Keep the returned file alive
 /// until the write finishes. The sidecar is never deleted: replacing it would split the lock.
-#[cfg(feature = "japanese")]
-pub(crate) fn lock_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+pub fn lock_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }

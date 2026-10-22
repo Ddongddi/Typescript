@@ -319,6 +319,10 @@ impl App {
                 json_response(200, &tacit_core::store::read_object(&self.env.apps))
             }
             ("POST", "/api/heartbeat") => json_response(200, &crate::ime::status()),
+            ("GET", "/api/diagnostics") => json_response(
+                200,
+                &crate::diagnostics::report(&self.env, crate::ime::diagnostics()),
+            ),
             ("POST", "/api/quit") => {
                 self.quit.store(true, Ordering::SeqCst);
                 json_response(200, &json!({}))
@@ -331,7 +335,8 @@ impl App {
             (
                 _,
                 "/" | "/welcome" | "/api/state" | "/api/apps" | "/api/processes" | "/api/heartbeat"
-                | "/api/quit" | "/api/changelog" | "/api/releases" | "/api/health",
+                | "/api/quit" | "/api/changelog" | "/api/releases" | "/api/health"
+                | "/api/diagnostics",
             )
             | (
                 _,
@@ -1235,6 +1240,25 @@ mod tests {
         let held_health = json_of(&app.handle(&req("GET", "/api/health", None)));
         assert_eq!(held_health["slowJobRunning"], true);
         drop(held);
+    }
+
+    #[test]
+    fn diagnostics_require_the_token_and_accept_only_get() {
+        let f = fixture("app-diagnostics");
+        let app = app(&f);
+        let mut request = req("GET", "/api/diagnostics", None);
+        request.token = None;
+        assert_eq!(app.handle(&request).status, 401);
+        assert_eq!(
+            app.handle(&req("POST", "/api/diagnostics", None)).status,
+            405
+        );
+        let response = app.handle(&req("GET", "/api/diagnostics", None));
+        assert_eq!(response.status, 200);
+        assert_eq!(json_of(&response)["version"], env!("CARGO_PKG_VERSION"));
+        assert!(!String::from_utf8(response.body)
+            .unwrap()
+            .contains("settings.json"));
     }
 
     #[test]

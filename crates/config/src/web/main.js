@@ -1,6 +1,28 @@
 // Draws everything from `state`, switches tabs, listens for shortcuts, and starts the page.
 
 const TABS = ["lang", "set", "keys", "apps", "upd"];
+$("copy-diagnostics").addEventListener("click", async () => {
+  const button = $("copy-diagnostics");
+  button.disabled = true;
+  try {
+    const text = JSON.stringify(await api("/api/diagnostics"), null, 2);
+    $("diagnostics-text").value = text;
+    $("diagnostics").hidden = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("진단 정보를 복사했습니다. 문의할 때 함께 보내 주세요.");
+    } catch (e) {
+      $("diagnostics").open = true;
+      $("diagnostics-text").focus();
+      $("diagnostics-text").select();
+      toast("복사 권한이 없습니다. 선택된 진단 정보를 직접 복사해 주세요.", true);
+    }
+  } catch (e) {
+    toast("진단 정보를 불러오지 못했습니다. " + e.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
 const tabOf = (name) => $("t-" + name),
   panelOf = (name) => $("p-" + name);
 

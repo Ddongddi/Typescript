@@ -23,6 +23,8 @@ jobs:
       - run: powershell -NoProfile -File scripts/test-language-isolation.ps1
       - run: powershell -NoProfile -File scripts/test-legacy-update.ps1
       - run: powershell -NoProfile -File scripts/test-default-input.ps1
+      - run: powershell -NoProfile -File scripts/test-install-rollback.ps1
+      - run: python scripts/validate-changelog.py --selftest
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       # The 32-bit text service loads into 32-bit apps, so it has to keep building.
       - run: cargo build --release -p tacit-tip --target i686-pc-windows-msvc
@@ -65,15 +67,7 @@ jobs:
           done
 
   android:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android, x86_64-linux-android
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install cargo-ndk --locked
-      - run: ./platforms/android/build.ps1
+    uses: ./.github/workflows/android-smoke.yml
 
   japanese:
     runs-on: ubuntu-latest

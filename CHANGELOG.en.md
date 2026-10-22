@@ -11,8 +11,19 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [0.10.8] - 2026-10-22
 
+### Added
+
+- The dashboard can copy a diagnostic report containing the version, OS, input method, Windows default and per-window switching settings, foreground app rules, and language-pack status. Typed text, learned words, user paths and authentication tokens are excluded. A selectable report is available when clipboard access is blocked.
+
+### Changed
+
+- CI and releases share Android emulator checks for JNI and cursor movement. Releases also require Windows installer, update and recovery checks, and macOS composition tests before publication.
+- Changelogs are checked for matching Korean/English versions and dates, valid section titles, nonempty entries and broken characters before publication. Missing release notes stop publication. The historical English 0.5.1 date was corrected.
+
 ### Fixed
 
+- Correction learning and autocomplete history hold a file lock from reading through saving, so simultaneous app processes no longer overwrite each other's changes. Dashboard learning deletion uses the same locks.
+- Windows installation prepares all new files inside the administrator-owned install folder before replacement. A failed file replacement or DLL registration restores the previous files and input-method registration.
 - Windows installation now sets Tacit as the default input method so new apps and sign-ins start with Tacit instead of the system input method. Updates preserve an existing Tacit default profile, including its autocomplete choice. Uninstallation clears the default only if it points to Tacit. The default can be changed in Windows Advanced keyboard settings.
 
 ## [0.10.7] - 2026-10-21
@@ -317,7 +328,7 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 - Windows: with "Enter only confirms" off, after sending a message in KakaoTalk the next characters went to the placeholder ("Message") instead of the input. In IMM32 apps one Enter confirms the word, then Enter is sent after confirming.
 - Running `scripts/install.ps1` from the source folder failed at the elevated step.
 
-## [0.5.1] - 2026-10-12
+## [0.5.1] - 2026-10-14
 
 ### Added
 - Docs: Korean and English docs under `docs/` (installation, configuration, architecture, language packs, troubleshooting) and the English README.
