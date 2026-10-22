@@ -9,6 +9,10 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Generalized correction preferences now apply only to the actual runner-up language. This prevents a Korean preference from turning English into Japanese or broken Hangul when Japanese is enabled, while preserving explicitly learned words.
+
 ## [0.10.8] - 2026-10-22
 
 ### Added

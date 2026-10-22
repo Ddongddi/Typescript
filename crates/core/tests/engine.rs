@@ -265,6 +265,45 @@ fn a_correction_teaches_the_kind_of_word() {
     let _ = std::fs::remove_file(&path);
 }
 
+#[cfg(feature = "embedded-ja")]
+#[test]
+fn shape_learning_requires_matching_runner_up() {
+    let path = temp_lexicon("shape-runner-up");
+    let languages = Languages::from_ids(&["ko", "en", "ja"]).unwrap();
+    for count in [0, 3, 4] {
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "learned": {},
+                "once": {},
+                "shapes": {"medium:korean": count},
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let engine = make_engine(Some(path.clone()), &languages);
+        for partial in [true, false] {
+            let context = DecisionContext { partial, ..ctx() };
+            let base = engine.base().decide("korean", &context);
+            assert_eq!(base.language, Language::English);
+            assert_eq!(base.runner_up, Some(Language::Japanese));
+            assert_eq!(base.output, "korean");
+            let learned = engine.decide("korean", &context);
+            assert_eq!(
+                (
+                    learned.language,
+                    learned.runner_up,
+                    learned.output,
+                    learned.confidence
+                ),
+                (base.language, base.runner_up, base.output, base.confidence),
+                "count={count}, partial={partial}",
+            );
+        }
+    }
+    std::fs::remove_file(path).unwrap();
+}
+
 /// A correction made twice teaches the stem too: every other particle on it follows.
 #[test]
 fn learning_a_word_with_an_ending_teaches_its_stem() {

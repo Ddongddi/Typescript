@@ -260,6 +260,8 @@ impl LearningEngine {
         let Some((language, bias)) = [Language::English, Language::Korean]
             .into_iter()
             .filter(|l| *l != base.language && self.languages.allows(*l))
+            // Confidence describes this runner-up, not any other enabled language.
+            .filter(|l| Some(*l) == base.runner_up)
             .filter_map(|l| {
                 let net = f64::from(evidence(l)) - f64::from(against);
                 (net > 0.0).then(|| (l, (net * SHAPE_STEP).min(SHAPE_MAX_BIAS)))
