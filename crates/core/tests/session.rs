@@ -301,6 +301,57 @@ fn return_confirms_then_goes_to_the_app() {
     assert!(!r.key(Key::Enter));
 }
 
+#[test]
+fn confirmation_keeps_the_visible_korean_reading() {
+    for boundary in [Key::Printable(' '), Key::Enter, Key::Tab, Key::Other] {
+        let mut r = Rig::new("confirm-visible");
+        r.field.insert_text("앞😀  뒤", None);
+        r.field.cursor = "앞😀 ".encode_utf16().count();
+        r.type_("dustmqgot");
+        assert_eq!(r.text(), "앞😀 연습햇 뒤");
+        r.key(boundary);
+        assert_eq!(r.text(), "앞😀 연습햇 뒤", "{boundary:?}");
+        assert!(!r.composing());
+        assert_eq!(
+            r.field.selected_range().location,
+            "앞😀 연습햇".encode_utf16().count()
+        );
+    }
+}
+
+#[test]
+fn english_single_letter_suffixes_finish_as_english() {
+    let mut r = Rig::new("english-suffixes");
+    r.type_("Tom's I'm don't ");
+    assert_eq!(r.text(), "Tom's I'm don't ");
+}
+
+#[test]
+fn a_completed_english_korean_ending_is_visible_before_confirmation() {
+    let mut r = Rig::new("mixed-preview");
+    r.type_("isValidrk gkdtkd truedi");
+    assert_eq!(r.text(), "isValid가 항상 true야");
+    r.type_(" ");
+    assert_eq!(r.text(), "isValid가 항상 true야 ");
+}
+
+#[test]
+fn shifted_vowel_after_a_doubled_consonant_stays_korean() {
+    for boundary in [Key::Printable(' '), Key::Enter] {
+        let mut r = Rig::new("shift-overlap");
+        r.type_("akfgkfRK");
+        assert_eq!(r.text(), "말할까");
+        assert_eq!(r.session.keys(), "akfgkfRK");
+        r.key(Key::Escape);
+        assert_eq!(r.text(), "akfgkfRK");
+        r.key(Key::Escape);
+        assert_eq!(r.text(), "말할까");
+        r.key(boundary);
+        assert_eq!(r.text(), "말할까");
+        assert!(!r.composing());
+    }
+}
+
 /// With the setting off, Return confirms the word and the app gets it too.
 #[test]
 fn return_goes_on_when_it_does_not_only_confirm() {

@@ -9,9 +9,13 @@ Korean version: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-10-23
+
 ### Fixed
 
 - Generalized correction preferences now apply only to the actual runner-up language. This prevents a Korean preference from turning English into Japanese or broken Hangul when Japanese is enabled, while preserving explicitly learned words.
+- Confirmation with Space or Enter keeps the language of a completed composition. This fixes `연습햇` becoming `연습got` and Japanese previews becoming English or Korean, while preserving explicit language cycling and Japanese candidate conversion.
+- A vowel typed while Shift overlaps a preceding Korean doubled consonant is scored normally instead of being categorically classified as English. This fixes `말할까` becoming `akfgkfRK`, while preserving the original keys and English capitalization.
 
 ## [0.10.8] - 2026-10-22
 
@@ -426,7 +430,8 @@ This version is **0.8.0**, not 0.7.1, because the pack file format changed. Pack
 
 - First release: English/Korean auto-decision input method for Windows (TSF), Tab completion, per-app rules, KakaoTalk compatibility.
 
-[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.8...HEAD
+[Unreleased]: https://github.com/iamallyouneed/tacit/compare/v0.10.9...HEAD
+[0.10.9]: https://github.com/iamallyouneed/tacit/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/iamallyouneed/tacit/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/iamallyouneed/tacit/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/iamallyouneed/tacit/compare/v0.10.5...v0.10.6

@@ -474,6 +474,50 @@ fn preview_matches_what_gets_committed() {
 }
 
 #[test]
+fn confirmation_keeps_the_visible_language_with_japanese_enabled() {
+    for count in [0, 4] {
+        for boundary in [Key::Printable(' '), Key::Enter] {
+            for (keys, shown) in [
+                ("dustmqgot", "연습햇"),
+                ("siasia", "しあしあ"),
+                ("githubdp", "github에"),
+                ("akfgkfRK", "말할까"),
+            ] {
+                let mut r = JaRig::new("confirm-visible");
+                let path = lexicon_path("confirm-visible");
+                std::fs::write(
+                    &path,
+                    serde_json::json!({
+                        "learned": {}, "once": {}, "shapes": {"medium:korean": count}
+                    })
+                    .to_string(),
+                )
+                .unwrap();
+                r.session.engine().reload();
+                r.field.insert_text("앞😀  뒤", None);
+                r.field.cursor = "앞😀 ".encode_utf16().count();
+                r.type_(keys);
+                let expected = format!("앞😀 {shown} 뒤");
+                assert_eq!(r.text(), expected, "{keys}, count={count}");
+                r.key(boundary);
+                assert_eq!(r.text(), expected, "{keys}, count={count}, {boundary:?}");
+                if r.session.is_converting() {
+                    r.key(Key::Enter);
+                }
+                assert_eq!(r.text(), expected);
+                assert!(!r.composing());
+                assert_eq!(
+                    r.field.selected_range().location,
+                    format!("앞😀 {shown}").encode_utf16().count()
+                );
+                drop(r);
+                std::fs::remove_file(path).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
 fn punctuation_stays_inside_japanese_phrase() {
     let mut r = JaRig::new("ja-punct");
     r.type_("arigatou.");

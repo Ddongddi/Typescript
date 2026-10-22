@@ -498,6 +498,37 @@ mod tests {
     }
 
     #[test]
+    fn confirmation_preserves_visible_korean_and_surrounding_text() {
+        for (keys, shown) in [("dustmqgot", "연습햇"), ("akfgkfRK", "말할까")] {
+            for (kind, ch, boundary) in [(1, ' ', " "), (5, '\0', "")] {
+                for known_context in [true, false] {
+                    let fixture = Fixture::new();
+                    let mut editor = Editor::new("앞😀  뒤", 0);
+                    editor.cursor = "앞😀 ".encode_utf16().count();
+                    if known_context {
+                        editor.type_known(fixture.handle, keys);
+                    } else {
+                        editor.type_unknown(fixture.handle, keys);
+                    }
+                    assert_eq!(editor.text(), format!("앞😀 {shown} 뒤"));
+                    let reply = if known_context {
+                        editor.press_known(fixture.handle, kind, ch)
+                    } else {
+                        editor.press_unknown(fixture.handle, kind, ch)
+                    };
+                    assert_eq!(reply.starts_with('1'), kind == 5);
+                    assert_eq!(editor.text(), format!("앞😀 {shown}{boundary} 뒤"));
+                    assert!(editor.marked.is_none());
+                    assert_eq!(
+                        editor.cursor,
+                        format!("앞😀 {shown}{boundary}").encode_utf16().count()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn null_context_retains_composition_across_keystrokes() {
         let fixture = Fixture::new();
         let mut editor = Editor::new("", 0);

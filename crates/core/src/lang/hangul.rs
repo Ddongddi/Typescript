@@ -118,8 +118,7 @@ impl DubeolsikLayout {
         })
     }
 
-    /// Keys whose shifted form produces a different jamo. Shift on any other letter
-    /// is a signal the user is typing English.
+    /// Keys whose shifted form produces a different jamo.
     pub fn is_korean_shift_key(key: char) -> bool {
         Self::shifted(key).is_some()
     }

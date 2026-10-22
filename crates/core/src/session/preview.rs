@@ -3,10 +3,12 @@
 
 use super::{char_count, InputSession, TextClient};
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::mixed::MixedWord;
 use crate::lang::english::EnglishModel;
 use crate::lang::hangul::HangulComposer;
 use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
 use crate::lang::pack::PackLazy;
+use crate::lang::registry;
 #[cfg(feature = "japanese")]
 use crate::lang::romaji::RomajiComposer;
 use crate::store::policy::AppPolicy;
@@ -41,7 +43,25 @@ impl InputSession {
             after_digit: self.word_after_digit,
             before_digit: self.word_before_digit,
         };
-        let d = self.engine.decide(&self.word.keys, &ctx);
+        let mut d = self.engine.decide(&self.word.keys, &ctx);
+        // A completed Korean ending on a known English stem must be visible before confirmation.
+        if partial
+            && d.language == Language::English
+            && !EnglishModel::shared().is_known_word(&self.word.keys)
+            && MixedWord::split(&self.word.keys)
+                .is_some_and(|mixed| EnglishModel::shared().is_known_word(&mixed.english))
+        {
+            let finished = self.engine.decide(
+                &self.word.keys,
+                &DecisionContext {
+                    partial: false,
+                    ..ctx
+                },
+            );
+            if finished.language == Language::Mixed {
+                d = finished;
+            }
+        }
         let threshold = self.policy.conversion_threshold;
         let kept = d.language != Language::English && d.confidence < threshold;
         self.kept_english_by_strict =
@@ -69,13 +89,22 @@ impl InputSession {
         decision
     }
 
-    /// What Space/Return commits without Esc: the full-word decision, except that a hesitant
-    /// change away from the reading on screen doesn't win. The same rule as the preview, so
-    /// what you see is what you get.
+    /// Clean, completed readings keep the language on screen. Digits supply new context
+    /// (p95, k8s); lone jamo and unfinished romaji still use the preview's confidence rule.
     pub(super) fn committed_language(&mut self) -> Language {
         let d = self.decide(false);
+        let complete = self.word.engine_preview().is_some_and(|shown| {
+            registry::is_clean(shown, &self.word.keys)
+                && !(shown == Language::Korean && char_count(&self.word.keys) == 1)
+        });
         match self.word.engine_preview() {
-            Some(shown) if shown != d.language && !self.is_weak_flip_allowed(&d, shown) => shown,
+            Some(shown)
+                if shown != d.language
+                    && ((complete && !self.word_before_digit)
+                        || !self.is_weak_flip_allowed(&d, shown)) =>
+            {
+                shown
+            }
             _ => d.language,
         }
     }
