@@ -42,10 +42,32 @@ try {
     $function = [regex]::Match($installer, '(?s)function Get-EncodedElevation.*?\r?\n\}').Value
     if (-not $elevatedScript -or -not $function) { throw 'Could not read the installer encoding' }
     Invoke-Expression $function
-    $Edition = 'enko'
-    $encoded = Get-EncodedElevation 'v0.10.5' $false
-    if ($encoded.Length -lt 20000 -or $encoded.Length -ge 32700) { throw "Encoded installer has the wrong size: $($encoded.Length)" }
-    [ScriptBlock]::Create([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))) | Out-Null
+    $tokens = $null
+    $parseErrors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseInput($elevatedScript, [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count -or -not $ast.ParamBlock) { throw 'Invalid elevated installer' }
+    $body = $elevatedScript.Substring($ast.ParamBlock.Extent.EndOffset).TrimStart([char[]]"`r`n")
+    $powershell = (Get-Command powershell.exe).Source
+    $prefix = '"' + $powershell + '" -NoProfile -ExecutionPolicy Bypass -EncodedCommand '
+    foreach ($Edition in @('enko', 'enkoja')) {
+        foreach ($version in @('latest', 'v0.10.5', ('v1.' + ('0' * 61)))) {
+            foreach ($remove in @($false, $true)) {
+                $encoded = Get-EncodedElevation $version $remove
+                $length = $prefix.Length + $encoded.Length + 1 # includes the terminating NUL
+                if ($length -gt 32767) { throw "Elevated command exceeds Windows' limit: $length" }
+                $decoded = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
+                [ScriptBlock]::Create($decoded) | Out-Null
+                if (-not $decoded.EndsWith($body, [StringComparison]::Ordinal)) { throw 'Elevated installer body changed' }
+                # Execute only the parameter prelude, never the installation or UAC path.
+                $prelude = $decoded.Substring(0, $decoded.Length - $body.Length)
+                $bound = & ([ScriptBlock]::Create($prelude + '; @{ Version=$Version; Edition=$Edition; Uninstall=$Uninstall; LocalSource=$LocalSource; Source=$Source }'))
+                if ($bound.Version -cne $version -or $bound.Edition -cne $Edition -or
+                    $bound.Uninstall -ne $remove -or $bound.LocalSource -ne $false -or $bound.Source -cne '') {
+                    throw 'Elevation arguments changed'
+                }
+            }
+        }
+    }
     Write-Host 'Legacy update: pinned release installer, flat assets and checksums passed.'
 } finally {
     $resolved = (Resolve-Path -LiteralPath $work).Path
