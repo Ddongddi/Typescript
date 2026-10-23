@@ -23,6 +23,7 @@ use tacit_core::{
 /// first-clause candidate to exercise partial commits.
 struct FakeConverter {
     learned: Mutex<Vec<String>>,
+    learned_details: Mutex<Vec<(ConversionCandidate, String)>>,
     continuations: Mutex<Vec<(String, String)>>,
 }
 
@@ -30,6 +31,7 @@ impl FakeConverter {
     fn new() -> Self {
         Self {
             learned: Mutex::new(Vec::new()),
+            learned_details: Mutex::new(Vec::new()),
             continuations: Mutex::new(Vec::new()),
         }
     }
@@ -91,8 +93,12 @@ impl JapaneseConverter for FakeConverter {
         }
     }
 
-    fn learn(&self, candidate: &ConversionCandidate, _kana: &str) {
+    fn learn(&self, candidate: &ConversionCandidate, kana: &str) {
         self.learned.lock().unwrap().push(candidate.text.clone());
+        self.learned_details
+            .lock()
+            .unwrap()
+            .push((candidate.clone(), kana.to_string()));
     }
 
     fn save(&self) {}
@@ -471,6 +477,50 @@ fn preview_matches_what_gets_committed() {
     assert!(consumed); // Return only confirms, whatever the language
     assert_eq!(r.text(), "kanji");
     assert!(!r.composing());
+}
+
+#[test]
+fn confirmation_keeps_the_visible_language_with_japanese_enabled() {
+    for count in [0, 4] {
+        for boundary in [Key::Printable(' '), Key::Enter] {
+            for (keys, shown) in [
+                ("dustmqgot", "연습햇"),
+                ("siasia", "しあしあ"),
+                ("githubdp", "github에"),
+                ("akfgkfRK", "말할까"),
+            ] {
+                let mut r = JaRig::new("confirm-visible");
+                let path = lexicon_path("confirm-visible");
+                std::fs::write(
+                    &path,
+                    serde_json::json!({
+                        "learned": {}, "once": {}, "shapes": {"medium:korean": count}
+                    })
+                    .to_string(),
+                )
+                .unwrap();
+                r.session.engine().reload();
+                r.field.insert_text("앞😀  뒤", None);
+                r.field.cursor = "앞😀 ".encode_utf16().count();
+                r.type_(keys);
+                let expected = format!("앞😀 {shown} 뒤");
+                assert_eq!(r.text(), expected, "{keys}, count={count}");
+                r.key(boundary);
+                assert_eq!(r.text(), expected, "{keys}, count={count}, {boundary:?}");
+                if r.session.is_converting() {
+                    r.key(Key::Enter);
+                }
+                assert_eq!(r.text(), expected);
+                assert!(!r.composing());
+                assert_eq!(
+                    r.field.selected_range().location,
+                    format!("앞😀 {shown}").encode_utf16().count()
+                );
+                drop(r);
+                std::fs::remove_file(path).unwrap();
+            }
+        }
+    }
 }
 
 #[test]
@@ -935,7 +985,10 @@ fn pick_a_second_candidate() {
 #[test]
 fn fix_a_wrong_guess_with_escape() {
     let mut r = JaRig::new("ja-e2e16");
-    r.type_("ozzy ");
+    r.type_("ozzy");
+    assert_eq!(r.text(), "おっzy");
+    // Correct the visible guess explicitly, rather than relying on Space to reclassify it.
+    r.type_("⎋ ");
     assert_eq!(r.text(), "ozzy ");
     r.type_("⎋"); // ozzy → Korean
     assert_ne!(r.text(), "ozzy ");
@@ -961,6 +1014,155 @@ fn letters_waiting_for_a_vowel_stay_visible() {
     r.type_("kyouhaiitenkides");
     assert!(r.text().starts_with("今日は"), "{}", r.text());
     assert!(r.text().ends_with('s'), "{}", r.text());
+}
+
+#[test]
+fn plain_confirmation_preserves_japanese_preview() {
+    for live in [false, true] {
+        for (keys, reading, converted, committed_tail) in [
+            ("watashihag", "わたしはg", "わたしはg", ""),
+            ("ozzy", "おっzy", "おっzy", ""),
+            ("henkan", "へんかn", "へんかn", "ん"),
+            (
+                "kyouhaiitenkides",
+                "きょうはいいてんきでs",
+                "今日はいい天気でs",
+                "",
+            ),
+            (
+                "kyouhaiitenkiden",
+                "きょうはいいてんきでn",
+                "今日はいい天気でn",
+                "ん",
+            ),
+            (
+                "kyouhagoogledekensaku",
+                "きょうはgoogleでけんさく",
+                "きょうはgoogleでけんさく",
+                "",
+            ),
+            ("kyouhapython", "きょうはpython", "きょうはpython", ""),
+            (
+                "kyouhagoogledehenkan",
+                "きょうはgoogleでへんかn",
+                "きょうはgoogleでへんかn",
+                "ん",
+            ),
+        ] {
+            for confirmation in 0..5 {
+                let mut r = JaRig::build(
+                    &format!("ja-confirm-{live}-{keys}"),
+                    live,
+                    AppPolicies::default(),
+                    None,
+                );
+                r.type_(keys);
+                let visible = if live { converted } else { reading };
+                assert!(r.composing(), "{keys}, live={live}");
+                assert_eq!(r.text(), visible, "{keys}, live={live}");
+                match confirmation {
+                    0 => {
+                        r.key(Key::Enter);
+                    }
+                    1 => {
+                        r.key(Key::Other);
+                    }
+                    2 => {
+                        r.key(Key::Tab);
+                    }
+                    3 => r.session.commit(&mut r.field),
+                    _ => r.session.commit_for_new_context(&mut r.field),
+                }
+                let expected = if committed_tail.is_empty() {
+                    visible.to_string()
+                } else {
+                    format!("{}{committed_tail}", visible.strip_suffix('n').unwrap())
+                };
+                assert_eq!(
+                    r.text(),
+                    expected,
+                    "{keys}, live={live}, confirmation={confirmation}"
+                );
+                assert!(!r.composing());
+            }
+        }
+    }
+}
+
+#[test]
+fn incomplete_japanese_consumes_enter_when_return_normally_passes_through() {
+    for live in [false, true] {
+        let policies = AppPolicies::new([(
+            "test.return-through".to_string(),
+            Override {
+                return_confirms_only: Some(false),
+                ..Default::default()
+            },
+        )]);
+        let mut r = JaRig::build(
+            &format!("ja-confirm-return-through-{live}"),
+            live,
+            policies,
+            Some("test.return-through"),
+        );
+        r.type_("kyouhaiitenkides");
+        let expected = if live {
+            "今日はいい天気でs"
+        } else {
+            "きょうはいいてんきでs"
+        };
+        assert!(r.composing());
+        assert_eq!(r.text(), expected);
+        assert!(
+            r.key(Key::Enter),
+            "Japanese confirmation must consume Return"
+        );
+        assert_eq!(r.text(), expected);
+        assert!(!r.composing());
+        assert!(
+            !r.key(Key::Enter),
+            "Return passes through after confirmation"
+        );
+    }
+}
+
+#[test]
+fn plain_confirmation_learns_the_visible_live_prefix() {
+    let mut r = JaRig::live("ja-confirm-live-learning");
+    r.type_("kyouhaiitenkides");
+    assert!(r.composing());
+    assert_eq!(r.text(), "今日はいい天気でs");
+    r.key(Key::Enter);
+    assert_eq!(r.text(), "今日はいい天気でs");
+    assert_eq!(
+        *r.converter.learned_details.lock().unwrap(),
+        [(
+            ConversionCandidate::new("今日はいい天気で", 10),
+            "きょうはいいてんきで".to_string()
+        )]
+    );
+}
+
+#[test]
+fn explicit_conversion_can_transform_a_pending_n() {
+    for live in [false, true] {
+        let mut r = JaRig::build(
+            &format!("ja-confirm-explicit-{live}"),
+            live,
+            AppPolicies::default(),
+            None,
+        );
+        r.type_("henkan");
+        assert!(r.composing());
+        assert_eq!(r.text(), "へんかn");
+        r.type_(" ");
+        let expected = if live { "返還" } else { "変換" };
+        assert_eq!(r.text(), expected);
+        assert!(r.session.conversion().is_some());
+        r.key(Key::Enter);
+        assert_eq!(r.text(), expected);
+        assert_eq!(r.converter.learned(), [expected]);
+    }
 }
 
 #[test]

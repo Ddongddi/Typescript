@@ -110,13 +110,13 @@ Re-running the command on an existing install is fine (enabled languages are kep
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # remove (settings and language packs are kept)
-& $i -Version v0.10.4       # pinned release
+& $i -Version v0.10.9       # pinned release
 & $i -Japanese             # also enable Japanese (adds to -Languages if given)
 ```
 
 The downloaded zip is verified against the release's SHA-256 before anything is installed. Languages are separate packs, downloaded on demand (English and Korean about 0.45 MB, Japanese about 4.7 MB).
 
-After installing, press **Win+Space** and choose the input method. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
+Installation sets **Tacit (Autocomplete)** as the Windows default input method. Updates preserve an existing Tacit default profile. Use **Win+Space** to switch input methods, or Windows **Advanced keyboard settings** to change the default. It lives under **English (United States)** (setup adds that language if missing — see [App compatibility](#app-compatibility) for why). There are two profiles:
 
 | Profile | What it does |
 | --- | --- |
@@ -156,7 +156,7 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 Download **`tacit.apk`** from the [latest release](https://github.com/iamallyouneed/tacit/releases/latest) and install it (allow unknown sources). Enable **Tacit** in Settings → keyboards, then pick it from the keyboard switcher in any text field.
 
 - The on-screen keyboard shows the 2-set jamo on each key. Bluetooth/USB keyboards work too.
-- The `가/A` key acts as Esc. The `한/영` key pauses and shows `OFF` while paused.
+- The strip above the on-screen keyboard shows how the word being typed can be read (`hello` / `ㅗ디ㅣㅐ`); tap one to switch, as with Esc. The mode key cycles `tacit` → `한` → `영`: `한` types every word as Korean, `영` types plain English, and the key faces follow.
 - Password and non-text fields get plain letters, no detection.
 - Release APKs share a fixed signing key, so new versions install over old ones.
 
@@ -222,7 +222,7 @@ A pack is installed only if its size and SHA-256 match the release's `packs.json
 | Han/Eng key does nothing | **Keys** tab → "set Han/Eng key" and press the actual key (often Right Alt on laptops) |
 | Text is chopped up in KakaoTalk | The input method must be registered under English (US), not Korean — see [App compatibility](#app-compatibility) |
 | Want it off entirely | Alt+Han/Eng in the field (pause), or pick another input method with Win+Space |
-| Not sure what's wrong | Create `%APPDATA%\tacit\debug.on`; event names (never typed text) go to `debug.log`. Delete the file when done |
+| Not sure what's wrong | Use **진단 정보 복사** (Copy diagnostic information) at the top of the dashboard and attach it to your report; typed text and learned words are excluded. For extra event logs, create `%APPDATA%\tacit\debug.on` and delete it when done |
 
 Still stuck? Open an [issue](https://github.com/iamallyouneed/tacit/issues). More in [docs/en/troubleshooting.md](docs/en/troubleshooting.md).
 

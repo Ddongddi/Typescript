@@ -112,13 +112,13 @@ irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1 
 ```powershell
 $i = [scriptblock]::Create((irm https://github.com/iamallyouneed/tacit/releases/latest/download/install.ps1))
 & $i -Uninstall            # 제거 (설정과 언어 팩은 남는다)
-& $i -Version v0.10.4       # 특정 버전
+& $i -Version v0.10.9       # 특정 버전
 & $i -Japanese             # 일본어도 켠다 (-Languages 와 같이 쓰면 거기에 더한다)
 ```
 
 받은 zip은 릴리스의 SHA-256과 맞는지 확인한 뒤에만 설치합니다. 언어는 팩으로 나뉘어 필요한 것만 받습니다 (영어·한국어 약 0.45MB, 일본어 약 4.7MB).
 
-설치 후 **Win+Space** 로 입력기를 고릅니다. 언어 목록에서는 **영어(미국)** 아래에 있습니다 (없으면 설치가 영어(미국)을 추가합니다. 이유는 [앱 호환](#앱-호환)). 입력기는 둘입니다.
+설치하면 **Tacit (자동완성)**을 Windows 기본 입력기로 지정합니다. 업데이트할 때는 기존 Tacit 기본 프로필을 유지합니다. **Win+Space**로 다른 입력기를 고를 수 있고, 기본값은 Windows **고급 키보드 설정**에서 바꿀 수 있습니다. 언어 목록에서는 **영어(미국)** 아래에 있습니다 (없으면 설치가 영어(미국)을 추가합니다. 이유는 [앱 호환](#앱-호환)). 입력기는 둘입니다.
 
 | 입력기 | 하는 일 |
 | --- | --- |
@@ -157,10 +157,10 @@ curl -fsSL https://github.com/iamallyouneed/tacit/releases/latest/download/insta
 
 ### Android
 
-릴리스의 **`tacit.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Tacit** 를 켜고, 입력창에서 키보드로 고릅니다.
+릴리스의 **`tacit.apk`** 를 받아 설치합니다 (출처를 알 수 없는 앱 허용 필요). 설정 → 키보드 목록에서 **Tacit** 를 켜고, 입력창에서 키보드로 고릅니다. 화면과 함께 따라 하려면 **[Android 설치 가이드](docs/ko/android.md)** 를 보세요.
 
 - 화면 키보드는 두벌식 자모를 키마다 같이 표시합니다. 블루투스/USB 물리 키보드도 됩니다.
-- 화면 키보드의 `가/A` 키는 Esc와 같습니다. `한/영` 키는 일시정지이고 켜져 있으면 `OFF` 로 보입니다.
+- 화면 키보드 위의 후보 띠에서 입력 중인 단어의 해석(`hello` / `ㅗ디ㅣㅐ`)을 눌러 바꿉니다(Esc와 같습니다). `한/영` 키는 `tacit` → `한` → `영` 순으로 바뀝니다. `한`은 모든 단어를 한글로, `영`은 일반 영문으로 입력하고 키 글자도 그에 맞게 바뀝니다.
 - 비밀번호 칸과 텍스트가 아닌 칸에서는 판별 없이 글자만 넣습니다.
 - 릴리스 APK는 고정된 키로 서명돼서 새 버전을 덮어 설치할 수 있습니다.
 
@@ -239,7 +239,7 @@ tacit-config setup --if-configured     # 이미 켜 둔 언어를 다시 설치 
 | 한/영 키가 반응이 없다 | **키** 탭에서 "한/영 키 지정"으로 실제 키를 알려 주세요 (오른쪽 Alt인 노트북이 많습니다) |
 | 카카오톡에서 글자가 끊긴다 | 입력기가 영어(미국) 아래에 등록돼 있어야 합니다. 한국어 아래에 두면 안 됩니다 ([앱 호환](#앱-호환)) |
 | 완전히 끄고 싶다 | 입력칸에서 Alt+한/영 (일시정지), 또는 Win+Space로 다른 입력기를 고르세요 |
-| 원인을 모르겠다 | `%APPDATA%\tacit\debug.on` 파일을 만들면 `debug.log` 에 이벤트 이름만 남습니다 (친 글자는 기록하지 않습니다). 끝나면 파일을 지우세요 |
+| 원인을 모르겠다 | 대시보드 위쪽의 **진단 정보 복사**를 눌러 문의에 첨부하세요 (입력한 글자·학습 단어는 제외). 추가 이벤트 로그가 필요하면 `%APPDATA%\tacit\debug.on`을 만들고, 확인 후 지우세요 |
 
 그래도 안 되면 [이슈](https://github.com/iamallyouneed/tacit/issues)로 알려 주세요. 자세한 내용은 [docs/ko/troubleshooting.md](docs/ko/troubleshooting.md) 에 있습니다.
 

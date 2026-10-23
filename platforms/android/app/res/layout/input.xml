@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/keyboard_background"
+    android:orientation="vertical">
+
+    <!-- The readings of the word being typed (hello / ㅗ디ㅣㅐ); tap one to read the word as that. -->
+    <LinearLayout
+        android:id="@+id/readings"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp" />
+
+    <include layout="@layout/keyboard" />
+</LinearLayout>

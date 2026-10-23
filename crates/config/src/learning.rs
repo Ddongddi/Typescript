@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use serde_json::{json, Value};
 use tacit_core::decide::learning::Store;
-use tacit_core::store::{load_or_quarantine, persist};
+use tacit_core::store::{load_or_quarantine, lock_file, persist};
 use tacit_core::{History, Language};
 
 use crate::env::Env;
@@ -82,6 +82,8 @@ pub fn change(env: &Env, body: &Value) -> Result<()> {
         Some("forget") => {
             let keys = body["keys"].as_str().unwrap_or("");
             let path = lexicon_path(env);
+            let _file_lock = lock_file(&path)
+                .map_err(|e| crate::error::Error(format!("could not lock learning: {e}")))?;
             let mut store: Store = load_or_quarantine(Some(&path));
             let removed = store.learned.remove(keys).is_some() | store.once.remove(keys).is_some();
             if !removed {
@@ -89,11 +91,15 @@ pub fn change(env: &Env, body: &Value) -> Result<()> {
             }
             save(&path, &store)
         }
-        Some("forgetAll") => save(&lexicon_path(env), &Store::default()),
-        Some("clearHistory") => {
-            History::new(Some(history_path(env))).clear();
-            Ok(())
+        Some("forgetAll") => {
+            let path = lexicon_path(env);
+            let _file_lock = lock_file(&path)
+                .map_err(|e| crate::error::Error(format!("could not lock learning: {e}")))?;
+            save(&path, &Store::default())
         }
+        Some("clearHistory") => History::new(Some(history_path(env)))
+            .clear()
+            .map_err(|e| crate::error::Error(format!("could not clear history: {e}"))),
         _ => err("action has to be forget, forgetAll or clearHistory"),
     }
 }

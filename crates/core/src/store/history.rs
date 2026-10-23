@@ -2,7 +2,7 @@
 //! completions; the built-in word lists are the fallback (`suggest`).
 //!
 //! Several processes share the file, so a flush re-reads it and adds only this process's new
-//! counts. ponytail: no cross-process lock, the last write wins; a named mutex if that matters.
+//! counts while holding a shared file lock through the read and atomic replacement.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -113,6 +113,9 @@ impl History {
         if s.fresh.is_empty() {
             return;
         }
+        let Ok(_file_lock) = crate::store::lock_file(path) else {
+            return;
+        };
         let mut merged = read(Some(path));
         for (word, n) in &s.fresh {
             *merged.words.entry(word.clone()).or_default() += n;
@@ -140,13 +143,15 @@ impl History {
     }
 
     /// Forgets every word, here and in the file.
-    pub fn clear(&self) {
+    pub fn clear(&self) -> std::io::Result<()> {
         let mut s = self.lock();
+        if let Some(path) = &self.path {
+            let _file_lock = crate::store::lock_file(path)?;
+            crate::store::persist(path, &Store::default())?;
+        }
         s.fresh.clear();
         s.store = Store::default();
-        if let Some(path) = &self.path {
-            let _ = crate::store::persist(path, &s.store);
-        }
+        Ok(())
     }
 
     /// Picks up what other processes wrote since this one loaded the file (every application

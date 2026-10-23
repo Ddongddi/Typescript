@@ -2,8 +2,7 @@
 //! made twice wins over the heuristics. Stored in `%APPDATA%\tacit\lexicon.json`.
 //!
 //! Several processes share the file (a TIP lives inside every app), so changes re-read the
-//! file first and replace it atomically. ponytail: no cross-process lock; with two
-//! simultaneous learns the last write wins. Add a named mutex if that ever matters.
+//! file first and replace it atomically, with a file lock held through the transaction.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -142,24 +141,40 @@ impl LearningEngine {
 
     /// Re-reads lexicon.json (another process or the user changed it).
     pub fn reload(&self) {
-        let fresh = read_store(self.store_path.as_deref());
-        self.lock().store = fresh;
+        let mut state = self.lock();
+        state.store = read_store(self.store_path.as_deref());
+    }
+
+    fn change(&self, change: impl FnOnce(&mut State) -> bool) {
+        let mut state = self.lock();
+        let file_lock = self
+            .store_path
+            .as_deref()
+            .map(crate::store::lock_file)
+            .transpose();
+        // No store path keeps the existing stateless learning behavior.
+        if file_lock.is_ok() {
+            state.store = read_store(self.store_path.as_deref());
+        }
+        // A read-only profile still learns in memory, but never writes without the lock.
+        if change(&mut state) && file_lock.is_ok() {
+            self.persist(&state.store);
+        }
     }
 
     /// Forgets the keys, learned or pending: the engine decides them again.
     pub fn forget(&self, keys: &str) {
-        self.reload();
-        let mut s = self.lock();
-        if s.store.learned.remove(keys).is_some() | s.store.once.remove(keys).is_some() {
-            self.persist(&s.store);
-        }
+        self.change(|s| {
+            s.store.learned.remove(keys).is_some() | s.store.once.remove(keys).is_some()
+        });
     }
 
     /// Forgets every learned and pending word.
     pub fn forget_all(&self) {
-        let mut s = self.lock();
-        s.store = Store::default();
-        self.persist(&s.store);
+        self.change(|s| {
+            s.store = Store::default();
+            true
+        });
     }
 
     /// Records that `keys` were corrected to `language`. The second time the same correction is
@@ -170,49 +185,49 @@ impl LearningEngine {
     pub fn learn(&self, keys: &str, language: Language, engine_choice: Option<Language>) {
         let base_choice = engine_choice
             .unwrap_or_else(|| self.base.decide(keys, &DecisionContext::default()).language);
-        self.reload();
-        let mut s = self.lock();
-        // Already learned this way (e.g. converting a learned word again): nothing to change.
-        if s.store.learned.get(keys) == Some(&language) {
-            return;
-        }
-        // A new word corrected this way is evidence for its kind of word, once.
-        if language != base_choice
-            && language != Language::Japanese
-            && s.store.once.get(keys) != Some(&language)
-        {
-            let count = s
-                .store
-                .shapes
-                .entry(shape_key(shape_of(keys), language))
-                .or_insert(0);
-            *count = count.saturating_add(1);
-        }
-        if language == base_choice {
-            s.store.learned.remove(keys);
-            s.store.once.remove(keys);
-        } else if s.store.learned.get(keys) == Some(&language)
-            || s.store.once.get(keys) == Some(&language)
-        {
-            s.store.learned.insert(keys.to_string(), language);
-            s.store.once.remove(keys);
-            s.last_learned = Some(keys.to_string());
-            // English + ending corrected to Mixed teaches the English stem (kubectl); a Korean
-            // correction teaches the Korean one. Then every other ending on it follows.
-            let stem_language = match language {
-                Language::Mixed => Some(Language::English),
-                Language::Korean => Some(Language::Korean),
-                _ => None,
-            };
-            if let (Some(stem), Some(l)) = (stem_of(keys), stem_language) {
-                s.store.learned.entry(stem).or_insert(l);
+        self.change(|s| {
+            // Already learned this way (e.g. converting a learned word again): nothing to change.
+            if s.store.learned.get(keys) == Some(&language) {
+                return false;
             }
-        } else {
-            // A different correction than before: it starts over.
-            s.store.learned.remove(keys);
-            s.store.once.insert(keys.to_string(), language);
-        }
-        self.persist(&s.store);
+            // A new word corrected this way is evidence for its kind of word, once.
+            if language != base_choice
+                && language != Language::Japanese
+                && s.store.once.get(keys) != Some(&language)
+            {
+                let count = s
+                    .store
+                    .shapes
+                    .entry(shape_key(shape_of(keys), language))
+                    .or_insert(0);
+                *count = count.saturating_add(1);
+            }
+            if language == base_choice {
+                s.store.learned.remove(keys);
+                s.store.once.remove(keys);
+            } else if s.store.learned.get(keys) == Some(&language)
+                || s.store.once.get(keys) == Some(&language)
+            {
+                s.store.learned.insert(keys.to_string(), language);
+                s.store.once.remove(keys);
+                s.last_learned = Some(keys.to_string());
+                // English + ending corrected to Mixed teaches the English stem (kubectl); a Korean
+                // correction teaches the Korean one. Then every other ending on it follows.
+                let stem_language = match language {
+                    Language::Mixed => Some(Language::English),
+                    Language::Korean => Some(Language::Korean),
+                    _ => None,
+                };
+                if let (Some(stem), Some(l)) = (stem_of(keys), stem_language) {
+                    s.store.learned.entry(stem).or_insert(l);
+                }
+            } else {
+                // A different correction than before: it starts over.
+                s.store.learned.remove(keys);
+                s.store.once.insert(keys.to_string(), language);
+            }
+            true
+        });
     }
 
     /// Failing to save (read-only profile, sandboxed app) only costs the learning.
@@ -245,6 +260,8 @@ impl LearningEngine {
         let Some((language, bias)) = [Language::English, Language::Korean]
             .into_iter()
             .filter(|l| *l != base.language && self.languages.allows(*l))
+            // Confidence describes this runner-up, not any other enabled language.
+            .filter(|l| Some(*l) == base.runner_up)
             .filter_map(|l| {
                 let net = f64::from(evidence(l)) - f64::from(against);
                 (net > 0.0).then(|| (l, (net * SHAPE_STEP).min(SHAPE_MAX_BIAS)))

@@ -1,6 +1,6 @@
 //! Actual InputSession key replay, without completion or future-text correction.
 
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, sync::atomic::Ordering::Relaxed, sync::Arc, time::Instant};
 use tacit_core::session::testing::FakeTextField;
 use tacit_core::{AppPolicies, InputSession, Key, Language, LearningEngine, TextClient};
 
@@ -27,6 +27,7 @@ fn replay(
     let mut mismatch = 0;
     let mut literal_jamo = 0;
     let mut times = Vec::new();
+    let (mut allocations, mut allocated_bytes) = (0, 0);
     let mut causes = BTreeMap::<&str, usize>::new();
     let mut previews = Vec::new();
     let mut commits = Vec::new();
@@ -42,9 +43,16 @@ fn replay(
                 for (key, tag) in sample.keys.chars().zip(sample.labels) {
                     keys.push(key);
                     labels.push(tag);
+                    let before = (
+                        super::ALLOCATIONS.load(Relaxed),
+                        super::ALLOCATED_BYTES.load(Relaxed),
+                    );
                     let start = Instant::now();
                     session.handle(Key::Letter(key), &mut client);
-                    times.push(start.elapsed());
+                    let spent = start.elapsed();
+                    allocations += super::ALLOCATIONS.load(Relaxed) - before.0;
+                    allocated_bytes += super::ALLOCATED_BYTES.load(Relaxed) - before.1;
+                    times.push(spent);
                     let expected = super::learned::render(&keys, &labels);
                     let text = client.text();
                     let current_word = text.strip_prefix(&committed).unwrap_or(&text);
@@ -90,6 +98,14 @@ fn replay(
     let count = times.len();
     metrics.insert("switch.keys".into(), count as f64);
     metrics.insert("switch.lines".into(), lines.len() as f64);
+    metrics.insert(
+        "switch.alloc.calls_per_key".into(),
+        allocations as f64 / count.max(1) as f64,
+    );
+    metrics.insert(
+        "switch.alloc.bytes_per_key".into(),
+        allocated_bytes as f64 / count.max(1) as f64,
+    );
     metrics.insert(
         "switch.wrong_preview_pct".into(),
         100.0 * wrong as f64 / count.max(1) as f64,
@@ -185,6 +201,8 @@ mod tests {
         let engine = tacit_core::make_engine(None, &tacit_core::Languages::legacy(false));
         let metrics = super::replay(engine, &["Hello 안녕하세요", "Hello"], 0);
         assert!(metrics["switch.keys"] > 10.0);
+        assert!(metrics["switch.alloc.calls_per_key"] > 0.0);
+        assert!(metrics["switch.alloc.bytes_per_key"] > 0.0);
         assert_eq!(metrics["switch.lines"], 2.0);
         assert_eq!(metrics["switch.confirmed_sentence_pct"], 100.0);
         assert_eq!(metrics["switch.final_preview_mismatch_pct"], 0.0);

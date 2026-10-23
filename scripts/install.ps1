@@ -19,8 +19,8 @@
   some other process of the user could swap in before the prompt is answered. A local folder is
   only ever used by -LocalSource (development), and it says so.
 
-  Afterwards pick "Tacit" with Win+Space (or in Settings > Time & language > Language
-  & region > English (United States) > Keyboards).
+  Sets Tacit as the Windows default input method (keeps an existing Tacit default profile).
+  Use Win+Space to switch, or Advanced keyboard settings to change the default.
 #>
 
 param(
@@ -59,7 +59,8 @@ function Test-Version([string]$Value) {
     $Value -eq 'latest' -or ($Value.Length -le 64 -and $Value -match '^v?[0-9][0-9A-Za-z.+-]*$' -and $Value -notmatch '\.\.')
 }
 
-function Set-Keyboards([bool]$Present) {
+function Set-Keyboards([bool]$Present, [string]$DefaultTip) {
+    $tips = @($profiles | ForEach-Object { "0409:$_" })
     $list = Get-WinUserLanguageList
     foreach ($ko in @($list | Where-Object { $_.LanguageTag -eq 'ko' })) {
         foreach ($p in $profiles) { [void]$ko.InputMethodTips.Remove("0412:$p") }
@@ -77,6 +78,13 @@ function Set-Keyboards([bool]$Present) {
         }
     }
     Set-WinUserLanguageList $list -Force -WarningAction SilentlyContinue
+    # Registration alone leaves Windows starting new apps and sessions with the system IME.
+    if ($Present) {
+        if ($defaultTip -notin $tips) { $defaultTip = $tips[0] }
+        Set-WinDefaultInputMethodOverride -InputTip $defaultTip
+    } elseif ($defaultTip -in $tips) {
+        Set-WinDefaultInputMethodOverride
+    }
 }
 
 # The elevated half: one block of this script's own text, run either directly (an -Elevated
@@ -103,7 +111,9 @@ function Invoke-Regsvr([string]$exe, [string]$dll, [switch]$Unregister) {
 # A loaded DLL can be renamed but not overwritten: move it aside, delete leftovers next time.
 function Move-Aside([string]$target) {
     if (Test-Path $target) {
-        Move-Item $target "$target.old-$([guid]::NewGuid().ToString('N').Substring(0, 8))" -Force
+        $backup = "$target.old-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+        Move-Item -LiteralPath $target -Destination $backup -Force
+        return $backup
     }
 }
 
@@ -145,6 +155,42 @@ function Unregister-Existing {
     if (Test-Path $dll86) { Invoke-Regsvr $regsvr86 $dll86 -Unregister }
 }
 
+function Install-Staged([string]$Staging) {
+    foreach ($name in 'tacit_tip.dll', 'tacit_tip_x86.dll', 'tacit-config.exe') {
+        if (-not (Test-Path -LiteralPath (Join-Path $Staging $name) -PathType Leaf)) { throw "Package is missing $name" }
+    }
+    $previousDlls = @($dll64, $dll86) | Where-Object { Test-Path -LiteralPath $_ }
+    $backups = [ordered]@{}
+    $installed = @()
+    try {
+        Unregister-Existing
+        foreach ($file in Get-ChildItem -LiteralPath $Staging -File) {
+            $target = Join-Path $dest $file.Name
+            if (Test-Path -LiteralPath $target) { $backups[$target] = Move-Aside $target }
+            Move-Item -LiteralPath $file.FullName -Destination $target
+            $installed += $target
+        }
+        & icacls.exe $dest /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' | Out-Null
+        if ($LASTEXITCODE) { throw 'Could not grant sandboxed apps access to the installation' }
+        Invoke-Regsvr $regsvr64 $dll64
+        Invoke-Regsvr $regsvr86 $dll86
+    } catch {
+        $failure = $_
+        try {
+            Unregister-Existing
+            foreach ($target in $installed) { Move-Aside $target | Out-Null }
+            foreach ($target in $backups.Keys) {
+                Move-Item -LiteralPath $backups[$target] -Destination $target
+            }
+            if ($previousDlls -contains $dll64) { Invoke-Regsvr $regsvr64 $dll64 }
+            if ($previousDlls -contains $dll86) { Invoke-Regsvr $regsvr86 $dll86 }
+        } catch {
+            throw "Installation failed: $failure. Recovery also failed: $_. Keep the .old-* files in $dest for recovery."
+        }
+        throw "Installation failed and was rolled back: $failure"
+    }
+}
+
 # The transcript goes into a fresh random folder marked high integrity: nothing running
 # without the administrator token can plant a file there or swap one under the transcript.
 $logDir = Join-Path $env:TEMP ("tacit-install-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
@@ -168,64 +214,68 @@ try {
             }
         }
     } else {
-        if ($LocalSource) {
-            Write-Warning "Installing from a local folder ($Source): these files are not checked against a GitHub release. Development use only."
-            New-Item $dest -ItemType Directory -Force | Out-Null
-            Unregister-Existing
-            foreach ($name in 'tacit_tip.dll', 'tacit_tip_x86.dll', 'tacit-config.exe') {
-                Move-Aside (Join-Path $dest $name)
-                Copy-Item (Join-Path $Source $name) (Join-Path $dest $name) -Force
-            }
-            foreach ($name in 'tacit.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1', 'edition') {
-                Copy-Item (Join-Path $Source $name) $dest -Force -ErrorAction SilentlyContinue
-            }
-        } else {
-            # The release itself is fetched and checked here, in the elevated process: what a
-            # non-elevated process downloaded (or could replace) is never installed with
-            # administrator rights.
-            if ($Version -ne 'latest' -and ($Version -notmatch '^v?[0-9][0-9A-Za-z.+-]*$' -or $Version -match '\.\.')) {
-                throw "'$Version' is not a release version"
-            }
-            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-            $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" } else { "https://github.com/$GitHubRepo/releases/download/$Version" }
-            Write-Host "Downloading Tacit ($Version)..."
-            $web = New-Object Net.WebClient
-            $name = if ($Edition -eq 'enkoja') { 'tacit-windows-ja.zip' } else { 'tacit-windows.zip' }
-            $zip = $web.DownloadData("$base/$name")
-            $expected = ($web.DownloadString("$base/$name.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
-            $sha = [Security.Cryptography.SHA256]::Create()
-            $actual = (($sha.ComputeHash($zip) | ForEach-Object { $_.ToString('x2') }) -join '')
-            if (-not $expected -or $actual -ne $expected) { throw "Checksum mismatch (expected '$expected', got '$actual')" }
-            New-Item $dest -ItemType Directory -Force | Out-Null
-            Unregister-Existing
-            # Straight from memory into $dest: the package is never unpacked to a folder a
-            # non-elevated process could reach.
-            Add-Type -AssemblyName System.IO.Compression
-            $stream = [IO.MemoryStream]::new($zip)
-            try {
-                $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Read)
-                try {
-                    foreach ($entry in $archive.Entries) {
-                        $name = $entry.FullName
-                        if (-not $name -or $name -match '[\\/:]' -or $name -eq '..' -or $name -eq '.') {
-                            throw "the release package has an unsafe path: '$name'"
-                        }
-                        $target = Join-Path $dest $name
-                        Move-Aside $target
-                        $from = $entry.Open()
-                        try {
-                            $to = [IO.File]::Create($target)
-                            try { $from.CopyTo($to) } finally { $to.Dispose() }
-                        } finally { $from.Dispose() }
+        # Staging and backups stay inside the admin-owned install folder.
+        New-Item $dest -ItemType Directory -Force | Out-Null
+        $incoming = Join-Path $dest ('.incoming-' + [guid]::NewGuid().ToString('N'))
+        New-Item $incoming -ItemType Directory | Out-Null
+        try {
+            if ($LocalSource) {
+                Write-Warning "Installing from a local folder ($Source): these files are not checked against a GitHub release. Development use only."
+                foreach ($name in 'tacit_tip.dll', 'tacit_tip_x86.dll', 'tacit-config.exe') {
+                    Copy-Item -LiteralPath (Join-Path $Source $name) -Destination (Join-Path $incoming $name)
+                }
+                foreach ($name in 'tacit.ico', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.txt', 'install.ps1', 'edition') {
+                    if (Test-Path -LiteralPath (Join-Path $Source $name)) {
+                        Copy-Item -LiteralPath (Join-Path $Source $name) -Destination $incoming
                     }
-                } finally { $archive.Dispose() }
-            } finally { $stream.Dispose() }
+                }
+            } else {
+                # The release itself is fetched and checked here, in the elevated process: what a
+                # non-elevated process downloaded (or could replace) is never installed with
+                # administrator rights.
+                if ($Version -ne 'latest' -and ($Version -notmatch '^v?[0-9][0-9A-Za-z.+-]*$' -or $Version -match '\.\.')) {
+                    throw "'$Version' is not a release version"
+                }
+                [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+                $base = if ($Version -eq 'latest') { "https://github.com/$GitHubRepo/releases/latest/download" } else { "https://github.com/$GitHubRepo/releases/download/$Version" }
+                Write-Host "Downloading Tacit ($Version)..."
+                $web = New-Object Net.WebClient
+                $name = if ($Edition -eq 'enkoja') { 'tacit-windows-ja.zip' } else { 'tacit-windows.zip' }
+                $zip = $web.DownloadData("$base/$name")
+                $expected = ($web.DownloadString("$base/$name.sha256") -split '\s+')[0].Trim().ToLowerInvariant()
+                $sha = [Security.Cryptography.SHA256]::Create()
+                $actual = (($sha.ComputeHash($zip) | ForEach-Object { $_.ToString('x2') }) -join '')
+                if (-not $expected -or $actual -ne $expected) { throw "Checksum mismatch (expected '$expected', got '$actual')" }
+                # Straight from memory into staging: the package is never unpacked to a folder a
+                # non-elevated process could reach.
+                Add-Type -AssemblyName System.IO.Compression
+                $stream = [IO.MemoryStream]::new($zip)
+                try {
+                    $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Read)
+                    try {
+                        foreach ($entry in $archive.Entries) {
+                            $name = $entry.FullName
+                            if (-not $name -or $name -match '[\\/:]' -or $name -eq '..' -or $name -eq '.') {
+                                throw "the release package has an unsafe path: '$name'"
+                            }
+                            $target = Join-Path $incoming $name
+                            if (Test-Path -LiteralPath $target) { throw "the release package repeats '$name'" }
+                            $from = $entry.Open()
+                            try {
+                                $to = [IO.File]::Create($target)
+                                try { $from.CopyTo($to) } finally { $to.Dispose() }
+                            } finally { $from.Dispose() }
+                        }
+                    } finally { $archive.Dispose() }
+                } finally { $stream.Dispose() }
+            }
+            Install-Staged $incoming
+            Remove-Leftovers
+        } finally {
+            $resolved = [IO.Path]::GetFullPath($incoming)
+            if ((Split-Path $resolved -Parent) -ne [IO.Path]::GetFullPath($dest).TrimEnd('\')) { throw 'Unexpected staging cleanup path' }
+            Remove-Item -LiteralPath $resolved -Recurse -Force
         }
-        # Store apps and sandboxed processes load the DLL only if these groups can read it.
-        & icacls.exe $dest /grant '*S-1-15-2-1:(OI)(CI)(RX)' '*S-1-15-2-2:(OI)(CI)(RX)' | Out-Null
-        Invoke-Regsvr $regsvr64 $dll64
-        Invoke-Regsvr $regsvr86 $dll86
-        Remove-Leftovers
     }
 } finally {
     Stop-Transcript | Out-Null
@@ -459,6 +509,8 @@ $stage = $null
 $inCheckout = $PSScriptRoot -and (Test-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Cargo.toml'))
 try {
     if (-not (Test-Version $Version)) { throw "'$Version' is not a release version" }
+    # Unregistering the old DLL can clear its default; remember the user's profile first.
+    $defaultInputTip = (Get-WinDefaultInputMethodOverride).InputMethodTip
     if ($LocalSource -or $inCheckout) {
         if ($inCheckout) {
             $stage = New-SourceStage
@@ -482,11 +534,13 @@ try {
     Write-Host 'Asking for administrator rights to register the text service...'
     $p = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
     if ($p.ExitCode -ne 0) {
+        # Re-registering the restored DLL can clear the previous per-user default.
+        if ($defaultInputTip) { Set-WinDefaultInputMethodOverride -InputTip $defaultInputTip }
         throw "The elevated step failed (exit $($p.ExitCode)). A transcript, when the step ran, is in $env:TEMP\tacit-install-*."
     }
 
     if ($Uninstall) {
-        Set-Keyboards $false
+        Set-Keyboards $false $defaultInputTip
         Set-SettingsShortcut $false
         Set-KeyHook $false
         Write-Host 'Tacit removed. Settings stay in %APPDATA%\tacit, language packs in %LOCALAPPDATA%\tacit.'
@@ -495,7 +549,7 @@ try {
         if ($LocalSource -or $inCheckout) { Install-Packs $packSource } else { Install-ReleasePacks }
         # Per user: switch the registered profile on.
         & rundll32.exe $dll64, EnableForUser
-        Set-Keyboards $true
+        Set-Keyboards $true $defaultInputTip
         Set-SettingsShortcut $true
         Set-KeyHook $true
         Write-Host 'Tacit installed.'

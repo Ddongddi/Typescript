@@ -6,6 +6,8 @@ This guide resolves common configuration issues, key conflicts, and application 
 
 ---
 
+When reporting a problem, use **진단 정보 복사** (Copy diagnostic information) at the top of the dashboard. The report excludes typed text, learned words, user paths and authentication tokens. The foreground app and its rules refer to the window active when the button is used; unavailable OS information is `null`. If clipboard access is blocked, copy the selectable report manually.
+
 ## 1. KakaoTalk & Legacy IMM32 App Compatibility
 
 ### 1.1 Characters Splitting Syllable-by-Syllable (`ㅌpㅅmㅌm`)

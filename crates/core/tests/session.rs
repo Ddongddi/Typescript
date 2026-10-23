@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tacit_core::session::testing::FakeTextField;
-use tacit_core::session::NOT_FOUND;
+use tacit_core::session::{InputMode, Range, NOT_FOUND};
 use tacit_core::store::policy::Override;
 use tacit_core::History;
 use tacit_core::{
@@ -79,6 +79,23 @@ impl Rig {
                         self.field.insert_text(&c.to_string(), None);
                     }
                 }
+            }
+        }
+    }
+
+    /// Delete as the app sees it: the session takes it while a word is being typed, otherwise
+    /// the app erases the character before the caret.
+    fn erase(&mut self, times: usize) {
+        for _ in 0..times {
+            if !self.key(Key::Delete) && self.field.cursor > 0 {
+                let at = self.field.cursor;
+                self.field.insert_text(
+                    "",
+                    Some(Range {
+                        location: at - 1,
+                        length: 1,
+                    }),
+                );
             }
         }
     }
@@ -282,6 +299,205 @@ fn return_confirms_then_goes_to_the_app() {
     assert_eq!(r.text(), "안녕");
     assert!(!r.composing());
     assert!(!r.key(Key::Enter));
+}
+
+#[test]
+fn confirmation_keeps_the_visible_korean_reading() {
+    for boundary in [Key::Printable(' '), Key::Enter, Key::Tab, Key::Other] {
+        let mut r = Rig::new("confirm-visible");
+        r.field.insert_text("앞😀  뒤", None);
+        r.field.cursor = "앞😀 ".encode_utf16().count();
+        r.type_("dustmqgot");
+        assert_eq!(r.text(), "앞😀 연습햇 뒤");
+        r.key(boundary);
+        assert_eq!(r.text(), "앞😀 연습햇 뒤", "{boundary:?}");
+        assert!(!r.composing());
+        assert_eq!(
+            r.field.selected_range().location,
+            "앞😀 연습햇".encode_utf16().count()
+        );
+    }
+}
+
+#[test]
+fn confirmation_keeps_incomplete_previews() {
+    let mut changes = Vec::new();
+    for script in [
+        "s", "d", "z", "r", "k", "t", "n", "g", "dkssud d", "Tom's", "I'm", "don't", "2024sus",
+        "1s", "hello t",
+    ] {
+        for boundary in [
+            Key::Enter,
+            Key::Printable(' '),
+            Key::Printable('.'),
+            Key::Tab,
+            Key::Other,
+        ] {
+            let mut r = Rig::new("confirm-incomplete");
+            r.type_(script);
+            let shown = r.text();
+            r.key(boundary);
+            if r.text() != shown {
+                changes.push(format!(
+                    "{script:?} {boundary:?}: {shown:?} -> {:?}",
+                    r.text()
+                ));
+            }
+            assert!(!r.composing());
+        }
+        for new_context in [false, true] {
+            let mut r = Rig::new("confirm-flush");
+            r.type_(script);
+            let shown = r.text();
+            if new_context {
+                r.session.commit_for_new_context(&mut r.field);
+            } else {
+                r.session.commit(&mut r.field);
+            }
+            if r.text() != shown {
+                changes.push(format!(
+                    "{script:?} flush({new_context}): {shown:?} -> {:?}",
+                    r.text()
+                ));
+            }
+            assert!(!r.composing());
+        }
+    }
+    assert!(changes.is_empty(), "{}", changes.join("\n"));
+}
+
+/// Final confidence is not permission to replace an unfinished visible reading.
+#[test]
+fn confirmation_does_not_reclassify_incomplete_jamo() {
+    use tacit_core::{Decision, DecisionContext, DecisionEngine, Language};
+    struct Unfinished;
+    impl DecisionEngine for Unfinished {
+        fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
+            Decision {
+                language: if context.partial {
+                    Language::Korean
+                } else {
+                    Language::English
+                },
+                confidence: 1.0,
+                output: keys.to_string(),
+                explanation: String::new(),
+                runner_up: None,
+            }
+        }
+    }
+    let rig = || {
+        let engine = Arc::new(LearningEngine::new(Box::new(Unfinished), None));
+        (
+            Rig {
+                session: InputSession::new(engine.clone(), AppPolicies::default(), true),
+                field: FakeTextField::new(),
+            },
+            engine,
+        )
+    };
+    for boundary in [
+        Key::Enter,
+        Key::Printable(' '),
+        Key::Printable('.'),
+        Key::Tab,
+        Key::Other,
+    ] {
+        let (mut r, engine) = rig();
+        r.type_("rr");
+        assert_eq!(r.text(), "ㄱㄱ");
+        r.key(boundary);
+        assert_eq!(r.text(), "ㄱㄱ", "{boundary:?}");
+        assert!(!r.composing());
+        assert!(engine.pending().is_empty());
+        assert!(engine.learned().is_empty());
+    }
+    // An explicit override still uses the final engine decision for learning.
+    let (mut r, engine) = rig();
+    r.type_("rr⎋");
+    assert_eq!(r.text(), "rr");
+    r.key(Key::Enter);
+    assert_eq!(r.text(), "rr");
+    assert!(engine.pending().is_empty());
+    assert!(engine.learned().is_empty());
+}
+
+#[test]
+fn typed_digits_remain_new_evidence_not_plain_confirmation() {
+    let mut r = Rig::new("confirm-digit-evidence");
+    r.type_("p95 k8s v0.9.7 ");
+    assert_eq!(r.text(), "p95 k8s v0.9.7 ");
+    // A standalone first-key guess must not pin the growing Korean counter to English.
+    let mut counter = Rig::new("confirm-digit-counter");
+    counter.type_("10sus");
+    assert_eq!(counter.text(), "10년");
+    assert!(counter.key(Key::Enter));
+    assert_eq!(counter.text(), "10년");
+    // A preceding digit already affected the preview; Enter adds no new evidence.
+    r.type_("2024sus");
+    let shown = r.text();
+    assert!(r.key(Key::Enter));
+    assert_eq!(r.text(), shown);
+}
+
+#[test]
+fn standalone_letter_scoring_does_not_change_growing_words() {
+    for (keys, expected) in [("thwo", "소재"), ("dkssud", "안녕")] {
+        let mut r = Rig::new("confirm-growing-word");
+        r.type_(keys);
+        assert_eq!(r.text(), expected, "{keys}");
+        r.key(Key::Enter);
+        assert_eq!(r.text(), expected, "{keys}");
+    }
+    let mut deleted = Rig::new("confirm-seed-delete");
+    deleted.type_("t⌫thwo");
+    assert_eq!(deleted.text(), "소재");
+    let mut pinned = Rig::new("confirm-seed-pin");
+    pinned.type_("th⌫");
+    assert_eq!(pinned.text(), "ㅅ");
+    pinned.key(Key::Enter);
+    assert_eq!(pinned.text(), "ㅅ");
+    let mut forced = Rig::new("confirm-seed-force");
+    forced.type_("t⎋hwo⏎");
+    assert_eq!(forced.text(), "소재");
+    let mut reset = Rig::new("confirm-seed-reset");
+    reset.type_("t");
+    reset.key(Key::Other);
+    reset.type_("thwo");
+    assert_eq!(reset.text(), "t소재");
+}
+
+#[test]
+fn english_single_letter_suffixes_finish_as_english() {
+    let mut r = Rig::new("english-suffixes");
+    r.type_("Tom's I'm don't ");
+    assert_eq!(r.text(), "Tom's I'm don't ");
+}
+
+#[test]
+fn a_completed_english_korean_ending_is_visible_before_confirmation() {
+    let mut r = Rig::new("mixed-preview");
+    r.type_("isValidrk gkdtkd truedi");
+    assert_eq!(r.text(), "isValid가 항상 true야");
+    r.type_(" ");
+    assert_eq!(r.text(), "isValid가 항상 true야 ");
+}
+
+#[test]
+fn shifted_vowel_after_a_doubled_consonant_stays_korean() {
+    for boundary in [Key::Printable(' '), Key::Enter] {
+        let mut r = Rig::new("shift-overlap");
+        r.type_("akfgkfRK");
+        assert_eq!(r.text(), "말할까");
+        assert_eq!(r.session.keys(), "akfgkfRK");
+        r.key(Key::Escape);
+        assert_eq!(r.text(), "akfgkfRK");
+        r.key(Key::Escape);
+        assert_eq!(r.text(), "말할까");
+        r.key(boundary);
+        assert_eq!(r.text(), "말할까");
+        assert!(!r.composing());
+    }
 }
 
 /// With the setting off, Return confirms the word and the app gets it too.
@@ -642,4 +858,94 @@ fn file_names_with_an_extension_stay_english() {
     let mut r = Rig::new("file-ext");
     r.type_("main.rs tnwjdgoTdj ");
     assert_eq!(r.text(), "main.rs 수정했어 ");
+}
+
+#[test]
+fn mode_cycles_auto_korean_english() {
+    let mut r = Rig::new("mode-cycle");
+    assert_eq!(r.session.mode(), InputMode::Auto);
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.session.mode(), InputMode::Korean);
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.session.mode(), InputMode::English);
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.session.mode(), InputMode::Auto);
+}
+
+/// 한: every word is Korean, also one the engine would keep English.
+#[test]
+fn korean_mode_types_hangul_for_every_word() {
+    let mut r = Rig::new("mode-korean");
+    r.session.cycle_mode(&mut r.field);
+    r.type_("hello dkssud ");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ 안녕 ");
+}
+
+/// 영: the session steps aside and the keys reach the app as typed.
+#[test]
+fn english_mode_leaves_keys_to_the_app() {
+    let mut r = Rig::new("mode-english");
+    r.session.cycle_mode(&mut r.field);
+    r.session.cycle_mode(&mut r.field);
+    r.type_("dkssud ");
+    assert_eq!(r.text(), "dkssud ");
+}
+
+#[test]
+fn switching_mode_commits_the_word_in_progress() {
+    let mut r = Rig::new("mode-commit");
+    r.type_("dkssud");
+    r.session.cycle_mode(&mut r.field);
+    assert_eq!(r.text(), "안녕");
+    assert!(!r.composing());
+}
+
+#[test]
+fn readings_list_each_distinct_reading_and_mark_the_shown_one() {
+    let mut r = Rig::new("readings");
+    assert!(r.session.readings().is_empty());
+    r.type_("hello");
+    let readings = r.session.readings();
+    let texts: Vec<&str> = readings.iter().map(|x| x.text.as_str()).collect();
+    assert_eq!(texts, ["hello", "ㅗ디ㅣㅐ"]);
+    assert_eq!(
+        readings.iter().map(|x| x.shown).collect::<Vec<_>>(),
+        [true, false]
+    );
+}
+
+#[test]
+fn choosing_a_reading_changes_the_word_like_esc() {
+    let mut r = Rig::new("choose");
+    r.type_("hello");
+    assert!(r.session.choose_reading(1, &mut r.field));
+    assert!(r.session.readings()[1].shown);
+    r.type_(" ");
+    assert_eq!(r.text(), "ㅗ디ㅣㅐ ");
+}
+
+#[test]
+fn choosing_a_missing_reading_does_nothing() {
+    let mut r = Rig::new("choose-none");
+    assert!(!r.session.choose_reading(0, &mut r.field));
+    r.type_("hello");
+    assert!(!r.session.choose_reading(9, &mut r.field));
+}
+
+#[test]
+fn mending_hangul_after_delete_stays_hangul() {
+    let mut r = Rig::new("mend");
+    r.type_("tkfkd");
+    r.erase(3);
+    r.type_("k");
+    assert_eq!(r.text(), "사ㅏ");
+}
+
+#[test]
+fn text_left_before_the_caret_is_the_context_of_the_next_word() {
+    let mut r = Rig::new("caret-context");
+    r.type_("dkssud hello ");
+    r.erase(7);
+    r.type_("en ");
+    assert_eq!(r.text(), "안녕두 ");
 }

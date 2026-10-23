@@ -140,6 +140,16 @@ h1 {
   border-radius: 4px;
 }
 
+#diagnostics-text {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 12px;
+  font-family: monospace;
+  resize: vertical;
+}
+
 [role="tabpanel"]:focus {
   outline: none;
 } /* a panel takes focus programmatically, it is not a control */

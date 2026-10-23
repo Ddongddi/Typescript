@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<io.github.iamallyouneed.tacit.DualKeyboardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/keyboard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/keyboard_background"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:keyBackground="@drawable/keyboard_key"
+    android:keyTextColor="@color/keyboard_text"
+    android:keyTextSize="22sp"
+    android:labelTextSize="13sp"
+    android:shadowRadius="0" />

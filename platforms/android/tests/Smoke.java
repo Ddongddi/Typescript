@@ -33,14 +33,26 @@ public final class Smoke {
             }
             press(handle, Native.PRINTABLE, ' ');
             if (!field.equals("안녕 hello ")) throw new AssertionError("English: " + field);
-            apply(Native.nativeTogglePause(handle, field));
-            if (!Native.nativePaused(handle)) throw new AssertionError("pause did not toggle");
+            for (char key : "hello".toCharArray()) {
+                press(handle, Native.LETTER, key);
+            }
+            String readings = Native.nativeReadings(handle);
+            if (!readings.equals("\u00011hello\u0001" + "0ㅗ디ㅣㅐ")) {
+                throw new AssertionError("readings: " + readings);
+            }
+            apply(Native.nativeChooseReading(handle, 1, field));
+            press(handle, Native.PRINTABLE, ' ');
+            if (!field.equals("안녕 hello ㅗ디ㅣㅐ ")) throw new AssertionError("chosen: " + field);
+            apply(Native.nativeCycleMode(handle, field));
+            if (Native.nativeMode(handle) != Native.MODE_KOREAN) throw new AssertionError("not Korean");
+            apply(Native.nativeCycleMode(handle, field));
+            if (Native.nativeMode(handle) != Native.MODE_ENGLISH) throw new AssertionError("not English");
             String passed = Native.nativeKey(handle, Native.LETTER, 'x', field);
-            if (!passed.startsWith("0")) throw new AssertionError("paused key was consumed");
-            apply(Native.nativeTogglePause(handle, field));
-            if (Native.nativePaused(handle)) throw new AssertionError("pause did not resume");
+            if (!passed.startsWith("0")) throw new AssertionError("English-mode key was consumed");
+            apply(Native.nativeCycleMode(handle, field));
+            if (Native.nativeMode(handle) != Native.MODE_AUTO) throw new AssertionError("not tacit");
             Native.nativeReset(handle);
-            System.out.println("PASS: Android JNI create/activate/Korean/English/pause/reset/destroy");
+            System.out.println("PASS: Android JNI create/activate/Korean/English/readings/modes/reset/destroy");
         } finally {
             Native.nativeDestroy(handle);
         }

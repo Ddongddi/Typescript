@@ -9,6 +9,9 @@ permissions:
   contents: write
 
 jobs:
+  android-input:
+    uses: ./.github/workflows/android-smoke.yml
+
   release:
     strategy:
       matrix:
@@ -21,6 +24,14 @@ jobs:
           targets: i686-pc-windows-msvc, aarch64-linux-android
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --all-features
+      - name: Verify installers and changelogs
+        if: matrix.edition == 'enko'
+        run: |
+          ./scripts/test-default-input.ps1
+          ./scripts/test-legacy-update.ps1
+          ./scripts/test-install-rollback.ps1
+          python scripts/validate-changelog.py --selftest --tag "$env:GITHUB_REF_NAME"
+          if ($LASTEXITCODE) { throw 'changelog validation failed' }
       # Not together with tacit-cli (a development tool, not packaged): its embedded packs
       # would end up in these two as well (+2.5 MB each, unused: they read the installed packs).
       - name: Build desktop binaries for the selected languages
@@ -69,6 +80,9 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev pkg-config zip
       - run: cargo test --workspace --all-features --exclude tacit-tip
+      - name: Verify macOS input adapter
+        if: runner.os == 'macOS' && matrix.edition == 'enko'
+        run: sh platforms/macos/test.sh
       - run: sh scripts/package.sh ${{ runner.os == 'Linux' && 'linux' || 'macos' }} ${{ matrix.edition }}
       - uses: actions/upload-artifact@v4
         with:
@@ -76,7 +90,7 @@ jobs:
           path: dist/*
 
   publish:
-    needs: [release, unix]
+    needs: [release, unix, android-input]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,10 +106,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # The notes are the version's entry in CHANGELOG.md; GitHub writes them if it has none.
-          if sh scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md; then
-            notes="--notes-file notes.md"
-          else
-            notes="--generate-notes"
-          fi
-          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" $notes
+          python3 scripts/validate-changelog.py --tag "$GITHUB_REF_NAME"
+          sh scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file notes.md

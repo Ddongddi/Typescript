@@ -3,6 +3,7 @@
 
 use super::{char_count, InputSession, TextClient};
 use crate::decide::engine::{Decision, DecisionContext, DecisionEngine, Language};
+use crate::decide::mixed::MixedWord;
 use crate::lang::english::EnglishModel;
 use crate::lang::hangul::HangulComposer;
 use crate::lang::korean::{KoreanModel, UNKNOWN_SYLLABLE_LOGP};
@@ -29,7 +30,7 @@ pub struct Trace {
     pub keys: String,
     pub previous: Option<Language>,
     pub decision: Decision,
-    /// Still being typed (the preview) rather than committed.
+    /// Partial-input scoring requested; standalone previews can request final scoring.
     pub partial: bool,
 }
 
@@ -41,7 +42,25 @@ impl InputSession {
             after_digit: self.word_after_digit,
             before_digit: self.word_before_digit,
         };
-        let d = self.engine.decide(&self.word.keys, &ctx);
+        let mut d = self.engine.decide(&self.word.keys, &ctx);
+        // A completed Korean ending on a known English stem must be visible before confirmation.
+        if partial
+            && d.language == Language::English
+            && !EnglishModel::shared().is_known_word(&self.word.keys)
+            && MixedWord::split(&self.word.keys)
+                .is_some_and(|mixed| EnglishModel::shared().is_known_word(&mixed.english))
+        {
+            let finished = self.engine.decide(
+                &self.word.keys,
+                &DecisionContext {
+                    partial: false,
+                    ..ctx
+                },
+            );
+            if finished.language == Language::Mixed {
+                d = finished;
+            }
+        }
         let threshold = self.policy.conversion_threshold;
         let kept = d.language != Language::English && d.confidence < threshold;
         self.kept_english_by_strict =
@@ -69,14 +88,26 @@ impl InputSession {
         decision
     }
 
-    /// What Space/Return commits without Esc: the full-word decision, except that a hesitant
-    /// change away from the reading on screen doesn't win. The same rule as the preview, so
-    /// what you see is what you get.
+    /// Confirmation accepts the engine reading already shown, even when unfinished.
+    /// A newly typed digit is different: it supplies identifier context (p95, k8s),
+    /// so that boundary retains the ordinary confidence rule. Overrides are applied
+    /// by the caller. Explicit corrections still compare against the engine's final
+    /// decision for all the keys, including keys typed after the user forced a language.
     pub(super) fn committed_language(&mut self) -> Language {
+        if self.word.forced_by_user() {
+            return self.decide(false).language;
+        }
+        let Some(shown) = self.word.engine_preview() else {
+            return self.decide(false).language;
+        };
+        if !self.word_before_digit {
+            return shown;
+        }
         let d = self.decide(false);
-        match self.word.engine_preview() {
-            Some(shown) if shown != d.language && !self.is_weak_flip_allowed(&d, shown) => shown,
-            _ => d.language,
+        if shown != d.language && !self.is_weak_flip_allowed(&d, shown) {
+            shown
+        } else {
+            d.language
         }
     }
 
@@ -108,11 +139,22 @@ impl InputSession {
             self.split_off_korean_before_other(client);
             #[cfg(feature = "japanese")]
             self.split_off_japanese_before_korean(client);
-            let decision = self.decide(true);
+            let continuation = self.word.take_continuation().filter(|_| {
+                self.word.keys.len() == 2 && self.word.keys.bytes().all(|c| c.is_ascii_alphabetic())
+            });
+            let partial = self.decide(true);
+            let decision = if char_count(&self.word.keys) == 1 {
+                // A lone key is a complete letter/jamo on screen, but the next letter
+                // must continue the original partial hypothesis, not that standalone guess.
+                self.word.seed_continuation(partial.language);
+                self.decide(false)
+            } else {
+                partial
+            };
             let mut language = decision.language;
-            // Hysteresis: a weak flip on one keystroke isn't shown, except into a dictionary
-            // English word, which is what Space/Return will commit.
-            if let Some(shown) = self.word.preview_language() {
+            // Hysteresis uses the first-key continuation hypothesis once, then the visible
+            // reading. A dictionary English word may always replace a weak earlier guess.
+            if let Some(shown) = continuation.or(self.word.preview_language()) {
                 if shown != language
                     && char_count(&self.word.keys) > 1
                     && !self.is_weak_flip_allowed(&decision, shown)

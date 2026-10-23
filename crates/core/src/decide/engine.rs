@@ -6,7 +6,7 @@ use std::fmt::Write;
 #[cfg(feature = "japanese")]
 use crate::decide::segmenter::{JapaneseSegmenter, Segment};
 use crate::lang::english::{EnglishModel, EXTRA_LEVEL};
-use crate::lang::hangul::{DubeolsikLayout, HangulComposer, Unit};
+use crate::lang::hangul::{is_vowel, DubeolsikLayout, HangulComposer, Unit};
 #[cfg(feature = "japanese")]
 use crate::lang::japanese::JapaneseModel;
 use crate::lang::korean::{KoreanModel, KoreanScore};
@@ -163,7 +163,7 @@ const ENGLISH_FLOOR_MEDIUM: f64 = -2.0;
 const ENGLISH_FLOOR_SHORT: f64 = -2.6;
 /// Taken off the English score when the token has non-letters.
 const NON_LETTER_PENALTY: f64 = 3.0;
-/// Confidence for keys with a capital outside QWERTOP: only ever English.
+/// Confidence when capitalization identifies English rather than shifted Korean keys.
 const CAPITALISED_ENGLISH_CONFIDENCE: f64 = 0.99;
 /// A single consonant key typed inside Korean text (ㅇ for d): it is the jamo, not an English letter.
 const LONE_CONSONANT_CONFIDENCE: f64 = 0.95;
@@ -372,12 +372,24 @@ impl Default for HeuristicEngine {
 
 impl DecisionEngine for HeuristicEngine {
     fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
-        // Shift on a key that has no shifted jamo (e.g. "Hello", "API") is only ever English.
-        if self.english_on
+        let mut previous = '\0';
+        let mut has_lowercase = false;
+        let english_capital = self.english_on
+            // Keep ordinary lowercase typing on the existing fast path.
             && keys
                 .chars()
                 .any(|c| c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c))
-        {
+            && keys.chars().any(|c| {
+                // Shift may overlap the vowel after a doubled consonant; let the models judge it.
+                let overlap = self.korean_on
+                    && has_lowercase
+                    && matches!(previous, 'Q' | 'W' | 'E' | 'R' | 'T')
+                    && DubeolsikLayout::jamo(c).is_some_and(is_vowel);
+                previous = c;
+                has_lowercase |= c.is_ascii_lowercase();
+                c.is_uppercase() && !DubeolsikLayout::is_korean_shift_key(c) && !overlap
+            });
+        if english_capital {
             return Decision {
                 language: Language::English,
                 confidence: CAPITALISED_ENGLISH_CONFIDENCE,

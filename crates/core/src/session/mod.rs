@@ -42,7 +42,7 @@ mod preview;
 pub mod testing;
 mod word;
 
-pub use candidates::CandidatePage;
+pub use candidates::{CandidatePage, Reading};
 pub use client::{NoopClient, Range, TextClient, NOT_FOUND};
 use flip::Committed;
 #[cfg(feature = "japanese")]
@@ -118,6 +118,15 @@ struct WidthState {
     full_width_space: bool,
 }
 
+/// What a text field's words are read as: the engine decides (tacit), every word is Korean, or
+/// tacit steps aside and the keys reach the app as typed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputMode {
+    Auto,
+    Korean,
+    English,
+}
+
 pub struct InputSession {
     engine: Arc<LearningEngine>,
     policies: AppPolicies,
@@ -132,8 +141,13 @@ pub struct InputSession {
     /// because the app is set to Strict.
     kept_english_by_strict: bool,
     previous_language: Option<Language>,
+    /// The app deleted text before the caret since the last word: the next word's context is
+    /// what is left there (`language_before_caret`).
+    edited_back: bool,
     last_commit: Option<Committed>,
     paused: bool,
+    /// Every word starts out read as Korean (`InputMode::Korean`).
+    korean_only: bool,
     /// The languages that are on, in Esc order (the engine's).
     languages: Languages,
     /// The last correction handed to the learning engine: going back and forth is one correction.
@@ -173,8 +187,10 @@ impl InputSession {
             policy: AppPolicy::STANDARD,
             kept_english_by_strict: false,
             previous_language: None,
+            edited_back: false,
             last_commit: None,
             paused: false,
+            korean_only: false,
             languages,
             #[cfg(feature = "japanese")]
             ja: JapaneseState {
@@ -260,6 +276,13 @@ impl InputSession {
     pub fn paused(&self) -> bool {
         self.paused
     }
+    pub fn mode(&self) -> InputMode {
+        match (self.paused, self.korean_only) {
+            (true, _) => InputMode::English,
+            (false, true) => InputMode::Korean,
+            (false, false) => InputMode::Auto,
+        }
+    }
     pub fn last_trace(&self) -> Option<&Trace> {
         self.last_trace.as_ref()
     }
@@ -296,6 +319,24 @@ impl InputSession {
         self.policy = self.policies.policy(exe);
         self.previous_language = None;
         self.paused = false;
+        self.korean_only = false;
+    }
+
+    /// Next mode in this text field: tacit → Korean → English → tacit. What was being typed
+    /// goes in first.
+    pub fn cycle_mode(&mut self, client: &mut dyn TextClient) {
+        match self.mode() {
+            InputMode::Auto => {
+                self.commit(client);
+                self.korean_only = true;
+                self.previous_language = None;
+            }
+            InputMode::Korean => {
+                self.korean_only = false;
+                self.toggle_pause(client);
+            }
+            InputMode::English => self.toggle_pause(client),
+        }
     }
 
     /// Pauses or resumes in this text field; what was being typed goes in first.
@@ -426,6 +467,14 @@ impl InputSession {
         }
         if self.word.keys.is_empty() {
             self.last_recorded = None; // a new word
+            if std::mem::take(&mut self.edited_back) {
+                self.previous_language = self
+                    .language_before_caret(client)
+                    .or(self.previous_language);
+            }
+            if self.korean_only {
+                self.word.force(Language::Korean, false);
+            }
             self.word_after_digit = self.width.after_digit;
             #[cfg(feature = "japanese")]
             {
@@ -436,14 +485,41 @@ impl InputSession {
         {
             self.ja.added_n_marker = false;
         }
-        self.word.unpin();
         self.word.keys.push(ch);
+        // Mending the Hangul just typed (한국 → 한ㄱ, then `r`) stays Korean; the engine judging
+        // the whole key string would flip it to Latin. Once the edited part no longer reads as
+        // Hangul, the engine decides again (한 + hello).
+        if !(self.word.pinned() == Some(Language::Korean) && self.word.edit_reads_as_hangul()) {
+            self.word.unpin();
+        }
         self.update_preview(client);
         true
     }
 
+    /// The app is about to delete committed text: what the next word follows is whatever is left
+    /// before the caret, not the sentence the session remembers.
+    fn language_before_caret(&self, client: &dyn TextClient) -> Option<Language> {
+        let caret = client.selected_range().location;
+        if caret == NOT_FOUND || caret == 0 {
+            return None;
+        }
+        let ch = client
+            .text_in(Range {
+                location: caret - 1,
+                length: 1,
+            })?
+            .chars()
+            .next()?;
+        match ch {
+            '\u{AC00}'..='\u{D7A3}' | '\u{3131}'..='\u{318E}' => Some(Language::Korean),
+            c if c.is_ascii_alphabetic() => Some(Language::English),
+            _ => None,
+        }
+    }
+
     fn on_delete(&mut self, client: &mut dyn TextClient) -> bool {
         if self.word.is_empty() {
+            self.edited_back = true;
             return false;
         }
         let shown = self.word.shown_language();
@@ -493,15 +569,19 @@ impl InputSession {
             Some(l) => l,
             None => self.decide(true).language,
         };
-        self.word
-            .force(self.next_language(shown, &self.word.keys), true);
+        self.read_as(self.next_language(shown, &self.word.keys), client);
+        true
+    }
+
+    /// The word being typed is read as `language`, by the user's choice.
+    fn read_as(&mut self, language: Language, client: &mut dyn TextClient) {
+        self.word.force(language, true);
         self.word.unpin();
         #[cfg(feature = "japanese")]
-        if self.word.forced() != Some(Language::Japanese) {
+        if language != Language::Japanese {
             self.drop_n_marker();
         }
         self.update_preview(client);
-        true
     }
 
     /// Space, digit or punctuation: the word goes in, the app types the key itself.
@@ -697,12 +777,10 @@ impl InputSession {
         history::suggest(Some(history), language, &prefix)
     }
 
-    /// The language the current word will be committed in.
+    /// Route Enter and explicit Space conversion by the reading actually on screen.
     #[cfg(feature = "japanese")]
-    fn current_language(&mut self) -> Option<Language> {
-        self.word
-            .override_language()
-            .or_else(|| Some(self.committed_language()))
+    fn current_language(&self) -> Option<Language> {
+        self.word.shown_language()
     }
 
     /// Decides the current word, learns an Esc override, and resets the buffer.

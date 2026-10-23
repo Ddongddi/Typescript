@@ -83,6 +83,32 @@ fn korean_keystrokes_become_hangul() {
 }
 
 #[test]
+fn shift_overlap_uses_korean_scores_without_losing_english_case() {
+    let e = heuristic();
+    for partial in [true, false] {
+        let context = DecisionContext { partial, ..ctx() };
+        for keys in ["akfgkfRk", "akfgkfRK", "gkfRK", "dlfRK"] {
+            let d = e.decide(keys, &context);
+            assert_eq!(d.language, Language::Korean, "{keys}: {d:?}");
+            assert_eq!(
+                d.output,
+                tacit_core::lang::hangul::HangulComposer::compose(keys)
+                    .unwrap()
+                    .text()
+            );
+            assert_eq!(e.render(keys, Language::English), keys);
+        }
+        for keys in [
+            "Hello", "API", "WORK", "TYPE", "Park", "fooBar", "getURL", "aRK", "RK", "TY",
+        ] {
+            let d = e.decide(keys, &context);
+            assert_eq!(d.language, Language::English, "{keys}: {d:?}");
+            assert_eq!(d.output, keys);
+        }
+    }
+}
+
+#[test]
 fn mixed_sentence() {
     let e = heuristic();
     let c = TextConverter::new(&e);
@@ -263,6 +289,45 @@ fn a_correction_teaches_the_kind_of_word() {
     let reloaded = LearningEngine::new(Box::new(splitting()), Some(path.clone()));
     assert_eq!(reloaded.decide("ac", &ctx()).output, "ㅁㅊ");
     let _ = std::fs::remove_file(&path);
+}
+
+#[cfg(feature = "embedded-ja")]
+#[test]
+fn shape_learning_requires_matching_runner_up() {
+    let path = temp_lexicon("shape-runner-up");
+    let languages = Languages::from_ids(&["ko", "en", "ja"]).unwrap();
+    for count in [0, 3, 4] {
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "learned": {},
+                "once": {},
+                "shapes": {"medium:korean": count},
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let engine = make_engine(Some(path.clone()), &languages);
+        for partial in [true, false] {
+            let context = DecisionContext { partial, ..ctx() };
+            let base = engine.base().decide("korean", &context);
+            assert_eq!(base.language, Language::English);
+            assert_eq!(base.runner_up, Some(Language::Japanese));
+            assert_eq!(base.output, "korean");
+            let learned = engine.decide("korean", &context);
+            assert_eq!(
+                (
+                    learned.language,
+                    learned.runner_up,
+                    learned.output,
+                    learned.confidence
+                ),
+                (base.language, base.runner_up, base.output, base.confidence),
+                "count={count}, partial={partial}",
+            );
+        }
+    }
+    std::fs::remove_file(path).unwrap();
 }
 
 /// A correction made twice teaches the stem too: every other particle on it follows.

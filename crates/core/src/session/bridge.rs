@@ -5,7 +5,7 @@
 //! composing text), `B<n>` delete n UTF-16 units before the caret.
 
 use super::testing::FakeTextField;
-use super::{InputSession, Key, NoopClient, Range, TextClient};
+use super::{InputMode, InputSession, Key, NoopClient, Range, TextClient};
 
 const SEP: char = '\u{1}';
 
@@ -17,6 +17,11 @@ pub const ESCAPE: i32 = 3;
 pub const CYCLE: i32 = 4;
 pub const ENTER: i32 = 5;
 pub const TAB: i32 = 6;
+
+/// Modes, as `Ime::mode` reports them.
+pub const MODE_AUTO: i32 = 0;
+pub const MODE_KOREAN: i32 = 1;
+pub const MODE_ENGLISH: i32 = 2;
 
 fn key_for(kind: i32, ch: char) -> Key {
     match kind {
@@ -255,6 +260,45 @@ impl Ime {
 
     pub fn paused(&self) -> bool {
         self.session.paused()
+    }
+
+    /// Next mode (tacit → Korean → English), under the same contract as `toggle_pause`.
+    pub fn cycle_mode(&mut self, before: Option<&str>, before_start: Option<usize>) -> String {
+        self.run(before, before_start, |s, c| {
+            s.cycle_mode(c);
+            true
+        })
+    }
+
+    /// `MODE_AUTO`, `MODE_KOREAN` or `MODE_ENGLISH`.
+    pub fn mode(&self) -> i32 {
+        match self.session.mode() {
+            InputMode::Auto => MODE_AUTO,
+            InputMode::Korean => MODE_KOREAN,
+            InputMode::English => MODE_ENGLISH,
+        }
+    }
+
+    /// The readings of the word being typed, each preceded by `\u{1}` and `1` when it is the one
+    /// shown (else `0`); empty when there is nothing to choose.
+    pub fn readings(&self) -> String {
+        let mut out = String::new();
+        for reading in self.session.readings() {
+            out.push(SEP);
+            out.push(if reading.shown { '1' } else { '0' });
+            out.push_str(&reading.text);
+        }
+        out
+    }
+
+    /// Reads the word as the `index`th of `readings`; the reply is as for `key`.
+    pub fn choose_reading(
+        &mut self,
+        index: usize,
+        before: Option<&str>,
+        before_start: Option<usize>,
+    ) -> String {
+        self.run(before, before_start, |s, c| s.choose_reading(index, c))
     }
 }
 

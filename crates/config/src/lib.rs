@@ -4,6 +4,7 @@
 pub mod app;
 pub mod catalog;
 pub mod cli;
+pub mod diagnostics;
 pub mod env;
 pub mod error;
 pub mod fetch;

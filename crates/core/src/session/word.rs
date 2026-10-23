@@ -22,6 +22,9 @@ pub(super) struct WordState {
     preview_language: Option<Language>,
     /// The language the engine itself showed last, before any Esc.
     engine_preview: Option<Language>,
+    /// Partial first-key hypothesis, used only when the next letter starts a longer word.
+    /// The standalone reading on screen remains authoritative for confirmation and editing.
+    continuation_language: Option<Language>,
     /// Where the Korean syllable being typed starts once Delete was used in the word.
     pub syllable_start: Option<usize>,
 }
@@ -47,14 +50,22 @@ impl WordState {
     pub fn engine_preview(&self) -> Option<Language> {
         self.engine_preview
     }
+    pub fn seed_continuation(&mut self, language: Language) {
+        self.continuation_language = Some(language);
+    }
+    pub fn take_continuation(&mut self) -> Option<Language> {
+        self.continuation_language.take()
+    }
 
     /// The reading is fixed to `language` (by the user's Esc, or by the session).
     pub fn force(&mut self, language: Language, by_user: bool) {
+        self.continuation_language = None;
         self.forced = Some(language);
         self.forced_by_user = by_user;
     }
     /// Keeps the language shown when Delete was pressed, until the next letter.
     pub fn pin(&mut self, shown: Option<Language>) {
+        self.continuation_language = None;
         self.pinned = shown;
     }
     pub fn unpin(&mut self) {
@@ -71,12 +82,14 @@ impl WordState {
     }
     /// Nothing is on screen for this word any more.
     pub fn forget_preview(&mut self) {
+        self.continuation_language = None;
         self.preview_language = None;
         self.engine_preview = None;
     }
     /// The word became a Japanese phrase being converted: no steering is left over.
     #[cfg(feature = "japanese")]
     pub fn release(&mut self) {
+        self.continuation_language = None;
         self.forced = None;
         self.forced_by_user = false;
         self.pinned = None;
@@ -129,6 +142,18 @@ impl WordState {
                 HangulComposer::compose(&front).is_some_and(|c| c.units == earlier)
             })
             .unwrap_or(chars.len().saturating_sub(1))
+    }
+
+    /// After a Delete: the keys typed since (the syllable being mended) still make Hangul, apart
+    /// from the jamo being typed now.
+    pub(super) fn edit_reads_as_hangul(&self) -> bool {
+        let start = self.syllable_start.unwrap_or(0);
+        let back: String = self.keys.chars().skip(start).collect();
+        HangulComposer::compose(&back).is_some_and(|c| {
+            c.units
+                .split_last()
+                .is_some_and(|(_, front)| front.iter().all(|u| matches!(u, Unit::Syllable(_))))
+        })
     }
 
     /// The word as Hangul, with the syllable being typed kept apart from those before it

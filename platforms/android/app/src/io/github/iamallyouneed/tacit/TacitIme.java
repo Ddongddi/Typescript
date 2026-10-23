@@ -4,11 +4,15 @@ import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
 import android.text.InputType;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -21,17 +25,20 @@ import java.util.Set;
 @SuppressWarnings("deprecation")
 public class TacitIme extends InputMethodService implements KeyboardView.OnKeyboardActionListener {
     private static final int BEFORE_CARET = 64;
-    private static final int CODE_CYCLE = -100;
-    private static final int CODE_PAUSE = -101;
+    private static final int CODE_MODE = -101;
     private static final int CODE_SYMBOLS = -102;
     private static final int CODE_LETTERS = -103;
 
     private long ime;
     private boolean active;
+    private boolean composing;
     /** Keys whose down event was consumed: their up event is too. */
     private final Set<Integer> swallowed = new HashSet<>();
 
-    private KeyboardView keyboardView;
+    private DualKeyboardView keyboardView;
+    private LinearLayout readingsView;
+    /** What the chips were built from, so refresh() rebuilds them only when it changes. */
+    private String shownReadings;
     private Keyboard letters;
     private Keyboard symbols;
 
@@ -52,18 +59,21 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
     public View onCreateInputView() {
         letters = new Keyboard(this, R.xml.qwerty);
         symbols = new Keyboard(this, R.xml.symbols);
-        keyboardView = new DualKeyboardView(this);
+        View root = getLayoutInflater().inflate(R.layout.input, null);
+        readingsView = root.findViewById(R.id.readings);
+        keyboardView = root.findViewById(R.id.keyboard);
         keyboardView.setOnKeyboardActionListener(this);
         keyboardView.setPreviewEnabled(false);
         keyboardView.setKeyboard(letters);
 
-        return keyboardView;
+        return root;
     }
 
     @Override
     public void onStartInput(EditorInfo info, boolean restarting) {
         super.onStartInput(info, restarting);
         active = ime != 0 && isTextField(info);
+        composing = false;
         swallowed.clear();
         if (active) Native.nativeActivate(ime, info.packageName);
     }
@@ -80,10 +90,26 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
 
     @Override
     public void onFinishInput() {
+        composing = false;
         InputConnection ic = getCurrentInputConnection();
         if (ic != null) ic.finishComposingText();
         if (ime != 0) Native.nativeReset(ime);
         super.onFinishInput();
+    }
+
+    @Override
+    public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
+            int candidatesStart, int candidatesEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                candidatesStart, candidatesEnd);
+        if (!active || !composing) return;
+        if (newSelStart == candidatesEnd && newSelEnd == candidatesEnd) return;
+        // A moved caret must detach both the editor's composing span and Rust's old word.
+        composing = false;
+        Native.nativeReset(ime);
+        InputConnection ic = getCurrentInputConnection();
+        if (ic != null) ic.finishComposingText();
+        refresh();
     }
 
     /** Passwords and fields that are not text are left to the system. */
@@ -109,7 +135,7 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
 
         boolean consumed;
         if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH) {
-            apply(ic, Native.nativeTogglePause(ime, before(ic)));
+            apply(ic, Native.nativeCycleMode(ime, before(ic)));
             consumed = true;
         } else {
             int kind = kindOf(keyCode, event);
@@ -194,9 +220,9 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
                 keyboardView.setKeyboard(letters);
                 refresh();
                 return;
-            case CODE_PAUSE:
+            case CODE_MODE:
                 InputConnection ic = getCurrentInputConnection();
-                if (ic != null && active) apply(ic, Native.nativeTogglePause(ime, before(ic)));
+                if (ic != null && active) apply(ic, Native.nativeCycleMode(ime, before(ic)));
                 refresh();
                 return;
             case Keyboard.KEYCODE_DELETE:
@@ -204,9 +230,6 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
                 return;
             case 10:
                 soft(Native.ENTER, 0, KeyEvent.KEYCODE_ENTER);
-                return;
-            case CODE_CYCLE:
-                soft(Native.CYCLE, 0, 0);
                 return;
             default:
                 break;
@@ -256,16 +279,60 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
     @Override
     public void swipeUp() {}
 
-    /** The Han/Eng key shows whether tacit is paused. */
+    /** The mode key shows the mode; the strip above the keys shows the word's readings. */
     private void refresh() {
         if (keyboardView == null || ime == 0) return;
-        String label = active && Native.nativePaused(ime) ? "OFF" : "한/영";
+        int mode = active ? Native.nativeMode(ime) : Native.MODE_AUTO;
+        String label = modeLabel(mode);
         for (Keyboard board : new Keyboard[] {letters, symbols}) {
             for (Keyboard.Key key : board.getKeys()) {
-                if (key.codes[0] == CODE_PAUSE) key.label = label;
+                if (key.codes[0] == CODE_MODE) key.label = label;
             }
         }
-        keyboardView.invalidateAllKeys();
+        keyboardView.setMode(mode);
+        showReadings();
+    }
+
+    private static String modeLabel(int mode) {
+        switch (mode) {
+            case Native.MODE_KOREAN:
+                return "한";
+            case Native.MODE_ENGLISH:
+                return "영";
+            default:
+                return "tacit";
+        }
+    }
+
+    private void showReadings() {
+        String readings = active ? Native.nativeReadings(ime) : "";
+        if (readings.equals(shownReadings)) return; // same chips: no rebuild per key
+        shownReadings = readings;
+        readingsView.removeAllViews();
+        if (!active) return;
+        String[] parts = readings.split("\u0001");
+        float density = getResources().getDisplayMetrics().density;
+        for (int i = 1; i < parts.length; i++) {
+            final int index = i - 1;
+            TextView chip = new TextView(this);
+            chip.setText(parts[i].substring(1));
+            chip.setSelected(parts[i].charAt(0) == '1');
+            chip.setTextColor(getColor(R.color.keyboard_text));
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+            chip.setGravity(Gravity.CENTER);
+            chip.setBackgroundResource(R.drawable.reading_chip);
+            chip.setPadding((int) (14 * density), 0, (int) (14 * density), 0);
+            chip.setOnClickListener(v -> chooseReading(index));
+            readingsView.addView(chip, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT));
+        }
+    }
+
+    private void chooseReading(int index) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || !active) return;
+        apply(ic, Native.nativeChooseReading(ime, index, before(ic)));
+        refresh();
     }
 
     // MARK: - Shared
@@ -322,7 +389,7 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
     }
 
     /** Applies Rust's edit commands; true if the key was consumed. */
-    private static boolean apply(InputConnection ic, String reply) {
+    private boolean apply(InputConnection ic, String reply) {
         String[] parts = reply.split("\u0001", -1);
         if (parts.length > 1) {
             ic.beginBatchEdit();
@@ -330,9 +397,11 @@ public class TacitIme extends InputMethodService implements KeyboardView.OnKeybo
                 String rest = parts[i].substring(1);
                 switch (parts[i].charAt(0)) {
                     case 'M':
+                        composing = !rest.isEmpty();
                         ic.setComposingText(rest, 1);
                         break;
                     case 'I':
+                        composing = false;
                         ic.commitText(rest, 1);
                         break;
                     case 'B':
