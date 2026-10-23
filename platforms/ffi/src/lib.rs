@@ -499,7 +499,13 @@ mod tests {
 
     #[test]
     fn confirmation_preserves_visible_korean_and_surrounding_text() {
-        for (keys, shown) in [("dustmqgot", "연습햇"), ("akfgkfRK", "말할까")] {
+        for (keys, shown) in [
+            ("dustmqgot", "연습햇"),
+            ("akfgkfRK", "말할까"),
+            ("d", "d"),
+            ("Tom's", "Tom's"),
+            ("dkssud d", "안녕 ㅇ"),
+        ] {
             for (kind, ch, boundary) in [(1, ' ', " "), (5, '\0', "")] {
                 for known_context in [true, false] {
                     let fixture = Fixture::new();

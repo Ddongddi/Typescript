@@ -320,6 +320,154 @@ fn confirmation_keeps_the_visible_korean_reading() {
 }
 
 #[test]
+fn confirmation_keeps_incomplete_previews() {
+    let mut changes = Vec::new();
+    for script in [
+        "s", "d", "z", "r", "k", "t", "n", "g", "dkssud d", "Tom's", "I'm", "don't", "2024sus",
+        "1s", "hello t",
+    ] {
+        for boundary in [
+            Key::Enter,
+            Key::Printable(' '),
+            Key::Printable('.'),
+            Key::Tab,
+            Key::Other,
+        ] {
+            let mut r = Rig::new("confirm-incomplete");
+            r.type_(script);
+            let shown = r.text();
+            r.key(boundary);
+            if r.text() != shown {
+                changes.push(format!(
+                    "{script:?} {boundary:?}: {shown:?} -> {:?}",
+                    r.text()
+                ));
+            }
+            assert!(!r.composing());
+        }
+        for new_context in [false, true] {
+            let mut r = Rig::new("confirm-flush");
+            r.type_(script);
+            let shown = r.text();
+            if new_context {
+                r.session.commit_for_new_context(&mut r.field);
+            } else {
+                r.session.commit(&mut r.field);
+            }
+            if r.text() != shown {
+                changes.push(format!(
+                    "{script:?} flush({new_context}): {shown:?} -> {:?}",
+                    r.text()
+                ));
+            }
+            assert!(!r.composing());
+        }
+    }
+    assert!(changes.is_empty(), "{}", changes.join("\n"));
+}
+
+/// Final confidence is not permission to replace an unfinished visible reading.
+#[test]
+fn confirmation_does_not_reclassify_incomplete_jamo() {
+    use tacit_core::{Decision, DecisionContext, DecisionEngine, Language};
+    struct Unfinished;
+    impl DecisionEngine for Unfinished {
+        fn decide(&self, keys: &str, context: &DecisionContext) -> Decision {
+            Decision {
+                language: if context.partial {
+                    Language::Korean
+                } else {
+                    Language::English
+                },
+                confidence: 1.0,
+                output: keys.to_string(),
+                explanation: String::new(),
+                runner_up: None,
+            }
+        }
+    }
+    let rig = || {
+        let engine = Arc::new(LearningEngine::new(Box::new(Unfinished), None));
+        (
+            Rig {
+                session: InputSession::new(engine.clone(), AppPolicies::default(), true),
+                field: FakeTextField::new(),
+            },
+            engine,
+        )
+    };
+    for boundary in [
+        Key::Enter,
+        Key::Printable(' '),
+        Key::Printable('.'),
+        Key::Tab,
+        Key::Other,
+    ] {
+        let (mut r, engine) = rig();
+        r.type_("rr");
+        assert_eq!(r.text(), "ㄱㄱ");
+        r.key(boundary);
+        assert_eq!(r.text(), "ㄱㄱ", "{boundary:?}");
+        assert!(!r.composing());
+        assert!(engine.pending().is_empty());
+        assert!(engine.learned().is_empty());
+    }
+    // An explicit override still uses the final engine decision for learning.
+    let (mut r, engine) = rig();
+    r.type_("rr⎋");
+    assert_eq!(r.text(), "rr");
+    r.key(Key::Enter);
+    assert_eq!(r.text(), "rr");
+    assert!(engine.pending().is_empty());
+    assert!(engine.learned().is_empty());
+}
+
+#[test]
+fn typed_digits_remain_new_evidence_not_plain_confirmation() {
+    let mut r = Rig::new("confirm-digit-evidence");
+    r.type_("p95 k8s v0.9.7 ");
+    assert_eq!(r.text(), "p95 k8s v0.9.7 ");
+    // A standalone first-key guess must not pin the growing Korean counter to English.
+    let mut counter = Rig::new("confirm-digit-counter");
+    counter.type_("10sus");
+    assert_eq!(counter.text(), "10년");
+    assert!(counter.key(Key::Enter));
+    assert_eq!(counter.text(), "10년");
+    // A preceding digit already affected the preview; Enter adds no new evidence.
+    r.type_("2024sus");
+    let shown = r.text();
+    assert!(r.key(Key::Enter));
+    assert_eq!(r.text(), shown);
+}
+
+#[test]
+fn standalone_letter_scoring_does_not_change_growing_words() {
+    for (keys, expected) in [("thwo", "소재"), ("dkssud", "안녕")] {
+        let mut r = Rig::new("confirm-growing-word");
+        r.type_(keys);
+        assert_eq!(r.text(), expected, "{keys}");
+        r.key(Key::Enter);
+        assert_eq!(r.text(), expected, "{keys}");
+    }
+    let mut deleted = Rig::new("confirm-seed-delete");
+    deleted.type_("t⌫thwo");
+    assert_eq!(deleted.text(), "소재");
+    let mut pinned = Rig::new("confirm-seed-pin");
+    pinned.type_("th⌫");
+    assert_eq!(pinned.text(), "ㅅ");
+    pinned.key(Key::Enter);
+    assert_eq!(pinned.text(), "ㅅ");
+    let mut forced = Rig::new("confirm-seed-force");
+    forced.type_("t⎋hwo⏎");
+    assert_eq!(forced.text(), "소재");
+    let mut reset = Rig::new("confirm-seed-reset");
+    reset.type_("t");
+    reset.key(Key::Other);
+    reset.type_("thwo");
+    assert_eq!(reset.text(), "t소재");
+}
+
+#[test]
 fn english_single_letter_suffixes_finish_as_english() {
     let mut r = Rig::new("english-suffixes");
     r.type_("Tom's I'm don't ");

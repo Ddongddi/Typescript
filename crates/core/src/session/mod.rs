@@ -777,12 +777,10 @@ impl InputSession {
         history::suggest(Some(history), language, &prefix)
     }
 
-    /// The language the current word will be committed in.
+    /// Route Enter and explicit Space conversion by the reading actually on screen.
     #[cfg(feature = "japanese")]
-    fn current_language(&mut self) -> Option<Language> {
-        self.word
-            .override_language()
-            .or_else(|| Some(self.committed_language()))
+    fn current_language(&self) -> Option<Language> {
+        self.word.shown_language()
     }
 
     /// Decides the current word, learns an Esc override, and resets the buffer.
