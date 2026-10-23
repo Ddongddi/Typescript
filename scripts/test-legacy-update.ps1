@@ -34,6 +34,18 @@ try {
     $releaseInstall = @{ Reached = $false }
     & (Join-Path $unpacked 'install.ps1') -LocalSource
     if (-not $releaseInstall.Reached) { throw 'Official release installation was not reached' }
+    # -EncodedCommand must fit the 32,767-character Windows command line. Encoding the elevated
+    # script inside another encoded command doubled it and made Start-Process fail with "The
+    # parameter is incorrect" before the UAC prompt.
+    $installer = Get-Content (Join-Path $PSScriptRoot 'install.ps1') -Raw
+    $elevatedScript = [regex]::Match($installer, "(?s)\`$elevatedScript = @'\r?\n(.*?)\r?\n'@").Groups[1].Value
+    $function = [regex]::Match($installer, '(?s)function Get-EncodedElevation.*?\r?\n\}').Value
+    if (-not $elevatedScript -or -not $function) { throw 'Could not read the installer encoding' }
+    Invoke-Expression $function
+    $Edition = 'enko'
+    $encoded = Get-EncodedElevation 'v0.10.5' $false
+    if ($encoded.Length -lt 20000 -or $encoded.Length -ge 32700) { throw "Encoded installer has the wrong size: $($encoded.Length)" }
+    [ScriptBlock]::Create([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))) | Out-Null
     Write-Host 'Legacy update: pinned release installer, flat assets and checksums passed.'
 } finally {
     $resolved = (Resolve-Path -LiteralPath $work).Path
