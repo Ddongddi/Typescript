@@ -164,10 +164,17 @@ impl InputSession {
             {
                 return JapaneseSegmenter::text(&segments);
             }
+            return RomajiComposer::compose(&self.word.keys, false).text;
         }
+        self.japanese_partial_reading().0
+    }
+
+    /// The visible reading and only the pending letters belonging to its Japanese tail.
+    fn japanese_partial_reading(&self) -> (String, String) {
+        let composed = RomajiComposer::compose(&self.word.keys, true);
         // While typing, a consonant at the end is just waiting for its vowel (watashihag → わたしはg),
         // not a stray letter to split an English word ("hag") out of.
-        if partial && RomajiComposer::compose(&self.word.keys, true).stray_letters > 0 {
+        if composed.stray_letters > 0 {
             if let Some(segments) = self
                 .ja
                 .segmenter
@@ -176,15 +183,21 @@ impl InputSession {
             {
                 // While typing, the last segment may still be growing; keep its pending letters visible.
                 if let Some((last, head)) = segments.split_last() {
-                    let tail = match last {
-                        Segment::Japanese { keys, .. } => RomajiComposer::compose(keys, true).text,
-                        Segment::English(word) => word.clone(),
+                    let (tail, pending) = match last {
+                        Segment::Japanese { keys, .. } => {
+                            let tail = RomajiComposer::compose(keys, true);
+                            (tail.text, tail.pending)
+                        }
+                        Segment::English(word) => (word.clone(), String::new()),
                     };
-                    return format!("{}{}", JapaneseSegmenter::text(head), tail);
+                    return (
+                        format!("{}{}", JapaneseSegmenter::text(head), tail),
+                        pending,
+                    );
                 }
             }
         }
-        RomajiComposer::compose(&self.word.keys, partial).text
+        (composed.text, composed.pending)
     }
 
     // MARK: - Live conversion
@@ -236,38 +249,36 @@ impl InputSession {
     /// The Japanese phrase as shown while typing: kana, or with live conversion the top
     /// candidate followed by letters still waiting for their vowel (今日はいい天気でs).
     pub(super) fn japanese_display(&mut self) -> String {
-        let reading = self.japanese_reading(true);
-        if !self.is_live() {
-            return reading;
-        }
-        let pending = RomajiComposer::compose(&self.word.keys, true).pending;
-        if !reading.ends_with(&pending) {
-            return reading;
-        }
-        let keep = char_count(&reading) - char_count(&pending);
-        let kana: String = reading.chars().take(keep).collect();
-        if kana.is_empty() {
-            return reading;
-        }
-        match self.live_candidate(&kana) {
-            Some(candidate) => format!("{}{}", candidate.text, pending),
-            None => reading,
-        }
+        self.render_japanese(false)
     }
 
-    /// What a Japanese phrase commits as without the candidate window: the kana, or with
-    /// live conversion the candidate that was on screen (which the converter learns).
+    /// Plain confirmation keeps the visible segmentation and live candidate. Only a genuinely
+    /// pending Japanese n is completed; an English segment's final n is already literal text.
     pub(super) fn committed_japanese(&mut self) -> String {
-        let kana = self.japanese_reading(false);
-        if self.is_live() {
-            if let Some(candidate) = self.live_candidate(&kana) {
-                if let Some(converter) = &self.ja.converter {
-                    converter.learn(&candidate, &kana);
+        self.render_japanese(true)
+    }
+
+    fn render_japanese(&mut self, confirming: bool) -> String {
+        let (mut reading, pending) = self.japanese_partial_reading();
+        let complete_n = confirming && pending == "n";
+        // The composer appends pending letters verbatim; English tails have no pending suffix.
+        if self.is_live() && reading.len() > pending.len() {
+            let kana = &reading[..reading.len() - pending.len()];
+            if let Some(candidate) = self.live_candidate(kana) {
+                if confirming {
+                    if let Some(converter) = &self.ja.converter {
+                        converter.learn(&candidate, kana);
+                    }
                 }
-                return candidate.text;
+                let tail = if complete_n { "ん" } else { &pending };
+                return format!("{}{}", candidate.text, tail);
             }
         }
-        kana
+        if complete_n {
+            reading.pop();
+            reading.push('ん');
+        }
+        reading
     }
 
     // MARK: - Conversion
